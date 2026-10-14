@@ -124,6 +124,8 @@ function rayBox(o, d, x0, x1, y0, y1, z0, z1) {
 
 /* ================= shelters ================= */
 const SHELTERS = ['aid', 'cmd', 'q1', 'q2', 'kitchen', 'shul', 'ammo'];
+// until the stronghold is built (only its own mission builds it) its doors stand at its middle, as far from every other battlefield as the real ones
+for (const id of SHELTERS) if (!DOORS[id]) DOORS[id] = { x: 0, z: 0, rot: 0, label: '' };
 function nearestShelter(x = P.pos.x, z = P.pos.z) { let b = null, bd = 1e9; for (const id of SHELTERS) { const d = DOORS[id]; const dd = Math.hypot(d.x - x, d.z - z); if (dd < bd) { bd = dd; b = d; } } return b; }
 function inTrench() { return onTrench(P.pos.x, P.pos.z) < 1.4; }
 function underRoof(x = P.pos.x, z = P.pos.z) {
@@ -1336,6 +1338,7 @@ function restoreCheckpoint() {
   GAME.state = 'play'; $('#app').classList.add('play'); for (const m of ['#mBrief', '#mPause', '#mEnd', '#mOps', '#mSet']) $(m).hidden = true; initAudio(); lockPointer();
 }
 function resetGame() {
+  ensureMez(); facesNow(); envReady();
   for (const e of UNITS.enemies) if (e.mmHide || e.pitHid) { fmDisguise(e, false); e.mmHide = false; e.pitHid = false; }
   MODE = 'mezach'; showWorld('mezach'); P.ride = null; if (CINE.on) endCine(true); $('#clockSub').textContent = '6.10.1973 · מעוז המזח'; P.mode = 'rifle'; P.crouch = false; vm.visible = true; $('#tsight').classList.remove('on'); FRIENDS.forEach((f, i) => { f.name = FRIEND_DEF[i][0]; });
   clearBattle(); CP.scene = -1; snapReset(); if (!TR.lane) initLanes(); D.scene = -1; applyBarricades(0, false);
@@ -1432,7 +1435,7 @@ if (TOUCH) { $('#app').classList.add('is-touch'); $('#keysDesk').hidden = true; 
   hold('#tpos', () => { if (CH() && CH().tankAct2) CH().tankAct2(); });
   hold('#tact', () => { if (promptState && promptState.hold) INPUT.tHold = true; else doAction(); }, () => { INPUT.tHold = false; });
 }
-function startChapter(m) { survStop(); if (CH_ORDER.includes(m)) markLast(m); for (const v of document.querySelectorAll('.menu video')) { v.pause(); v.removeAttribute('src'); try { v.load(); } catch (e) {} if (v.parentNode) v.parentNode.classList.remove('vid'); v.classList.remove('on'); } /* free the video decoders before the battle loads */ for (const k of ['#mBrief', '#mOps', '#mSet', '#mEnd', '#mPause']) $(k).hidden = true; if (m === 'mezach') return startGame(); $('#loading').classList.remove('done'); $('#loadMsg').textContent = CH_INFO[m] ? `בונה את משימה ${CH_INFO[m].n}: ${CH_INFO[m].name}…` : 'בונה את המטווח…'; setTimeout(() => { try { CHAP[m].start(); } finally { $('#loading').classList.add('done'); } }, 60); }
+function startChapter(m) { survStop(); if (CH_ORDER.includes(m)) markLast(m); for (const v of document.querySelectorAll('.menu video')) { v.pause(); v.removeAttribute('src'); try { v.load(); } catch (e) {} if (v.parentNode) v.parentNode.classList.remove('vid'); v.classList.remove('on'); } /* free the video decoders before the battle loads */ for (const k of ['#mBrief', '#mOps', '#mSet', '#mEnd', '#mPause']) $(k).hidden = true; loadMission(m, m === 'mezach' ? startGame : () => CHAP[m].start()); }
 for (const b of document.querySelectorAll('[data-chap]')) b.addEventListener('click', () => startChapter(b.dataset.chap));
 $('#bNext').addEventListener('click', () => { const nx = CH_ORDER[CH_ORDER.indexOf(MODE) + 1]; if (nx) startChapter(nx); });
 $('#bResume').addEventListener('click', resumeGame);
@@ -1516,17 +1519,19 @@ function menuFx(dt) {
 const clock = new THREE.Clock(); let firstFrame = true;
 const _fwd = V3();
 function frame() {
+  // the first frame only puts up the menu, which covers the screen: no world is drawn (and no shader compiled) until a mission is chosen
+  if (firstFrame) { firstFrame = false; window.__gameReady = true; clearTimeout(window.__gameTimer); LD.finish(); LD.hide(); showTitle(); GAME.state = 'menu'; setTimeout(facesIdle, 1500); return; }
   try { frameInner(); } catch (err) { if (!frame.err) { frame.err = true; console.error(err); } }
-  if (firstFrame) { firstFrame = false; window.__gameReady = true; clearTimeout(window.__gameTimer); $('#loading').classList.add('done'); showTitle(); GAME.state = 'menu'; }
 }
 const SLOW = { k: 1, left: 0, fade: 0.8, look: null };
 function slowMo(dur, k = 0.25, lookAt = null) { SLOW.left = dur; SLOW.k0 = k; SLOW.k = k; SLOW.look = lookAt; }
 function slowStep(real) { if (SLOW.left > 0) { SLOW.left -= real; const u = clamp(SLOW.left / SLOW.fade, 0, 1); SLOW.k = SLOW.left > 0 ? lerp(1, SLOW.k0, u) : 1; if (SLOW.left <= 0) SLOW.look = null; } else SLOW.k = 1;
   if (SLOW.look && P.alive) { const L = SLOW.look, e = playerEye(), dx = L.x - e.x, dy = L.y - e.y, dz = L.z - e.z, yaw = Math.atan2(-dx, -dz), pitch = Math.atan2(dy, Math.hypot(dx, dz)), kk = 1 - Math.exp(-real * 5); P.yaw += wrapPi(yaw - P.yaw) * kk; P.pitch += (pitch - P.pitch) * kk; } }
 function frameInner() {
+  if (LD.busy) { clock.getDelta(); return; }   // a mission is loading: its own pieces of work have the page; nothing is drawn under the loading screen
   const real = Math.min(clock.getDelta(), 0.05); slowStep(real); const dt = real * SLOW.k, time = clock.elapsedTime;
   // the title and mission select cover the screen with pictures: no need to draw the 3D world behind them (it saves the phone's battery)
-  frameInner.n = (frameInner.n || 0) + 1; if (GAME.state === 'menu' && frameInner.n > 6 && (!$('#mBrief').hidden || !$('#mOps').hidden)) return;
+  if (GAME.state === 'menu' && (!$('#mBrief').hidden || !$('#mOps').hidden)) return;
   if (GAME.state === 'play') update(dt, time); else if (GAME.state !== 'pause' && GAME.state !== 'end') { idleCamera(time); updJets(dt); menuFx(dt); }
   FX.flashes.update(dt); FX.glows.update(dt); FX.smoke.update(dt); FX.dust.update(dt); FX.fire.update(dt); FX.trail.update(dt); FX.exh.update(dt); updateTracers(dt); updateFlares(dt); updateDrumFire(dt, time);
   FX.boomT = (FX.boomT || 0) + dt; LIGHTS.boom.intensity *= Math.max(0, 1 - dt * 9);
@@ -1541,13 +1546,64 @@ function frameInner() {
   else { renderer.setRenderTarget(null); renderer.clear(); renderer.render(scene, camera); if (showVm) { renderer.clearDepth(); renderer.render(vmScene, vmCamera); } }
   labelRenderer.render(scene, camera);
 }
+/* ---------- starting up: the menu comes first, and each battlefield is built only when its mission is chosen ---------- */
+const WORLDB = { terrain: false, towns: false, mez: false, kb: 0 };
+function ensureTerrain() { if (WORLDB.terrain) return; WORLDB.terrain = true; WORLDB.kb = scene.children.length; buildTerrain(); }
+function ensureBase() { ensureTerrain(); if (WORLDB.towns) return; WORLDB.towns = true; buildTowns(); WORLD.base = scene.children.slice(WORLDB.kb); dimEnv(scene); }   // the canal, its banks, Port Tewfik and Suez: the stronghold's mission and the city's
+function ensureMez() { ensureBase(); if (WORLDB.mez) return; WORLDB.mez = true; const k0 = scene.children.length; buildStronghold(); SZ.mezObjs = scene.children.slice(k0); dimEnv(scene); }
 async function main() {
-  const step = async (msg, fn) => { $('#loadMsg').textContent = msg; await new Promise((r) => setTimeout(r, 40)); fn(); };
-  let kb = 0; await step('בונה את השטח…', () => { kb = scene.children.length; buildTerrain(); });
-  await step('בונה את פורט תאופיק ואת סואץ…', () => { buildTowns(); WORLD.base = scene.children.slice(kb); });
-  await step('בונה את המעוז…', () => { const k0 = scene.children.length; buildStronghold(); SZ.mezObjs = scene.children.slice(k0); resetGame(); });
-  await step('מכין את התאורה…', () => { dimEnv(scene); dimEnv(vmScene); for (const m of Object.values(MAT)) if (m.isMeshStandardMaterial && !m.userData.envDone && m.envMapIntensity === 1) { m.userData.envDone = true; m.envMapIntensity = ENVK; } setupComposer(); });
-  $('#loadMsg').textContent = 'מכין את הלוחמים…';
+  dimEnv(scene); dimEnv(vmScene); for (const m of Object.values(MAT)) if (m.isMeshStandardMaterial && !m.userData.envDone && m.envMapIntensity === 1) { m.userData.envDone = true; m.envMapIntensity = ENVK; }
+  setupComposer(); await LD.mod(LD_BOOT, 0, LD_BOOT);
   renderer.setAnimationLoop(frame);
 }
-requestAnimationFrame(() => setTimeout(() => { main().catch((err) => { console.error(err); $('#loadMsg').textContent = 'המשחק לא נטען בדפדפן זה. נסו דפדפן אחר או מחשב.'; }); }, 30));
+function bootGame() { main().catch((err) => { console.error(err); LD.error('המשחק לא נטען בדפדפן זה. נסו דפדפן אחר או מחשב.'); }); }   // called by the last file, once everything is defined
+
+/* ---------- loading a mission: only what it needs, behind a screen that shows each step ---------- */
+const LD_BOOT = 2000;   // the game's code, start to menu, on a fast computer (ms)
+const LD_PLACE = { mezach: 'המעוז', rescue: 'ציר טליסמן', armor: 'הרכסים מזרחית לתעלה', farm: 'החווה הסינית', cross: 'אזור הצליחה', hermon: 'החרמון', suez: 'העיר סואץ', army: 'הדרך מערבית לסואץ', range: 'המטווח' };
+// what each piece takes on a fast computer (ms); the screen stretches it by how fast this device turned out to be at start-up
+const LD_MS = { base: 420, mez: 600, setup: 250, rescue: 900, armor: 900, farm: 1200, cross: 1000, hermon: 1200, suez: 900, army: 900, range: 500 };
+const TEXK = ['map', 'bumpMap', 'normalMap', 'roughnessMap', 'metalnessMap', 'alphaMap', 'emissiveMap', 'aoMap', 'lightMap', 'displacementMap', 'specularMap'];
+const GFXW = new WeakSet();
+/* the graphics card gets everything before the battle starts, a little at a time so the screen keeps moving: first the shader program of
+   every material in the scene (compiled in the background where the browser can, checked one at a time otherwise), then the textures */
+async function gfxWarm(m, cb) {
+  envReady(); if (m === 'suez') szShow(true); else showWorld(m === 'surv' ? 'mezach' : m);   // the objects and lights as the mission will have them, so the programs match
+  renderer.compile(scene, camera); renderer.compile(vmScene, vmCamera);
+  const progs = renderer.info.programs.filter((p) => !GFXW.has(p)), texs = [], seen = new Set();
+  const addT = (t) => { if (t && t.isTexture && !seen.has(t) && !t.isRenderTargetTexture && !t.isVideoTexture && t.image && t.version > 0 && renderer.properties.get(t).__version !== t.version) { seen.add(t); texs.push(t); } };
+  for (const root of [scene, vmScene]) root.traverse((o) => { const ms = o.material ? (Array.isArray(o.material) ? o.material : [o.material]) : []; for (const mt of ms) { for (const k of TEXK) addT(mt[k]); if (mt.uniforms) for (const k in mt.uniforms) addT(mt.uniforms[k] && mt.uniforms[k].value); } });
+  const total = progs.length * 2 + texs.length || 1; let n = 0;
+  if (renderer.extensions.has('KHR_parallel_shader_compile')) {   // the browser compiles them side by side; wait, without blocking, until they say they are done
+    const t0 = performance.now(); while (performance.now() - t0 < 12000) { const r = progs.filter((p) => p.isReady()).length; cb(r / total); if (r === progs.length) break; await new Promise((ok) => setTimeout(ok, 40)); }
+  }
+  n = progs.length;
+  for (let i = 0; i < progs.length;) { const t0 = performance.now(); while (i < progs.length && performance.now() - t0 < 45) { progs[i].getUniforms(); GFXW.add(progs[i]); i++; n++; } cb(n / total); await LD.tick(); }
+  for (let i = 0; i < texs.length;) { const t0 = performance.now(); while (i < texs.length && performance.now() - t0 < 45) { try { renderer.initTexture(texs[i]); } catch (e) {} i++; n++; } cb(n / total); await LD.tick(); }
+}
+/* m: a mission key, or 'surv' for the survival mode in the stronghold; go: what starts it once everything is in place */
+async function loadMission(m, go) {
+  if (LD.busy) return; LD.busy = true; const t0 = performance.now(), info = CH_INFO[m], surv = m === 'surv';
+  for (const v of document.querySelectorAll('.menu video')) v.pause(); for (const k of ['#mBrief', '#mOps', '#mSet', '#mEnd', '#mPause']) $(k).hidden = true;
+  const base = (m === 'mezach' || surv || m === 'suez') && !WORLDB.towns, mez = (m === 'mezach' || surv) && !WORLDB.mez, chap = m !== 'mezach' && !surv && !(m === 'suez' ? SZ.built : CHAP[m].built);
+  const steps = [];
+  if (base) steps.push(['base', 'בונה את השטח ואת התעלה', 3]);
+  if (mez) steps.push(['mez', 'בונה את המעוז', 4]);
+  if (chap) steps.push(['chap', `בונה את ${LD_PLACE[m]}`, 6]);
+  if (FACEQ.length) steps.push(['faces', 'מצייר את פני הלוחמים', 2]);
+  steps.push(['gfx', 'מכין את הגרפיקה', 4], ['setup', 'מציב את הכוחות', 1]);
+  LD.plan(steps, { eye: info ? `משימה ${info.n}` : surv ? 'הישרדות' : 'אימון', title: info ? info.name : surv ? 'להחזיק את המעוז' : 'המטווח', img: info || surv ? IMG(surv ? 'mezach' : m) : '' });
+  try {
+    await LD.paint();
+    if (base) { LD.step('base', LD_MS.base); await LD.paint(); ensureBase(); }
+    if (mez) { LD.step('mez', LD_MS.mez); await LD.paint(); ensureMez(); }
+    if (chap) { LD.step('chap', LD_MS[m] || 900); await LD.paint(); if (m === 'suez') { ensureBase(); buildSuez(); } else { const C = CHAP[m]; C.built = true; const g0 = GROUND; C.build(); GROUND = g0; } }
+    if (FACEQ.length) { LD.step('faces'); await facesPaint((f) => LD.frac(f)); }
+    LD.step('gfx'); await gfxWarm(m, (f) => LD.frac(f));
+    // a long wait has used up the click that chose the mission: the browser wants a fresh one for the sound and for taking the mouse
+    if (performance.now() - t0 > 3500) await LD.ready(info ? 'התחל את המשימה' : 'התחל');
+    LD.step('setup', LD_MS.setup); await LD.paint();
+    go();
+  } catch (err) { console.error(err); LD.busy = false; LD.error('המשימה לא נטענה. נסו לרענן את הדף.'); return; }
+  LD.busy = false; LD.finish(); await LD.paint(); await LD.paint(); LD.hide();   // two frames of the battle drawn under the screen, then it lifts
+}

@@ -519,6 +519,8 @@ const SKYU = sky.material.uniforms; SKYU.turbidity.value = 3.2; SKYU.rayleigh.va
 const envSky = new Sky(); envSky.scale.setScalar(10); const envScene = new THREE.Scene(); envScene.add(envSky);
 for (const k of ['turbidity', 'rayleigh', 'mieCoefficient', 'mieDirectionalG']) envSky.material.uniforms[k].value = SKYU[k].value;
 const pmrem = new THREE.PMREMGenerator(renderer); let envRT = null;
+let ENV_HOLD = true;   // the reflections of the sky are made when the first mission loads (envReady), not at start-up: the menu draws no world
+function envReady() { if (!ENV_HOLD) return; ENV_HOLD = false; SUN.lastEnv = -99; setTimeOfDay(0); }
 /* the night sky of a real night (the rescue): a deep blue dome that fades in over the daylight sky, stars, and a moon with a halo. It is centred on the camera */
 const NSKY = (() => {
   const g = new THREE.Group(); g.visible = false; const R = FAR * 0.3;
@@ -642,7 +644,7 @@ function setTimeOfDay(min) {
   SKYU.sunPosition.value.copy(_skyV); envSky.material.uniforms.sunPosition.value.copy(_skyV);
   sun.position.copy(SUN.dir).multiplyScalar(400).add(sun.target.position);
   if (water.material.uniforms) water.material.uniforms.sunDirection.value.copy(d);
-  if (Math.abs(min - SUN.lastEnv) > 8) { SUN.lastEnv = min; const old = envRT; envRT = pmrem.fromScene(envScene, 0.02, 0.1, 100); scene.environment = envRT.texture; vmScene.environment = envRT.texture; if (old) old.dispose(); }
+  if (!ENV_HOLD && Math.abs(min - SUN.lastEnv) > 8) { SUN.lastEnv = min; const old = envRT; envRT = pmrem.fromScene(envScene, 0.02, 0.1, 100); scene.environment = envRT.texture; vmScene.environment = envRT.texture; if (old) old.dispose(); }
 }
 const ENVK = 0.4;
 function dimEnv(root) { root.traverse((o) => { const ms = o.material ? (Array.isArray(o.material) ? o.material : [o.material]) : []; for (const m of ms) if (m.isMeshStandardMaterial && !m.userData.envDone) { m.userData.envDone = true; if (m.envMapIntensity === 1) m.envMapIntensity = ENVK; } }); }

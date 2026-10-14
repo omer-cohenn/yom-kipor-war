@@ -234,11 +234,36 @@ button:focus-visible{outline:2px solid var(--sand);outline-offset:2px}
 .stats div{border:1px solid var(--edge);border-radius:3px;padding:10px;display:flex;flex-direction:column;gap:2px}
 .stats b{font-family:var(--f-display);font-size:28px;font-variant-numeric:tabular-nums}
 .stats span{font-size:11.5px;color:var(--muted)}
-.loading{position:absolute;inset:0;z-index:10;display:grid;place-items:center;background:var(--night);transition:opacity .6s}
-.loading div{text-align:center;padding-inline:16px;direction:rtl}
-.loading b{display:block;font-family:var(--f-display);font-size:32px;font-weight:900}
-.loading p{color:var(--muted);margin:8px 0 0}
+/* the loading screen: the mission's picture behind, a bar that keeps moving even while the browser is busy building (its motion runs on the
+   compositor, not on the page's own thread), and the steps one under the other, each ticked off as it finishes */
+.loading{position:absolute;inset:0;z-index:10;display:grid;place-items:center;background:var(--night);transition:opacity .5s;overflow:hidden}
 .loading.done{opacity:0;pointer-events:none}
+.ld-bg{position:absolute;inset:-5%;background:center/cover no-repeat;opacity:0;transition:opacity .8s;animation:ldDrift 26s ease-in-out infinite alternate}
+.ld-bg.on{opacity:.5}
+.ld-shade{position:absolute;inset:0;background:radial-gradient(ellipse 80% 70% at 50% 50%,rgba(7,9,11,.45),rgba(7,9,11,.94))}
+.ld-box{position:relative;width:min(440px,calc(100% - 32px));direction:rtl;font-family:"Rubik","Heebo",var(--f-body)}
+.ld-eye{display:block;font-size:13px;font-weight:700;color:#d7c08b;min-height:1.2em}
+.ld-box>b{display:block;font-family:var(--f-display);font-size:34px;font-weight:900;line-height:1.15;margin:2px 0 16px;color:var(--paper)}
+.ld-bar{position:relative;height:6px;background:rgba(215,192,139,.16);overflow:hidden}
+.ld-bar i{position:absolute;inset:0;background:#f3a330;transform-origin:100% 50%;transform:scaleX(0);will-change:transform}
+.ld-bar::after{content:"";position:absolute;top:0;bottom:0;right:0;width:28%;background:linear-gradient(90deg,transparent,rgba(255,240,205,.5),transparent);animation:ldSheen 1.5s linear infinite;will-change:transform}
+#loadMsg{margin:12px 0 0;font-size:15px;font-weight:600;color:var(--paper);min-height:1.4em;line-height:1.5}
+.ld-note{display:block;margin-top:1px;font-size:12.5px;color:var(--muted);min-height:1.3em;font-variant-numeric:tabular-nums}
+.ld-steps{list-style:none;margin:12px 0 0;padding:0;display:grid;gap:5px;font-size:13px;color:var(--faint)}
+.ld-steps:has(li:only-child){display:none}
+.ld-steps li{display:flex;align-items:center;gap:8px}
+.ld-steps li::before{content:"";flex:none;width:12px;height:12px;border:1.5px solid currentColor;border-radius:50%;box-sizing:border-box}
+.ld-steps li.on{color:var(--paper)}
+.ld-steps li.on::before{border-color:#f3a330;background:radial-gradient(circle,#f3a330 0 2.5px,transparent 3px);animation:ldPulse .9s ease-in-out infinite alternate}
+.ld-steps li.ok{color:var(--muted)}
+.ld-steps li.ok::before{content:"\2713";border:0;color:var(--ok);font-size:13px;font-weight:700;line-height:12px;text-align:center}
+.ld-go{margin-top:18px}
+.loading.err #loadMsg{color:#ffb4a8}
+.loading.err .ld-bar::after,.loading.err .ld-steps li.on::before{animation:none}
+@keyframes ldSheen{from{transform:translateX(100%)}to{transform:translateX(-360%)}}
+@keyframes ldPulse{to{opacity:.3}}
+@keyframes ldDrift{from{transform:scale(1.02)}to{transform:scale(1.1) translate(-1.5%,1%)}}
+@media (max-height:440px){.ld-box>b{font-size:26px;margin-bottom:10px}.ld-steps{grid-template-columns:1fr 1fr;column-gap:16px}}
 
 /* touch */
 .touch{position:absolute;z-index:4;display:none;touch-action:none}
@@ -900,15 +925,75 @@ button:focus-visible{outline:2px solid var(--sand);outline-offset:2px}
     </div>
   </div>
 
-  <div class="loading" id="loading"><div><b>מלחמת יום הכיפורים</b><p id="loadMsg">בונה את המעוז…</p></div></div>
+  <div class="loading" id="loading" role="status" aria-live="polite"><div class="ld-bg" id="ldBg"></div><div class="ld-shade"></div><div class="ld-box"><small class="ld-eye" id="ldEye"></small><b id="ldTitle">מלחמת יום הכיפורים</b><div class="ld-bar"><i id="ldFill"></i></div><p id="loadMsg">טוען את המשחק…</p><small class="ld-note" id="ldNote"></small><ol class="ld-steps" id="ldSteps"></ol><button class="btn ld-go" id="ldGo" type="button" hidden>התחל את המשימה</button></div></div>
 </div>
 
 <script>
-window.__gameTimer = setTimeout(function(){
-  if (window.__gameReady) return;
-  var m = document.getElementById('loadMsg');
-  if (m) m.textContent = 'המשחק לא נטען. ייתכן שהדפדפן חוסם WebGL או שספריית התלת־ממד לא נטענה; נסו לרענן או לפתוח בדפדפן אחר במחשב.';
-}, 30000);
+/* the loading screen's controls, ready before the game's code arrives. A plan is a list of steps with weights; a step that runs in one long
+   piece is given a time estimate and the bar glides through it on its own (a CSS transition, which the compositor keeps running while the
+   page's thread is busy); a step done in small pieces reports its real fraction */
+window.LD = (function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var el = $('loading'), fill = $('ldFill'), msg = $('loadMsg'), note = $('ldNote'), list = $('ldSteps'), go = $('ldGo');
+  var S = { steps: [], tw: 1, i: -1, p: 0, last: Date.now(), m0: 0 };
+  function bar(p, ms) {
+    p = Math.max(S.p, Math.min(1, p)); S.p = p; S.last = Date.now();
+    fill.style.transition = 'transform ' + (ms > 0 ? Math.round(ms) + 'ms cubic-bezier(.33,.4,.45,1)' : '.25s ease-out');
+    fill.style.transform = 'scaleX(' + p.toFixed(4) + ')';
+  }
+  function span() { var a = 0; for (var k = 0; k < S.i; k++) a += S.steps[k].w; return [a / S.tw, (a + S.steps[S.i].w) / S.tw]; }
+  var L = {
+    busy: false, speed: 1,
+    plan: function (steps, o) {
+      o = o || {};
+      S.steps = steps.map(function (s) { return { id: s[0], label: s[1], w: s[2] || 1 }; }); S.tw = S.steps.reduce(function (t, s) { return t + s.w; }, 0) || 1; S.i = -1; S.p = 0;
+      fill.style.transition = 'none'; fill.style.transform = 'scaleX(0)'; void fill.offsetWidth;
+      list.innerHTML = S.steps.map(function (s) { return '<li>' + s.label + '</li>'; }).join('');
+      $('ldEye').textContent = o.eye || ''; $('ldTitle').textContent = o.title || 'מלחמת יום הכיפורים';
+      var bg = $('ldBg'); bg.classList.remove('on'); bg.style.backgroundImage = '';
+      if (o.img) { var im = new Image(); im.onload = function () { bg.style.backgroundImage = 'url("' + o.img + '")'; bg.classList.add('on'); }; im.src = o.img; }
+      el.classList.remove('done', 'err'); go.hidden = true; msg.textContent = o.msg || ''; note.textContent = ''; S.last = Date.now();
+    },
+    // start a step; est (ms on a fast computer) lets the bar glide through it while the work runs in one piece
+    step: function (id, est) {
+      var i = -1; for (var k = 0; k < S.steps.length; k++) if (S.steps[k].id === id) i = k;
+      if (i < 0) return; S.i = i; el.classList.remove('err');
+      var lis = list.children; for (var k = 0; k < lis.length; k++) lis[k].className = k < i ? 'ok' : k === i ? 'on' : '';
+      msg.textContent = S.steps[i].label + '…'; note.textContent = '';
+      var sp = span(); if (est) bar(sp[0] + (sp[1] - sp[0]) * 0.92, est * L.speed); else bar(sp[0], 250);
+    },
+    frac: function (f, ms) { if (S.i < 0) return; var sp = span(); bar(sp[0] + (sp[1] - sp[0]) * Math.min(1, f), ms || 180); },
+    note: function (t) { note.textContent = t || ''; },
+    // the game's code reports as its files run: done and next are rough milliseconds on a fast computer, total for all of it
+    mod: function (done, next, total) {
+      var now = performance.now(); if (!done) S.m0 = now; else if (S.m0) L.speed = Math.max(0.5, Math.min(8, (now - S.m0) / done));
+      var f = function (d) { return 0.15 + 0.85 * Math.min(0.99, d / total); };   // the first part of the step is the download and reading of the code
+      L.frac(done >= total ? 1 : f(done), 150); if (next) { var sp = span(); bar(sp[0] + (sp[1] - sp[0]) * f(done + next), next * L.speed); }
+      return L.paint();
+    },
+    // wait until what was just set on the screen has been drawn (or a moment, in a tab that is not drawing)
+    // let the screen draw once between pieces of work
+    tick: function () { return new Promise(function (r) { var d = false, f = function () { if (!d) { d = true; r(); } }; requestAnimationFrame(function () { setTimeout(f, 0); }); setTimeout(f, 100); }); },
+    paint: function () { return new Promise(function (r) { var d = false, f = function () { if (!d) { d = true; r(); } }; requestAnimationFrame(function () { requestAnimationFrame(f); }); setTimeout(f, 150); }); },
+    finish: function () { var lis = list.children; for (var k = 0; k < lis.length; k++) lis[k].className = 'ok'; bar(1, 200); },
+    hide: function () { el.classList.add('done'); },
+    ready: function (label) {
+      return new Promise(function (r) {
+        var lis = list.children; for (var k = 0; k <= S.i && k < lis.length; k++) lis[k].className = 'ok'; if (S.i >= 0) bar(span()[1], 200);
+        msg.textContent = 'המשימה מוכנה'; note.textContent = ''; go.textContent = label || 'התחל את המשימה'; go.hidden = false;
+        try { go.focus({ preventScroll: true }); } catch (e) {}
+        go.onclick = function () { go.hidden = true; go.onclick = null; r(); };
+      });
+    },
+    error: function (t) { el.classList.remove('done'); el.classList.add('err'); msg.textContent = t; note.textContent = ''; }
+  };
+  L.plan([['code', 'מכין את המשחק', 1]]); L.step('code'); L.frac(0.15, 3000);   // until the code itself starts reporting
+  var FAIL = 'המשחק לא נטען בדפדפן זה. נסו לרענן, או לפתוח בדפדפן אחר או במחשב.';
+  // before the game is up: an error in its code, or half a minute with nothing moving, is said on the screen instead of a frozen bar
+  window.addEventListener('error', function (e) { if (!window.__gameReady && e && e.message) L.error(FAIL); });
+  window.__gameTimer = setInterval(function () { if (window.__gameReady) { clearInterval(window.__gameTimer); return; } if (Date.now() - S.last > 45000) L.error('המשחק לא נטען. ייתכן שהדפדפן חוסם WebGL או שספריית התלת־ממד לא נטענה; נסו לרענן או לפתוח בדפדפן אחר במחשב.'); }, 5000);
+  return L;
+})();
 </script>
 <script type="importmap">
 { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }

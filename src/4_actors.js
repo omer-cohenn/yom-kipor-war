@@ -328,8 +328,8 @@ function skinGrimeTex() {
   g.globalCompositeOperation = 'source-over'; for (let i = 0; i < 2500; i++) { g.fillStyle = `rgba(206,184,148,${0.06 + r() * 0.12})`; g.fillRect(r() * n, r() * n, 1, 1); }
   const t = tex(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(2, 2); return t;
 }
-function faceTex(side, v, shut = false) {
-  const W = 256, SS = 2, c = canvas(W * SS, W * SS), g = c.getContext('2d'), r = rng(900 + v * 17 + (side === 'f' ? 0 : 5)), D = FACES[side][v], sk = D.sk; g.scale(SS, SS);
+function faceDraw(c, side, v, shut = false) {
+  const W = 256, SS = 2, g = c.getContext('2d'), r = rng(900 + v * 17 + (side === 'f' ? 0 : 5)), D = FACES[side][v], sk = D.sk; g.setTransform(SS, 0, 0, SS, 0, 0);
   const col = (k, a = 1) => `rgba(${Math.round(sk[0] * k)},${Math.round(sk[1] * k)},${Math.round(sk[2] * k)},${a})`;
   const X = (u) => (u + 0.25) * W, Y = (v) => (1 - v) * W;   // u: around the head from the centre of the face; v: up the head
   const hairC = (a = 1) => { const h = new THREE.Color(D.hair); if (D.grey) h.lerp(new THREE.Color(0x9a948c), D.grey * (0.35 + r() * 0.5)); return `rgba(${h.r * 255 | 0},${h.g * 255 | 0},${h.b * 255 | 0},${a})`; };
@@ -414,13 +414,40 @@ function faceTex(side, v, shut = false) {
   if (!beard) { g.fillStyle = col(1.08, 0.45); g.beginPath(); g.ellipse(X(0), Y(0.285), 6, 1.8, 0, 0, 6.283); g.fill(); }
   // chin and jaw shadow, then the texture
   { const gr = g.createLinearGradient(0, Y(0.27), 0, Y(0.16)); gr.addColorStop(0, col(1, 0)); gr.addColorStop(1, col(0.72, 0.7)); g.fillStyle = gr; g.fillRect(0, Y(0.27), W, Y(0.16) - Y(0.27)); }
-  faceGrime(g, r, X, Y, W, 0.85 + r() * 0.5);
-  return tex(c);
+  const amt = 0.85 + r() * 0.5; faceGrime(g, r, X, Y, W, amt);
+  g.setTransform(1, 0, 0, 1, 0, 0); return amt;
+}
+/* the blink, and the dead: the same face with the lids down - the painted open face copied, the closed lids drawn over the eyes, and on the
+   lids, outside the whites, the film of dust the rest of the face has */
+function faceShutDraw(c, src, side, v, amt) {
+  const W = 256, SS = 2, g = c.getContext('2d'), sk = FACES[side][v].sk, X = (u) => (u + 0.25) * W, Y = (vv) => (1 - vv) * W;
+  const col = (k, a = 1) => `rgba(${Math.round(sk[0] * k)},${Math.round(sk[1] * k)},${Math.round(sk[2] * k)},${a})`;
+  g.setTransform(1, 0, 0, 1, 0, 0); g.globalCompositeOperation = 'copy'; g.drawImage(src, 0, 0); g.globalCompositeOperation = 'source-over'; g.setTransform(SS, 0, 0, SS, 0, 0); g.lineCap = 'round';
+  for (const sd of [-1, 1]) {
+    const ex = X(sd * 0.064), ey = Y(0.5);
+    g.fillStyle = col(0.94); g.beginPath(); g.ellipse(ex, ey - 0.5, 8.6, 4.4, 0, 0, 6.283); g.fill(); g.fillStyle = col(0.86, 0.5); g.beginPath(); g.ellipse(ex, ey - 2, 7.8, 2.6, 0, 0, 6.283); g.fill();
+    g.strokeStyle = '#24170f'; g.lineWidth = 1.6; g.beginPath(); g.moveTo(ex - 7.8, ey - 0.5); g.quadraticCurveTo(ex, ey + 2.6, ex + 7.8, ey - 0.5); g.stroke();
+    g.save(); g.beginPath(); g.ellipse(ex, ey - 0.5, 8.6, 4.4, 0, 0, 6.283); g.ellipse(ex, ey, 8.4, 3.8, 0, 0, 6.283); g.clip('evenodd'); g.globalCompositeOperation = 'multiply'; g.fillStyle = `rgba(172,152,130,${0.62 * amt})`; g.fillRect(ex - 10, ey - 6, 20, 12); g.restore();
+  }
+  g.setTransform(1, 0, 0, 1, 0, 0);
 }
 { const gt = skinGrimeTex(); MAT.skin = { f: new THREE.MeshStandardMaterial({ color: RIGGEO.f.skinCol, roughness: 0.78, map: gt }), e: new THREE.MeshStandardMaterial({ color: RIGGEO.e.skinCol, roughness: 0.78, map: gt }) }; }
-const faceMat = (side, v, shut) => { const t = faceTex(side, v, shut); return new THREE.MeshStandardMaterial({ map: t, bumpMap: bumpOf(t), bumpScale: 0.55, roughness: 0.66 }); };   // the painted brows, lashes, stubble and pores give the skin a little relief
-MAT.faces = { f: FACES.f.map((_, v) => faceMat('f', v, false)), e: FACES.e.map((_, v) => faceMat('e', v, false)) };
-MAT.facesShut = { f: FACES.f.map((_, v) => faceMat('f', v, true)), e: FACES.e.map((_, v) => faceMat('e', v, true)) };
+/* the faces are painted off the start-up path. Each begins as a plain skin tone at full size (so the painted one later goes into the same
+   texture, with no new shader), and is painted while the player is in the menu, a face at a time, or at the latest while a mission loads.
+   The painted brows, lashes, stubble and pores give the skin a little relief through the bump map, which shares the picture */
+const FACEQ = [];
+function faceSlot(side, v) {
+  const sk = FACES[side][v].sk, mk = () => { const c = canvas(512), g = c.getContext('2d'); g.fillStyle = `rgb(${sk[0]},${sk[1]},${sk[2]})`; g.fillRect(0, 0, 512, 512); const t = tex(c); return { c, t, b: bumpOf(t) }; };
+  const o = mk(), s = mk(), mat = (x) => new THREE.MeshStandardMaterial({ map: x.t, bumpMap: x.b, bumpScale: 0.55, roughness: 0.66 }); FACEQ.push({ side, v, o, s }); return [mat(o), mat(s)];
+}
+function facePaint(q) { const amt = faceDraw(q.o.c, q.side, q.v); faceShutDraw(q.s.c, q.o.c, q.side, q.v, amt); for (const x of [q.o, q.s]) { x.t.needsUpdate = true; x.b.needsUpdate = true; } }
+function facesNow() { while (FACEQ.length) facePaint(FACEQ.shift()); }   // all that are left, at once: for a start that cannot wait
+async function facesPaint(cb) { const n = FACEQ.length || 1; let k = 0; while (FACEQ.length) { const t0 = performance.now(); while (FACEQ.length && performance.now() - t0 < 45) { facePaint(FACEQ.shift()); k++; } cb(k / n); await LD.tick(); } }
+// in the menu: one face every quarter second, never while the player is touching, scrolling or typing (a face takes a moment on a phone)
+const FACEIDLE = { last: 0 };
+for (const ev of ['pointerdown', 'pointermove', 'wheel', 'keydown', 'touchmove', 'scroll']) addEventListener(ev, () => { FACEIDLE.last = performance.now(); }, { passive: true, capture: true });
+function facesIdle() { if (!FACEQ.length) return; if (!LD.busy && !document.hidden && performance.now() - FACEIDLE.last > 800) facePaint(FACEQ.shift()); setTimeout(facesIdle, 250); }
+{ const F = { f: FACES.f.map((_, v) => faceSlot('f', v)), e: FACES.e.map((_, v) => faceSlot('e', v)) }; MAT.faces = { f: F.f.map((x) => x[0]), e: F.e.map((x) => x[0]) }; MAT.facesShut = { f: F.f.map((x) => x[1]), e: F.e.map((x) => x[1]) }; }
 /* soldiers stand out: slightly larger, with a coloured rim light (red enemies, blue friends) and a marker over the head */
 const US = 1.14;
 function rimMat(hex, k) {

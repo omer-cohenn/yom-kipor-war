@@ -335,7 +335,7 @@ function initMenus() {
   window.addEventListener('keydown', (e) => { if (e.code === 'Escape' && !$('#vidModal').hidden) vidClose(); });
   if (!VEXT) for (const id of ['#dExp', '#hExp']) $(id).hidden = true;
   for (const el of document.querySelectorAll('#mOps [data-k]')) { el.addEventListener('click', () => opsSelect(el.dataset.k)); el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (el.classList.contains('on')) startChapter(el.dataset.k); else opsSelect(el.dataset.k); } }); }
-  $('#tOps').addEventListener('click', () => showOps()); $('#tSet').addEventListener('click', () => showSet('title')); $('#tSurv').addEventListener('click', () => survStart()); $('#tRange').addEventListener('click', () => startChapter('range'));
+  $('#tOps').addEventListener('click', () => showOps()); $('#tSet').addEventListener('click', () => showSet('title')); $('#tSurv').addEventListener('click', () => loadMission('surv', survStart)); $('#tRange').addEventListener('click', () => startChapter('range'));
   $('#oBack').addEventListener('click', showTitle); $('#oSet').addEventListener('click', () => showSet('ops'));
   $('#sBack').addEventListener('click', () => (PROG.from === 'ops' ? showOps() : showTitle()));
   $('#bOps').addEventListener('click', toOps);
@@ -344,3 +344,4 @@ function initMenus() {
   showTitle(); $('#mBrief').hidden = true;
 }
 initMenus();
+bootGame();   // the last file: everything is defined, the game can start

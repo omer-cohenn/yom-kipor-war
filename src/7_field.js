@@ -666,7 +666,7 @@ function updTrail(dt) { const tr = SZ.trail, l = tr[tr.length - 1]; if (!P.alive
 function resetTrail() { SZ.trail = []; SZ.trailN = 0; SZ.trailBase = 0; SZ.stillT = 0; SZ.fdir = P.yaw + Math.PI; }
 /* common start of a field chapter */
 function fieldStart(m) {
-  survStop(); snapReset();
+  survStop(); snapReset(); facesNow(); envReady();
   const C = CHAP[m]; if (!C.built) { C.built = true; const g0 = GROUND; C.build(); GROUND = g0; }
   for (const e of UNITS.enemies) if (e.mmHide || e.pitHid) { fmDisguise(e, false); e.mmHide = false; e.pitHid = false; }
   MODE = m; P.ride = null; GATE.on = false; meter(null); MAT.clothE.color.setHex(C.cloth ?? 0xffffff); uniformFor(m); TANK.goal = null; $('#app').classList.remove('armor'); if (CINE.on) endCine(true); showWorld(m); setRim(MAT.clothE, 0); SZ.covers = C.covers; SZ.slots = C.slots;
