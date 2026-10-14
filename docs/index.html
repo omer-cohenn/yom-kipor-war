@@ -242,8 +242,10 @@ button:focus-visible{outline:2px solid var(--sand);outline-offset:2px}
 .loading{position:absolute;inset:0;z-index:10;display:grid;place-items:center;background:var(--night);transition:opacity .5s;overflow:hidden}
 .loading.done{opacity:0;pointer-events:none}
 .ld-bg{position:absolute;inset:-5%;background:center/cover no-repeat;opacity:0;transition:opacity .8s;animation:ldDrift 26s ease-in-out infinite alternate}
-.ld-bg.on{opacity:.5}
-.ld-shade{position:absolute;inset:0;background:radial-gradient(ellipse 80% 70% at 50% 50%,rgba(7,9,11,.45),rgba(7,9,11,.94))}
+.ld-bg.on{opacity:.62}
+.ld-bg video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .6s}
+.ld-bg video.on{opacity:1}
+.ld-shade{position:absolute;inset:0;background:radial-gradient(ellipse 80% 70% at 50% 50%,rgba(7,9,11,.5),rgba(7,9,11,.88))}
 .ld-box{position:relative;width:min(440px,calc(100% - 32px));direction:rtl;font-family:"Rubik","Heebo",var(--f-body)}
 .ld-eye{display:block;font-size:13px;font-weight:700;color:#d7c08b;min-height:1.2em}
 .ld-box>b{display:block;font-family:var(--f-display);font-size:34px;font-weight:900;line-height:1.15;margin:2px 0 16px;color:var(--paper)}
@@ -266,7 +268,7 @@ button:focus-visible{outline:2px solid var(--sand);outline-offset:2px}
 @keyframes ldSheen{from{transform:translateX(100%)}to{transform:translateX(-360%)}}
 @keyframes ldPulse{to{opacity:.3}}
 @keyframes ldDrift{from{transform:scale(1.02)}to{transform:scale(1.1) translate(-1.5%,1%)}}
-@media (max-height:440px){.ld-box>b{font-size:26px;margin-bottom:10px}.ld-steps{grid-template-columns:1fr 1fr;column-gap:16px}}
+@media (max-height:440px){.ld-box>b{font-size:26px;margin-bottom:10px}.ld-steps{grid-template-columns:1fr 1fr;grid-template-rows:repeat(var(--rows,2),auto);grid-auto-flow:column;column-gap:16px}}
 
 /* touch */
 .touch{position:absolute;z-index:4;display:none;touch-action:none}
@@ -928,7 +930,7 @@ button:focus-visible{outline:2px solid var(--sand);outline-offset:2px}
     </div>
   </div>
 
-  <div class="loading" id="loading" role="status" aria-live="polite"><div class="ld-bg" id="ldBg"></div><div class="ld-shade"></div><div class="ld-box"><small class="ld-eye" id="ldEye"></small><b id="ldTitle">מלחמת יום הכיפורים</b><div class="ld-bar"><i id="ldFill"></i></div><p id="loadMsg">טוען את המשחק…</p><small class="ld-note" id="ldNote"></small><ol class="ld-steps" id="ldSteps"></ol><button class="btn ld-go" id="ldGo" type="button" hidden>התחל את המשימה</button></div></div>
+  <div class="loading" id="loading" role="status" aria-live="polite"><div class="ld-bg" id="ldBg"><video id="ldVid" muted playsinline loop preload="auto" disablepictureinpicture disableremoteplayback aria-hidden="true"></video></div><div class="ld-shade"></div><div class="ld-box"><small class="ld-eye" id="ldEye"></small><b id="ldTitle">מלחמת יום הכיפורים</b><div class="ld-bar"><i id="ldFill"></i></div><p id="loadMsg">טוען את המשחק…</p><small class="ld-note" id="ldNote"></small><ol class="ld-steps" id="ldSteps"></ol><button class="btn ld-go" id="ldGo" type="button" hidden>התחל את המשימה</button></div></div>
 </div>
 
 <script>
@@ -937,8 +939,14 @@ button:focus-visible{outline:2px solid var(--sand);outline-offset:2px}
    page's thread is busy); a step done in small pieces reports its real fraction */
 window.LD = (function () {
   var $ = function (id) { return document.getElementById(id); };
-  var el = $('loading'), fill = $('ldFill'), msg = $('loadMsg'), note = $('ldNote'), list = $('ldSteps'), go = $('ldGo');
-  var S = { steps: [], tw: 1, i: -1, p: 0, last: Date.now(), m0: 0 };
+  var el = $('loading'), fill = $('ldFill'), msg = $('loadMsg'), note = $('ldNote'), list = $('ldSteps'), go = $('ldGo'), bg = $('ldBg'), vid = $('ldVid');
+  var S = { steps: [], tw: 1, i: -1, p: 0, last: Date.now(), m0: 0, vt: 0 };
+  // behind the steps, the footage of the mission plays from the first moment (its picture shows until the video does); the smaller file
+  // where the browser takes it, none when the device asks to save data or to cut motion
+  var VX = (function () { try { var v = document.createElement('video'); if ((navigator.connection && navigator.connection.saveData) || matchMedia('(prefers-reduced-motion: reduce)').matches) return ''; return v.canPlayType('video/webm; codecs="vp9"') === 'probably' ? 'webm' : v.canPlayType('video/mp4; codecs="avc1.42E01E"') ? 'mp4' : ''; } catch (e) { return ''; } })();
+  function vidStop() { vid.classList.remove('on'); try { vid.pause(); } catch (e) {} if (vid.getAttribute('src')) { vid.removeAttribute('src'); try { vid.load(); } catch (e) {} } }   // frees the decoder for the battle's own films
+  vid.addEventListener('playing', function () { if (vid.getAttribute('src')) { vid.classList.add('on'); bg.classList.add('on'); } });
+  vid.addEventListener('error', function () { vid.classList.remove('on'); });
   function bar(p, ms) {
     p = Math.max(S.p, Math.min(1, p)); S.p = p; S.last = Date.now();
     fill.style.transition = 'transform ' + (ms > 0 ? Math.round(ms) + 'ms cubic-bezier(.33,.4,.45,1)' : '.25s ease-out');
@@ -951,9 +959,11 @@ window.LD = (function () {
       o = o || {};
       S.steps = steps.map(function (s) { return { id: s[0], label: s[1], w: s[2] || 1 }; }); S.tw = S.steps.reduce(function (t, s) { return t + s.w; }, 0) || 1; S.i = -1; S.p = 0;
       fill.style.transition = 'none'; fill.style.transform = 'scaleX(0)'; void fill.offsetWidth;
-      list.innerHTML = S.steps.map(function (s) { return '<li>' + s.label + '</li>'; }).join('');
+      list.innerHTML = S.steps.map(function (s) { return '<li>' + s.label + '</li>'; }).join(''); list.style.setProperty('--rows', Math.ceil(S.steps.length / 2));   // two columns on a short screen, read down then across
       $('ldEye').textContent = o.eye || ''; $('ldTitle').textContent = o.title || 'מלחמת יום הכיפורים';
-      var bg = $('ldBg'); bg.classList.remove('on'); bg.style.backgroundImage = '';
+      var want = o.clip && VX ? 'vid/' + o.clip + '.' + VX : ''; S.vt++; bg.style.backgroundImage = '';
+      if ((vid.getAttribute('src') || '') !== want) { vidStop(); bg.classList.remove('on'); if (want) { vid.src = want; try { var pl = vid.play(); if (pl && pl.catch) pl.catch(function () {}); } catch (e) {} } }   // the same clip already playing goes on
+      else if (!want) bg.classList.remove('on');
       if (o.img) { var im = new Image(); im.onload = function () { bg.style.backgroundImage = 'url("' + o.img + '")'; bg.classList.add('on'); }; im.src = o.img; }
       el.classList.remove('done', 'err'); go.hidden = true; msg.textContent = o.msg || ''; note.textContent = ''; S.last = Date.now();
     },
@@ -979,7 +989,7 @@ window.LD = (function () {
     tick: function () { return new Promise(function (r) { var d = false, f = function () { if (!d) { d = true; r(); } }; requestAnimationFrame(function () { setTimeout(f, 0); }); setTimeout(f, 100); }); },
     paint: function () { return new Promise(function (r) { var d = false, f = function () { if (!d) { d = true; r(); } }; requestAnimationFrame(function () { requestAnimationFrame(f); }); setTimeout(f, 150); }); },
     finish: function () { var lis = list.children; for (var k = 0; k < lis.length; k++) lis[k].className = 'ok'; bar(1, 200); },
-    hide: function () { el.classList.add('done'); },
+    hide: function () { el.classList.add('done'); var t = ++S.vt; setTimeout(function () { if (t === S.vt) vidStop(); }, 700); },
     ready: function (label) {
       return new Promise(function (r) {
         var lis = list.children; for (var k = 0; k <= S.i && k < lis.length; k++) lis[k].className = 'ok'; if (S.i >= 0) bar(span()[1], 200);
@@ -990,7 +1000,7 @@ window.LD = (function () {
     },
     error: function (t) { el.classList.remove('done'); el.classList.add('err'); msg.textContent = t; note.textContent = ''; }
   };
-  L.plan([['code', 'מכין את המשחק', 1]]); L.step('code'); L.frac(0.15, 3000);   // until the code itself starts reporting
+  L.plan([['code', 'מכין את המשחק', 1]], { img: 'img/mezach.jpg', clip: 'mezach' }); L.step('code'); L.frac(0.15, 3000);   // until the code itself starts reporting
   var FAIL = 'המשחק לא נטען בדפדפן זה. נסו לרענן, או לפתוח בדפדפן אחר או במחשב.';
   // before the game is up: an error in its code, or half a minute with nothing moving, is said on the screen instead of a frozen bar
   window.addEventListener('error', function (e) { if (!window.__gameReady && e && e.message) L.error(FAIL); });
@@ -1004,8 +1014,8 @@ window.LD = (function () {
 <script>
 /* the game's code is one big file: fetched here so the loading screen can show how much of it has arrived, then run as a module */
 (function () {
-  var SRC = 'game.64c5d8b963.js', SIZE = 5411993, mb = function (n) { return (n / 1048576).toFixed(1); };
-  LD.plan([['dl', 'מוריד את המשחק', 5], ['code', 'מכין את המשחק', 4]]); LD.step('dl'); LD.note('0.0 מתוך ' + mb(SIZE) + ' מ״ב');
+  var SRC = 'game.8599bd1ea2.js', SIZE = 5412042, mb = function (n) { return (n / 1048576).toFixed(1); };
+  LD.plan([['dl', 'מוריד את המשחק', 5], ['code', 'מכין את המשחק', 4]], { img: 'img/mezach.jpg', clip: 'mezach' }); LD.step('dl'); LD.note('0.0 מתוך ' + mb(SIZE) + ' מ״ב');
   function fail() { LD.error('ההורדה נכשלה. בדקו את החיבור לאינטרנט ורעננו את הדף.'); }
   function start(s) { LD.step('code'); LD.frac(0.15, 2500); s.type = 'module'; document.body.appendChild(s); }
   function run(code) { var s = document.createElement('script'); s.textContent = code; start(s); }

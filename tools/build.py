@@ -42,7 +42,7 @@ BOOT = r"""<script>
 /* the game's code is one big file: fetched here so the loading screen can show how much of it has arrived, then run as a module */
 (function () {
   var SRC = '__SRC__', SIZE = __SIZE__, mb = function (n) { return (n / 1048576).toFixed(1); };
-  LD.plan([['dl', 'מוריד את המשחק', 5], ['code', 'מכין את המשחק', 4]]); LD.step('dl'); LD.note('0.0 מתוך ' + mb(SIZE) + ' מ״ב');
+  LD.plan([['dl', 'מוריד את המשחק', 5], ['code', 'מכין את המשחק', 4]], { img: 'img/mezach.jpg', clip: 'mezach' }); LD.step('dl'); LD.note('0.0 מתוך ' + mb(SIZE) + ' מ״ב');
   function fail() { LD.error('ההורדה נכשלה. בדקו את החיבור לאינטרנט ורעננו את הדף.'); }
   function start(s) { LD.step('code'); LD.frac(0.15, 2500); s.type = 'module'; document.body.appendChild(s); }
   function run(code) { var s = document.createElement('script'); s.textContent = code; start(s); }

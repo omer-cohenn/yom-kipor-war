@@ -5079,7 +5079,7 @@ async function loadMission(m, go) {
   if (chap) steps.push(['chap', `בונה את ${LD_PLACE[m]}`, 6]);
   if (FACEQ.length) steps.push(['faces', 'מצייר את פני הלוחמים', 2]);
   steps.push(['gfx', 'מכין את הגרפיקה', 4], ['setup', 'מציב את הכוחות', 1]);
-  LD.plan(steps, { eye: info ? `משימה ${info.n}` : surv ? 'הישרדות' : 'אימון', title: info ? info.name : surv ? 'להחזיק את המעוז' : 'המטווח', img: info || surv ? IMG(surv ? 'mezach' : m) : '' });
+  LD.plan(steps, { eye: info ? `משימה ${info.n}` : surv ? 'הישרדות' : 'אימון', title: info ? info.name : surv ? 'להחזיק את המעוז' : 'המטווח', img: info || surv ? IMG(surv ? 'mezach' : m) : '', clip: info || surv ? (surv ? 'mezach' : m) : '' });
   try {
     await LD.paint();
     if (base) { LD.step('base', LD_MS.base); await LD.paint(); ensureBase(); }
