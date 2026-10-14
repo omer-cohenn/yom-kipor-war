@@ -687,7 +687,15 @@ function updBoats(dt) {
         const e = spawnEnemy(tongueWestX(z) + 1.6, z, varyKind(s.kind, z * 3.1, i * 7.7), null, null, { jump: sp });
         if (!e) return; e.plan = westPlan(e, z, i, r); s.gone = true; s.m.visible = false;
       });
-      if (bt.seats.every((s) => !s.alive || s.gone) && bt.landT > 30) bt.dispose();
+      // the soldiers are out: the rowers push off, turn the boat round and row back for the next load (they do not come ashore)
+      if (bt.seats.every((s) => !s.alive || s.gone) && bt.landT > 2.5) { const p = bt.g.position; bt.state = 'back'; bt.backT = 0; bt.hd0 = bt.heading; bt.b0 = [p.x, p.z]; const qx = nearX(-400) + rand(0, 10), qz = p.z + rand(-25, 25); bt.b1 = [qx, qz]; bt.blen = Math.hypot(qx - p.x, qz - p.z); bt.hd1 = Math.atan2(qx - p.x, qz - p.z); bt.bs = 0; }
+    } else if (bt.state === 'back') {
+      bt.backT += dt; const turn = smooth(0.3, 3.2, bt.backT); bt.heading = bt.hd0 + wrapPi(bt.hd1 - bt.hd0) * turn;
+      bt.bs = Math.min(bt.speed, bt.bs + dt * bt.speed * 0.35 * turn); const u = Math.min(1, (bt.bd = (bt.bd || 0) + bt.bs * dt) / bt.blen), x = lerp(bt.b0[0], bt.b1[0], u), z = lerp(bt.b0[1], bt.b1[1], u);
+      const wt = waveTilt(x, z, bt.heading, 3.2, 1.2, _wtB);
+      bt.g.position.set(x, 0.03 + wt.h + Math.sin(bt.t * 2.2) * 0.02, z); bt.g.rotation.set(wt.roll * 0.9, bt.heading - Math.PI / 2, 0.02 + wt.pitch * 0.9); bt.g.updateMatrixWorld(); bt.row(dt, 2.5 * Math.max(0.3, turn));
+      if (bt.hp <= 0) { bt.seats.forEach((s, i) => { if (s.alive) killSeat(bt, i); }); bt.state = 'sinking'; bt.sinkT = 0; }
+      else if (u >= 1 || bt.backT > 90) bt.dispose();
     }
   }
 }

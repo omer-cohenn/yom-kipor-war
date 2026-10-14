@@ -73,9 +73,9 @@ function mirageFilm() {
       { d: 3.2, cam: (u) => ({ p: gp().addScaledVector(d, -16 + u * 3).addScaledVector(side, 4 * sunSd).add(V3(0, 3.5, 0)), l: mp().add(V3(0, -1, 0)), fov: 30 }) },
       { d: 3.4, slow: 0.45, cam: (u) => ({ p: mp().addScaledVector(side, 14 * sunSd).addScaledVector(d, -9 + u * 3).add(V3(0, 3, 0)), l: mp().addScaledVector(d, -3).addScaledVector(side, 1.5 * sunSd), fov: 40 }) },
       // straight at him, the pilot and his canopy in the middle of the frame (on a phone held upright there is little room either side)
-      { d: 4.4, slow: 0.8, cam: (u) => { const c = chT(), up = ev.chuteOn ? 2.6 * Math.min(1, ev.chT / 1.2) : 0; return { p: c.clone().addScaledVector(side, 11 * sunSd).addScaledVector(d, -3 + u * 1.5).add(V3(0, up - 1 + u * 0.8, 0)), l: c.clone().add(V3(0, up, 0)), fov: 44 }; } },
+      { d: 6.0, slow: 0.4, cam: (u) => { const c = chT(), up = ev.chuteOn ? 2.6 * Math.min(1, ev.chT / 1.2) : 0; return { p: c.clone().addScaledVector(side, 11 * sunSd).addScaledVector(d, -3 + u * 1.5).add(V3(0, up - 1 + u * 0.8, 0)), l: c.clone().add(V3(0, up, 0)), fov: 44 }; } },
     ],
-    caps: [[0.2, '<b>תצפית:</b> מיראז׳ שלנו מעל התעלה! סוחוי על הזנב שלו!', 2.6], [1.9, '<b>תצפית:</b> טיל! טיל באוויר!', 1.8], [4.2, '<b>תצפית:</b> פגיעה בכנף! הכנף נקרעה!', 2.3], [6.8, '<b>מ״פ:</b> הטייס נטש! יש מצנח!', 2.2], [9.1, '<b>מ״פ:</b> כולם להישאר במקורה, המטוסים חוזרים!', 1.9]],
+    caps: [[0.2, '<b>תצפית:</b> מיראז׳ שלנו מעל התעלה! סוחוי על הזנב שלו!', 2.6], [1.9, '<b>תצפית:</b> טיל! טיל באוויר!', 1.8], [4.2, '<b>תצפית:</b> פגיעה בכנף! הכנף נקרעה!', 2.3], [6.8, '<b>מ״פ:</b> הטייס נטש! יש מצנח!', 2.2], [10.2, '<b>מ״פ:</b> כולם להישאר במקורה, המטוסים חוזרים!', 2.4]],
     end: () => { M.mig.visible = false; },
   });
 }

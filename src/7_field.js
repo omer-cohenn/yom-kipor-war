@@ -826,7 +826,7 @@ function mzDroneFilm() {
   for (const b of W) filmRow(b, true);
   updBoats(0);
   const front = W.slice(0, per), vx = front.reduce((a, b) => a + b.speed * Math.sin(b.heading), 0) / front.length, zs = front.map((b) => b.g.position.z).sort((a, b) => a - b);
-  let zA = zs[Math.min(1, zs.length - 1)] - 3, zB = zs[Math.max(0, zs.length - 2)] + 3; if (zB - zA > 46) { const m = (zA + zB) / 2; zA = m - 23; zB = m + 23; }   // a slow pass: some 45 m in 14 s
+  let zA = zs[Math.min(1, zs.length - 1)] - 3, zB = zs[Math.max(0, zs.length - 2)] + 3; if (zB - zA > 33) { const m = (zA + zB) / 2; zA = m - 16.5; zB = m + 16.5; }   // a slow pass: some 33 m in 20 s
   const zM = (zA + zB) / 2, F = { t: 0, it: 0.3, used: new Map(), free: [], n: 0 }, XL = () => X0 + vx * F.t;
   const live = () => W.filter((b) => !b.dead && b.state === 'cross');
   // a boat comes near the camera: four men in its bow; it goes off, they go back to the pool and its own figures come back
@@ -858,11 +858,11 @@ function mzDroneFilm() {
     vid: 'mz_drone',
     shots: [
       // the pass: six and a half metres in front of the bows, a metre and a half over the gunwales, slowly, the game a little slowed with it
-      { d: 14.0, slow: 0.8, cam: (u) => { const z = zAt(u), x = XL(); return { p: V3(x + 6.5, 2.0 + 0.1 * Math.sin(F.t * 1.7), z), l: V3(x - 1, 1.05, z + 2.2), fov: 30 }; } },
-      { d: 3.6, cam: (u) => { const e = u * u * (3 - 2 * u), x = XL(); return { p: V3(x + 6.5 + 25 * e, 2.0 + 14 * e, zB + 6 * e), l: V3(x - 2 * (1 - e), lerp(1.05, 0.6, e), lerp(zB + 2.2, zM, e)), fov: lerp(30, 52, e) }; } },
+      { d: 20.0, slow: 0.4, cam: (u) => { const z = zAt(u), x = XL(); return { p: V3(x + 6.5, 2.0 + 0.1 * Math.sin(F.t * 1.7), z), l: V3(x - 1, 1.05, z + 2.2), fov: 30 }; } },
+      { d: 5.0, slow: 0.6, cam: (u) => { const e = u * u * (3 - 2 * u), x = XL(); return { p: V3(x + 6.5 + 25 * e, 2.0 + 14 * e, zB + 6 * e), l: V3(x - 2 * (1 - e), lerp(1.05, 0.6, e), lerp(zB + 2.2, zM, e)), fov: lerp(30, 52, e) }; } },
     ],
     tick,
-    caps: [[0.3, '<b>תצפית:</b> הם כבר באמצע התעלה! עשרות סירות, שורה אחרי שורה!', 3.8], [6.0, 'בכל סירה חיילים צפופים. הם יורים עלינו תוך כדי חתירה.', 4.0], [13.4, '<b>מ״פ:</b> אש על הסירות! לא נותנים להם להגיע לחוף!', 4.0]],
+    caps: [[0.4, '<b>תצפית:</b> הם כבר באמצע התעלה! עשרות סירות, שורה אחרי שורה!', 4.6], [8.0, 'בכל סירה חיילים צפופים. הם יורים עלינו תוך כדי חתירה.', 5.0], [19.6, '<b>מ״פ:</b> אש על הסירות! לא נותנים להם להגיע לחוף!', 4.6]],
     end: () => { for (const b of [...F.used.keys()]) crewOff(b); for (const b of W) filmRow(b, false); },
   });
 }

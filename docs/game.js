@@ -4179,7 +4179,15 @@ function updBoats(dt) {
         const e = spawnEnemy(tongueWestX(z) + 1.6, z, varyKind(s.kind, z * 3.1, i * 7.7), null, null, { jump: sp });
         if (!e) return; e.plan = westPlan(e, z, i, r); s.gone = true; s.m.visible = false;
       });
-      if (bt.seats.every((s) => !s.alive || s.gone) && bt.landT > 30) bt.dispose();
+      // the soldiers are out: the rowers push off, turn the boat round and row back for the next load (they do not come ashore)
+      if (bt.seats.every((s) => !s.alive || s.gone) && bt.landT > 2.5) { const p = bt.g.position; bt.state = 'back'; bt.backT = 0; bt.hd0 = bt.heading; bt.b0 = [p.x, p.z]; const qx = nearX(-400) + rand(0, 10), qz = p.z + rand(-25, 25); bt.b1 = [qx, qz]; bt.blen = Math.hypot(qx - p.x, qz - p.z); bt.hd1 = Math.atan2(qx - p.x, qz - p.z); bt.bs = 0; }
+    } else if (bt.state === 'back') {
+      bt.backT += dt; const turn = smooth(0.3, 3.2, bt.backT); bt.heading = bt.hd0 + wrapPi(bt.hd1 - bt.hd0) * turn;
+      bt.bs = Math.min(bt.speed, bt.bs + dt * bt.speed * 0.35 * turn); const u = Math.min(1, (bt.bd = (bt.bd || 0) + bt.bs * dt) / bt.blen), x = lerp(bt.b0[0], bt.b1[0], u), z = lerp(bt.b0[1], bt.b1[1], u);
+      const wt = waveTilt(x, z, bt.heading, 3.2, 1.2, _wtB);
+      bt.g.position.set(x, 0.03 + wt.h + Math.sin(bt.t * 2.2) * 0.02, z); bt.g.rotation.set(wt.roll * 0.9, bt.heading - Math.PI / 2, 0.02 + wt.pitch * 0.9); bt.g.updateMatrixWorld(); bt.row(dt, 2.5 * Math.max(0.3, turn));
+      if (bt.hp <= 0) { bt.seats.forEach((s, i) => { if (s.alive) killSeat(bt, i); }); bt.state = 'sinking'; bt.sinkT = 0; }
+      else if (u >= 1 || bt.backT > 90) bt.dispose();
     }
   }
 }
@@ -7217,7 +7225,7 @@ function mzDroneFilm() {
   for (const b of W) filmRow(b, true);
   updBoats(0);
   const front = W.slice(0, per), vx = front.reduce((a, b) => a + b.speed * Math.sin(b.heading), 0) / front.length, zs = front.map((b) => b.g.position.z).sort((a, b) => a - b);
-  let zA = zs[Math.min(1, zs.length - 1)] - 3, zB = zs[Math.max(0, zs.length - 2)] + 3; if (zB - zA > 46) { const m = (zA + zB) / 2; zA = m - 23; zB = m + 23; }   // a slow pass: some 45 m in 14 s
+  let zA = zs[Math.min(1, zs.length - 1)] - 3, zB = zs[Math.max(0, zs.length - 2)] + 3; if (zB - zA > 33) { const m = (zA + zB) / 2; zA = m - 16.5; zB = m + 16.5; }   // a slow pass: some 33 m in 20 s
   const zM = (zA + zB) / 2, F = { t: 0, it: 0.3, used: new Map(), free: [], n: 0 }, XL = () => X0 + vx * F.t;
   const live = () => W.filter((b) => !b.dead && b.state === 'cross');
   // a boat comes near the camera: four men in its bow; it goes off, they go back to the pool and its own figures come back
@@ -7249,11 +7257,11 @@ function mzDroneFilm() {
     vid: 'mz_drone',
     shots: [
       // the pass: six and a half metres in front of the bows, a metre and a half over the gunwales, slowly, the game a little slowed with it
-      { d: 14.0, slow: 0.8, cam: (u) => { const z = zAt(u), x = XL(); return { p: V3(x + 6.5, 2.0 + 0.1 * Math.sin(F.t * 1.7), z), l: V3(x - 1, 1.05, z + 2.2), fov: 30 }; } },
-      { d: 3.6, cam: (u) => { const e = u * u * (3 - 2 * u), x = XL(); return { p: V3(x + 6.5 + 25 * e, 2.0 + 14 * e, zB + 6 * e), l: V3(x - 2 * (1 - e), lerp(1.05, 0.6, e), lerp(zB + 2.2, zM, e)), fov: lerp(30, 52, e) }; } },
+      { d: 20.0, slow: 0.4, cam: (u) => { const z = zAt(u), x = XL(); return { p: V3(x + 6.5, 2.0 + 0.1 * Math.sin(F.t * 1.7), z), l: V3(x - 1, 1.05, z + 2.2), fov: 30 }; } },
+      { d: 5.0, slow: 0.6, cam: (u) => { const e = u * u * (3 - 2 * u), x = XL(); return { p: V3(x + 6.5 + 25 * e, 2.0 + 14 * e, zB + 6 * e), l: V3(x - 2 * (1 - e), lerp(1.05, 0.6, e), lerp(zB + 2.2, zM, e)), fov: lerp(30, 52, e) }; } },
     ],
     tick,
-    caps: [[0.3, '<b>תצפית:</b> הם כבר באמצע התעלה! עשרות סירות, שורה אחרי שורה!', 3.8], [6.0, 'בכל סירה חיילים צפופים. הם יורים עלינו תוך כדי חתירה.', 4.0], [13.4, '<b>מ״פ:</b> אש על הסירות! לא נותנים להם להגיע לחוף!', 4.0]],
+    caps: [[0.4, '<b>תצפית:</b> הם כבר באמצע התעלה! עשרות סירות, שורה אחרי שורה!', 4.6], [8.0, 'בכל סירה חיילים צפופים. הם יורים עלינו תוך כדי חתירה.', 5.0], [19.6, '<b>מ״פ:</b> אש על הסירות! לא נותנים להם להגיע לחוף!', 4.6]],
     end: () => { for (const b of [...F.used.keys()]) crewOff(b); for (const b of W) filmRow(b, false); },
   });
 }
@@ -8785,9 +8793,9 @@ function mirageFilm() {
       { d: 3.2, cam: (u) => ({ p: gp().addScaledVector(d, -16 + u * 3).addScaledVector(side, 4 * sunSd).add(V3(0, 3.5, 0)), l: mp().add(V3(0, -1, 0)), fov: 30 }) },
       { d: 3.4, slow: 0.45, cam: (u) => ({ p: mp().addScaledVector(side, 14 * sunSd).addScaledVector(d, -9 + u * 3).add(V3(0, 3, 0)), l: mp().addScaledVector(d, -3).addScaledVector(side, 1.5 * sunSd), fov: 40 }) },
       // straight at him, the pilot and his canopy in the middle of the frame (on a phone held upright there is little room either side)
-      { d: 4.4, slow: 0.8, cam: (u) => { const c = chT(), up = ev.chuteOn ? 2.6 * Math.min(1, ev.chT / 1.2) : 0; return { p: c.clone().addScaledVector(side, 11 * sunSd).addScaledVector(d, -3 + u * 1.5).add(V3(0, up - 1 + u * 0.8, 0)), l: c.clone().add(V3(0, up, 0)), fov: 44 }; } },
+      { d: 6.0, slow: 0.4, cam: (u) => { const c = chT(), up = ev.chuteOn ? 2.6 * Math.min(1, ev.chT / 1.2) : 0; return { p: c.clone().addScaledVector(side, 11 * sunSd).addScaledVector(d, -3 + u * 1.5).add(V3(0, up - 1 + u * 0.8, 0)), l: c.clone().add(V3(0, up, 0)), fov: 44 }; } },
     ],
-    caps: [[0.2, '<b>תצפית:</b> מיראז׳ שלנו מעל התעלה! סוחוי על הזנב שלו!', 2.6], [1.9, '<b>תצפית:</b> טיל! טיל באוויר!', 1.8], [4.2, '<b>תצפית:</b> פגיעה בכנף! הכנף נקרעה!', 2.3], [6.8, '<b>מ״פ:</b> הטייס נטש! יש מצנח!', 2.2], [9.1, '<b>מ״פ:</b> כולם להישאר במקורה, המטוסים חוזרים!', 1.9]],
+    caps: [[0.2, '<b>תצפית:</b> מיראז׳ שלנו מעל התעלה! סוחוי על הזנב שלו!', 2.6], [1.9, '<b>תצפית:</b> טיל! טיל באוויר!', 1.8], [4.2, '<b>תצפית:</b> פגיעה בכנף! הכנף נקרעה!', 2.3], [6.8, '<b>מ״פ:</b> הטייס נטש! יש מצנח!', 2.2], [10.2, '<b>מ״פ:</b> כולם להישאר במקורה, המטוסים חוזרים!', 2.4]],
     end: () => { M.mig.visible = false; },
   });
 }
