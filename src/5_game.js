@@ -622,10 +622,12 @@ function trenchStep(e, dt, shoot, aimPitch) {
 /* a wave of boats: n of them (more on the hard level, fewer on a phone), their landing points spread along the front and their starts a couple of
    seconds apart, so the canal fills with boats; rpg / flame: how many boats carry an RPG man or a flamethrower. budget: how many men the wave
    puts ashore at most, by level ([easy, normal, hard]) - the canal can be full of boats without a hundred men coming over the rampart at once;
-   the rowers stay at their oars either way */
-function boatWave(z0, z1, n, t0, gap, seats, rpg = 0, flame = 0, hp, budget) {
+   the rowers stay at their oars either way. near [d0, step]: the wave is already on the water when the stage opens, the first boat d0 metres
+   from the beach and each next one step metres further out */
+function boatWave(z0, z1, n, t0, gap, seats, rpg = 0, flame = 0, hp, budget, near) {
   const N = Math.max(2, Math.round(n * diff.boats * (LITE ? 0.8 : 1))), r = rng(4400 + Math.round(z0 * 7 + z1 * 3) + Math.max(0, D.scene) * 131), B = budget ? budget[Math.max(0, DIFF.indexOf(diff))] : 0;
-  for (let i = 0; i < N; i++) { const z = lerp(z0, z1, (i * 0.618034) % 1) + (r() - 0.5) * 2.5, men = B ? Math.floor(B / N) + (i < B % N ? 1 : 0) : undefined, b = launchBoat(z, t0 + i * gap + r() * gap * 0.6, seats, i < rpg ? 1 : 0, i === Math.floor(N / 2) && flame ? 1 : 0, men); if (hp) b.hp = hp; }
+  for (let i = 0; i < N; i++) { const z = lerp(z0, z1, (i * 0.618034) % 1) + (r() - 0.5) * 2.5, men = B ? Math.floor(B / N) + (i < B % N ? 1 : 0) : undefined, b = launchBoat(z, t0 + i * gap + r() * gap * 0.6, seats, i < rpg ? 1 : 0, i === Math.floor(N / 2) && flame ? 1 : 0, men); if (hp) b.hp = hp;
+    if (near) { const left = Math.min(b.len * 0.95, near[0] + i * near[1] + r() * near[1] * 0.4); b.t = (b.len - left) / b.speed; } }
 }
 function launchBoat(zLand, delay, n, rpg = 0, flame = 0, men) {
   const seed = 9001 + Math.round(zLand * 13) + Math.max(0, D.scene) * 7919, r = rng(seed);
@@ -721,7 +723,7 @@ const SCENES = [
   { title: 'סירות על המים', sub: 'שתיים אחרי הצהריים. מעבר לתעלה, מתוך העשן, יוצאות סירות עץ בשורה — עשרות חיילים בכל אחת, חותרים ישר אלינו. המא״ג המערבי הוא כל מה שעומד בינם לבין הסוללה.', goal: 'ירו בסירות מהמא״ג המערבי. מי שעלה לתעלה — הרגו אותו בתוכה', open: [136, 176], spawn: () => trenchAt(-1.0), face: 345, focus: w2Focus,
     entries: [-20, -14, -8, -2, 3, 8.5], radio: ['מ״פ', 'סירות במים ממערב! המא״ג המערבי שלך!'], start() { boatWave(-21, 10, 28, 3, 1.8, diff.seats, 0, 0, 150, [20, 30, 42]); } },
   { title: 'הפרצה בצפון', sub: 'המחסום הצפוני נפתח, ובקצה הסוללה, ליד עמדה 1, כבר מטפסים הראשונים שצלחו. בתעלה הצרה פוגשים אותם פנים אל פנים, שק חול אחרי שק חול.', goal: 'התקדמו צפונה בתעלה ונקו אותה מהצולחים', open: [96, 176], spawn: () => TR.pts[140], face: 0, focus: trFocus(-38, 'עמדה מערבית 1'),
-    entries: [-55, -50, -39.5, -27], radio: ['יוסי', 'הם עולים עליי מצפון! תביאו תגבורת לתעלה!'], start() { boatWave(-57, -33, 9, 2, 6.5, Math.max(3, diff.seats - 1), 3, 0); } },
+    entries: [-55, -50, -39.5, -27], radio: ['יוסי', 'הם עולים עליי מצפון! תביאו תגבורת לתעלה!'], start() { boatWave(-57, -33, 9, 2, 6.5, Math.max(3, diff.seats - 1), 3, 0, undefined, undefined, [22, 13]); } },   // the boats are almost at the beach when the stage opens
   { title: 'קומנדו בשער', sub: 'מכביש לכסיקון, מצפון, רץ כוח קומנדו ישר אל השער. הם מכירים את המוצב מתצלומי האוויר, ויודעים שהתעלה הצפונית היא הדרך פנימה.', goal: 'עצרו את הקומנדו בתעלה הצפונית, עד הפינה — והחזיקו אותה', open: [0, 176], spawn: () => TR.pts[100], face: 0, focus: postFocus('N1', 'עמדה צפונית'),
     radio: ['תצפית', 'כוח קומנדו בכביש מצפון! הם רצים לתעלה הצפונית!'], start() { northGroup(Math.round(9 * diff.extra), 5, ['rpg', 'rifle', 'rifle', 'rpg']); } },
   { title: 'חובש!', sub: 'ההרעשה חזרה. פגז נכנס ישר לעמדה הדרומית, ובתעלה שוכבים חברים שצועקים לחובש. התאג״ד חפור בדופן התעלה, ומי שנחבש בזמן חוזר לעמדה.', goal: 'עזרה ראשונה לפצועים בתעלה הדרומית (להחזיק F) — הם חוזרים להילחם', medevac: true, open: [136, 222], spawn: () => trenchAt(-6), face: 180,
@@ -821,7 +823,7 @@ function updStrafe(dt) {
     const alt = sAl < -60 ? 15 + (-60 - sAl) * 0.11 : 15 + (sAl + 60) * 0.32;
     j.m.visible = true; j.m.position.set(j.tx + j.dx * sAl, groundAt(j.tx, j.tz) + alt, j.tz + j.dz * sAl); j.m.rotation.set(0, Math.atan2(-j.dz, j.dx), 0); j.m.rotateZ(sAl < -60 ? -0.3 : 0.45);
     if (!j.heard) { j.heard = true; sndJet(Math.max(0.5, -sAl / 62)); }
-    if (sAl > -430 && sAl < -150) {
+    if (sAl > -430 && sAl < -150 && !j.quiet) {
       // the cannon: shells walk along the ground 300 m ahead of the aircraft
       const u0 = j.last, u1 = sAl + 300; j.last = u1;
       for (let u = Math.max(u0, -140); u < u1; u += 6.5) {
@@ -832,7 +834,7 @@ function updStrafe(dt) {
         if (d < 6) FX.shake = Math.max(FX.shake, 0.35);
       }
     }
-    if (!j.bombs && sAl > -125) { j.bombs = true; dropBombs(j); }
+    if (!j.bombs && sAl > -125) { j.bombs = true; if (!j.quiet) dropBombs(j); }
   }
 }
 function updDirector(dt) {
@@ -844,11 +846,12 @@ function updDirector(dt) {
     if (!D.jets && D.phaseT > 0.3) { D.jets = true; airStrike(); radio('חמ״ל', 'כוננות ספיגה! מטוסים מצריים מעל התעלה!'); strafeRun(P.pos.x + 2, P.pos.z - 14, 2.2); }
     if (D.phaseT > BARRAGE_AT) { D.phase = 'barrage'; D.phaseT = 0; D.barT = 0.2; radio('חמ״ל', 'הרעשה ארטילרית על כל הקו! כולם במחסה!'); }
   } else if (D.phase === 'barrage') {
-    if (!D.s2 && D.phaseT > 4.5) { D.s2 = true; strafeRun(P.pos.x, P.pos.z, 0); } if (!D.s3 && D.phaseT > 11) { D.s3 = true; strafeRun(P.pos.x + 1, P.pos.z + 3, 0); }
+    // the dives come early in the barrage: a run takes 13 s from the first sound to its bombs, and all of them must be over before the guns are manned
+    if (!D.s2 && D.phaseT > 0.4) { D.s2 = true; strafeRun(P.pos.x, P.pos.z, 0); } if (!D.s3 && D.phaseT > 1.6) { D.s3 = true; strafeRun(P.pos.x + 1, P.pos.z + 3, 0); }
     D.barT -= dt; if (D.barT <= 0) { D.barT = rand(0.28, 0.75) * (D.phaseT > BARRAGE_LEN - 6 ? 2 : 1); barrageShell(); }
     if (!D.launched && D.phaseT > 3) { D.launched = true; SCENES[0].start(); radio('תצפית', 'סירות יוצאות מהרציף בפורט תאופיק! חותרים אלינו!'); }
     if (!D.r2 && D.phaseT > 7.5) { D.r2 = true; radio('מ״פ', 'כשההרעשה נגמרת, המא״ג המערבי לידך הוא שלך! הסירות כבר במים.', 5.5); }
-    if (D.phaseT > BARRAGE_LEN) { friendsToPosts(); TUT.step = 'toMag'; introScene(0, 0.01); }
+    if (D.phaseT > BARRAGE_LEN) { friendsToPosts(); TUT.step = 'toMag'; introScene(0, 0.01); for (const j of STRAFE) j.quiet = true; for (const b of AIR.bombs) scene.remove(b.m); AIR.bombs.length = 0; }   // the barrage is over, and so is the air attack: nothing more falls from the sky
   } else if (D.phase === 'intro') {
     if (D.phaseT >= D.introLen) { if (!corridorHas(scCorr(D.scene), P.pos.x, P.pos.z)) moveToScene(D.scene); D.phase = 'scene'; D.phaseT = 0; if (!(D.scene === 0 && D.launched)) SCENES[D.scene].start(); D.artT = rand(diff.art[0], diff.art[1]); }
   } else if (D.phase === 'scene') {

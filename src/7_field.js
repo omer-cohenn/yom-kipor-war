@@ -740,7 +740,9 @@ function updCine(dt) {
   let t = CINE.t, shot = CINE.def.shots[CINE.def.shots.length - 1], u = 1; for (const s of CINE.def.shots) { if (t < s.d) { shot = s; u = t / s.d; break; } t -= s.d; }
   const r = shot.cam(clamp(u, 0, 1)); CINE.slow = shot.slow ?? 1; camera.position.copy(r.p); camera.lookAt(r.l);
   const sh = FX.shake; FX.shake = Math.max(0, FX.shake - dt * 1.5); if (sh > 0.02) { camera.rotation.x += rand(-sh, sh) * 0.012; camera.rotation.y += rand(-sh, sh) * 0.012; }
-  const fov = r.fov || shot.fov || 55; if (Math.abs(camera.fov - fov) > 0.05) { camera.fov = fov; camera.updateProjectionMatrix(); }
+  // a film is framed for a wide screen: on a narrow one (a phone held upright) the lens is widened so the sides are not cut away
+  let fov = r.fov || shot.fov || 55; if (camera.aspect < 0.9) fov = Math.min(78, THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(fov) / 2) * 0.9 / camera.aspect)));
+  if (Math.abs(camera.fov - fov) > 0.05) { camera.fov = fov; camera.updateProjectionMatrix(); }
   if (CINE.t >= CINE.total) endCine(false);
 }
 function endCine(skip) {
