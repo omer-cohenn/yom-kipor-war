@@ -620,15 +620,17 @@ function trenchStep(e, dt, shoot, aimPitch) {
 }
 /* ================= boats & waves ================= */
 /* a wave of boats: n of them (more on the hard level, fewer on a phone), their landing points spread along the front and their starts a couple of
-   seconds apart, so the canal fills with boats; rpg / flame: how many boats carry an RPG man or a flamethrower */
-function boatWave(z0, z1, n, t0, gap, seats, rpg = 0, flame = 0, hp) {
-  const N = Math.max(2, Math.round(n * diff.boats * (LITE ? 0.8 : 1))), r = rng(4400 + Math.round(z0 * 7 + z1 * 3) + Math.max(0, D.scene) * 131);
-  for (let i = 0; i < N; i++) { const z = lerp(z0, z1, (i * 0.618034) % 1) + (r() - 0.5) * 2.5, b = launchBoat(z, t0 + i * gap + r() * gap * 0.6, seats, i < rpg ? 1 : 0, i === Math.floor(N / 2) && flame ? 1 : 0); if (hp) b.hp = hp; }
+   seconds apart, so the canal fills with boats; rpg / flame: how many boats carry an RPG man or a flamethrower. budget: how many men the wave
+   puts ashore at most, by level ([easy, normal, hard]) - the canal can be full of boats without a hundred men coming over the rampart at once;
+   the rowers stay at their oars either way */
+function boatWave(z0, z1, n, t0, gap, seats, rpg = 0, flame = 0, hp, budget) {
+  const N = Math.max(2, Math.round(n * diff.boats * (LITE ? 0.8 : 1))), r = rng(4400 + Math.round(z0 * 7 + z1 * 3) + Math.max(0, D.scene) * 131), B = budget ? budget[Math.max(0, DIFF.indexOf(diff))] : 0;
+  for (let i = 0; i < N; i++) { const z = lerp(z0, z1, (i * 0.618034) % 1) + (r() - 0.5) * 2.5, men = B ? Math.floor(B / N) + (i < B % N ? 1 : 0) : undefined, b = launchBoat(z, t0 + i * gap + r() * gap * 0.6, seats, i < rpg ? 1 : 0, i === Math.floor(N / 2) && flame ? 1 : 0, men); if (hp) b.hp = hp; }
 }
-function launchBoat(zLand, delay, n, rpg = 0, flame = 0) {
+function launchBoat(zLand, delay, n, rpg = 0, flame = 0, men) {
   const seed = 9001 + Math.round(zLand * 13) + Math.max(0, D.scene) * 7919, r = rng(seed);
   const to = [tongueWestX(zLand) - 4.5, zLand]; const from = [nearX(-400), clamp(zLand + (r() - 0.5) * 90, -380, 380)];   // from just off the Port Tewfik quays
-  const bt = new Boat(from, to, Math.max(2, Math.ceil(n * 0.55)), diff.boat * 0.34, delay); /* a heavy rowboat: about three metres a second, a minute and a half across */ bt.zLand = zLand; bt.state = 'wait'; bt.seed = seed;
+  const bt = new Boat(from, to, men ?? Math.max(2, Math.ceil(n * 0.55)), diff.boat * 0.34, delay); /* a heavy rowboat: about three metres a second, a minute and a half across */ bt.zLand = zLand; bt.state = 'wait'; bt.seed = seed;
   const ns = bt.seats.length;   // the boat carries fewer men than the wave counts: never index past its seats (that froze the game)
   for (let i = 0; i < rpg && i < ns; i++) bt.seats[i].kind = 'rpg';
   for (let i = 0; i < flame && ns - 1 - i > rpg - 1 && i < ns; i++) bt.seats[ns - 1 - i].kind = 'flame';
@@ -668,7 +670,7 @@ function updBoats(dt) {
       const wt = waveTilt(x, z, bt.heading, 3.2, 1.2, _wtB);
       // a rowed boat: it lifts and heels with the waves and surges a little with every stroke
       bt.g.position.set(x, 0.03 + wt.h + Math.sin(bt.t * 2.2) * 0.025, z); bt.g.rotation.set(wt.roll * 0.9 + Math.sin(bt.t * 2.3 + bt.len) * 0.03, bt.heading - Math.PI / 2, 0.02 + wt.pitch * 0.9 + Math.sin(bt.ph) * 0.012); bt.g.updateMatrixWorld();
-      bt.row(dt);
+      if (!bt.filmHide) bt.row(dt);   // in the drone's film the oars are put away: up close the rowing does not look right
       if (Math.random() < dt * 4) fxDust(V3(x + Math.sin(bt.heading) * 4.2 + Math.cos(bt.heading) * rand(-0.8, 0.8), 0.12 + wt.h, z + Math.cos(bt.heading) * 4.2 - Math.sin(bt.heading) * rand(-0.8, 0.8)), true);
       boatFire(bt, dt, x, z);
       if (u >= 1) { bt.state = 'landed'; bt.landT = 0; }
@@ -717,7 +719,7 @@ function corridorHas(C, x, z) {
 /* the mission is one trench: each stage opens the next stretch, sandbag barricades close everything else */
 const SCENES = [
   { title: 'סירות על המים', sub: 'שתיים אחרי הצהריים. מעבר לתעלה, מתוך העשן, יוצאות סירות עץ בשורה — עשרות חיילים בכל אחת, חותרים ישר אלינו. המא״ג המערבי הוא כל מה שעומד בינם לבין הסוללה.', goal: 'ירו בסירות מהמא״ג המערבי. מי שעלה לתעלה — הרגו אותו בתוכה', open: [136, 176], spawn: () => trenchAt(-1.0), face: 345, focus: w2Focus,
-    entries: [-20, -14, -8, -2, 3, 8.5], radio: ['מ״פ', 'סירות במים ממערב! המא״ג המערבי שלך!'], start() { boatWave(-21, 10, 28, 3, 1.8, diff.seats, 0, 0, 150); } },
+    entries: [-20, -14, -8, -2, 3, 8.5], radio: ['מ״פ', 'סירות במים ממערב! המא״ג המערבי שלך!'], start() { boatWave(-21, 10, 28, 3, 1.8, diff.seats, 0, 0, 150, [20, 30, 42]); } },
   { title: 'הפרצה בצפון', sub: 'המחסום הצפוני נפתח, ובקצה הסוללה, ליד עמדה 1, כבר מטפסים הראשונים שצלחו. בתעלה הצרה פוגשים אותם פנים אל פנים, שק חול אחרי שק חול.', goal: 'התקדמו צפונה בתעלה ונקו אותה מהצולחים', open: [96, 176], spawn: () => TR.pts[140], face: 0, focus: trFocus(-38, 'עמדה מערבית 1'),
     entries: [-55, -50, -39.5, -27], radio: ['יוסי', 'הם עולים עליי מצפון! תביאו תגבורת לתעלה!'], start() { boatWave(-57, -33, 9, 2, 6.5, Math.max(3, diff.seats - 1), 3, 0); } },
   { title: 'קומנדו בשער', sub: 'מכביש לכסיקון, מצפון, רץ כוח קומנדו ישר אל השער. הם מכירים את המוצב מתצלומי האוויר, ויודעים שהתעלה הצפונית היא הדרך פנימה.', goal: 'עצרו את הקומנדו בתעלה הצפונית, עד הפינה — והחזיקו אותה', open: [0, 176], spawn: () => TR.pts[100], face: 0, focus: postFocus('N1', 'עמדה צפונית'),
@@ -726,7 +728,7 @@ const SCENES = [
     focus: () => { const w = nearestWounded(); return w ? [w.unit.pos.x, w.unit.pos.y, w.unit.pos.z, `פצוע · ${w.name}`] : null; },
     entries: [12, 24, 35, 46], radio: ['דודו', 'פגיעה ישירה בעמדה! יש פצועים בתעלה הדרומית!'], start: medevacStart },
   { title: 'הגל הגדול', sub: 'לפנות ערב הם זורקים את הכול: סירות לכל אורך הסוללה המערבית, מקצה לקצה, והשמש השוקעת מאחוריהם. המוצב הקטן הזה הוא כל מה שנשאר מהקו.', goal: 'החזיקו את התעלה המערבית כולה, עד המצרי האחרון', open: [96, 250], spawn: () => trenchAt(-2), face: 338, focus: w2Focus,
-    entries: [-50, -27, -14, 8.5, 24, 46, 56, 68], radio: ['מ״פ', 'גל גדול של סירות! כולם לסוללה המערבית!'], start() { boatWave(-25, 63, 18, 3, 2.0, diff.seats, 4, 1); mzBoatsFilm(); } },
+    entries: [-50, -27, -14, 8.5, 24, 46, 56, 68], radio: ['מ״פ', 'גל גדול של סירות! כולם לסוללה המערבית!'], start() { boatWave(-25, 63, 18, 3, 2.0, diff.seats, 4, 1, undefined, [30, 42, 56]); mzBoatsFilm(); } },
 ];
 function scCorr(i) {
   const S = SCENES[i]; if (S._c) return S._c; const [a, b] = S.open;
@@ -1335,7 +1337,7 @@ function restoreCheckpoint() {
   clearBattle(); Object.assign(STATS, CP.stats); resetTutorial(); for (const k of ['start', 'left', 'run', 'mag', 'man', 'cp']) TUT.seen[k] = true;
   FRIENDS.forEach((f, i) => { if (CP.friends[i] === 'post') placeFriendAtPost(f); });
   resetPlayer(); P.alive = true; const S = SCENES[CP.scene], sp = S.spawn(); P.pos.set(sp[0], groundAt(sp[0], sp[1]), sp[1]); P.yaw = -THREE.MathUtils.degToRad(S.face);
-  D.launched = false; D.phase = 'intro'; introScene(CP.scene, 5);
+  D.launched = false; D.droneFilm = false; D.phase = 'intro'; introScene(CP.scene, 5);   // back at the start of the boats: their film comes again when the gun is taken (it can be skipped)
   GAME.state = 'play'; $('#app').classList.add('play'); for (const m of ['#mBrief', '#mPause', '#mEnd', '#mOps', '#mSet']) $(m).hidden = true; initAudio(); lockPointer();
 }
 function resetGame() {
