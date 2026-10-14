@@ -1027,7 +1027,7 @@ function doAction() {
 function manMag(post) { P.mode = 'mag'; P.post = post; post.occupant = 'player'; P.pos.set(post.stand[0], post.g, post.stand[1]); P.yaw = post.mag.pivot.rotation.y + Math.PI; P.pitch = -0.05; P.crouch = false; P.reloadT = 0; sndClick(600, 0.2); 
   if (MODE === 'mezach' && !SURV.on && D.scene === 0 && D.phase === 'scene') mzDroneFilm(); }   // the first gun on the western rampart: the boats, seen up close
 function leaveMag() {
-  const p = P.post; if (!p) return; p.occupant = null; P.mode = 'rifle'; P.post = null;
+  const p = P.post; if (!p) return; p.occupant = null; P.mode = 'rifle'; P.post = null; vm.visible = true;
   let x = p.stand[0] - p.fx * 1.2, z = p.stand[1] - p.fz * 1.2; const [k, d] = trK(p.stand[0], p.stand[1]);
   if (d < 3.6) { const q = TR.pts[k], o = TR.out[k]; x = q[0] + o[0] * 0.45; z = q[1] + o[1] * 0.45; if (blocked(x, z, 0.3, groundAt(x, z))) { x = q[0]; z = q[1]; } }
   P.pos.set(x, groundAt(x, z), z); P.vy = 0;

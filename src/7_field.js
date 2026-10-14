@@ -726,7 +726,7 @@ function playCine(def) {
   if (CINE.on) endCine(true);
   Object.assign(CINE, { on: true, t: 0, def, slow: 1, ev: (def.ev || []).slice().sort((a, b) => a[0] - b[0]), caps: (def.caps || []).map((c) => ({ t: c[0], html: c[1], d: c[2] || 3.6 })), total: def.shots.reduce((a, s) => a + s.d, 0), capT: 0, fov0: camera.fov, vid: null });
   $('#app').classList.add('cine'); $('#cine').hidden = false; $('#cineCap').innerHTML = ''; $('#cineTitle').textContent = def.title || ''; $('#cineTitle').classList.toggle('on', !!def.title);
-  P.ads = 0; INPUT.fire = false; vm.visible = false; $('#tsight').classList.remove('on'); cvidStart(def.vid); updCine(0);
+  CINE.vm0 = vm.visible; P.ads = 0; INPUT.fire = false; vm.visible = false; $('#tsight').classList.remove('on'); cvidStart(def.vid); updCine(0);
 }
 function updCine(dt) {
   if (CINE.vid) { const v = CVID.el;
@@ -746,7 +746,7 @@ function updCine(dt) {
 function endCine(skip) {
   if (!CINE.on) return; const def = CINE.def; if (skip) while (CINE.ev.length) CINE.ev.shift()[1]();
   CINE.on = false; CINE.slow = 1; FILMW.length = 0; if (CINE.vid) cvidStop(); $('#app').classList.remove('cine'); $('#cine').hidden = true; $('#cineCap').innerHTML = ''; camera.fov = CINE.fov0 || 72; camera.updateProjectionMatrix();
-  if (P.mode === 'rifle') vm.visible = true; if (def && def.end) def.end(skip);
+  vm.visible = CINE.vm0 || P.mode === 'rifle'; if (def && def.end) def.end(skip);   // the rifle as it was before the film (a film that starts on a gun hid it too)
 }
 $('#cineSkip').addEventListener('click', () => endCine(true));
 /* film extras: men walking a straight line through a shot - a file climbing a road, prisoners with their hands up. Cleared by the film's end */
@@ -800,11 +800,20 @@ function mzDroneFilm() {
   const W = BOATS.filter((b) => !b.dead && (b.state === 'wait' || b.state === 'cross')); if (W.length < 6) return; D.droneFilm = true;
   // the wave is brought out into ragged lines abreast: the first a hundred-odd metres off the beach, the next two thirty and sixty metres behind
   // it, still near the quays (they land ten seconds apart, as the wave would have); the film opens on the crossing at its height
-  const X0 = tongueWestX(-5) - 105, rows = Math.max(1, Math.ceil(W.length / 8)), per = Math.ceil(W.length / rows);
-  W.forEach((b, i) => { const row = Math.floor(i / per), u = clamp((X0 - row * 30 + rand(-3.5, 3.5) - b.from[0]) / (b.to[0] - b.from[0]), 0.02, 0.9); b.t = (u * b.len) / b.speed; if (b.state === 'wait') { b.state = 'cross'; b.g.visible = true; } });
+  // each line is spread out along the bank, eight metres from boat to boat: a boat's track is turned to pass through its place in the line
+  // (it still lands where it was going)
+  const X0 = tongueWestX(-5) - 105, rows = Math.max(1, Math.ceil(W.length / 8)), per = Math.ceil(W.length / rows), QX = nearX(-400), GAP = 8;
+  for (let row = 0; row * per < W.length; row++) {
+    const L = W.slice(row * per, (row + 1) * per).sort((a, b) => a.to[1] - b.to[1]), zc = L.reduce((a, b) => a + b.to[1], 0) / L.length + (row % 2) * GAP * 0.5;
+    L.forEach((b, i) => {
+      const x = Math.max(X0 - row * 30 + rand(-1.5, 1.5), QX + 6), z = zc + (i - (L.length - 1) / 2) * GAP + rand(-1, 1), k = (QX - b.to[0]) / (x - b.to[0]);
+      b.from = [b.to[0] + (x - b.to[0]) * k, b.to[1] + (z - b.to[1]) * k]; b.len = Math.hypot(b.to[0] - b.from[0], b.to[1] - b.from[1]); b.heading = Math.atan2(b.to[0] - b.from[0], b.to[1] - b.from[1]);
+      b.t = Math.hypot(x - b.from[0], z - b.from[1]) / b.speed; if (b.state === 'wait') { b.state = 'cross'; b.g.visible = true; }
+    });
+  }
   updBoats(0);
   const front = W.slice(0, per), vx = front.reduce((a, b) => a + b.speed * Math.sin(b.heading), 0) / front.length, zs = front.map((b) => b.g.position.z).sort((a, b) => a - b);
-  let zA = zs[Math.min(1, zs.length - 1)] - 4, zB = zs[Math.max(0, zs.length - 2)] + 4; if (zB - zA > 75) { const m = (zA + zB) / 2; zA = m - 37.5; zB = m + 37.5; }
+  let zA = zs[Math.min(1, zs.length - 1)] - 3, zB = zs[Math.max(0, zs.length - 2)] + 3; if (zB - zA > 46) { const m = (zA + zB) / 2; zA = m - 23; zB = m + 23; }   // a slow pass: some 45 m in 14 s
   const zM = (zA + zB) / 2, F = { t: 0, it: 0.3, used: new Map(), free: [], n: 0 }, XL = () => X0 + vx * F.t;
   const live = () => W.filter((b) => !b.dead && b.state === 'cross');
   // a boat comes near the camera: four men in its bow; it goes off, they go back to the pool and its own figures come back
@@ -835,11 +844,12 @@ function mzDroneFilm() {
   playCine({
     vid: 'mz_drone',
     shots: [
-      { d: 10.0, cam: (u) => { const z = zAt(u), x = XL(); return { p: V3(x + 10, 2.2 + 0.12 * Math.sin(F.t * 1.7), z), l: V3(x - 1, 1.0, z + 3.2), fov: 34 }; } },
-      { d: 3.4, cam: (u) => { const e = u * u * (3 - 2 * u), x = XL(); return { p: V3(x + 10 + 22 * e, 2.2 + 13 * e, zB + 6 * e), l: V3(x - 2 * (1 - e), lerp(1.0, 0.6, e), lerp(zB + 3.2, zM, e)), fov: lerp(34, 52, e) }; } },
+      // the pass: six and a half metres in front of the bows, a metre and a half over the gunwales, slowly, the game a little slowed with it
+      { d: 14.0, slow: 0.8, cam: (u) => { const z = zAt(u), x = XL(); return { p: V3(x + 6.5, 2.0 + 0.1 * Math.sin(F.t * 1.7), z), l: V3(x - 1, 1.05, z + 2.2), fov: 30 }; } },
+      { d: 3.6, cam: (u) => { const e = u * u * (3 - 2 * u), x = XL(); return { p: V3(x + 6.5 + 25 * e, 2.0 + 14 * e, zB + 6 * e), l: V3(x - 2 * (1 - e), lerp(1.05, 0.6, e), lerp(zB + 2.2, zM, e)), fov: lerp(30, 52, e) }; } },
     ],
     tick,
-    caps: [[0.3, '<b>תצפית:</b> הם כבר באמצע התעלה! עשרות סירות, שורה אחת!', 3.6], [4.4, 'בכל סירה חיילים צפופים. הם יורים עלינו תוך כדי חתירה.', 3.6], [9.6, '<b>מ״פ:</b> אש על הסירות! לא נותנים להם להגיע לחוף!', 3.6]],
+    caps: [[0.3, '<b>תצפית:</b> הם כבר באמצע התעלה! עשרות סירות, שורה אחרי שורה!', 3.8], [6.0, 'בכל סירה חיילים צפופים. הם יורים עלינו תוך כדי חתירה.', 4.0], [13.4, '<b>מ״פ:</b> אש על הסירות! לא נותנים להם להגיע לחוף!', 4.0]],
     end: () => { for (const b of [...F.used.keys()]) crewOff(b); },
   });
 }

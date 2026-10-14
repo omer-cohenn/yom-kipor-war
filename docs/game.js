@@ -4519,7 +4519,7 @@ function doAction() {
 function manMag(post) { P.mode = 'mag'; P.post = post; post.occupant = 'player'; P.pos.set(post.stand[0], post.g, post.stand[1]); P.yaw = post.mag.pivot.rotation.y + Math.PI; P.pitch = -0.05; P.crouch = false; P.reloadT = 0; sndClick(600, 0.2); 
   if (MODE === 'mezach' && !SURV.on && D.scene === 0 && D.phase === 'scene') mzDroneFilm(); }   // the first gun on the western rampart: the boats, seen up close
 function leaveMag() {
-  const p = P.post; if (!p) return; p.occupant = null; P.mode = 'rifle'; P.post = null;
+  const p = P.post; if (!p) return; p.occupant = null; P.mode = 'rifle'; P.post = null; vm.visible = true;
   let x = p.stand[0] - p.fx * 1.2, z = p.stand[1] - p.fz * 1.2; const [k, d] = trK(p.stand[0], p.stand[1]);
   if (d < 3.6) { const q = TR.pts[k], o = TR.out[k]; x = q[0] + o[0] * 0.45; z = q[1] + o[1] * 0.45; if (blocked(x, z, 0.3, groundAt(x, z))) { x = q[0]; z = q[1]; } }
   P.pos.set(x, groundAt(x, z), z); P.vy = 0;
@@ -7112,7 +7112,7 @@ function playCine(def) {
   if (CINE.on) endCine(true);
   Object.assign(CINE, { on: true, t: 0, def, slow: 1, ev: (def.ev || []).slice().sort((a, b) => a[0] - b[0]), caps: (def.caps || []).map((c) => ({ t: c[0], html: c[1], d: c[2] || 3.6 })), total: def.shots.reduce((a, s) => a + s.d, 0), capT: 0, fov0: camera.fov, vid: null });
   $('#app').classList.add('cine'); $('#cine').hidden = false; $('#cineCap').innerHTML = ''; $('#cineTitle').textContent = def.title || ''; $('#cineTitle').classList.toggle('on', !!def.title);
-  P.ads = 0; INPUT.fire = false; vm.visible = false; $('#tsight').classList.remove('on'); cvidStart(def.vid); updCine(0);
+  CINE.vm0 = vm.visible; P.ads = 0; INPUT.fire = false; vm.visible = false; $('#tsight').classList.remove('on'); cvidStart(def.vid); updCine(0);
 }
 function updCine(dt) {
   if (CINE.vid) { const v = CVID.el;
@@ -7132,7 +7132,7 @@ function updCine(dt) {
 function endCine(skip) {
   if (!CINE.on) return; const def = CINE.def; if (skip) while (CINE.ev.length) CINE.ev.shift()[1]();
   CINE.on = false; CINE.slow = 1; FILMW.length = 0; if (CINE.vid) cvidStop(); $('#app').classList.remove('cine'); $('#cine').hidden = true; $('#cineCap').innerHTML = ''; camera.fov = CINE.fov0 || 72; camera.updateProjectionMatrix();
-  if (P.mode === 'rifle') vm.visible = true; if (def && def.end) def.end(skip);
+  vm.visible = CINE.vm0 || P.mode === 'rifle'; if (def && def.end) def.end(skip);   // the rifle as it was before the film (a film that starts on a gun hid it too)
 }
 $('#cineSkip').addEventListener('click', () => endCine(true));
 /* film extras: men walking a straight line through a shot - a file climbing a road, prisoners with their hands up. Cleared by the film's end */
@@ -7186,11 +7186,20 @@ function mzDroneFilm() {
   const W = BOATS.filter((b) => !b.dead && (b.state === 'wait' || b.state === 'cross')); if (W.length < 6) return; D.droneFilm = true;
   // the wave is brought out into ragged lines abreast: the first a hundred-odd metres off the beach, the next two thirty and sixty metres behind
   // it, still near the quays (they land ten seconds apart, as the wave would have); the film opens on the crossing at its height
-  const X0 = tongueWestX(-5) - 105, rows = Math.max(1, Math.ceil(W.length / 8)), per = Math.ceil(W.length / rows);
-  W.forEach((b, i) => { const row = Math.floor(i / per), u = clamp((X0 - row * 30 + rand(-3.5, 3.5) - b.from[0]) / (b.to[0] - b.from[0]), 0.02, 0.9); b.t = (u * b.len) / b.speed; if (b.state === 'wait') { b.state = 'cross'; b.g.visible = true; } });
+  // each line is spread out along the bank, eight metres from boat to boat: a boat's track is turned to pass through its place in the line
+  // (it still lands where it was going)
+  const X0 = tongueWestX(-5) - 105, rows = Math.max(1, Math.ceil(W.length / 8)), per = Math.ceil(W.length / rows), QX = nearX(-400), GAP = 8;
+  for (let row = 0; row * per < W.length; row++) {
+    const L = W.slice(row * per, (row + 1) * per).sort((a, b) => a.to[1] - b.to[1]), zc = L.reduce((a, b) => a + b.to[1], 0) / L.length + (row % 2) * GAP * 0.5;
+    L.forEach((b, i) => {
+      const x = Math.max(X0 - row * 30 + rand(-1.5, 1.5), QX + 6), z = zc + (i - (L.length - 1) / 2) * GAP + rand(-1, 1), k = (QX - b.to[0]) / (x - b.to[0]);
+      b.from = [b.to[0] + (x - b.to[0]) * k, b.to[1] + (z - b.to[1]) * k]; b.len = Math.hypot(b.to[0] - b.from[0], b.to[1] - b.from[1]); b.heading = Math.atan2(b.to[0] - b.from[0], b.to[1] - b.from[1]);
+      b.t = Math.hypot(x - b.from[0], z - b.from[1]) / b.speed; if (b.state === 'wait') { b.state = 'cross'; b.g.visible = true; }
+    });
+  }
   updBoats(0);
   const front = W.slice(0, per), vx = front.reduce((a, b) => a + b.speed * Math.sin(b.heading), 0) / front.length, zs = front.map((b) => b.g.position.z).sort((a, b) => a - b);
-  let zA = zs[Math.min(1, zs.length - 1)] - 4, zB = zs[Math.max(0, zs.length - 2)] + 4; if (zB - zA > 75) { const m = (zA + zB) / 2; zA = m - 37.5; zB = m + 37.5; }
+  let zA = zs[Math.min(1, zs.length - 1)] - 3, zB = zs[Math.max(0, zs.length - 2)] + 3; if (zB - zA > 46) { const m = (zA + zB) / 2; zA = m - 23; zB = m + 23; }   // a slow pass: some 45 m in 14 s
   const zM = (zA + zB) / 2, F = { t: 0, it: 0.3, used: new Map(), free: [], n: 0 }, XL = () => X0 + vx * F.t;
   const live = () => W.filter((b) => !b.dead && b.state === 'cross');
   // a boat comes near the camera: four men in its bow; it goes off, they go back to the pool and its own figures come back
@@ -7221,11 +7230,12 @@ function mzDroneFilm() {
   playCine({
     vid: 'mz_drone',
     shots: [
-      { d: 10.0, cam: (u) => { const z = zAt(u), x = XL(); return { p: V3(x + 10, 2.2 + 0.12 * Math.sin(F.t * 1.7), z), l: V3(x - 1, 1.0, z + 3.2), fov: 34 }; } },
-      { d: 3.4, cam: (u) => { const e = u * u * (3 - 2 * u), x = XL(); return { p: V3(x + 10 + 22 * e, 2.2 + 13 * e, zB + 6 * e), l: V3(x - 2 * (1 - e), lerp(1.0, 0.6, e), lerp(zB + 3.2, zM, e)), fov: lerp(34, 52, e) }; } },
+      // the pass: six and a half metres in front of the bows, a metre and a half over the gunwales, slowly, the game a little slowed with it
+      { d: 14.0, slow: 0.8, cam: (u) => { const z = zAt(u), x = XL(); return { p: V3(x + 6.5, 2.0 + 0.1 * Math.sin(F.t * 1.7), z), l: V3(x - 1, 1.05, z + 2.2), fov: 30 }; } },
+      { d: 3.6, cam: (u) => { const e = u * u * (3 - 2 * u), x = XL(); return { p: V3(x + 6.5 + 25 * e, 2.0 + 14 * e, zB + 6 * e), l: V3(x - 2 * (1 - e), lerp(1.05, 0.6, e), lerp(zB + 2.2, zM, e)), fov: lerp(30, 52, e) }; } },
     ],
     tick,
-    caps: [[0.3, '<b>תצפית:</b> הם כבר באמצע התעלה! עשרות סירות, שורה אחת!', 3.6], [4.4, 'בכל סירה חיילים צפופים. הם יורים עלינו תוך כדי חתירה.', 3.6], [9.6, '<b>מ״פ:</b> אש על הסירות! לא נותנים להם להגיע לחוף!', 3.6]],
+    caps: [[0.3, '<b>תצפית:</b> הם כבר באמצע התעלה! עשרות סירות, שורה אחרי שורה!', 3.8], [6.0, 'בכל סירה חיילים צפופים. הם יורים עלינו תוך כדי חתירה.', 4.0], [13.4, '<b>מ״פ:</b> אש על הסירות! לא נותנים להם להגיע לחוף!', 4.0]],
     end: () => { for (const b of [...F.used.keys()]) crewOff(b); },
   });
 }
@@ -8737,51 +8747,52 @@ function mirageModel() {
 }
 function chuteModel() {
   const g = new THREE.Group(); const can = new THREE.Mesh(new THREE.SphereGeometry(3.2, 16, 8, 0, Math.PI * 2, 0, Math.PI * 0.42), new THREE.MeshStandardMaterial({ color: 0xe8e2d2, side: THREE.DoubleSide, roughness: 0.9 }));
-  can.position.y = 6; g.add(can); const stripes = new THREE.Mesh(new THREE.SphereGeometry(3.22, 16, 8, 0, Math.PI * 2, Math.PI * 0.2, Math.PI * 0.08), new THREE.MeshStandardMaterial({ color: 0xd2662a, side: THREE.DoubleSide })); stripes.position.y = 6; g.add(stripes);
-  const lines = []; for (let k = 0; k < 8; k++) { const a = k * 0.785; lines.push(V3(0, 0.9, 0), V3(Math.cos(a) * 2.9, 6 + 1.2, Math.sin(a) * 2.9)); } g.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(lines), new THREE.LineBasicMaterial({ color: 0x222222 })));
+  const cn = new THREE.Group(); g.add(cn); g.userData.canopy = cn;   // the canopy, lines and all, in a group of its own: it blooms over the pilot, who is there whole from the start
+  can.position.y = 6; cn.add(can); const stripes = new THREE.Mesh(new THREE.SphereGeometry(3.22, 16, 8, 0, Math.PI * 2, Math.PI * 0.2, Math.PI * 0.08), new THREE.MeshStandardMaterial({ color: 0xd2662a, side: THREE.DoubleSide })); stripes.position.y = 6; cn.add(stripes);
+  const lines = []; for (let k = 0; k < 8; k++) { const a = k * 0.785; lines.push(V3(0, 0.9, 0), V3(Math.cos(a) * 2.9, 6 + 1.2, Math.sin(a) * 2.9)); } cn.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(lines), new THREE.LineBasicMaterial({ color: 0x222222 })));
   const pilot = new THREE.Mesh(SEATED_F, MAT.clothF); pilot.position.y = -0.2; g.add(pilot); g.traverse((m) => onLayer1(m)); g.visible = false; scene.add(g); return g;
 }
 function mirageFilm() {
   if (!AIR.models) { AIR.models = { m: mirageModel(), mig: new THREE.Mesh(JET_GEO, MAT.jet), chute: chuteModel() }; scene.add(AIR.models.mig); onLayer1(AIR.models.mig); }
   const M = AIR.models, H = V3(nearX(-350), 235, 175), d = V3(0.9, 0, -0.45).normalize(), sp = 92;
   M.m.g.visible = true; M.m.wingR.visible = true; M.mig.visible = true; M.chute.visible = false; if (M.m.wingR.parent !== M.m.g) { M.m.g.attach(M.m.wingR); } M.m.wingR.position.set(0, 0, 0); M.m.wingR.rotation.set(0, 0, 0);
-  // the film opens with the missile already off the MiG's rail (it fires at 7.2 s of the dogfight, hits at 9): just the hit, then the pilot
-  const ev = AIR.ev = { t: 7.6, H, d, sp, hit: false, vy: 0, roll: 0, crashed: false, missile: null, wingV: V3(), smokeT: 0, chuteOn: false };
+  // three shots: the chase (from behind the Sukhoi, the Mirage ahead, the missile off its rail), the hit on the wing in slow motion close
+  // alongside, and the pilot thrown clear with his canopy opening over him
+  const ev = AIR.ev = { t: 5.4, H, d, sp, hit: false, vy: 0, roll: 0, crashed: false, missile: null, wingV: V3(), smokeT: 0, chuteOn: false };
   updMirage(0);
-  const mp = () => M.m.g.position.clone(), side = V3(-d.z, 0, d.x), sunSd = side.x * SUN.dir.x + side.z * SUN.dir.z > 0 ? 1 : -1, chT = () => (ev.chuteOn ? ev.chP.clone() : mp().add(V3(0, 8, 0)));
+  const mp = () => M.m.g.position.clone(), gp = () => M.mig.position.clone(), side = V3(-d.z, 0, d.x), sunSd = side.x * SUN.dir.x + side.z * SUN.dir.z > 0 ? 1 : -1, chT = () => (ev.chuteOn ? ev.chP.clone() : mp().add(V3(0, 3, 0)));
   playCine({ vid: 'mz_mirage',
     title: 'מעל תעלת סואץ · 14:00',
     shots: [
-      // the hit: alongside the Mirage on its sunny side as the missile comes up its tail, in slow motion, and the wing tearing away
-      { d: 4.4, slow: 0.5, cam: (u) => ({ p: mp().addScaledVector(side, 24 * sunSd).addScaledVector(d, -12 + u * 4).add(V3(0, 5, 0)), l: mp().addScaledVector(d, -5), fov: 44 }) },
-      // the pilot: out of the burning plane, the canopy opening over him, the wreck spinning away below and ahead
-      { d: 4.6, cam: (u) => { const c = chT(); return { p: c.clone().addScaledVector(side, 15 * sunSd).addScaledVector(d, -8 + u * 3).add(V3(0, -2 + u * 1.5, 0)), l: c.clone().addScaledVector(d, 9).add(V3(0, -4 - u * 4, 0)), fov: 46 }; } },
+      { d: 3.2, cam: (u) => ({ p: gp().addScaledVector(d, -16 + u * 3).addScaledVector(side, 4 * sunSd).add(V3(0, 3.5, 0)), l: mp().add(V3(0, -1, 0)), fov: 30 }) },
+      { d: 3.4, slow: 0.45, cam: (u) => ({ p: mp().addScaledVector(side, 14 * sunSd).addScaledVector(d, -9 + u * 3).add(V3(0, 3, 0)), l: mp().addScaledVector(d, -3).addScaledVector(side, 1.5 * sunSd), fov: 40 }) },
+      { d: 4.4, slow: 0.8, cam: (u) => { const c = chT(); return { p: c.clone().addScaledVector(side, 9 * sunSd).addScaledVector(d, -5 + u * 2).add(V3(0, -1.5 + u, 0)), l: c.clone().addScaledVector(d, 4).add(V3(0, 1.5 - u * 2.5, 0)), fov: 42 }; } },
     ],
-    caps: [[0.2, '<b>תצפית:</b> מיג על הזנב של המיראז׳ שלנו! טיל באוויר!', 2.6], [2.9, '<b>תצפית:</b> הוא נפגע! הכנף נקרעה!', 1.8], [4.8, '<b>מ״פ:</b> הטייס נטש! יש מצנח!', 2.2], [7.1, '<b>מ״פ:</b> כולם להישאר במקורה, המטוסים חוזרים!', 1.9]],
+    caps: [[0.2, '<b>תצפית:</b> מיראז׳ שלנו מעל התעלה! סוחוי על הזנב שלו!', 2.6], [1.9, '<b>תצפית:</b> טיל! טיל באוויר!', 1.8], [4.2, '<b>תצפית:</b> פגיעה בכנף! הכנף נקרעה!', 2.3], [6.8, '<b>מ״פ:</b> הטייס נטש! יש מצנח!', 2.2], [9.1, '<b>מ״פ:</b> כולם להישאר במקורה, המטוסים חוזרים!', 1.9]],
     end: () => { M.mig.visible = false; },
   });
 }
 function updMirage(dt) {
   const ev = AIR.ev, M = AIR.models; ev.t += dt; const t = ev.t, T_HIT = 9, d = ev.d;
   const mig = M.mig, g = M.m.g;
-  if (!ev.hit) { const p = ev.H.clone().addScaledVector(d, ev.sp * (t - T_HIT)); g.position.copy(p); g.rotation.set(0, Math.atan2(-d.z, d.x), Math.sin(t * 1.3) * 0.15); }
+  if (!ev.hit) { const p = ev.H.clone().addScaledVector(d, ev.sp * (t - T_HIT)); g.position.copy(p); g.rotation.set(0, Math.atan2(-d.z, d.x), Math.sin(t * 1.3) * 0.15); g.updateMatrixWorld(true); }
   // the MiG closes from behind, fires, and breaks away
-  { const lag = 230 - Math.min(80, t * 6), p = g.position.clone().addScaledVector(d, -lag).add(V3(0, 12, 0)); if (ev.hit) { const k = t - T_HIT; p.add(V3(-k * 30, k * 18, k * 20)); } mig.position.copy(p); mig.rotation.set(0, Math.atan2(-d.z, d.x), ev.hit ? 0.9 : 0.1); }
+  { const lag = 165 - Math.min(60, t * 7), p = g.position.clone().addScaledVector(d, -lag).add(V3(0, 12, 0)); if (ev.hit) { const k = t - T_HIT; p.add(V3(-k * 30, k * 18, k * 20)); } mig.position.copy(p); mig.rotation.set(0, Math.atan2(-d.z, d.x), ev.hit ? 0.9 : 0.1); }
   if (t > 7.2 && !ev.missile && !ev.hit) { const m = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 1.4, 8).rotateZ(Math.PI / 2), MAT.dark); const fl = new THREE.Sprite(new THREE.SpriteMaterial({ map: FXT.fire, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, color: new THREE.Color(5, 2, 0.8) })); fl.scale.setScalar(2.2); m.add(fl); scene.add(m); ev.missile = { m, from: mig.position.clone() }; sndShot('ak', mig.position); }
-  if (ev.missile && !ev.hit) { const k = clamp((t - 7.2) / 1.8, 0, 1), p = ev.missile.from.clone().lerp(g.position, k * k * (3 - 2 * k)); ev.missile.m.position.copy(p); ev.missile.m.lookAt(g.position); if (Math.random() < 0.9) { const s = FX.smoke.get(); s.life = 3.5; s.s.position.copy(p); s.s.material.color.set(0xd8d4cc); s.upd = (q, u) => { q.s.scale.setScalar(1 + u * 5); q.s.material.opacity = 0.7 * (1 - u); }; } }
+  if (ev.missile && !ev.hit) { const k = clamp((t - 7.2) / 1.8, 0, 1), wp = M.m.wingR.localToWorld(V3(-2.4, 0, 2.3)), p = ev.missile.from.clone().lerp(wp, k * k * (3 - 2 * k)); ev.missile.m.position.copy(p); ev.missile.m.lookAt(wp); if (Math.random() < 0.9) { const s = FX.smoke.get(); s.life = 3.5; s.s.position.copy(p); s.s.material.color.set(0xd8d4cc); s.upd = (q, u) => { q.s.scale.setScalar(1 + u * 5); q.s.material.opacity = 0.7 * (1 - u); }; } }
   if (!ev.hit && t >= T_HIT) {
-    ev.hit = true; if (ev.missile) { scene.remove(ev.missile.m); ev.missile = null; } const p = g.position.clone(); fxExplosion(p, 2.2); sndBoom(p, 1.6); FX.shake = Math.max(FX.shake, 0.3);
+    ev.hit = true; if (ev.missile) { scene.remove(ev.missile.m); ev.missile = null; } const p = M.m.wingR.localToWorld(V3(-2.4, 0, 2.3)); fxExplosion(p, 2.2); sndBoom(p, 1.6); FX.shake = Math.max(FX.shake, 0.3);
     scene.attach(M.m.wingR); ev.wingV.copy(d).multiplyScalar(ev.sp * 0.6).add(V3(0, 12, 0)); ev.v = d.clone().multiplyScalar(ev.sp * 0.92); radio('תצפית', 'מיראז׳ נפגע!', 2);
   }
   if (ev.hit && !ev.crashed) {
     ev.v.y -= 9.8 * dt * 0.95; g.position.addScaledVector(ev.v, dt); ev.roll += dt * 2.6; g.rotation.set(0, Math.atan2(-d.z, d.x), ev.roll); g.rotateZ(-Math.atan2(-ev.v.y, Math.hypot(ev.v.x, ev.v.z)) * 0.0);
     const w = M.m.wingR; ev.wingV.y -= 9.8 * dt; w.position.addScaledVector(ev.wingV, dt); w.rotation.x += dt * 4; w.rotation.y += dt * 2.2;
     ev.smokeT -= dt; if (ev.smokeT <= 0) { ev.smokeT = 0.025; const s = FX.smoke.get(); s.life = 7; s.s.position.copy(g.position); s.s.material.color.set(0x1d1a17); s.upd = (q, u) => { q.s.scale.setScalar(3 + u * 12); q.s.material.opacity = 0.85 * (1 - u); }; const f = FX.fire.get(); f.life = 0.5; f.s.position.copy(g.position); f.s.scale.setScalar(7.5); f.upd = (q, u) => q.s.scale.setScalar(7.5 * (1 - u * 0.6)); }
-    if (t > T_HIT + 1.3 && !ev.chuteOn) { ev.chuteOn = true; ev.chP = g.position.clone().add(V3(0, 8, 0)); ev.chV = V3(d.x * 20, 22, d.z * 20); M.chute.visible = true; M.chute.scale.setScalar(0.2); }
+    if (t > T_HIT + 1.0 && !ev.chuteOn) { ev.chuteOn = true; ev.chT = 0; ev.chP = g.position.clone().add(V3(0, 3, 0)); ev.chV = V3(d.x * 20, 24, d.z * 20); M.chute.visible = true; M.chute.scale.setScalar(1); M.chute.userData.canopy.scale.setScalar(0.02); }
     const gy = groundAt(g.position.x, g.position.z); if (g.position.y < Math.max(gy, 0) + 1) { ev.crashed = true; ev.crashP = g.position.clone(); ev.crashP.y = Math.max(gy, 0); fxExplosion(ev.crashP, 3.2); sndBoom(ev.crashP, 3); g.visible = false; D.smoke.push(smokeColumn(ev.crashP.x, ev.crashP.z, 36, true)); FX.shake = Math.max(FX.shake, 0.6); }
     if (w.position.y < Math.max(groundAt(w.position.x, w.position.z), 0)) { w.visible = false; }
   }
-  if (ev.chuteOn) { const c = M.chute; ev.chV.multiplyScalar(Math.max(0, 1 - dt * 1.4)); ev.chP.addScaledVector(ev.chV, dt); ev.chP.y -= 4.2 * dt; ev.chP.x += 1.2 * dt; c.position.copy(ev.chP); c.scale.setScalar(Math.min(1, c.scale.x + dt * 0.8)); c.rotation.z = Math.sin(t * 0.9) * 0.08;
+  if (ev.chuteOn) { const c = M.chute; ev.chV.multiplyScalar(Math.max(0, 1 - dt * 1.4)); ev.chP.addScaledVector(ev.chV, dt); ev.chP.y -= 4.2 * dt; ev.chP.x += 1.2 * dt; c.position.copy(ev.chP); ev.chT += dt; { const k = clamp((ev.chT - 0.4) / 0.9, 0, 1); c.userData.canopy.scale.setScalar(Math.max(0.02, k * k * (3 - 2 * k))); } c.rotation.z = Math.sin(t * 0.9) * 0.08;
     if (ev.chP.y < Math.max(groundAt(ev.chP.x, ev.chP.z), 0) + 0.3) { c.visible = false; ev.chuteOn = false; feed('הטייס נחת מאחורי המעוז', 'good'); } }
   if (ev.crashed && !ev.chuteOn && t > 20) { AIR.ev = null; M.m.wingR.visible = true; }
 }
