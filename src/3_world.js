@@ -664,7 +664,7 @@ function updFarSmoke(dt, time) {
   }
 }
 function farFires() {
-  for (const [x, z, s, f] of [[-2350, -2700, 70, 1], [-1900, -3300, 55, 0], [-760, 120, 26, 1], [-980, -420, 34, 0], [520, -3000, 60, 1], [1300, -5200, 110, 0], [-2900, -2100, 80, 0], [640, -960, 40, 1], [1500, -1500, 70, 0], [-480, -120, 24, 1], [-620, 60, 32, 1], [-380, -300, 20, 1]]) smokeColumn(x, z, s, !!f);
+  for (const [x, z, s, f] of [[-2350, -2700, 70, 1], [-1900, -3300, 55, 0], [-760 + PTDX, 120, 26, 1], [-980 + PTDX, -420, 34, 0], [520, -3000, 60, 1], [1300, -5200, 110, 0], [-2900, -2100, 80, 0], [640, -960, 40, 1], [1500, -1500, 70, 0], [-480 + PTDX, -120, 24, 1], [-620 + PTDX, 60, 32, 1], [nearX(-380), -300, 20, 1]]) smokeColumn(x, z, s, !!f);
 }
 
 /* ================= towns across the canal ================= */
@@ -687,7 +687,7 @@ function palms(list) {
 function buildWaterfront() {
   const r = rng(7341), parts = [], dark = [], T = MAT.wall.map.clone(); T.wrapS = T.wrapT = THREE.RepeatWrapping; T.needsUpdate = true;
   const TONES = [0xece6d8, 0xe2d6bc, 0xd8ccb2, 0xcfc8ba, 0xe8dcc6, 0xc9bfa8];
-  const shore = (z) => { let x = -470; while (x > -620 && groundAt(x, z) < 1.0) x -= 2; return x; };
+  const shore = (z) => { let x = -470 + PTDX; while (x > -620 + PTDX && groundAt(x, z) < 1.0) x -= 2; return x; };
   const house = (xf, z0, z1, d, fl, ruin) => {
     const g = Math.min(groundAt(xf - d / 2, (z0 + z1) / 2), groundAt(xf, z0), groundAt(xf, z1)) - 0.4, tone = pick(TONES), h = fl * 3.3 + 0.7, top = g + 0.4 + h;
     if (!ruin) { parts.push([boxUV(xf - d, xf, g, top, z0, z1, 12, 9.9), tone]); parts.push([boxUV(xf - d - 0.2, xf + 0.25, top - 0.05, top + 0.55, z0 - 0.2, z1 + 0.2, 6, 1), 0xd9d0bc]); return; }
@@ -698,7 +698,7 @@ function buildWaterfront() {
     for (let k = 0; k < 6; k++) dark.push([G.box(0.8 + r() * 1.5, 0.4 + r() * 0.6, 0.8 + r() * 1.5), 0x9a8e78, M4(xf + 1 + r() * 4, groundAt(xf + 2, z0) + 0.2, lerp(z0, z1, r()), r(), r() * 3, r())]);
   };
   for (const [row, dx] of [[0, 0], [1, -24]]) {
-    let z = -470; while (z < 395) { const w = 11 + r() * 15, gap = row ? 2 + r() * 6 : (r() < 0.25 ? 6 + r() * 8 : 1 + r() * 2.5), zc = z + w / 2, xs = shore(zc); if (xs < -600) { z += w + gap; continue; }
+    let z = -470; while (z < 395) { const w = 11 + r() * 15, gap = row ? 2 + r() * 6 : (r() < 0.25 ? 6 + r() * 8 : 1 + r() * 2.5), zc = z + w / 2, xs = shore(zc); if (xs < -600 + PTDX) { z += w + gap; continue; }
       const xf = xs - 16 - r() * 7 + dx, fl = row ? 3 + Math.floor(r() * 3) : 2 + Math.floor(r() * r() * 4); house(xf, z, z + w, 11 + r() * 9, fl, r() < 0.22); z += w + gap; }
   }
   // the minaret and the dome of the mosque by the harbour
@@ -710,10 +710,10 @@ function buildWaterfront() {
 function buildTowns() {
   const r = rng(31); const WALLS = [[0.86, 0.83, 0.76], [0.82, 0.71, 0.53], [0.88, 0.80, 0.62], [0.72, 0.70, 0.66], [0.79, 0.75, 0.68]];
   const pt = [];
-  for (let x = -1090; x <= -530; x += 26) for (let z = -540; z <= 420; z += 24) {
+  for (let x = -1090 + PTDX; x <= -530 + PTDX; x += 26) for (let z = -540; z <= 420; z += 24) {
     const jx = x + (r() - .5) * 7, jz = z + (r() - .5) * 7;
-    if (!inPoly(jx, jz, PT_ZONE) || inPoly(jx, jz, [[-915, -265], [-705, -265], [-705, -55], [-915, -55]]) || jx > -612) continue;
-    if (((jx + 1100) % 70 + 70) % 70 < 13 || ((jz + 560) % 70 + 70) % 70 < 13 || r() < 0.28 || groundAt(jx, jz) < 0.9) continue;
+    if (!inPoly(jx, jz, PT_ZONE) || inPoly(jx, jz, [[-915 + PTDX, -265], [-705 + PTDX, -265], [-705 + PTDX, -55], [-915 + PTDX, -55]]) || jx > -612 + PTDX) continue;
+    if (((jx + 1100 - PTDX) % 70 + 70) % 70 < 13 || ((jz + 560) % 70 + 70) % 70 < 13 || r() < 0.28 || groundAt(jx, jz) < 0.9) continue;
     const ruined = r() < 0.2; pt.push({ x: jx, z: jz, w: 10 + r() * 8, d: 9 + r() * 6, h: ruined ? 1.8 + r() * 2.5 : 6 + r() * 5, rot: (r() - .5) * 0.06, c: ruined ? [0.5, 0.47, 0.42] : pick(WALLS) });
   }
   buildWaterfront();
@@ -727,11 +727,11 @@ function buildTowns() {
   }
   instBoxes(suez);
   const pl = [];
-  for (let z = -470; z <= 380; z += LITE ? 34 : 19) { let x = -470; while (x > -600 && groundAt(x, z) < 1.0) x -= 2; if (x <= -600) continue; pl.push([x - 5 - r() * 7, z + (r() - 0.5) * 6, 0.8 + r() * 0.45, r() * 6.28]); }
-  for (let i = 0; i < (LITE ? 20 : 70); i++) { const x = -560 - r() * 480, z = -520 + r() * 900; if (inPoly(x, z, PT_ZONE) && groundAt(x, z) > 0.9) pl.push([x, z, 0.75 + r() * 0.4, r() * 6.28]); }
+  for (let z = -470; z <= 380; z += LITE ? 34 : 19) { let x = -470 + PTDX; while (x > -600 + PTDX && groundAt(x, z) < 1.0) x -= 2; if (x <= -600 + PTDX) continue; pl.push([x - 5 - r() * 7, z + (r() - 0.5) * 6, 0.8 + r() * 0.45, r() * 6.28]); }
+  for (let i = 0; i < (LITE ? 20 : 70); i++) { const x = -560 + PTDX - r() * 480, z = -520 + r() * 900; if (inPoly(x, z, PT_ZONE) && groundAt(x, z) > 0.9) pl.push([x, z, 0.75 + r() * 0.4, r() * 6.28]); }
   palms(pl);
-  { let x = -470; while (x > -600 && groundAt(x, -40) < 1.0) x -= 2; flag(x - 7, -40, 'eg', 10, 2.6); }
-  for (const z of [-300, -60, 250]) { const arc = []; for (let a = 0; a <= 180; a += 30) { const t = THREE.MathUtils.degToRad(a); arc.push([-512 + Math.sin(t) * 1.6, z - Math.cos(t) * 1.6]); } bagWall(arc, 4, null, false); }
+  { let x = -470 + PTDX; while (x > -600 + PTDX && groundAt(x, -40) < 1.0) x -= 2; flag(x - 7, -40, 'eg', 10, 2.6); }
+  for (const z of [-300, -60, 250]) { const arc = []; for (let a = 0; a <= 180; a += 30) { const t = THREE.MathUtils.degToRad(a); arc.push([-512 + PTDX + Math.sin(t) * 1.6, z - Math.cos(t) * 1.6]); } bagWall(arc, 4, null, false); }
 }
 
 /* ================= ground clutter ================= */

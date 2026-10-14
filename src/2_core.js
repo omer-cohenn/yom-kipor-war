@@ -105,7 +105,12 @@ const bearingOf = (dx, dz) => (THREE.MathUtils.radToDeg(Math.atan2(dx, -dz)) + 3
 const MAP = { x0: -3200, x1: 3200, z0: -4300, z1: 2100 };
 const MW = MAP.x1 - MAP.x0, MH = MAP.z1 - MAP.z0;
 const EAST_BANK = [[2800, -40000], [1900, -9000], [1350, -6000], [930, -4400], [810, -3800], [650, -3200], [470, -2500], [270, -1800], [50, -1200], [-110, -760], [-140, -600]];
-const WEST_BANK = [[2380, -40000], [1680, -9000], [1130, -6000], [710, -4400], [590, -3800], [430, -3200], [250, -2500], [50, -1800], [-170, -1200], [-360, -760], [-470, -520]];
+/* the canal in front of the stronghold is drawn about half its real width (some 200 m of water instead of 400): the far bank, the quays and the
+   houses of Port Tewfik stand that much nearer, close enough to see the men in the boats. PTDX moves the whole Port Tewfik peninsula east;
+   nearX maps a point on the old, wide water to the narrowed one */
+const PTDX = 200;
+const nearX = (x) => (x < -500 ? x + PTDX : x > -110 ? x : -110 + (x + 110) * (1 - PTDX / 390));
+const WEST_BANK = [[2380, -40000], [1680, -9000], [1130, -6000], [710, -4400], [590, -3800], [430, -3200], [250, -2500], [50, -1800], [-170, -1200], [-360, -760], [-470 + PTDX, -520]];
 const EB_NEAR = EAST_BANK.slice(2), WB_NEAR = WEST_BANK.slice(2);
 const SINAI = [...EAST_BANK, [90, -590], [300, -650], [600, -700], [900, -690], [1200, -630], [1500, -510], [1750, -320], [1860, -20], [1920, 300], [2010, 600], [2300, 900], [2700, 1300], [3300, 1700], [6000, 4500], [12000, 14000], [20000, 40000], [40000, 40000], [40000, -40000]];
 const TONGUE0 = [[-60, -800], [-120, -560], [-104, -300], [-92, -100], [-90, 100], [-74, 300], [-48, 600], [-32, 900], [-22, 1070], [0, 1115], [22, 1070], [30, 900], [44, 600], [68, 300], [92, 100], [98, -100], [98, -300], [92, -560], [130, -800]];
@@ -117,10 +122,10 @@ const shoreWid = (z) => SHORE_WIDE * smooth(-440, -250, z) * (1 - smooth(250, 43
 const TONGUE_WL0 = TONGUE0.slice(1, 10), TONGUE_WL = densify(TONGUE_WL0, 18).map(([x, z]) => [x - shoreWid(z), z]);
 const TONGUE = [TONGUE0[0], ...TONGUE_WL, ...TONGUE0.slice(10)];
 const TONGUE_E = TONGUE0.slice(9, 18);
-const EGYPT = [...WEST_BANK, [-500, -200], [-505, 200], [-515, 410], [-560, 462], [-660, 470], [-820, 440], [-1000, 380], [-1100, 300], [-1125, 0], [-1085, -300], [-990, -560], [-1300, -900], [-1700, -1300], [-2100, -1650], [-2600, -1900], [-3300, -2000], [-6000, -1500], [-9000, 0], [-11000, 6000], [-14000, 20000], [-18000, 40000], [-40000, 40000], [-40000, -40000]];
-const BASIN = [[-900, -250], [-720, -250], [-720, -70], [-900, -70]];
+const EGYPT = [...WEST_BANK, ...[[-500, -200], [-505, 200], [-515, 410], [-560, 462], [-660, 470], [-820, 440], [-1000, 380], [-1100, 300], [-1125, 0], [-1085, -300], [-990, -560]].map(([x, z]) => [x + PTDX, z]), [-1300, -900], [-1700, -1300], [-2100, -1650], [-2600, -1900], [-3300, -2000], [-6000, -1500], [-9000, 0], [-11000, 6000], [-14000, 20000], [-18000, 40000], [-40000, 40000], [-40000, -40000]];
+const BASIN = [[-900, -250], [-720, -250], [-720, -70], [-900, -70]].map(([x, z]) => [x + PTDX, z]);
 const LAGOON = [[92, -560], [300, -640], [600, -690], [900, -680], [1200, -620], [1500, -500], [1740, -320], [1850, -20], [1900, 300], [1980, 600], [1100, 880], [400, 1150], [30, 1110], [44, 600], [68, 300], [98, -100]];
-const PT_ZONE = [[-500, -560], [-500, 410], [-560, 455], [-820, 430], [-1100, 290], [-1120, 0], [-1080, -300], [-990, -560]];
+const PT_ZONE = [[-500, -560], [-500, 410], [-560, 455], [-820, 430], [-1100, 290], [-1120, 0], [-1080, -300], [-990, -560]].map(([x, z]) => [x + PTDX, z]);
 const MAOZ = [[-60, -86], [0, -98], [46, -84], [64, -24], [60, 38], [38, 82], [-4, 94], [-58, 84], [-77, 30], [-79, -30]];
 const YARD = MAOZ.map((p) => [p[0] * 0.86, p[1] * 0.86]);
 const GATE_N = [0, -98], GATE_S = [-4, 94];
@@ -233,7 +238,7 @@ function terrainAt0(x, z) {
     if (DUGS && DUG_ON) h = dugCut(x, z, h);
   } else {
     h = 0.45 + 2.2 * smooth(0, 40, inl) + 0.35 * fbm(x / 350, z / 350, 3);
-    const urb = Math.max(1 - smooth(1500, 4200, Math.hypot(x + 2700, z + 3100)), 1 - smooth(500, 900, Math.hypot(x + 800, z)));
+    const urb = Math.max(1 - smooth(1500, 4200, Math.hypot(x + 2700, z + 3100)), 1 - smooth(500, 900, Math.hypot(x + 800 - PTDX, z)));
     mix3(PAL.sandL, PAL.sandD, smooth(-0.3, 0.4, fbm(x / 260, z / 260, 3)));
     mixIn(PAL.urban, urb * 0.8);
     if (z < -640) { const d = distPolyline(x, z, WB_NEAR); feat = Math.max(feat, 20 * Math.exp(-(((d - 48) / 17) ** 2)) * smooth(-640, -900, z)); }
@@ -418,10 +423,10 @@ function groundTex() {
   line(offsetLine(EB_NEAR, 62), 9, 'rgb(252,250,246)', 0.95);
   line(densify(ROAD_SOUTH, 20), 5, 'rgb(172,162,146)');
   line(ROAD_LEXICON, 8, 'rgb(98,94,88)'); line(ROAD_PGISHA, 8, 'rgb(98,94,88)'); line(ROAD_ACCESS, 6, 'rgb(104,99,92)'); line(ROAD_EGY, 8, 'rgb(112,108,100)');
-  line([[-990, -600], [-1300, -940], [-1700, -1340], [-2100, -1690], [-2600, -1945], [-3300, -2045]], 13, 'rgb(118,114,106)');
+  line([[-990 + PTDX, -600], [-1300, -940], [-1700, -1340], [-2100, -1690], [-2600, -1945], [-3300, -2045]], 13, 'rgb(118,114,106)');
   g.save(); path(PT_ZONE); g.closePath(); g.clip(); g.strokeStyle = 'rgb(186,182,174)'; g.lineWidth = 8 * m;
-  for (let x = -1100; x < -500; x += 70) { g.beginPath(); g.moveTo(px(x), pz(-600)); g.lineTo(px(x), pz(480)); g.stroke(); }
-  for (let z = -560; z < 470; z += 70) { g.beginPath(); g.moveTo(px(-1150), pz(z)); g.lineTo(px(-480), pz(z)); g.stroke(); }
+  for (let x = -1100 + PTDX; x < -500 + PTDX; x += 70) { g.beginPath(); g.moveTo(px(x), pz(-600)); g.lineTo(px(x), pz(480)); g.stroke(); }
+  for (let z = -560; z < 470; z += 70) { g.beginPath(); g.moveTo(px(-1150 + PTDX), pz(z)); g.lineTo(px(-480 + PTDX), pz(z)); g.stroke(); }
   g.restore();
   g.fillStyle = 'rgb(206,200,190)'; path(MAOZ); g.closePath(); g.fill();
   const t = tex(c); t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping; return t;

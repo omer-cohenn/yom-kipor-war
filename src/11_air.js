@@ -59,21 +59,21 @@ function chuteModel() {
 }
 function mirageFilm() {
   if (!AIR.models) { AIR.models = { m: mirageModel(), mig: new THREE.Mesh(JET_GEO, MAT.jet), chute: chuteModel() }; scene.add(AIR.models.mig); onLayer1(AIR.models.mig); }
-  const M = AIR.models, H = V3(-350, 235, 175), d = V3(0.9, 0, -0.45).normalize(), sp = 92;
+  const M = AIR.models, H = V3(nearX(-350), 235, 175), d = V3(0.9, 0, -0.45).normalize(), sp = 92;
   M.m.g.visible = true; M.m.wingR.visible = true; M.mig.visible = true; M.chute.visible = false; if (M.m.wingR.parent !== M.m.g) { M.m.g.attach(M.m.wingR); } M.m.wingR.position.set(0, 0, 0); M.m.wingR.rotation.set(0, 0, 0);
-  const ev = AIR.ev = { t: 0, H, d, sp, hit: false, vy: 0, roll: 0, crashed: false, missile: null, wingV: V3(), smokeT: 0, chuteOn: false };
+  // the film opens with the missile already off the MiG's rail (it fires at 7.2 s of the dogfight, hits at 9): just the hit, then the pilot
+  const ev = AIR.ev = { t: 7.6, H, d, sp, hit: false, vy: 0, roll: 0, crashed: false, missile: null, wingV: V3(), smokeT: 0, chuteOn: false };
   updMirage(0);
-  const mp = () => M.m.g.position.clone(), side = V3(-d.z, 0, d.x), sunSd = side.x * SUN.dir.x + side.z * SUN.dir.z > 0 ? 1 : -1, eye0 = playerEye(), eyeUp = () => { const e = eye0.clone(); e.y = Math.max(e.y, groundAt(e.x, e.z) + 1.6) + 2.6; return e; };
+  const mp = () => M.m.g.position.clone(), side = V3(-d.z, 0, d.x), sunSd = side.x * SUN.dir.x + side.z * SUN.dir.z > 0 ? 1 : -1, chT = () => (ev.chuteOn ? ev.chP.clone() : mp().add(V3(0, 8, 0)));
   playCine({ vid: 'mz_mirage',
     title: 'מעל תעלת סואץ · 14:00',
     shots: [
-      { d: 3.0, cam: (u) => ({ p: mp().addScaledVector(d, -30 + u * 4).addScaledVector(side, 9 * sunSd).add(V3(0, 6, 0)), l: mp().addScaledVector(d, 30).add(V3(0, -5, 0)), fov: 48 }) },
-      { d: 3.0, cam: (u) => ({ p: mp().addScaledVector(d, 24).addScaledVector(side, 7 * sunSd).add(V3(0, 2, 0)), l: mp().addScaledVector(d, -70).add(V3(0, 8, 0)), fov: 38 }) },
-      { d: 7.2, slow: 0.5, cam: (u) => ({ p: mp().addScaledVector(side, 24 * sunSd).addScaledVector(d, -12 + u * 4).add(V3(0, 5, 0)), l: mp().addScaledVector(d, -5), fov: 44 }) },
-      { d: 4.0, slow: 0.6, cam: (u) => ({ p: H.clone().addScaledVector(side, 42 * sunSd).addScaledVector(d, 95).add(V3(0, -22, 0)), l: mp(), fov: 30 }) },
-      { d: 4.6, cam: (u) => ({ p: eyeUp(), l: ev.crashed ? ev.crashP.clone().add(V3(0, 20, 0)) : mp(), fov: 30 }) },
+      // the hit: alongside the Mirage on its sunny side as the missile comes up its tail, in slow motion, and the wing tearing away
+      { d: 4.4, slow: 0.5, cam: (u) => ({ p: mp().addScaledVector(side, 24 * sunSd).addScaledVector(d, -12 + u * 4).add(V3(0, 5, 0)), l: mp().addScaledVector(d, -5), fov: 44 }) },
+      // the pilot: out of the burning plane, the canopy opening over him, the wreck spinning away below and ahead
+      { d: 4.6, cam: (u) => { const c = chT(); return { p: c.clone().addScaledVector(side, 15 * sunSd).addScaledVector(d, -8 + u * 3).add(V3(0, -2 + u * 1.5, 0)), l: c.clone().addScaledVector(d, 9).add(V3(0, -4 - u * 4, 0)), fov: 46 }; } },
     ],
-    caps: [[0.5, '<b>תצפית:</b> מיראז׳ שלנו מעל התעלה! מיג על הזנב שלו!', 4.6], [8.5, '<b>תצפית:</b> טיל! טיל באוויר!', 3.2], [12.1, '<b>תצפית:</b> הוא נפגע! הכנף נקרעה!', 2.0], [14.3, '<b>מ״פ:</b> הטייס נטש! יש מצנח!', 2.8], [17.7, '<b>מ״פ:</b> הוא נופל מאחורי המעוז. כולם להישאר במקורה, המטוסים חוזרים!', 3.8]],
+    caps: [[0.2, '<b>תצפית:</b> מיג על הזנב של המיראז׳ שלנו! טיל באוויר!', 2.6], [2.9, '<b>תצפית:</b> הוא נפגע! הכנף נקרעה!', 1.8], [4.8, '<b>מ״פ:</b> הטייס נטש! יש מצנח!', 2.2], [7.1, '<b>מ״פ:</b> כולם להישאר במקורה, המטוסים חוזרים!', 1.9]],
     end: () => { M.mig.visible = false; },
   });
 }

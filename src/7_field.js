@@ -706,7 +706,7 @@ const CINE = { on: false, t: 0, slow: 1, def: null, ev: [], caps: [], total: 0, 
    hand it plays over the 3D view, which is not drawn meanwhile (a weak computer shows the film as smooth as a strong one). The film itself
    still runs underneath: its events, its sound and its captions keep time with the picture, and the battle goes on from where the film left it */
 const CVID = { el: $('#cineVid'), on: false, wait: 0, off: false, blobs: {}, q: [],
-  ch: { mezach: ['mz_mirage', 'mz_boats'], rescue: ['rs_intro', 'rs_end'], cross: ['cr_intro', 'cr_hold', 'cr_bridge', 'cr_end'], army: ['ar_end'], armor: ['am_intro', 'am_end'], hermon: ['hm_intro', 'hm_end'], suez: ['sz_lead', 'sz_convoy'], farm: ['fm_intro', 'fm_pits', 'fm_aq', 'fm_t42', 'fm_smoke', 'fm_yard', 'fm_hit', 'fm_end'] } };
+  ch: { mezach: ['mz_mirage', 'mz_drone', 'mz_boats'], rescue: ['rs_intro', 'rs_end'], cross: ['cr_intro', 'cr_hold', 'cr_bridge', 'cr_end'], army: ['ar_end'], armor: ['am_intro', 'am_end'], hermon: ['hm_intro', 'hm_end'], suez: ['sz_lead', 'sz_convoy'], farm: ['fm_intro', 'fm_pits', 'fm_aq', 'fm_t42', 'fm_smoke', 'fm_yard', 'fm_hit', 'fm_end'] } };
 CVID.el.addEventListener('playing', () => { if (CINE.on && CINE.vid && !CVID.on) { CVID.on = true; CVID.el.classList.add('on'); } });
 CVID.el.addEventListener('error', () => { if (CINE.vid) cvidStop(); });
 // the films that have a video so far (filled in when the videos are published; a film not listed is drawn live, as before)
@@ -733,6 +733,7 @@ function updCine(dt) {
     if (!CVID.on) { CVID.wait -= dt; if (CVID.wait > 0) dt = 0; else cvidStop(); }   // the film waits on its first frame while the video starts - a moment at most, then it runs without it
     else if (!v.ended) { if (v.paused) { const p = v.play(); if (p && p.catch) p.catch(() => {}); } dt = Math.max(0, v.currentTime + 1 / 24 - CINE.t); } }   // the picture leads: the film's clock follows the video's (frame i shows the film at (i+1)/24)
   CINE.t += dt; while (CINE.ev.length && CINE.ev[0][0] <= CINE.t) CINE.ev.shift()[1]();
+  if (CINE.def.tick) CINE.def.tick(dt * CINE.slow);   // a film's own per-frame work (in game time), before its camera is placed
   for (const c of CINE.caps) if (!c.shown && CINE.t >= c.t) { c.shown = true; $('#cineCap').innerHTML = c.html; CINE.capT = CINE.t + c.d; }
   if (CINE.capT && CINE.t > CINE.capT) { $('#cineCap').innerHTML = ''; CINE.capT = 0; }
   if (CINE.t > 3.5) $('#cineTitle').classList.remove('on');
@@ -774,7 +775,7 @@ function mzBoatsFilm() {
   playCine({
     vid: 'mz_boats', title: 'מעוז המזח · 6 באוקטובר 1973 · לפנות ערב',
     shots: [
-      { d: 5.6, cam: camLerp(V3(beachX + 3, 2.6, zc + 26), V3(beachX + 1, 2.2, zc + 20), V3(-236, 1.2, zc - 8), V3(-222, 1.0, zc - 2), 24) },
+      { d: 5.6, cam: camLerp(V3(beachX + 3, 2.6, zc + 26), V3(beachX + 1, 2.2, zc + 20), V3(nearX(-236), 1.2, zc - 8), V3(nearX(-222), 1.0, zc - 2), 24) },
       { d: 4.6, cam: (u) => { const b = mp(), f = fwd(mid), r = rgt(mid), sd = r.x * SUN.dir.x + r.z * SUN.dir.z > 0 ? 1 : -1; return { p: b.clone().addScaledVector(f, -2.5 + u * 3).addScaledVector(r, sd * 9).add(V3(0, 3.4, 0)), l: b.clone().addScaledVector(f, 0.5 + u * 1.5).add(V3(0, 0.6, 0)), fov: 46 }; } },
       { d: 4.0, cam: (u) => { const b = mp(), f = fwd(mid), r = rgt(mid); return { p: b.clone().addScaledVector(f, -6.5 + u * 1.2).addScaledVector(r, 1.4).add(V3(0, 2.5, 0)), l: V3(crestX(mid.zLand) - 4, groundAt(crestX(mid.zLand), mid.zLand) + 2.5, mid.zLand), fov: 48 }; } },
       { d: 5.4, slow: 0.55, cam: (u) => ({ p: V3(beachX + 10 - u * 1.5, groundAt(beachX + 10, zl + 11) + 2.3, zl + 11), l: V3(lerp(beachX - 3, beachX + 9, u * u), lerp(0.9, groundAt(beachX + 9, zl) + 1.4, u), zl), fov: 44 }) },
@@ -785,32 +786,61 @@ function mzBoatsFilm() {
       [10.4, '<b>תצפית:</b> הראשונים כבר ליד החוף! עוד רגע הם על הסוללה!', 3.6], [14.8, '<b>מ״פ:</b> הם נוחתים! כולם לסוללה המערבית!', 3.6], [19.8, '<b>מ״פ:</b> לא נותנים להם לעלות. אש על הסירות, עכשיו!', 3.0]],
   });
 }
-/* ---------- film, chapter 1: an Egyptian drops into the trench behind you. A friend sees him first ---------- */
-const PDBL = new Unit('f', 'rifle'); scene.remove(PDBL.tag);
-function mzFilmCheck() {
-  if (D.filmDone || CINE.on || D.scene !== 1 || D.phase !== 'scene' || D.phaseT < 14 || P.mode !== 'rifle' || !inTrench()) return;
-  if (UNITS.enemies.some((e) => e.alive && e.pos.distanceTo(P.pos) < 9)) return;
-  const [k] = trK(P.pos.x, P.pos.z), t = TR.n[k] ? [-TR.n[k][1], TR.n[k][0]] : [0, 1], f = camForward(V3()), dir = f.x * t[0] + f.z * t[1] > 0 ? -1 : 1, kb = clamp(k + dir * 6, 2, TR.pts.length - 3);
-  const C = scCorr(D.scene); if (kb < C.k0 || kb > C.k1) return;
-  const bp = TR.pts[kb]; let sav = null, bd = 45; for (const fr of FRIENDS) { if (fr.state !== 'post' || !fr.unit.rig.root.visible) continue; const c = fr.unit.eye(); const d = Math.hypot(c.x - bp[0], c.z - bp[1]); if (d < bd && losW(c.x, c.y, c.z, bp[0], groundAt(bp[0], bp[1]) + 1.2, bp[1])) { bd = d; sav = fr; } }
-  if (!sav) return; D.filmDone = true;
-  const o = TR.out[kb], top = V3(bp[0] + o[0] * 2.6, groundAt(bp[0] + o[0] * 2.6, bp[1] + o[1] * 2.6) + 0.2, bp[1] + o[1] * 2.6);
-  const e = spawnEnemy(bp[0], bp[1], 'rifle', null, null); if (!e) return; e.state = 'film'; e.pos.copy(top); e.face(P.pos.x, P.pos.z); e.stance = 'stand'; e.rig.pose('run', 0); e.sync();
-  PDBL.alive = true; PDBL.rig.root.visible = true; PDBL.pos.copy(P.pos); PDBL.heading = Math.atan2(f.x, f.z); PDBL.stance = 'stand'; PDBL.rig.pose('aim', 0, 0); PDBL.sync();
-  const su = sav.unit, ep = () => e.pos.clone(), pp = P.pos.clone(), floor = V3(bp[0], groundAt(bp[0], bp[1]), bp[1]);
-  let jt = 0;
+/* ---------- film, chapter 1, the boats up close: the moment the player takes a gun on the western rampart, a drone's pass along the line of
+   boats rowing at it - ten metres in front of them, a metre and a half over their gunwales - near enough to see the faces of the men firing
+   over the bows, and the stronghold's rounds slapping the water among them. Then it climbs, and the whole line is seen at once ---------- */
+const BCREW = [];   // the men in the bows of the boats nearest the camera: real soldiers (faces, helmets, rifles); the other boats keep their seated figures
+const BCREW_AT = [[2.05, -0.22, 'crouch'], [1.98, 0.27, 'aim'], [0.98, -0.34, 'crouch'], [0.93, 0.33, 'crouch']];   // in the boat (its own units, bow +x): x, z, and how he holds himself
+function bcrewUnit(i) {
+  while (BCREW.length <= i) { const u = new Unit('e', BCREW.length % 5 === 3 ? 'lmg' : 'rifle'); scene.remove(u.tag); u.noTag = true; u.alive = true; u.rig.root.visible = false; BCREW.push(u); }
+  return BCREW[i];
+}
+function mzDroneFilm() {
+  if (D.droneFilm || CINE.on) return;
+  const W = BOATS.filter((b) => !b.dead && (b.state === 'wait' || b.state === 'cross')); if (W.length < 6) return; D.droneFilm = true;
+  // the wave is brought out into ragged lines abreast: the first a hundred-odd metres off the beach, the next two thirty and sixty metres behind
+  // it, still near the quays (they land ten seconds apart, as the wave would have); the film opens on the crossing at its height
+  const X0 = tongueWestX(-5) - 105, rows = Math.max(1, Math.ceil(W.length / 8)), per = Math.ceil(W.length / rows);
+  W.forEach((b, i) => { const row = Math.floor(i / per), u = clamp((X0 - row * 30 + rand(-3.5, 3.5) - b.from[0]) / (b.to[0] - b.from[0]), 0.02, 0.9); b.t = (u * b.len) / b.speed; if (b.state === 'wait') { b.state = 'cross'; b.g.visible = true; } });
+  updBoats(0);
+  const front = W.slice(0, per), vx = front.reduce((a, b) => a + b.speed * Math.sin(b.heading), 0) / front.length, zs = front.map((b) => b.g.position.z).sort((a, b) => a - b);
+  let zA = zs[Math.min(1, zs.length - 1)] - 4, zB = zs[Math.max(0, zs.length - 2)] + 4; if (zB - zA > 75) { const m = (zA + zB) / 2; zA = m - 37.5; zB = m + 37.5; }
+  const zM = (zA + zB) / 2, F = { t: 0, it: 0.3, used: new Map(), free: [], n: 0 }, XL = () => X0 + vx * F.t;
+  const live = () => W.filter((b) => !b.dead && b.state === 'cross');
+  // a boat comes near the camera: four men in its bow; it goes off, they go back to the pool and its own figures come back
+  const crewOn = (b) => { const us = []; for (let k = 0; k < BCREW_AT.length; k++) { const u = bcrewUnit(F.free.length ? F.free.pop() : F.n++); u.rig.root.visible = true; u.alive = true; u.dieT = -1; u.cf = rand(0.2, 2.2); u.cb = 0; u.snapHd = true; u.rig.snapNext = true; us.push(u); } for (const s of b.seats) if (!s.rower && s.sp[0] > 0) s.m.visible = false; F.used.set(b, us); };
+  const crewOff = (b) => { const us = F.used.get(b); if (!us) return; for (const u of us) { u.rig.root.visible = false; F.free.push(BCREW.indexOf(u)); } for (const s of b.seats) if (!s.rower && s.alive && !s.gone) s.m.visible = true; F.used.delete(b); };
+  const _lp = V3();
+  const tick = (dt) => {
+    F.t += dt; const cam = camera.position;
+    // the seven boats nearest the camera have their men (the front line passes right by it; the lines behind are far enough for the figures)
+    const near = new Set(W.filter((b) => !b.dead && b.state === 'cross' && Math.abs(b.g.position.z - cam.z) < 16 && Math.abs(b.g.position.x - cam.x) < 30).sort((a, b) => a.g.position.distanceTo(cam) - b.g.position.distanceTo(cam)).slice(0, 7));
+    for (const b of W) { if (near.has(b) && !F.used.has(b)) crewOn(b); else if (!near.has(b) && F.used.has(b)) crewOff(b); }
+    for (const [b, us] of F.used) us.forEach((u, k) => {
+      const [x, z, pose] = BCREW_AT[k]; u.pos.copy(b.g.localToWorld(_lp.set(x, 0.05, z))); u.heading = b.heading; u.stance = pose === 'aim' ? 'stand' : 'crouch'; u.anim = (u.anim || 0) + dt;
+      if (u.dieT >= 0) { u.dieT += dt; u.rig.fallPose(Math.min(u.dieT, 1.4), 1, 'crumple'); u.sync(); return; }
+      u.rig.pose(pose, u.anim, 0.06); u.sync();
+      // his rifle at the rampart: short bursts, the green tracers going past the camera
+      u.cf -= dt; if (u.cf <= 0) { if (u.cb <= 0) u.cb = Math.floor(rand(2, 5)); u.cb--; u.cf = u.cb > 0 ? rand(0.1, 0.17) : rand(1.1, 2.8);
+        const m = u.muzzle(), zt = u.pos.z + rand(-10, 10), xt = crestX(zt) - 1; fxMuzzle(m); fxTracer(m, V3(xt, groundAt(xt, zt) + rand(0.4, 2.4), zt), true); if (m.distanceTo(cam) < 20 && u.cb % 2 === 0) sndShot(u.kind === 'lmg' ? 'lmg' : 'ak', m); }
+    });
+    // the stronghold answers: bursts from the rampart into the water round the boats, now and then into a boat
+    F.it -= dt; if (F.it <= 0) { F.it = rand(0.12, 0.32); const near = live().filter((b) => Math.abs(b.g.position.z - cam.z) < 26); const b = near.length ? pick(near) : pick(live()); if (b) {
+      const zf = b.g.position.z + rand(-30, 30), xf = crestX(zf) - 0.5, from = V3(xf, groundAt(xf, zf) + 1.1, zf), to = b.g.position.clone().add(V3(rand(-5, 3), 0.1, rand(-5, 5)));
+      for (let k = 0; k < 3; k++) DIRQ.push({ at: GAME.t + k * 0.08, fn: () => { const q = to.clone().add(V3(rand(-1.2, 1.2), 0, rand(-1.2, 1.2))); fxTracer(from, q, false); fxDust(q, true); if (!k) { fxMuzzle(from, false); sndShot('lmg', from); } } });
+      const us = F.used.get(b); if (us && Math.random() < 0.18) { const v = us.filter((u) => u.dieT < 0); if (v.length > 1) { const u = pick(v); u.dieT = 0; fxDust(u.chest()); } }
+    } }
+  };
+  const zAt = (u) => lerp(zA, zB, u * u * (3 - 2 * u));
   playCine({
+    vid: 'mz_drone',
     shots: [
-      { d: 2.3, slow: 0.4, cam: (u) => { const d = pp.clone().sub(ep()).setY(0).normalize(); return { p: ep().addScaledVector(d, -1.4).add(V3(0.5, 1.9, 0)), l: pp.clone().add(V3(0, 1.3, 0)), fov: 48 }; } },
-      { d: 1.9, slow: 0.35, cam: (u) => { const s = su.eye(), d = ep().sub(s).setY(0).normalize(); return { p: s.clone().addScaledVector(d, -1.3).add(V3(0.45, 0.25, 0)), l: ep().add(V3(0, 1.2, 0)), fov: 44 }; } },
-      { d: 2.0, slow: 0.5, cam: camLerp(() => floor.clone().add(V3(0, 2.6, 0)).addScaledVector(V3(o[0], 0, o[1]), -2.2), () => floor.clone().add(V3(0, 2.2, 0)).addScaledVector(V3(o[0], 0, o[1]), -2.6), () => ep().add(V3(0, 0.5, 0)), () => ep().add(V3(0, 0.3, 0)), 50) },
-      { d: 1.4, cam: (u) => ({ p: pp.clone().add(V3(0, 1.65, 0)), l: ep().add(V3(0, 0.4, 0)), fov: 60 }) },
+      { d: 10.0, cam: (u) => { const z = zAt(u), x = XL(); return { p: V3(x + 10, 2.2 + 0.12 * Math.sin(F.t * 1.7), z), l: V3(x - 1, 1.0, z + 3.2), fov: 34 }; } },
+      { d: 3.4, cam: (u) => { const e = u * u * (3 - 2 * u), x = XL(); return { p: V3(x + 10 + 22 * e, 2.2 + 13 * e, zB + 6 * e), l: V3(x - 2 * (1 - e), lerp(1.0, 0.6, e), lerp(zB + 3.2, zM, e)), fov: lerp(34, 52, e) }; } },
     ],
-    ev: [[0.01, () => { e.state = 'film'; }], [0.3, () => { jt = 1; }], [1.2, () => { e.pos.copy(floor); e.rig.pose('aim', 0, 0); e.face(pp.x, pp.z); e.sync(); }],
-      [2.6, () => { su.face(e.pos.x, e.pos.z); su.rig.pose('aim', 0, 0); su.sync(); }],
-      [3.6, () => { const m = su.muzzle(); fxMuzzle(m); sndShot('fal-npc', m); fxTracer(m, e.chest(), false); }], [3.75, () => { const m = su.muzzle(); fxMuzzle(m); sndShot('fal-npc', m); killEnemy(e, false); }]],
-    caps: [[0.2, `<b>${sav.name}:</b> מאחוריך!!`, 2.0], [4.4, `<b>${sav.name}:</b> הוא כמעט תפס אותך. תשמור לי על הגב, אני שומר לך.`, 3.2]],
-    end: () => { PDBL.rig.root.visible = false; if (e.alive) killEnemy(e, false); },
+    tick,
+    caps: [[0.3, '<b>תצפית:</b> הם כבר באמצע התעלה! עשרות סירות, שורה אחת!', 3.6], [4.4, 'בכל סירה חיילים צפופים. הם יורים עלינו תוך כדי חתירה.', 3.6], [9.6, '<b>מ״פ:</b> אש על הסירות! לא נותנים להם להגיע לחוף!', 3.6]],
+    end: () => { for (const b of [...F.used.keys()]) crewOff(b); },
   });
 }
 

@@ -627,7 +627,7 @@ function boatWave(z0, z1, n, t0, gap, seats, rpg = 0, flame = 0, hp) {
 }
 function launchBoat(zLand, delay, n, rpg = 0, flame = 0) {
   const seed = 9001 + Math.round(zLand * 13) + Math.max(0, D.scene) * 7919, r = rng(seed);
-  const to = [tongueWestX(zLand) - 4.5, zLand]; const from = [-400, clamp(zLand + (r() - 0.5) * 140, -380, 380)];
+  const to = [tongueWestX(zLand) - 4.5, zLand]; const from = [nearX(-400), clamp(zLand + (r() - 0.5) * 90, -380, 380)];   // from just off the Port Tewfik quays
   const bt = new Boat(from, to, Math.max(2, Math.ceil(n * 0.55)), diff.boat * 0.34, delay); /* a heavy rowboat: about three metres a second, a minute and a half across */ bt.zLand = zLand; bt.state = 'wait'; bt.seed = seed;
   const ns = bt.seats.length;   // the boat carries fewer men than the wave counts: never index past its seats (that froze the game)
   for (let i = 0; i < rpg && i < ns; i++) bt.seats[i].kind = 'rpg';
@@ -717,7 +717,7 @@ function corridorHas(C, x, z) {
 /* the mission is one trench: each stage opens the next stretch, sandbag barricades close everything else */
 const SCENES = [
   { title: 'סירות על המים', sub: 'שתיים אחרי הצהריים. מעבר לתעלה, מתוך העשן, יוצאות סירות עץ בשורה — עשרות חיילים בכל אחת, חותרים ישר אלינו. המא״ג המערבי הוא כל מה שעומד בינם לבין הסוללה.', goal: 'ירו בסירות מהמא״ג המערבי. מי שעלה לתעלה — הרגו אותו בתוכה', open: [136, 176], spawn: () => trenchAt(-1.0), face: 345, focus: w2Focus,
-    entries: [-20, -14, -8, -2, 3, 8.5], radio: ['מ״פ', 'סירות במים ממערב! המא״ג המערבי שלך!'], start() { boatWave(-21, 10, 22, 3, 2.2, diff.seats, 0, 0, 150); } },
+    entries: [-20, -14, -8, -2, 3, 8.5], radio: ['מ״פ', 'סירות במים ממערב! המא״ג המערבי שלך!'], start() { boatWave(-21, 10, 28, 3, 1.8, diff.seats, 0, 0, 150); } },
   { title: 'הפרצה בצפון', sub: 'המחסום הצפוני נפתח, ובקצה הסוללה, ליד עמדה 1, כבר מטפסים הראשונים שצלחו. בתעלה הצרה פוגשים אותם פנים אל פנים, שק חול אחרי שק חול.', goal: 'התקדמו צפונה בתעלה ונקו אותה מהצולחים', open: [96, 176], spawn: () => TR.pts[140], face: 0, focus: trFocus(-38, 'עמדה מערבית 1'),
     entries: [-55, -50, -39.5, -27], radio: ['יוסי', 'הם עולים עליי מצפון! תביאו תגבורת לתעלה!'], start() { boatWave(-57, -33, 9, 2, 6.5, Math.max(3, diff.seats - 1), 3, 0); } },
   { title: 'קומנדו בשער', sub: 'מכביש לכסיקון, מצפון, רץ כוח קומנדו ישר אל השער. הם מכירים את המוצב מתצלומי האוויר, ויודעים שהתעלה הצפונית היא הדרך פנימה.', goal: 'עצרו את הקומנדו בתעלה הצפונית, עד הפינה — והחזיקו אותה', open: [0, 176], spawn: () => TR.pts[100], face: 0, focus: postFocus('N1', 'עמדה צפונית'),
@@ -1024,7 +1024,8 @@ function doAction() {
     u.sync();
   }
 }
-function manMag(post) { P.mode = 'mag'; P.post = post; post.occupant = 'player'; P.pos.set(post.stand[0], post.g, post.stand[1]); P.yaw = post.mag.pivot.rotation.y + Math.PI; P.pitch = -0.05; P.crouch = false; P.reloadT = 0; sndClick(600, 0.2); }
+function manMag(post) { P.mode = 'mag'; P.post = post; post.occupant = 'player'; P.pos.set(post.stand[0], post.g, post.stand[1]); P.yaw = post.mag.pivot.rotation.y + Math.PI; P.pitch = -0.05; P.crouch = false; P.reloadT = 0; sndClick(600, 0.2); 
+  if (MODE === 'mezach' && !SURV.on && D.scene === 0 && D.phase === 'scene') mzDroneFilm(); }   // the first gun on the western rampart: the boats, seen up close
 function leaveMag() {
   const p = P.post; if (!p) return; p.occupant = null; P.mode = 'rifle'; P.post = null;
   let x = p.stand[0] - p.fx * 1.2, z = p.stand[1] - p.fz * 1.2; const [k, d] = trK(p.stand[0], p.stand[1]);
@@ -1350,7 +1351,7 @@ function resetGame() {
   DRUMFIRE.on = false; LIGHTS.fire.intensity = 0; LIGHTS.boom.intensity = 0; LIGHTS.wreck.intensity = 0;
   for (const j of STRAFE) scene.remove(j.m); STRAFE.length = 0;
   AIR.mirage = false; AIR.ev = null; AIR.next = 30; AIR.magT = 0; for (const b of AIR.bombs) scene.remove(b.m); AIR.bombs.length = 0; if (AIR.models) { AIR.models.m.g.visible = false; AIR.models.m.wingR.visible = false; AIR.models.mig.visible = false; AIR.models.chute.visible = false; }
-  Object.assign(D, { filmDone: false, boatsFilm: false, s2: false, s3: false, capture: 0, capWarn: false, chargeMsg: -99, scene: -1, objDone: false, introLen: 0, phase: 'alert', phaseT: 0, artT: 12, breachT: 0, inside: 0, barT: 0, launched: false, r2: false, jets: false, smoke: [] });
+  Object.assign(D, { filmDone: false, boatsFilm: false, droneFilm: false, s2: false, s3: false, capture: 0, capWarn: false, chargeMsg: -99, scene: -1, objDone: false, introLen: 0, phase: 'alert', phaseT: 0, artT: 12, breachT: 0, inside: 0, barT: 0, launched: false, r2: false, jets: false, smoke: [] });
   Object.assign(STATS, { kills: 0, heads: 0, treated: 0, saved: 0, kia: 0, shots: 0 });
   GAME.t = 0; GAME.gCd = 0; resetPlayer(); P.alive = true; resetFriends(); setTimeOfDay(0); resetTutorial();
   $('#feed').innerHTML = ''; FEED.length = 0;
@@ -1492,7 +1493,7 @@ window.addEventListener('resize', resize);
 function update(dt, time) {
   const rdt = dt; if (CINE.on) dt *= CINE.slow; FDT = dt;
   GAME.t += dt; GAME.gCd -= dt;
-  if (FIELDM()) { CH().upd(dt); if (GAME.state !== 'play') return; updTank(dt); updVeh(dt); } else { if (SURV.on) survUpd(dt); else updDirector(dt); if (GAME.state !== 'play') return; updBoats(dt); flotUpd(dt, BOATS.some((b) => !b.dead && (b.state === 'cross' || b.state === 'landed'))); if (!SURV.on) mzFilmCheck(); }
+  if (FIELDM()) { CH().upd(dt); if (GAME.state !== 'play') return; updTank(dt); updVeh(dt); } else { if (SURV.on) survUpd(dt); else updDirector(dt); if (GAME.state !== 'play') return; updBoats(dt); flotUpd(dt, BOATS.some((b) => !b.dead && (b.state === 'cross' || b.state === 'landed'))); }
   updJets(dt); if (FILMW.length) filmWalk(dt);
   for (const e of UNITS.enemies) if (e.rig.root.visible) updEnemy(e, dt);
   for (const f of FRIENDS) updFriend(f, dt, time);
@@ -1556,6 +1557,8 @@ async function main() {
   setupComposer(); await LD.mod(LD_BOOT, 0, LD_BOOT);
   renderer.setAnimationLoop(frame);
 }
+// for testing on a real device: with ?dev in the address, window.__ev runs code inside the game (its own variables and functions)
+if (/[?&]dev\b/.test(location.search)) window.__ev = (c) => eval(c);
 function bootGame() { main().catch((err) => { console.error(err); LD.error('המשחק לא נטען בדפדפן זה. נסו דפדפן אחר או מחשב.'); }); }   // called by the last file, once everything is defined
 
 /* ---------- loading a mission: only what it needs, behind a screen that shows each step ---------- */

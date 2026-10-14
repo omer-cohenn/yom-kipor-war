@@ -106,7 +106,12 @@ const bearingOf = (dx, dz) => (THREE.MathUtils.radToDeg(Math.atan2(dx, -dz)) + 3
 const MAP = { x0: -3200, x1: 3200, z0: -4300, z1: 2100 };
 const MW = MAP.x1 - MAP.x0, MH = MAP.z1 - MAP.z0;
 const EAST_BANK = [[2800, -40000], [1900, -9000], [1350, -6000], [930, -4400], [810, -3800], [650, -3200], [470, -2500], [270, -1800], [50, -1200], [-110, -760], [-140, -600]];
-const WEST_BANK = [[2380, -40000], [1680, -9000], [1130, -6000], [710, -4400], [590, -3800], [430, -3200], [250, -2500], [50, -1800], [-170, -1200], [-360, -760], [-470, -520]];
+/* the canal in front of the stronghold is drawn about half its real width (some 200 m of water instead of 400): the far bank, the quays and the
+   houses of Port Tewfik stand that much nearer, close enough to see the men in the boats. PTDX moves the whole Port Tewfik peninsula east;
+   nearX maps a point on the old, wide water to the narrowed one */
+const PTDX = 200;
+const nearX = (x) => (x < -500 ? x + PTDX : x > -110 ? x : -110 + (x + 110) * (1 - PTDX / 390));
+const WEST_BANK = [[2380, -40000], [1680, -9000], [1130, -6000], [710, -4400], [590, -3800], [430, -3200], [250, -2500], [50, -1800], [-170, -1200], [-360, -760], [-470 + PTDX, -520]];
 const EB_NEAR = EAST_BANK.slice(2), WB_NEAR = WEST_BANK.slice(2);
 const SINAI = [...EAST_BANK, [90, -590], [300, -650], [600, -700], [900, -690], [1200, -630], [1500, -510], [1750, -320], [1860, -20], [1920, 300], [2010, 600], [2300, 900], [2700, 1300], [3300, 1700], [6000, 4500], [12000, 14000], [20000, 40000], [40000, 40000], [40000, -40000]];
 const TONGUE0 = [[-60, -800], [-120, -560], [-104, -300], [-92, -100], [-90, 100], [-74, 300], [-48, 600], [-32, 900], [-22, 1070], [0, 1115], [22, 1070], [30, 900], [44, 600], [68, 300], [92, 100], [98, -100], [98, -300], [92, -560], [130, -800]];
@@ -118,10 +123,10 @@ const shoreWid = (z) => SHORE_WIDE * smooth(-440, -250, z) * (1 - smooth(250, 43
 const TONGUE_WL0 = TONGUE0.slice(1, 10), TONGUE_WL = densify(TONGUE_WL0, 18).map(([x, z]) => [x - shoreWid(z), z]);
 const TONGUE = [TONGUE0[0], ...TONGUE_WL, ...TONGUE0.slice(10)];
 const TONGUE_E = TONGUE0.slice(9, 18);
-const EGYPT = [...WEST_BANK, [-500, -200], [-505, 200], [-515, 410], [-560, 462], [-660, 470], [-820, 440], [-1000, 380], [-1100, 300], [-1125, 0], [-1085, -300], [-990, -560], [-1300, -900], [-1700, -1300], [-2100, -1650], [-2600, -1900], [-3300, -2000], [-6000, -1500], [-9000, 0], [-11000, 6000], [-14000, 20000], [-18000, 40000], [-40000, 40000], [-40000, -40000]];
-const BASIN = [[-900, -250], [-720, -250], [-720, -70], [-900, -70]];
+const EGYPT = [...WEST_BANK, ...[[-500, -200], [-505, 200], [-515, 410], [-560, 462], [-660, 470], [-820, 440], [-1000, 380], [-1100, 300], [-1125, 0], [-1085, -300], [-990, -560]].map(([x, z]) => [x + PTDX, z]), [-1300, -900], [-1700, -1300], [-2100, -1650], [-2600, -1900], [-3300, -2000], [-6000, -1500], [-9000, 0], [-11000, 6000], [-14000, 20000], [-18000, 40000], [-40000, 40000], [-40000, -40000]];
+const BASIN = [[-900, -250], [-720, -250], [-720, -70], [-900, -70]].map(([x, z]) => [x + PTDX, z]);
 const LAGOON = [[92, -560], [300, -640], [600, -690], [900, -680], [1200, -620], [1500, -500], [1740, -320], [1850, -20], [1900, 300], [1980, 600], [1100, 880], [400, 1150], [30, 1110], [44, 600], [68, 300], [98, -100]];
-const PT_ZONE = [[-500, -560], [-500, 410], [-560, 455], [-820, 430], [-1100, 290], [-1120, 0], [-1080, -300], [-990, -560]];
+const PT_ZONE = [[-500, -560], [-500, 410], [-560, 455], [-820, 430], [-1100, 290], [-1120, 0], [-1080, -300], [-990, -560]].map(([x, z]) => [x + PTDX, z]);
 const MAOZ = [[-60, -86], [0, -98], [46, -84], [64, -24], [60, 38], [38, 82], [-4, 94], [-58, 84], [-77, 30], [-79, -30]];
 const YARD = MAOZ.map((p) => [p[0] * 0.86, p[1] * 0.86]);
 const GATE_N = [0, -98], GATE_S = [-4, 94];
@@ -234,7 +239,7 @@ function terrainAt0(x, z) {
     if (DUGS && DUG_ON) h = dugCut(x, z, h);
   } else {
     h = 0.45 + 2.2 * smooth(0, 40, inl) + 0.35 * fbm(x / 350, z / 350, 3);
-    const urb = Math.max(1 - smooth(1500, 4200, Math.hypot(x + 2700, z + 3100)), 1 - smooth(500, 900, Math.hypot(x + 800, z)));
+    const urb = Math.max(1 - smooth(1500, 4200, Math.hypot(x + 2700, z + 3100)), 1 - smooth(500, 900, Math.hypot(x + 800 - PTDX, z)));
     mix3(PAL.sandL, PAL.sandD, smooth(-0.3, 0.4, fbm(x / 260, z / 260, 3)));
     mixIn(PAL.urban, urb * 0.8);
     if (z < -640) { const d = distPolyline(x, z, WB_NEAR); feat = Math.max(feat, 20 * Math.exp(-(((d - 48) / 17) ** 2)) * smooth(-640, -900, z)); }
@@ -419,10 +424,10 @@ function groundTex() {
   line(offsetLine(EB_NEAR, 62), 9, 'rgb(252,250,246)', 0.95);
   line(densify(ROAD_SOUTH, 20), 5, 'rgb(172,162,146)');
   line(ROAD_LEXICON, 8, 'rgb(98,94,88)'); line(ROAD_PGISHA, 8, 'rgb(98,94,88)'); line(ROAD_ACCESS, 6, 'rgb(104,99,92)'); line(ROAD_EGY, 8, 'rgb(112,108,100)');
-  line([[-990, -600], [-1300, -940], [-1700, -1340], [-2100, -1690], [-2600, -1945], [-3300, -2045]], 13, 'rgb(118,114,106)');
+  line([[-990 + PTDX, -600], [-1300, -940], [-1700, -1340], [-2100, -1690], [-2600, -1945], [-3300, -2045]], 13, 'rgb(118,114,106)');
   g.save(); path(PT_ZONE); g.closePath(); g.clip(); g.strokeStyle = 'rgb(186,182,174)'; g.lineWidth = 8 * m;
-  for (let x = -1100; x < -500; x += 70) { g.beginPath(); g.moveTo(px(x), pz(-600)); g.lineTo(px(x), pz(480)); g.stroke(); }
-  for (let z = -560; z < 470; z += 70) { g.beginPath(); g.moveTo(px(-1150), pz(z)); g.lineTo(px(-480), pz(z)); g.stroke(); }
+  for (let x = -1100 + PTDX; x < -500 + PTDX; x += 70) { g.beginPath(); g.moveTo(px(x), pz(-600)); g.lineTo(px(x), pz(480)); g.stroke(); }
+  for (let z = -560; z < 470; z += 70) { g.beginPath(); g.moveTo(px(-1150 + PTDX), pz(z)); g.lineTo(px(-480 + PTDX), pz(z)); g.stroke(); }
   g.restore();
   g.fillStyle = 'rgb(206,200,190)'; path(MAOZ); g.closePath(); g.fill();
   const t = tex(c); t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping; return t;
@@ -1320,7 +1325,7 @@ function updFarSmoke(dt, time) {
   }
 }
 function farFires() {
-  for (const [x, z, s, f] of [[-2350, -2700, 70, 1], [-1900, -3300, 55, 0], [-760, 120, 26, 1], [-980, -420, 34, 0], [520, -3000, 60, 1], [1300, -5200, 110, 0], [-2900, -2100, 80, 0], [640, -960, 40, 1], [1500, -1500, 70, 0], [-480, -120, 24, 1], [-620, 60, 32, 1], [-380, -300, 20, 1]]) smokeColumn(x, z, s, !!f);
+  for (const [x, z, s, f] of [[-2350, -2700, 70, 1], [-1900, -3300, 55, 0], [-760 + PTDX, 120, 26, 1], [-980 + PTDX, -420, 34, 0], [520, -3000, 60, 1], [1300, -5200, 110, 0], [-2900, -2100, 80, 0], [640, -960, 40, 1], [1500, -1500, 70, 0], [-480 + PTDX, -120, 24, 1], [-620 + PTDX, 60, 32, 1], [nearX(-380), -300, 20, 1]]) smokeColumn(x, z, s, !!f);
 }
 
 /* ================= towns across the canal ================= */
@@ -1343,7 +1348,7 @@ function palms(list) {
 function buildWaterfront() {
   const r = rng(7341), parts = [], dark = [], T = MAT.wall.map.clone(); T.wrapS = T.wrapT = THREE.RepeatWrapping; T.needsUpdate = true;
   const TONES = [0xece6d8, 0xe2d6bc, 0xd8ccb2, 0xcfc8ba, 0xe8dcc6, 0xc9bfa8];
-  const shore = (z) => { let x = -470; while (x > -620 && groundAt(x, z) < 1.0) x -= 2; return x; };
+  const shore = (z) => { let x = -470 + PTDX; while (x > -620 + PTDX && groundAt(x, z) < 1.0) x -= 2; return x; };
   const house = (xf, z0, z1, d, fl, ruin) => {
     const g = Math.min(groundAt(xf - d / 2, (z0 + z1) / 2), groundAt(xf, z0), groundAt(xf, z1)) - 0.4, tone = pick(TONES), h = fl * 3.3 + 0.7, top = g + 0.4 + h;
     if (!ruin) { parts.push([boxUV(xf - d, xf, g, top, z0, z1, 12, 9.9), tone]); parts.push([boxUV(xf - d - 0.2, xf + 0.25, top - 0.05, top + 0.55, z0 - 0.2, z1 + 0.2, 6, 1), 0xd9d0bc]); return; }
@@ -1354,7 +1359,7 @@ function buildWaterfront() {
     for (let k = 0; k < 6; k++) dark.push([G.box(0.8 + r() * 1.5, 0.4 + r() * 0.6, 0.8 + r() * 1.5), 0x9a8e78, M4(xf + 1 + r() * 4, groundAt(xf + 2, z0) + 0.2, lerp(z0, z1, r()), r(), r() * 3, r())]);
   };
   for (const [row, dx] of [[0, 0], [1, -24]]) {
-    let z = -470; while (z < 395) { const w = 11 + r() * 15, gap = row ? 2 + r() * 6 : (r() < 0.25 ? 6 + r() * 8 : 1 + r() * 2.5), zc = z + w / 2, xs = shore(zc); if (xs < -600) { z += w + gap; continue; }
+    let z = -470; while (z < 395) { const w = 11 + r() * 15, gap = row ? 2 + r() * 6 : (r() < 0.25 ? 6 + r() * 8 : 1 + r() * 2.5), zc = z + w / 2, xs = shore(zc); if (xs < -600 + PTDX) { z += w + gap; continue; }
       const xf = xs - 16 - r() * 7 + dx, fl = row ? 3 + Math.floor(r() * 3) : 2 + Math.floor(r() * r() * 4); house(xf, z, z + w, 11 + r() * 9, fl, r() < 0.22); z += w + gap; }
   }
   // the minaret and the dome of the mosque by the harbour
@@ -1366,10 +1371,10 @@ function buildWaterfront() {
 function buildTowns() {
   const r = rng(31); const WALLS = [[0.86, 0.83, 0.76], [0.82, 0.71, 0.53], [0.88, 0.80, 0.62], [0.72, 0.70, 0.66], [0.79, 0.75, 0.68]];
   const pt = [];
-  for (let x = -1090; x <= -530; x += 26) for (let z = -540; z <= 420; z += 24) {
+  for (let x = -1090 + PTDX; x <= -530 + PTDX; x += 26) for (let z = -540; z <= 420; z += 24) {
     const jx = x + (r() - .5) * 7, jz = z + (r() - .5) * 7;
-    if (!inPoly(jx, jz, PT_ZONE) || inPoly(jx, jz, [[-915, -265], [-705, -265], [-705, -55], [-915, -55]]) || jx > -612) continue;
-    if (((jx + 1100) % 70 + 70) % 70 < 13 || ((jz + 560) % 70 + 70) % 70 < 13 || r() < 0.28 || groundAt(jx, jz) < 0.9) continue;
+    if (!inPoly(jx, jz, PT_ZONE) || inPoly(jx, jz, [[-915 + PTDX, -265], [-705 + PTDX, -265], [-705 + PTDX, -55], [-915 + PTDX, -55]]) || jx > -612 + PTDX) continue;
+    if (((jx + 1100 - PTDX) % 70 + 70) % 70 < 13 || ((jz + 560) % 70 + 70) % 70 < 13 || r() < 0.28 || groundAt(jx, jz) < 0.9) continue;
     const ruined = r() < 0.2; pt.push({ x: jx, z: jz, w: 10 + r() * 8, d: 9 + r() * 6, h: ruined ? 1.8 + r() * 2.5 : 6 + r() * 5, rot: (r() - .5) * 0.06, c: ruined ? [0.5, 0.47, 0.42] : pick(WALLS) });
   }
   buildWaterfront();
@@ -1383,11 +1388,11 @@ function buildTowns() {
   }
   instBoxes(suez);
   const pl = [];
-  for (let z = -470; z <= 380; z += LITE ? 34 : 19) { let x = -470; while (x > -600 && groundAt(x, z) < 1.0) x -= 2; if (x <= -600) continue; pl.push([x - 5 - r() * 7, z + (r() - 0.5) * 6, 0.8 + r() * 0.45, r() * 6.28]); }
-  for (let i = 0; i < (LITE ? 20 : 70); i++) { const x = -560 - r() * 480, z = -520 + r() * 900; if (inPoly(x, z, PT_ZONE) && groundAt(x, z) > 0.9) pl.push([x, z, 0.75 + r() * 0.4, r() * 6.28]); }
+  for (let z = -470; z <= 380; z += LITE ? 34 : 19) { let x = -470 + PTDX; while (x > -600 + PTDX && groundAt(x, z) < 1.0) x -= 2; if (x <= -600 + PTDX) continue; pl.push([x - 5 - r() * 7, z + (r() - 0.5) * 6, 0.8 + r() * 0.45, r() * 6.28]); }
+  for (let i = 0; i < (LITE ? 20 : 70); i++) { const x = -560 + PTDX - r() * 480, z = -520 + r() * 900; if (inPoly(x, z, PT_ZONE) && groundAt(x, z) > 0.9) pl.push([x, z, 0.75 + r() * 0.4, r() * 6.28]); }
   palms(pl);
-  { let x = -470; while (x > -600 && groundAt(x, -40) < 1.0) x -= 2; flag(x - 7, -40, 'eg', 10, 2.6); }
-  for (const z of [-300, -60, 250]) { const arc = []; for (let a = 0; a <= 180; a += 30) { const t = THREE.MathUtils.degToRad(a); arc.push([-512 + Math.sin(t) * 1.6, z - Math.cos(t) * 1.6]); } bagWall(arc, 4, null, false); }
+  { let x = -470 + PTDX; while (x > -600 + PTDX && groundAt(x, -40) < 1.0) x -= 2; flag(x - 7, -40, 'eg', 10, 2.6); }
+  for (const z of [-300, -60, 250]) { const arc = []; for (let a = 0; a <= 180; a += 30) { const t = THREE.MathUtils.degToRad(a); arc.push([-512 + PTDX + Math.sin(t) * 1.6, z - Math.cos(t) * 1.6]); } bagWall(arc, 4, null, false); }
 }
 
 /* ================= ground clutter ================= */
@@ -3007,13 +3012,13 @@ const FLOT_GEO = (() => {
 })();
 const FLOT = { mesh: null, b: [], on: false };
 function flotBuild() {
-  if (FLOT.mesh) return; const n = LITE ? 14 : 26;
+  if (FLOT.mesh) return; const n = LITE ? 18 : 40;
   FLOT.mesh = new THREE.InstancedMesh(FLOT_GEO, MAT.boatWood, n); FLOT.mesh.frustumCulled = false; FLOT.mesh.count = 0; FLOT.mesh.layers.enableAll(); scene.add(FLOT.mesh);
   for (let i = 0; i < n; i++) FLOT.b.push({ st: 'off', t: 0, ph: Math.random() * 6.28 });
 }
-/* a lane: off the quay (x about -495) to the bank of the tongue, north (z -560..-170) or south (z 170..470) of the stronghold */
+/* a lane: off the Port Tewfik quay to the bank of the tongue, north (z -560..-170) or south (z 170..470) of the stronghold */
 function flotLaunch(b, i, first) {
-  const north = i % 2 === 0, z1 = north ? rand(-540, -175) : rand(175, 460), z0 = clamp(z1 * rand(0.25, 0.75), -480, 380), x0 = -492 + rand(0, 8), x1 = tongueWestX(z1) - 4.5;
+  const north = i % 2 === 0, z1 = north ? rand(-540, -175) : rand(175, 460), z0 = clamp(z1 * rand(0.25, 0.75), -480, 380), x0 = -492 + PTDX + rand(0, 8), x1 = tongueWestX(z1) - 4.5;
   b.from = [x0, z0]; b.to = [x1, z1]; b.len = Math.hypot(x1 - x0, z1 - z0); b.hd = Math.atan2(x1 - x0, z1 - z0); b.sp = rand(1.5, 2.2);
   b.t = first ? rand(0, 0.85) * b.len / b.sp : -rand(0, 14); b.st = 'cross';
 }
@@ -4114,7 +4119,7 @@ function boatWave(z0, z1, n, t0, gap, seats, rpg = 0, flame = 0, hp) {
 }
 function launchBoat(zLand, delay, n, rpg = 0, flame = 0) {
   const seed = 9001 + Math.round(zLand * 13) + Math.max(0, D.scene) * 7919, r = rng(seed);
-  const to = [tongueWestX(zLand) - 4.5, zLand]; const from = [-400, clamp(zLand + (r() - 0.5) * 140, -380, 380)];
+  const to = [tongueWestX(zLand) - 4.5, zLand]; const from = [nearX(-400), clamp(zLand + (r() - 0.5) * 90, -380, 380)];   // from just off the Port Tewfik quays
   const bt = new Boat(from, to, Math.max(2, Math.ceil(n * 0.55)), diff.boat * 0.34, delay); /* a heavy rowboat: about three metres a second, a minute and a half across */ bt.zLand = zLand; bt.state = 'wait'; bt.seed = seed;
   const ns = bt.seats.length;   // the boat carries fewer men than the wave counts: never index past its seats (that froze the game)
   for (let i = 0; i < rpg && i < ns; i++) bt.seats[i].kind = 'rpg';
@@ -4204,7 +4209,7 @@ function corridorHas(C, x, z) {
 /* the mission is one trench: each stage opens the next stretch, sandbag barricades close everything else */
 const SCENES = [
   { title: 'סירות על המים', sub: 'שתיים אחרי הצהריים. מעבר לתעלה, מתוך העשן, יוצאות סירות עץ בשורה — עשרות חיילים בכל אחת, חותרים ישר אלינו. המא״ג המערבי הוא כל מה שעומד בינם לבין הסוללה.', goal: 'ירו בסירות מהמא״ג המערבי. מי שעלה לתעלה — הרגו אותו בתוכה', open: [136, 176], spawn: () => trenchAt(-1.0), face: 345, focus: w2Focus,
-    entries: [-20, -14, -8, -2, 3, 8.5], radio: ['מ״פ', 'סירות במים ממערב! המא״ג המערבי שלך!'], start() { boatWave(-21, 10, 22, 3, 2.2, diff.seats, 0, 0, 150); } },
+    entries: [-20, -14, -8, -2, 3, 8.5], radio: ['מ״פ', 'סירות במים ממערב! המא״ג המערבי שלך!'], start() { boatWave(-21, 10, 28, 3, 1.8, diff.seats, 0, 0, 150); } },
   { title: 'הפרצה בצפון', sub: 'המחסום הצפוני נפתח, ובקצה הסוללה, ליד עמדה 1, כבר מטפסים הראשונים שצלחו. בתעלה הצרה פוגשים אותם פנים אל פנים, שק חול אחרי שק חול.', goal: 'התקדמו צפונה בתעלה ונקו אותה מהצולחים', open: [96, 176], spawn: () => TR.pts[140], face: 0, focus: trFocus(-38, 'עמדה מערבית 1'),
     entries: [-55, -50, -39.5, -27], radio: ['יוסי', 'הם עולים עליי מצפון! תביאו תגבורת לתעלה!'], start() { boatWave(-57, -33, 9, 2, 6.5, Math.max(3, diff.seats - 1), 3, 0); } },
   { title: 'קומנדו בשער', sub: 'מכביש לכסיקון, מצפון, רץ כוח קומנדו ישר אל השער. הם מכירים את המוצב מתצלומי האוויר, ויודעים שהתעלה הצפונית היא הדרך פנימה.', goal: 'עצרו את הקומנדו בתעלה הצפונית, עד הפינה — והחזיקו אותה', open: [0, 176], spawn: () => TR.pts[100], face: 0, focus: postFocus('N1', 'עמדה צפונית'),
@@ -4511,7 +4516,8 @@ function doAction() {
     u.sync();
   }
 }
-function manMag(post) { P.mode = 'mag'; P.post = post; post.occupant = 'player'; P.pos.set(post.stand[0], post.g, post.stand[1]); P.yaw = post.mag.pivot.rotation.y + Math.PI; P.pitch = -0.05; P.crouch = false; P.reloadT = 0; sndClick(600, 0.2); }
+function manMag(post) { P.mode = 'mag'; P.post = post; post.occupant = 'player'; P.pos.set(post.stand[0], post.g, post.stand[1]); P.yaw = post.mag.pivot.rotation.y + Math.PI; P.pitch = -0.05; P.crouch = false; P.reloadT = 0; sndClick(600, 0.2); 
+  if (MODE === 'mezach' && !SURV.on && D.scene === 0 && D.phase === 'scene') mzDroneFilm(); }   // the first gun on the western rampart: the boats, seen up close
 function leaveMag() {
   const p = P.post; if (!p) return; p.occupant = null; P.mode = 'rifle'; P.post = null;
   let x = p.stand[0] - p.fx * 1.2, z = p.stand[1] - p.fz * 1.2; const [k, d] = trK(p.stand[0], p.stand[1]);
@@ -4837,7 +4843,7 @@ function resetGame() {
   DRUMFIRE.on = false; LIGHTS.fire.intensity = 0; LIGHTS.boom.intensity = 0; LIGHTS.wreck.intensity = 0;
   for (const j of STRAFE) scene.remove(j.m); STRAFE.length = 0;
   AIR.mirage = false; AIR.ev = null; AIR.next = 30; AIR.magT = 0; for (const b of AIR.bombs) scene.remove(b.m); AIR.bombs.length = 0; if (AIR.models) { AIR.models.m.g.visible = false; AIR.models.m.wingR.visible = false; AIR.models.mig.visible = false; AIR.models.chute.visible = false; }
-  Object.assign(D, { filmDone: false, boatsFilm: false, s2: false, s3: false, capture: 0, capWarn: false, chargeMsg: -99, scene: -1, objDone: false, introLen: 0, phase: 'alert', phaseT: 0, artT: 12, breachT: 0, inside: 0, barT: 0, launched: false, r2: false, jets: false, smoke: [] });
+  Object.assign(D, { filmDone: false, boatsFilm: false, droneFilm: false, s2: false, s3: false, capture: 0, capWarn: false, chargeMsg: -99, scene: -1, objDone: false, introLen: 0, phase: 'alert', phaseT: 0, artT: 12, breachT: 0, inside: 0, barT: 0, launched: false, r2: false, jets: false, smoke: [] });
   Object.assign(STATS, { kills: 0, heads: 0, treated: 0, saved: 0, kia: 0, shots: 0 });
   GAME.t = 0; GAME.gCd = 0; resetPlayer(); P.alive = true; resetFriends(); setTimeOfDay(0); resetTutorial();
   $('#feed').innerHTML = ''; FEED.length = 0;
@@ -4979,7 +4985,7 @@ window.addEventListener('resize', resize);
 function update(dt, time) {
   const rdt = dt; if (CINE.on) dt *= CINE.slow; FDT = dt;
   GAME.t += dt; GAME.gCd -= dt;
-  if (FIELDM()) { CH().upd(dt); if (GAME.state !== 'play') return; updTank(dt); updVeh(dt); } else { if (SURV.on) survUpd(dt); else updDirector(dt); if (GAME.state !== 'play') return; updBoats(dt); flotUpd(dt, BOATS.some((b) => !b.dead && (b.state === 'cross' || b.state === 'landed'))); if (!SURV.on) mzFilmCheck(); }
+  if (FIELDM()) { CH().upd(dt); if (GAME.state !== 'play') return; updTank(dt); updVeh(dt); } else { if (SURV.on) survUpd(dt); else updDirector(dt); if (GAME.state !== 'play') return; updBoats(dt); flotUpd(dt, BOATS.some((b) => !b.dead && (b.state === 'cross' || b.state === 'landed'))); }
   updJets(dt); if (FILMW.length) filmWalk(dt);
   for (const e of UNITS.enemies) if (e.rig.root.visible) updEnemy(e, dt);
   for (const f of FRIENDS) updFriend(f, dt, time);
@@ -5043,6 +5049,8 @@ async function main() {
   setupComposer(); await LD.mod(LD_BOOT, 0, LD_BOOT);
   renderer.setAnimationLoop(frame);
 }
+// for testing on a real device: with ?dev in the address, window.__ev runs code inside the game (its own variables and functions)
+if (/[?&]dev\b/.test(location.search)) window.__ev = (c) => eval(c);
 function bootGame() { main().catch((err) => { console.error(err); LD.error('המשחק לא נטען בדפדפן זה. נסו דפדפן אחר או מחשב.'); }); }   // called by the last file, once everything is defined
 
 /* ---------- loading a mission: only what it needs, behind a screen that shows each step ---------- */
@@ -7084,7 +7092,7 @@ const CINE = { on: false, t: 0, slow: 1, def: null, ev: [], caps: [], total: 0, 
    hand it plays over the 3D view, which is not drawn meanwhile (a weak computer shows the film as smooth as a strong one). The film itself
    still runs underneath: its events, its sound and its captions keep time with the picture, and the battle goes on from where the film left it */
 const CVID = { el: $('#cineVid'), on: false, wait: 0, off: false, blobs: {}, q: [],
-  ch: { mezach: ['mz_mirage', 'mz_boats'], rescue: ['rs_intro', 'rs_end'], cross: ['cr_intro', 'cr_hold', 'cr_bridge', 'cr_end'], army: ['ar_end'], armor: ['am_intro', 'am_end'], hermon: ['hm_intro', 'hm_end'], suez: ['sz_lead', 'sz_convoy'], farm: ['fm_intro', 'fm_pits', 'fm_aq', 'fm_t42', 'fm_smoke', 'fm_yard', 'fm_hit', 'fm_end'] } };
+  ch: { mezach: ['mz_mirage', 'mz_drone', 'mz_boats'], rescue: ['rs_intro', 'rs_end'], cross: ['cr_intro', 'cr_hold', 'cr_bridge', 'cr_end'], army: ['ar_end'], armor: ['am_intro', 'am_end'], hermon: ['hm_intro', 'hm_end'], suez: ['sz_lead', 'sz_convoy'], farm: ['fm_intro', 'fm_pits', 'fm_aq', 'fm_t42', 'fm_smoke', 'fm_yard', 'fm_hit', 'fm_end'] } };
 CVID.el.addEventListener('playing', () => { if (CINE.on && CINE.vid && !CVID.on) { CVID.on = true; CVID.el.classList.add('on'); } });
 CVID.el.addEventListener('error', () => { if (CINE.vid) cvidStop(); });
 // the films that have a video so far (filled in when the videos are published; a film not listed is drawn live, as before)
@@ -7111,6 +7119,7 @@ function updCine(dt) {
     if (!CVID.on) { CVID.wait -= dt; if (CVID.wait > 0) dt = 0; else cvidStop(); }   // the film waits on its first frame while the video starts - a moment at most, then it runs without it
     else if (!v.ended) { if (v.paused) { const p = v.play(); if (p && p.catch) p.catch(() => {}); } dt = Math.max(0, v.currentTime + 1 / 24 - CINE.t); } }   // the picture leads: the film's clock follows the video's (frame i shows the film at (i+1)/24)
   CINE.t += dt; while (CINE.ev.length && CINE.ev[0][0] <= CINE.t) CINE.ev.shift()[1]();
+  if (CINE.def.tick) CINE.def.tick(dt * CINE.slow);   // a film's own per-frame work (in game time), before its camera is placed
   for (const c of CINE.caps) if (!c.shown && CINE.t >= c.t) { c.shown = true; $('#cineCap').innerHTML = c.html; CINE.capT = CINE.t + c.d; }
   if (CINE.capT && CINE.t > CINE.capT) { $('#cineCap').innerHTML = ''; CINE.capT = 0; }
   if (CINE.t > 3.5) $('#cineTitle').classList.remove('on');
@@ -7152,7 +7161,7 @@ function mzBoatsFilm() {
   playCine({
     vid: 'mz_boats', title: 'מעוז המזח · 6 באוקטובר 1973 · לפנות ערב',
     shots: [
-      { d: 5.6, cam: camLerp(V3(beachX + 3, 2.6, zc + 26), V3(beachX + 1, 2.2, zc + 20), V3(-236, 1.2, zc - 8), V3(-222, 1.0, zc - 2), 24) },
+      { d: 5.6, cam: camLerp(V3(beachX + 3, 2.6, zc + 26), V3(beachX + 1, 2.2, zc + 20), V3(nearX(-236), 1.2, zc - 8), V3(nearX(-222), 1.0, zc - 2), 24) },
       { d: 4.6, cam: (u) => { const b = mp(), f = fwd(mid), r = rgt(mid), sd = r.x * SUN.dir.x + r.z * SUN.dir.z > 0 ? 1 : -1; return { p: b.clone().addScaledVector(f, -2.5 + u * 3).addScaledVector(r, sd * 9).add(V3(0, 3.4, 0)), l: b.clone().addScaledVector(f, 0.5 + u * 1.5).add(V3(0, 0.6, 0)), fov: 46 }; } },
       { d: 4.0, cam: (u) => { const b = mp(), f = fwd(mid), r = rgt(mid); return { p: b.clone().addScaledVector(f, -6.5 + u * 1.2).addScaledVector(r, 1.4).add(V3(0, 2.5, 0)), l: V3(crestX(mid.zLand) - 4, groundAt(crestX(mid.zLand), mid.zLand) + 2.5, mid.zLand), fov: 48 }; } },
       { d: 5.4, slow: 0.55, cam: (u) => ({ p: V3(beachX + 10 - u * 1.5, groundAt(beachX + 10, zl + 11) + 2.3, zl + 11), l: V3(lerp(beachX - 3, beachX + 9, u * u), lerp(0.9, groundAt(beachX + 9, zl) + 1.4, u), zl), fov: 44 }) },
@@ -7163,32 +7172,61 @@ function mzBoatsFilm() {
       [10.4, '<b>תצפית:</b> הראשונים כבר ליד החוף! עוד רגע הם על הסוללה!', 3.6], [14.8, '<b>מ״פ:</b> הם נוחתים! כולם לסוללה המערבית!', 3.6], [19.8, '<b>מ״פ:</b> לא נותנים להם לעלות. אש על הסירות, עכשיו!', 3.0]],
   });
 }
-/* ---------- film, chapter 1: an Egyptian drops into the trench behind you. A friend sees him first ---------- */
-const PDBL = new Unit('f', 'rifle'); scene.remove(PDBL.tag);
-function mzFilmCheck() {
-  if (D.filmDone || CINE.on || D.scene !== 1 || D.phase !== 'scene' || D.phaseT < 14 || P.mode !== 'rifle' || !inTrench()) return;
-  if (UNITS.enemies.some((e) => e.alive && e.pos.distanceTo(P.pos) < 9)) return;
-  const [k] = trK(P.pos.x, P.pos.z), t = TR.n[k] ? [-TR.n[k][1], TR.n[k][0]] : [0, 1], f = camForward(V3()), dir = f.x * t[0] + f.z * t[1] > 0 ? -1 : 1, kb = clamp(k + dir * 6, 2, TR.pts.length - 3);
-  const C = scCorr(D.scene); if (kb < C.k0 || kb > C.k1) return;
-  const bp = TR.pts[kb]; let sav = null, bd = 45; for (const fr of FRIENDS) { if (fr.state !== 'post' || !fr.unit.rig.root.visible) continue; const c = fr.unit.eye(); const d = Math.hypot(c.x - bp[0], c.z - bp[1]); if (d < bd && losW(c.x, c.y, c.z, bp[0], groundAt(bp[0], bp[1]) + 1.2, bp[1])) { bd = d; sav = fr; } }
-  if (!sav) return; D.filmDone = true;
-  const o = TR.out[kb], top = V3(bp[0] + o[0] * 2.6, groundAt(bp[0] + o[0] * 2.6, bp[1] + o[1] * 2.6) + 0.2, bp[1] + o[1] * 2.6);
-  const e = spawnEnemy(bp[0], bp[1], 'rifle', null, null); if (!e) return; e.state = 'film'; e.pos.copy(top); e.face(P.pos.x, P.pos.z); e.stance = 'stand'; e.rig.pose('run', 0); e.sync();
-  PDBL.alive = true; PDBL.rig.root.visible = true; PDBL.pos.copy(P.pos); PDBL.heading = Math.atan2(f.x, f.z); PDBL.stance = 'stand'; PDBL.rig.pose('aim', 0, 0); PDBL.sync();
-  const su = sav.unit, ep = () => e.pos.clone(), pp = P.pos.clone(), floor = V3(bp[0], groundAt(bp[0], bp[1]), bp[1]);
-  let jt = 0;
+/* ---------- film, chapter 1, the boats up close: the moment the player takes a gun on the western rampart, a drone's pass along the line of
+   boats rowing at it - ten metres in front of them, a metre and a half over their gunwales - near enough to see the faces of the men firing
+   over the bows, and the stronghold's rounds slapping the water among them. Then it climbs, and the whole line is seen at once ---------- */
+const BCREW = [];   // the men in the bows of the boats nearest the camera: real soldiers (faces, helmets, rifles); the other boats keep their seated figures
+const BCREW_AT = [[2.05, -0.22, 'crouch'], [1.98, 0.27, 'aim'], [0.98, -0.34, 'crouch'], [0.93, 0.33, 'crouch']];   // in the boat (its own units, bow +x): x, z, and how he holds himself
+function bcrewUnit(i) {
+  while (BCREW.length <= i) { const u = new Unit('e', BCREW.length % 5 === 3 ? 'lmg' : 'rifle'); scene.remove(u.tag); u.noTag = true; u.alive = true; u.rig.root.visible = false; BCREW.push(u); }
+  return BCREW[i];
+}
+function mzDroneFilm() {
+  if (D.droneFilm || CINE.on) return;
+  const W = BOATS.filter((b) => !b.dead && (b.state === 'wait' || b.state === 'cross')); if (W.length < 6) return; D.droneFilm = true;
+  // the wave is brought out into ragged lines abreast: the first a hundred-odd metres off the beach, the next two thirty and sixty metres behind
+  // it, still near the quays (they land ten seconds apart, as the wave would have); the film opens on the crossing at its height
+  const X0 = tongueWestX(-5) - 105, rows = Math.max(1, Math.ceil(W.length / 8)), per = Math.ceil(W.length / rows);
+  W.forEach((b, i) => { const row = Math.floor(i / per), u = clamp((X0 - row * 30 + rand(-3.5, 3.5) - b.from[0]) / (b.to[0] - b.from[0]), 0.02, 0.9); b.t = (u * b.len) / b.speed; if (b.state === 'wait') { b.state = 'cross'; b.g.visible = true; } });
+  updBoats(0);
+  const front = W.slice(0, per), vx = front.reduce((a, b) => a + b.speed * Math.sin(b.heading), 0) / front.length, zs = front.map((b) => b.g.position.z).sort((a, b) => a - b);
+  let zA = zs[Math.min(1, zs.length - 1)] - 4, zB = zs[Math.max(0, zs.length - 2)] + 4; if (zB - zA > 75) { const m = (zA + zB) / 2; zA = m - 37.5; zB = m + 37.5; }
+  const zM = (zA + zB) / 2, F = { t: 0, it: 0.3, used: new Map(), free: [], n: 0 }, XL = () => X0 + vx * F.t;
+  const live = () => W.filter((b) => !b.dead && b.state === 'cross');
+  // a boat comes near the camera: four men in its bow; it goes off, they go back to the pool and its own figures come back
+  const crewOn = (b) => { const us = []; for (let k = 0; k < BCREW_AT.length; k++) { const u = bcrewUnit(F.free.length ? F.free.pop() : F.n++); u.rig.root.visible = true; u.alive = true; u.dieT = -1; u.cf = rand(0.2, 2.2); u.cb = 0; u.snapHd = true; u.rig.snapNext = true; us.push(u); } for (const s of b.seats) if (!s.rower && s.sp[0] > 0) s.m.visible = false; F.used.set(b, us); };
+  const crewOff = (b) => { const us = F.used.get(b); if (!us) return; for (const u of us) { u.rig.root.visible = false; F.free.push(BCREW.indexOf(u)); } for (const s of b.seats) if (!s.rower && s.alive && !s.gone) s.m.visible = true; F.used.delete(b); };
+  const _lp = V3();
+  const tick = (dt) => {
+    F.t += dt; const cam = camera.position;
+    // the seven boats nearest the camera have their men (the front line passes right by it; the lines behind are far enough for the figures)
+    const near = new Set(W.filter((b) => !b.dead && b.state === 'cross' && Math.abs(b.g.position.z - cam.z) < 16 && Math.abs(b.g.position.x - cam.x) < 30).sort((a, b) => a.g.position.distanceTo(cam) - b.g.position.distanceTo(cam)).slice(0, 7));
+    for (const b of W) { if (near.has(b) && !F.used.has(b)) crewOn(b); else if (!near.has(b) && F.used.has(b)) crewOff(b); }
+    for (const [b, us] of F.used) us.forEach((u, k) => {
+      const [x, z, pose] = BCREW_AT[k]; u.pos.copy(b.g.localToWorld(_lp.set(x, 0.05, z))); u.heading = b.heading; u.stance = pose === 'aim' ? 'stand' : 'crouch'; u.anim = (u.anim || 0) + dt;
+      if (u.dieT >= 0) { u.dieT += dt; u.rig.fallPose(Math.min(u.dieT, 1.4), 1, 'crumple'); u.sync(); return; }
+      u.rig.pose(pose, u.anim, 0.06); u.sync();
+      // his rifle at the rampart: short bursts, the green tracers going past the camera
+      u.cf -= dt; if (u.cf <= 0) { if (u.cb <= 0) u.cb = Math.floor(rand(2, 5)); u.cb--; u.cf = u.cb > 0 ? rand(0.1, 0.17) : rand(1.1, 2.8);
+        const m = u.muzzle(), zt = u.pos.z + rand(-10, 10), xt = crestX(zt) - 1; fxMuzzle(m); fxTracer(m, V3(xt, groundAt(xt, zt) + rand(0.4, 2.4), zt), true); if (m.distanceTo(cam) < 20 && u.cb % 2 === 0) sndShot(u.kind === 'lmg' ? 'lmg' : 'ak', m); }
+    });
+    // the stronghold answers: bursts from the rampart into the water round the boats, now and then into a boat
+    F.it -= dt; if (F.it <= 0) { F.it = rand(0.12, 0.32); const near = live().filter((b) => Math.abs(b.g.position.z - cam.z) < 26); const b = near.length ? pick(near) : pick(live()); if (b) {
+      const zf = b.g.position.z + rand(-30, 30), xf = crestX(zf) - 0.5, from = V3(xf, groundAt(xf, zf) + 1.1, zf), to = b.g.position.clone().add(V3(rand(-5, 3), 0.1, rand(-5, 5)));
+      for (let k = 0; k < 3; k++) DIRQ.push({ at: GAME.t + k * 0.08, fn: () => { const q = to.clone().add(V3(rand(-1.2, 1.2), 0, rand(-1.2, 1.2))); fxTracer(from, q, false); fxDust(q, true); if (!k) { fxMuzzle(from, false); sndShot('lmg', from); } } });
+      const us = F.used.get(b); if (us && Math.random() < 0.18) { const v = us.filter((u) => u.dieT < 0); if (v.length > 1) { const u = pick(v); u.dieT = 0; fxDust(u.chest()); } }
+    } }
+  };
+  const zAt = (u) => lerp(zA, zB, u * u * (3 - 2 * u));
   playCine({
+    vid: 'mz_drone',
     shots: [
-      { d: 2.3, slow: 0.4, cam: (u) => { const d = pp.clone().sub(ep()).setY(0).normalize(); return { p: ep().addScaledVector(d, -1.4).add(V3(0.5, 1.9, 0)), l: pp.clone().add(V3(0, 1.3, 0)), fov: 48 }; } },
-      { d: 1.9, slow: 0.35, cam: (u) => { const s = su.eye(), d = ep().sub(s).setY(0).normalize(); return { p: s.clone().addScaledVector(d, -1.3).add(V3(0.45, 0.25, 0)), l: ep().add(V3(0, 1.2, 0)), fov: 44 }; } },
-      { d: 2.0, slow: 0.5, cam: camLerp(() => floor.clone().add(V3(0, 2.6, 0)).addScaledVector(V3(o[0], 0, o[1]), -2.2), () => floor.clone().add(V3(0, 2.2, 0)).addScaledVector(V3(o[0], 0, o[1]), -2.6), () => ep().add(V3(0, 0.5, 0)), () => ep().add(V3(0, 0.3, 0)), 50) },
-      { d: 1.4, cam: (u) => ({ p: pp.clone().add(V3(0, 1.65, 0)), l: ep().add(V3(0, 0.4, 0)), fov: 60 }) },
+      { d: 10.0, cam: (u) => { const z = zAt(u), x = XL(); return { p: V3(x + 10, 2.2 + 0.12 * Math.sin(F.t * 1.7), z), l: V3(x - 1, 1.0, z + 3.2), fov: 34 }; } },
+      { d: 3.4, cam: (u) => { const e = u * u * (3 - 2 * u), x = XL(); return { p: V3(x + 10 + 22 * e, 2.2 + 13 * e, zB + 6 * e), l: V3(x - 2 * (1 - e), lerp(1.0, 0.6, e), lerp(zB + 3.2, zM, e)), fov: lerp(34, 52, e) }; } },
     ],
-    ev: [[0.01, () => { e.state = 'film'; }], [0.3, () => { jt = 1; }], [1.2, () => { e.pos.copy(floor); e.rig.pose('aim', 0, 0); e.face(pp.x, pp.z); e.sync(); }],
-      [2.6, () => { su.face(e.pos.x, e.pos.z); su.rig.pose('aim', 0, 0); su.sync(); }],
-      [3.6, () => { const m = su.muzzle(); fxMuzzle(m); sndShot('fal-npc', m); fxTracer(m, e.chest(), false); }], [3.75, () => { const m = su.muzzle(); fxMuzzle(m); sndShot('fal-npc', m); killEnemy(e, false); }]],
-    caps: [[0.2, `<b>${sav.name}:</b> מאחוריך!!`, 2.0], [4.4, `<b>${sav.name}:</b> הוא כמעט תפס אותך. תשמור לי על הגב, אני שומר לך.`, 3.2]],
-    end: () => { PDBL.rig.root.visible = false; if (e.alive) killEnemy(e, false); },
+    tick,
+    caps: [[0.3, '<b>תצפית:</b> הם כבר באמצע התעלה! עשרות סירות, שורה אחת!', 3.6], [4.4, 'בכל סירה חיילים צפופים. הם יורים עלינו תוך כדי חתירה.', 3.6], [9.6, '<b>מ״פ:</b> אש על הסירות! לא נותנים להם להגיע לחוף!', 3.6]],
+    end: () => { for (const b of [...F.used.keys()]) crewOff(b); },
   });
 }
 
@@ -8705,21 +8743,21 @@ function chuteModel() {
 }
 function mirageFilm() {
   if (!AIR.models) { AIR.models = { m: mirageModel(), mig: new THREE.Mesh(JET_GEO, MAT.jet), chute: chuteModel() }; scene.add(AIR.models.mig); onLayer1(AIR.models.mig); }
-  const M = AIR.models, H = V3(-350, 235, 175), d = V3(0.9, 0, -0.45).normalize(), sp = 92;
+  const M = AIR.models, H = V3(nearX(-350), 235, 175), d = V3(0.9, 0, -0.45).normalize(), sp = 92;
   M.m.g.visible = true; M.m.wingR.visible = true; M.mig.visible = true; M.chute.visible = false; if (M.m.wingR.parent !== M.m.g) { M.m.g.attach(M.m.wingR); } M.m.wingR.position.set(0, 0, 0); M.m.wingR.rotation.set(0, 0, 0);
-  const ev = AIR.ev = { t: 0, H, d, sp, hit: false, vy: 0, roll: 0, crashed: false, missile: null, wingV: V3(), smokeT: 0, chuteOn: false };
+  // the film opens with the missile already off the MiG's rail (it fires at 7.2 s of the dogfight, hits at 9): just the hit, then the pilot
+  const ev = AIR.ev = { t: 7.6, H, d, sp, hit: false, vy: 0, roll: 0, crashed: false, missile: null, wingV: V3(), smokeT: 0, chuteOn: false };
   updMirage(0);
-  const mp = () => M.m.g.position.clone(), side = V3(-d.z, 0, d.x), sunSd = side.x * SUN.dir.x + side.z * SUN.dir.z > 0 ? 1 : -1, eye0 = playerEye(), eyeUp = () => { const e = eye0.clone(); e.y = Math.max(e.y, groundAt(e.x, e.z) + 1.6) + 2.6; return e; };
+  const mp = () => M.m.g.position.clone(), side = V3(-d.z, 0, d.x), sunSd = side.x * SUN.dir.x + side.z * SUN.dir.z > 0 ? 1 : -1, chT = () => (ev.chuteOn ? ev.chP.clone() : mp().add(V3(0, 8, 0)));
   playCine({ vid: 'mz_mirage',
     title: 'מעל תעלת סואץ · 14:00',
     shots: [
-      { d: 3.0, cam: (u) => ({ p: mp().addScaledVector(d, -30 + u * 4).addScaledVector(side, 9 * sunSd).add(V3(0, 6, 0)), l: mp().addScaledVector(d, 30).add(V3(0, -5, 0)), fov: 48 }) },
-      { d: 3.0, cam: (u) => ({ p: mp().addScaledVector(d, 24).addScaledVector(side, 7 * sunSd).add(V3(0, 2, 0)), l: mp().addScaledVector(d, -70).add(V3(0, 8, 0)), fov: 38 }) },
-      { d: 7.2, slow: 0.5, cam: (u) => ({ p: mp().addScaledVector(side, 24 * sunSd).addScaledVector(d, -12 + u * 4).add(V3(0, 5, 0)), l: mp().addScaledVector(d, -5), fov: 44 }) },
-      { d: 4.0, slow: 0.6, cam: (u) => ({ p: H.clone().addScaledVector(side, 42 * sunSd).addScaledVector(d, 95).add(V3(0, -22, 0)), l: mp(), fov: 30 }) },
-      { d: 4.6, cam: (u) => ({ p: eyeUp(), l: ev.crashed ? ev.crashP.clone().add(V3(0, 20, 0)) : mp(), fov: 30 }) },
+      // the hit: alongside the Mirage on its sunny side as the missile comes up its tail, in slow motion, and the wing tearing away
+      { d: 4.4, slow: 0.5, cam: (u) => ({ p: mp().addScaledVector(side, 24 * sunSd).addScaledVector(d, -12 + u * 4).add(V3(0, 5, 0)), l: mp().addScaledVector(d, -5), fov: 44 }) },
+      // the pilot: out of the burning plane, the canopy opening over him, the wreck spinning away below and ahead
+      { d: 4.6, cam: (u) => { const c = chT(); return { p: c.clone().addScaledVector(side, 15 * sunSd).addScaledVector(d, -8 + u * 3).add(V3(0, -2 + u * 1.5, 0)), l: c.clone().addScaledVector(d, 9).add(V3(0, -4 - u * 4, 0)), fov: 46 }; } },
     ],
-    caps: [[0.5, '<b>תצפית:</b> מיראז׳ שלנו מעל התעלה! מיג על הזנב שלו!', 4.6], [8.5, '<b>תצפית:</b> טיל! טיל באוויר!', 3.2], [12.1, '<b>תצפית:</b> הוא נפגע! הכנף נקרעה!', 2.0], [14.3, '<b>מ״פ:</b> הטייס נטש! יש מצנח!', 2.8], [17.7, '<b>מ״פ:</b> הוא נופל מאחורי המעוז. כולם להישאר במקורה, המטוסים חוזרים!', 3.8]],
+    caps: [[0.2, '<b>תצפית:</b> מיג על הזנב של המיראז׳ שלנו! טיל באוויר!', 2.6], [2.9, '<b>תצפית:</b> הוא נפגע! הכנף נקרעה!', 1.8], [4.8, '<b>מ״פ:</b> הטייס נטש! יש מצנח!', 2.2], [7.1, '<b>מ״פ:</b> כולם להישאר במקורה, המטוסים חוזרים!', 1.9]],
     end: () => { M.mig.visible = false; },
   });
 }

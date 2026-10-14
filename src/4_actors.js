@@ -800,13 +800,13 @@ const FLOT_GEO = (() => {
 })();
 const FLOT = { mesh: null, b: [], on: false };
 function flotBuild() {
-  if (FLOT.mesh) return; const n = LITE ? 14 : 26;
+  if (FLOT.mesh) return; const n = LITE ? 18 : 40;
   FLOT.mesh = new THREE.InstancedMesh(FLOT_GEO, MAT.boatWood, n); FLOT.mesh.frustumCulled = false; FLOT.mesh.count = 0; FLOT.mesh.layers.enableAll(); scene.add(FLOT.mesh);
   for (let i = 0; i < n; i++) FLOT.b.push({ st: 'off', t: 0, ph: Math.random() * 6.28 });
 }
-/* a lane: off the quay (x about -495) to the bank of the tongue, north (z -560..-170) or south (z 170..470) of the stronghold */
+/* a lane: off the Port Tewfik quay to the bank of the tongue, north (z -560..-170) or south (z 170..470) of the stronghold */
 function flotLaunch(b, i, first) {
-  const north = i % 2 === 0, z1 = north ? rand(-540, -175) : rand(175, 460), z0 = clamp(z1 * rand(0.25, 0.75), -480, 380), x0 = -492 + rand(0, 8), x1 = tongueWestX(z1) - 4.5;
+  const north = i % 2 === 0, z1 = north ? rand(-540, -175) : rand(175, 460), z0 = clamp(z1 * rand(0.25, 0.75), -480, 380), x0 = -492 + PTDX + rand(0, 8), x1 = tongueWestX(z1) - 4.5;
   b.from = [x0, z0]; b.to = [x1, z1]; b.len = Math.hypot(x1 - x0, z1 - z0); b.hd = Math.atan2(x1 - x0, z1 - z0); b.sp = rand(1.5, 2.2);
   b.t = first ? rand(0, 0.85) * b.len / b.sp : -rand(0, 14); b.st = 'cross';
 }
