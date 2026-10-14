@@ -1569,10 +1569,18 @@ const GFXW = new WeakSet();
    every material in the scene (compiled in the background where the browser can, checked one at a time otherwise), then the textures */
 async function gfxWarm(m, cb) {
   envReady(); if (m === 'suez') szShow(true); else showWorld(m === 'surv' ? 'mezach' : m);   // the objects and lights as the mission will have them, so the programs match
-  renderer.compile(scene, camera); renderer.compile(vmScene, vmCamera);
-  const progs = renderer.info.programs.filter((p) => !GFXW.has(p)), texs = [], seen = new Set();
+  // the other missions' battlefields stay out of it (hidden, and lit differently): the scene is shown to the compiler without them for a moment
+  const skip = new Set(), mm = m === 'surv' ? 'mezach' : m, add = (l) => { if (l) for (const o of l) skip.add(o); };
+  for (const k in CHAP) if (k !== mm && k !== 'mezach' && k !== 'suez') add(CHAP[k].objs);
+  if (mm !== 'mezach') add(SZ.mezObjs); if (mm !== 'suez') add(SZ.objs); if (mm !== 'mezach' && mm !== 'suez') add(WORLD.base);
+  const texs = [], seen = new Set(), all = scene.children;
   const addT = (t) => { if (t && t.isTexture && !seen.has(t) && !t.isRenderTargetTexture && !t.isVideoTexture && t.image && t.version > 0 && renderer.properties.get(t).__version !== t.version) { seen.add(t); texs.push(t); } };
-  for (const root of [scene, vmScene]) root.traverse((o) => { const ms = o.material ? (Array.isArray(o.material) ? o.material : [o.material]) : []; for (const mt of ms) { for (const k of TEXK) addT(mt[k]); if (mt.uniforms) for (const k in mt.uniforms) addT(mt.uniforms[k] && mt.uniforms[k].value); } });
+  scene.children = all.filter((o) => !skip.has(o));
+  try {
+    renderer.compile(scene, camera); renderer.compile(vmScene, vmCamera);
+    for (const root of [scene, vmScene]) root.traverse((o) => { const ms = o.material ? (Array.isArray(o.material) ? o.material : [o.material]) : []; for (const mt of ms) { for (const k of TEXK) addT(mt[k]); if (mt.uniforms) for (const k in mt.uniforms) addT(mt.uniforms[k] && mt.uniforms[k].value); } });
+  } finally { scene.children = all; }
+  const progs = renderer.info.programs.filter((p) => !GFXW.has(p));
   const total = progs.length * 2 + texs.length || 1; let n = 0;
   if (renderer.extensions.has('KHR_parallel_shader_compile')) {   // the browser compiles them side by side; wait, without blocking, until they say they are done
     const t0 = performance.now(); while (performance.now() - t0 < 12000) { const r = progs.filter((p) => p.isReady()).length; cb(r / total); if (r === progs.length) break; await new Promise((ok) => setTimeout(ok, 40)); }

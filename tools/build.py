@@ -1,7 +1,7 @@
 """Builds the game from the sources in src/.
 
   python3 tools/build.py                      the site, into docs/ (what GitHub Pages serves): a small index.html - the page and its loading
-                                              screen - that downloads game.<hash>.js (all the game's code, one module) and shows how much has
+                                              screen - that downloads game.js (all the game's code, one module) and shows how much has
                                               arrived; plus the media from public/
   python3 tools/build.py --single OUT.html    everything in one file (the Claude artifact)   [--src DIR] [--mjs OUT.mjs for a syntax check]
 
@@ -78,8 +78,9 @@ def main():
     for dp, _, fs in os.walk(docs):
         for f in fs:
             if f == '.gitkeep': os.remove(os.path.join(dp, f))
-    data = code.encode('utf-8'); name = f'game.{hashlib.sha1(data).hexdigest()[:10]}.js'
-    open(os.path.join(docs, name), 'wb').write(data)
+    # one file name for every version (git keeps it as small changes), with the version in the address so a browser never runs an old copy
+    data = code.encode('utf-8'); name = f'game.js?v={hashlib.sha1(data).hexdigest()[:10]}'
+    open(os.path.join(docs, 'game.js'), 'wb').write(data)
     page = '<!doctype html>\n<html lang="he">\n<meta charset="utf-8">\n' + shell(src) + BOOT.replace('__SRC__', name).replace('__SIZE__', str(len(data)))
     open(os.path.join(docs, 'index.html'), 'w', encoding='utf-8').write(page)
     open(os.path.join(docs, '.nojekyll'), 'w').close()
