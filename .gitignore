@@ -1,0 +1,3 @@
+dist/
+*.v[0-9]*.js
+.DS_Store
