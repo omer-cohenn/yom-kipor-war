@@ -4,13 +4,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>חיילים חדשים · טסט</title>
 <style>
-  :root { --ink: #ece6d6; --dim: #b9b19c; --bg: #1d1c18; --chip: rgba(20, 19, 16, 0.78); --line: rgba(236, 230, 214, 0.22); --accent: #c9a24a; }
+  :root { --ink: #ece6d6; --dim: #b9b19c; --bg: #1d1c18; --chip: rgba(20, 19, 16, 0.78); --line: rgba(236, 230, 214, 0.22); --accent: #c9a24a; --head: #2b2619; --headDim: #4a4232; }
   html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font-family: Rubik, Heebo, Arial, sans-serif; overflow: hidden; }
   #view { position: fixed; inset: 0; }
   #view canvas { display: block; }
   header { position: fixed; top: 0; right: 0; left: 0; padding: calc(14px + env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) 14px max(16px, env(safe-area-inset-left, 0px)); display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap; pointer-events: none; }
-  header h1 { margin: 0; font-size: 20px; font-weight: 700; letter-spacing: 0; color: #2b2619; }
-  header p { margin: 0; color: #4a4232; font-size: 13px; }
+  header h1 { margin: 0; font-size: 20px; font-weight: 700; letter-spacing: 0; color: var(--head); }
+  header p { margin: 0; color: var(--headDim); font-size: 13px; }
   #bar { position: fixed; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); right: max(16px, env(safe-area-inset-right, 0px)); left: max(16px, env(safe-area-inset-left, 0px)); display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
   #bar button { background: var(--chip); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 9px 14px; font: inherit; font-size: 14px; cursor: pointer; }
   #bar button[aria-pressed="true"] { border-color: var(--accent); color: #fff; }
@@ -20,65 +20,61 @@
   #load { position: fixed; inset: 0; display: grid; place-items: center; color: var(--dim); font-size: 15px; }
 </style>
 <div id="view"></div>
-<header><h1>חיילים חדשים · טסט</h1><p>הדמויות במשחק עצמו לא שונו. גרירה מסובבת, גלגלת מקרבת.</p></header>
+<header><h1>חיילים חדשים · טסט</h1><p>החיילים כמו שהם במשחק, בתנועות של המשחק. גרירה מסובבת, גלגלת מקרבת.</p></header>
 <div id="load">טוען את הדמויות…</div>
 <div id="bar">
-  <button id="bEase" aria-pressed="true">עמידה</button>
-  <button id="bT" aria-pressed="false">תנוחת T</button>
+  <button id="bIdle" data-pose="idle" aria-pressed="true">עמידה</button>
+  <button id="bAim" data-pose="aim" aria-pressed="false">כיוון</button>
+  <button id="bRun" data-pose="run" aria-pressed="false">ריצה</button>
+  <button id="bCrouch" data-pose="crouch" aria-pressed="false">כריעה</button>
+  <button id="bProne" data-pose="prone" aria-pressed="false">שכיבה</button>
+  <button id="bT" data-pose="t" aria-pressed="false">תנוחת T</button>
   <button id="bSpin" aria-pressed="false">סיבוב</button>
 </div>
+<script src="chars/soldier_data.js"></script>
 <script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }</script>
 <script type="module">
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { clone as skClone } from 'three/addons/utils/SkeletonUtils.js';
 
-/* one figure, dressed three ways: the uniform, webbing, boots and helmet of each army in 1973 */
-const ARMIES = [
-  { id: 'il', name: 'צה״ל', sub: 'מדי זית, קסדת M1 עם רשת', helmet: 'm1', x: 1.05, colors: { Uniform: 0x5f5a3a, Webbing: 0x5c5737, Boots: 0x4a2c1c, HelmetM1: 0x4c4e34, HelmetLiner: 0x3e3d2b, HelmetBand: 0x34331f } },
-  { id: 'eg', name: 'מצרים', sub: 'הסוואת חאקי, קסדה סובייטית', helmet: 'sov', x: 0, colors: { Webbing: 0x8f7c52, Boots: 0x1d1b19, HelmetSoviet: 0x7a7150 },
-    face: 'ar', skin: 0xf0d5ba, camo: { seed: 7, base: 0xb5a072, layers: [[0x8c7148, 0.55, 4, 10], [0x6c6946, 0.63, 5, 12], [0xcbb98b, 0.68, 8, 18]] } },
-  { id: 'sy', name: 'סוריה', sub: 'הסוואת יער, קסדה סובייטית', helmet: 'sov', x: -1.05, colors: { Webbing: 0x4e5236, Boots: 0x1d1b19, HelmetSoviet: 0x434a30 },
-    face: 'ar', skin: 0xf2dac2, camo: { seed: 31, base: 0x5f6a43, layers: [[0x37462b, 0.52, 5, 6], [0x5b4630, 0.6, 6, 7], [0x20261b, 0.69, 9, 10]] } },
-];
+/* the soldiers exactly as the game draws them: the same figure data (the game's 4e_soldier_data.js), skinned to the same joints, posed by
+   the same rig - its rest offsets, its poses and its two-hand grip are copied here from the game (4_actors.js, 4e_soldier.js) - holding a
+   rifle each; dressed the three ways the game dresses them */
+const V3 = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z), clamp = (x, a, b) => Math.min(b, Math.max(a, x));
 const R = new THREE.WebGLRenderer({ antialias: true }); R.setPixelRatio(Math.min(2, devicePixelRatio)); R.setSize(innerWidth, innerHeight);
 R.shadowMap.enabled = true; R.shadowMap.type = THREE.PCFSoftShadowMap; R.toneMapping = THREE.ACESFilmicToneMapping; R.toneMappingExposure = 1.25;
 document.getElementById('view').appendChild(R.domElement);
 const scene = new THREE.Scene(); scene.background = new THREE.Color(0xc9b994); scene.fog = new THREE.Fog(0xc9b994, 9, 26);
-const cam = new THREE.PerspectiveCamera(32, innerWidth / innerHeight, 0.05, 60); cam.position.set(0, 1.45, 5.4);
-const ctl = new OrbitControls(cam, R.domElement); ctl.target.set(0, 1.0, 0); ctl.enableDamping = true; ctl.minDistance = 0.6; ctl.maxDistance = 12; ctl.maxPolarAngle = Math.PI * 0.52;
+const cam = new THREE.PerspectiveCamera(32, innerWidth / innerHeight, 0.05, 60); cam.position.set(-0.3, 1.45, 5.6);
+const ctl = new OrbitControls(cam, R.domElement); ctl.target.set(0, 1.05, 0); ctl.enableDamping = true; ctl.minDistance = 0.6; ctl.maxDistance = 12; ctl.maxPolarAngle = Math.PI * 0.52;
 scene.add(new THREE.HemisphereLight(0xdfe6f0, 0x7a6a4c, 1.1));
 const sun = new THREE.DirectionalLight(0xfff1d8, 2.6); sun.position.set(-3, 6, 4); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
 Object.assign(sun.shadow.camera, { left: -3, right: 3, top: 3, bottom: -1, near: 1, far: 15 }); sun.shadow.bias = -0.0004; scene.add(sun);
 const ground = new THREE.Mesh(new THREE.CircleGeometry(14, 64), new THREE.MeshStandardMaterial({ color: 0xbfa77a, roughness: 1 })); ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
 
-/* the figure's skeleton keeps its arm bones side by side (the rig that drove them is not in the file), so a pose is made by turning each
-   arm's top bones about the shoulder in the scene's own frame */
-function armsDown(root, ang) {
-  root.updateMatrixWorld(true);
-  const bones = []; root.traverse((o) => { if (o.isBone) bones.push(o); });
-  const rest = new Map(bones.map((b) => [b, { p: b.position.clone(), q: b.quaternion.clone(), s: b.scale.clone() }])); root.userData.rest = root.userData.rest || rest;
-  for (const [b, r] of root.userData.rest) { b.position.copy(r.p); b.quaternion.copy(r.q); b.scale.copy(r.s); }
-  root.updateMatrixWorld(true); if (!ang) return;
-  const wp = (b) => new THREE.Vector3().setFromMatrixPosition(b.matrixWorld);
-  for (const side of [1, -1]) {
-    const sfx = side > 0 ? 'l' : 'r', sh = bones.find((b) => b.name.replace(/\W/g, '') === 'c_arm_twist_offset' + sfx); if (!sh) continue;   /* the loader drops the dot in 'name.l' */
-    const S = wp(sh);
-    const set = bones.filter((b) => b.name.endsWith(sfx) && /arm|hand|thumb|index|middle|ring|pinky/.test(b.name) && wp(b).x * side > S.x * side - 0.03 && wp(b).y > S.y - 0.15);
-    const top = set.filter((b) => !set.includes(b.parent));
-    const M = new THREE.Matrix4().makeTranslation(S.x, S.y, S.z).multiply(new THREE.Matrix4().makeRotationZ(-side * ang)).multiply(new THREE.Matrix4().makeTranslation(-S.x, -S.y, -S.z));
-    for (const b of top) { const w = M.clone().multiply(b.matrixWorld); b.parent.matrixWorld.clone().invert().multiply(w).decompose(b.position, b.quaternion, b.scale); }
-    root.updateMatrixWorld(true);
+/* ---- the figure: decoded once, shared by all three ---- */
+const NS_GROUPS = ['uniform', 'webbing', 'boots', 'head', 'hands', 'eyes', 'm1', 'm1fit', 'sov'];
+function figureGeometry() {
+  const H = SOLDIER_DATA.hdr, raw = atob(SOLDIER_DATA.bin), u8 = new Uint8Array(raw.length); for (let i = 0; i < raw.length; i++) u8[i] = raw.charCodeAt(i);
+  const buf = u8.buffer; let nv = 0, ni = 0; for (const g of H.groups) { nv += g.v; ni += g.i; }
+  const pos = new Float32Array(nv * 3), nrm = new Int8Array(nv * 3), uv = new Float32Array(nv * 2), si = new Uint8Array(nv * 4), sw = new Uint8Array(nv * 4), idx = new Uint32Array(ni), geo = new THREE.BufferGeometry();
+  let v0 = 0, i0 = 0;
+  for (const g of H.groups) {
+    const q = new Int16Array(buf, g.pos, g.v * 3); for (let k = 0; k < g.v * 3; k++) pos[v0 * 3 + k] = H.min[k % 3] + ((q[k] + 32768) / 65535) * H.span[k % 3];
+    nrm.set(new Int8Array(buf, g.nrm, g.v * 3), v0 * 3); uv.set(new Float32Array(buf, g.uv, g.v * 2), v0 * 2); si.set(new Uint8Array(buf, g.si, g.v * 4), v0 * 4); sw.set(new Uint8Array(buf, g.sw, g.v * 4), v0 * 4);
+    const ix = new Uint16Array(buf, g.idx, g.i); for (let k = 0; k < g.i; k++) idx[i0 + k] = ix[k] + v0;
+    geo.addGroup(i0, g.i, NS_GROUPS.indexOf(g.name)); v0 += g.v; i0 += g.i;
   }
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('normal', new THREE.BufferAttribute(nrm, 3, true)); geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+  geo.setAttribute('skinIndex', new THREE.BufferAttribute(si, 4)); geo.setAttribute('skinWeight', new THREE.BufferAttribute(sw, 4, true)); geo.setIndex(new THREE.BufferAttribute(idx, 1));
+  geo.boundingSphere = new THREE.Sphere(V3(0, -0.1, 0), 1.5); return geo;
 }
-/* camouflage cloth, drawn here: blotches of each colour where a tileable noise field passes its threshold, the field stretched sideways
-   (columns, rows of noise cells) for the Egyptian brush strokes and round for the Syrian forest pattern; then the weave of the cloth over it */
-function camoTexture(c) {
+/* the cloth: blotches where a tileable noise field passes each colour's threshold, then the weave (as the game) */
+function camo(c) {
   const N = 512, cv = document.createElement('canvas'); cv.width = cv.height = N; const ctx = cv.getContext('2d'), img = ctx.createImageData(N, N), D = img.data;
   let st = c.seed >>> 0; const rnd = () => { st = (st + 0x6d2b79f5) >>> 0; let t = st; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
-  const field = (px, py) => {   // fractal value noise that tiles: px by py cells, then twice as many, three octaves
-    const oct = [1, 2, 4].map((m) => { const W = px * m, H = py * m, g = new Float32Array(W * H).map(rnd); return { W, H, g, a: 1 / m }; });
+  const field = (px, py) => {
+    const oct = [1, 2, 4].map((m) => { const W = px * m, Hh = py * m, g = new Float32Array(W * Hh).map(rnd); return { W, H: Hh, g, a: 1 / m }; });
     return (u, v) => { let s = 0, n = 0; for (const o of oct) { const x = u * o.W, y = v * o.H, x0 = Math.floor(x), y0 = Math.floor(y), fx = x - x0, fy = y - y0, sx = fx * fx * (3 - 2 * fx), sy = fy * fy * (3 - 2 * fy);
       const i = (yy, xx) => o.g[((yy % o.H) * o.W) + (xx % o.W)], a = i(y0, x0), b = i(y0, x0 + 1), d0 = i(y0 + 1, x0), e = i(y0 + 1, x0 + 1);
       s += (a + (b - a) * sx + (d0 - a) * sy + (a - b - d0 + e) * sx * sy) * o.a; n += o.a; } return s / n; };
@@ -91,44 +87,122 @@ function camoTexture(c) {
   }
   ctx.putImageData(img, 0, 0); const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(0.55, 0.55); t.anisotropy = 4; return t;
 }
-const figs = []; let pose = 'ease', spin = false;
-/* the Egyptian and Syrian soldiers' face: the same figure with a moustache, dark brows and short dark hair (chars/head_ar.jpg), and a warmer,
-   more olive skin over the face and hands */
-const faceAr = new THREE.TextureLoader().load('chars/head_ar.jpg'); faceAr.flipY = false; faceAr.colorSpace = THREE.SRGBColorSpace;
-const SKIN = ['Std_Skin_Head', 'Std_Skin_Arm', 'Std_Nails'];
-const onModel = (g) => {
-  document.getElementById('load').remove();
-  for (const A of ARMIES) {
-    const f = skClone(g.scene), camo = A.camo ? camoTexture(A.camo) : null; f.position.x = A.x; f.rotation.y = 0;
-    f.traverse((o) => {
-      if (!o.isMesh) return; o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false;
-      if (o.name.startsWith('HelmetM1')) o.visible = A.helmet === 'm1';
-      if (o.name.startsWith('HelmetSoviet')) o.visible = A.helmet === 'sov';
-      o.material = o.material.clone(); const c = A.colors[o.material.name]; if (c !== undefined) o.material.color.set(c);
-      if (camo && o.material.name === 'Uniform') { o.material.map = camo; o.material.color.set(0xffffff); }
-      if (A.skin && SKIN.includes(o.material.name)) o.material.color.set(A.skin);
-      if (A.face === 'ar' && o.material.name === 'Std_Skin_Head') o.material.map = faceAr;
-    });
-    scene.add(f); armsDown(f, 1.22);
-    const tag = document.createElement('div'); tag.className = 'tag'; tag.innerHTML = `${A.name}<small>${A.sub}</small>`; document.body.appendChild(tag);
-    figs.push({ f, tag });
+function net() {
+  const N = 256, c = document.createElement('canvas'); c.width = c.height = N; const g = c.getContext('2d'); g.fillStyle = '#5a5c3e'; g.fillRect(0, 0, N, N);
+  for (let i = 0; i < 900; i++) { g.fillStyle = `rgba(${Math.random() < 0.5 ? '40,42,28' : '110,108,84'},0.12)`; g.fillRect(Math.random() * N, Math.random() * N, 2 + Math.random() * 8, 1 + Math.random() * 2); }
+  g.strokeStyle = 'rgba(38,36,24,0.9)'; g.lineWidth = 2.4; for (let k = -N; k < 2 * N; k += 32) { g.beginPath(); g.moveTo(k, 0); g.lineTo(k + N, N); g.stroke(); g.beginPath(); g.moveTo(k, N); g.lineTo(k + N, 0); g.stroke(); }
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; return t;
+}
+const image = (url) => { const t = new THREE.TextureLoader().load(url); t.flipY = false; t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t; };
+const std = (o) => new THREE.MeshStandardMaterial(Object.assign({ roughness: 0.9, metalness: 0 }, o));
+const hidden = new THREE.MeshBasicMaterial({ visible: false });
+
+/* ---- the three armies, as the game dresses them ---- */
+const ARMIES = [
+  { id: 'il', name: 'צה״ל', sub: 'מדי זית, קסדת M1 עם רשת, FN FAL', x: 1.05, gun: 'fal' },
+  { id: 'eg', name: 'מצרים', sub: 'הסוואת חאקי, קסדה סובייטית, AK-47', x: 0, gun: 'ak' },
+  { id: 'sy', name: 'סוריה', sub: 'הסוואת יער, קסדה סובייטית, AK-47', x: -1.05, gun: 'ak' },
+];
+function materials(id) {
+  const T = SOLDIER_DATA.tex;
+  if (id === 'il') return [std({ map: camo({ seed: 3, base: 0x5f5a3a, layers: [] }), roughness: 0.95 }), std({ color: 0x5c5737 }), std({ color: 0x4a2c1c, roughness: 0.55 }), std({ map: image(T.head), roughness: 0.6 }), std({ map: image(T.hands), roughness: 0.6 }), std({ map: image(T.eyes), roughness: 0.15 }), std({ map: net(), roughness: 0.8 }), std({ color: 0x3a3a2a, roughness: 0.85 }), hidden];
+  const sy = id === 'sy', skin = sy ? 0xf2dac2 : 0xf0d5ba;
+  const C = sy ? { seed: 31, base: 0x5f6a43, layers: [[0x37462b, 0.52, 5, 6], [0x5b4630, 0.6, 6, 7], [0x20261b, 0.69, 9, 10]] } : { seed: 7, base: 0xb5a072, layers: [[0x8c7148, 0.55, 4, 10], [0x6c6946, 0.63, 5, 12], [0xcbb98b, 0.68, 8, 18]] };
+  return [std({ map: camo(C), roughness: 0.95 }), std({ color: sy ? 0x4e5236 : 0x8f7c52 }), std({ color: 0x1d1b19, roughness: 0.55 }), std({ map: image(T.headAr || T.head), color: skin, roughness: 0.6 }), std({ map: image(T.hands), color: skin, roughness: 0.6 }), std({ map: image(T.eyes), roughness: 0.15 }), hidden, hidden, std({ color: sy ? 0x434a30 : 0x7a7150, roughness: 0.6 })];
+}
+/* a rifle in the game's frame for it: muzzle forward (+z), the pistol grip and the handguard where the rig puts the hands */
+function rifle(kind) {
+  const g = new THREE.Group(), metal = std({ color: 0x1c1c1b, roughness: 0.45, metalness: 0.5 }), wood = std({ color: kind === 'ak' ? 0x6b3b1e : 0x2a2622, roughness: 0.7 });
+  const box = (w, h, d, m, x, y, z, rx = 0) => { const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); o.position.set(x, y, z); o.rotation.x = rx; o.castShadow = true; g.add(o); };
+  const cyl = (r, l, m, x, y, z) => { const o = new THREE.Mesh(new THREE.CylinderGeometry(r, r, l, 10), m); o.rotation.x = Math.PI / 2; o.position.set(x, y, z); o.castShadow = true; g.add(o); };
+  if (kind === 'ak') {
+    box(0.042, 0.06, 0.3, metal, 0, -0.01, 0.08); box(0.04, 0.045, 0.19, wood, 0, -0.03, 0.3); cyl(0.0085, 0.33, metal, 0, 0.005, 0.5); cyl(0.006, 0.2, metal, 0, 0.03, 0.33);
+    box(0.036, 0.06, 0.27, wood, 0, -0.05, -0.2, -0.12); box(0.03, 0.09, 0.04, wood, 0, -0.08, 0.02, 0.3); box(0.026, 0.17, 0.05, metal, 0, -0.12, 0.13, -0.32);
+  } else {
+    box(0.044, 0.07, 0.34, metal, 0, -0.005, 0.07); box(0.045, 0.05, 0.2, wood, 0, -0.03, 0.31); cyl(0.0085, 0.36, metal, 0, 0.005, 0.55); box(0.012, 0.03, 0.03, metal, 0, 0.045, 0.62);
+    box(0.036, 0.06, 0.32, wood, 0, -0.035, -0.24, -0.06); box(0.03, 0.09, 0.04, wood, 0, -0.08, 0.02, 0.3); box(0.026, 0.16, 0.06, metal, 0, -0.11, 0.13, -0.05); box(0.02, 0.025, 0.12, metal, 0, 0.05, 0.1);
   }
-};
-const onErr = (e) => { document.getElementById('load').textContent = 'הטעינה נכשלה. רעננו את הדף.'; console.error(e); };
-if (window.SOLDIER_B64) {   // where .glb files cannot be served the model comes as text in a script (chars/soldier.js)
-  const s64 = atob(window.SOLDIER_B64), u8 = new Uint8Array(s64.length); for (let i = 0; i < s64.length; i++) u8[i] = s64.charCodeAt(i);
-  new GLTFLoader().parse(u8.buffer, '', onModel, onErr);
-} else new GLTFLoader().load('chars/soldier.glb', onModel, undefined, onErr);
-const setPose = (p) => { pose = p; for (const { f } of figs) armsDown(f, p === 'ease' ? 1.22 : 0); bEase.setAttribute('aria-pressed', p === 'ease'); bT.setAttribute('aria-pressed', p === 't'); };
-bEase.onclick = () => setPose('ease'); bT.onclick = () => setPose('t'); bSpin.onclick = () => { spin = !spin; bSpin.setAttribute('aria-pressed', spin); };
+  return g;
+}
+
+/* ---- the game's rig, its joints where this figure's are (4e_soldier.js), and its two-hand grip ---- */
+const US = 1.14, GRIP = [V3(0, -0.075, 0.03), V3(0, -0.04, 0.22)], POLE_R = V3(-0.75, -0.55, -0.2).normalize(), POLE_L = V3(0.35, -1, 0.05).normalize();
+const IKV = { t: V3(), h: V3(), e: V3(), p: V3(), c: V3(), q1: new THREE.Quaternion(), q2: new THREE.Quaternion(), down: V3(0, -1, 0) };
+function ikArm(sh, el, target, pole) {
+  const L1 = 0.28, L2 = 0.29, t = IKV.t.subVectors(target, sh.position); const d = clamp(t.length(), 0.1, L1 + L2 - 0.004); t.normalize();
+  const bend = Math.PI - Math.acos(clamp((L1 * L1 + L2 * L2 - d * d) / (2 * L1 * L2), -1, 1)); el.rotation.set(-bend, 0, 0);
+  const h = IKV.h.set(0, -L1 - L2 * Math.cos(bend), L2 * Math.sin(bend)).normalize(); IKV.q1.setFromUnitVectors(h, t);
+  const e = IKV.e.copy(IKV.down).applyQuaternion(IKV.q1); e.addScaledVector(t, -t.dot(e)); const pp = IKV.p.copy(pole).addScaledVector(t, -t.dot(pole));
+  const ang = Math.atan2(IKV.c.crossVectors(e, pp).dot(t), e.dot(pp)); IKV.q2.setFromAxisAngle(t, ang); sh.quaternion.multiplyQuaternions(IKV.q2, IKV.q1);
+}
+function makeRig(A, geo) {
+  const J = SOLDIER_DATA.hdr.joints, G = (p) => { const o = new THREE.Group(); if (p) o.position.fromArray(p); return o; };
+  const r = { root: new THREE.Group() }; r.root.rotation.order = 'YXZ'; r.hips = G([0, 0.93, 0]); r.root.add(r.hips); r.torso = G(); r.hips.add(r.torso);
+  r.headP = G(J.headP); r.torso.add(r.headP);
+  r.sR = G(J.sR); r.eR = G([0, -J.eLen, 0]); r.sR.add(r.eR); r.sL = G(J.sL); r.eL = G([0, -J.eLen, 0]); r.sL.add(r.eL); r.torso.add(r.sR, r.sL);
+  r.hR = G(J.hR); r.kR = G(J.kR); r.hR.add(r.kR); r.hL = G(J.hL); r.kL = G(J.kL); r.hL.add(r.kL); r.hips.add(r.hR, r.hL);
+  r.gun = rifle(A.gun); r.torso.add(r.gun);
+  // bound in the figure's stance: the rig at rest, both arms raised level
+  r.sR.quaternion.setFromAxisAngle(V3(0, 0, 1), -Math.PI / 2); r.sL.quaternion.setFromAxisAngle(V3(0, 0, 1), Math.PI / 2); r.root.updateMatrixWorld(true);
+  const bones = ['hips', 'torso', 'sR', 'eR', 'sL', 'eL', 'hR', 'kR', 'hL', 'kL', 'headP'].map((k) => { const b = new THREE.Bone(); r[k].add(b); return b; });
+  r.mesh = new THREE.SkinnedMesh(geo, materials(A.id)); r.hips.add(r.mesh); r.root.updateMatrixWorld(true); r.mesh.bind(new THREE.Skeleton(bones));
+  r.mesh.castShadow = true; r.mesh.frustumCulled = false; r.root.scale.setScalar(US); r.root.position.x = A.x; r.root.rotation.y = 0.55; scene.add(r.root);   /* turned a little: the rifle seen side on */
+  r.breath = Math.random() * 6; return r;
+}
+/* the game's poses (Rig.pose), set straight onto the joints */
+function pose(r, kind, t) {
+  const T = { rootX: 0, hipsY: 0.93, hipsX: 0, hipsZ: 0, hipsYaw: 0, tX: 0, tY: 0, tZ: 0, legs: [0, 0, 0, 0], gun: null, arms: null };
+  const legs = (a, b, c, d) => { T.legs = [a, b, c, d]; }, gunAt = (...g) => { T.gun = g; };
+  if (kind === 'run') {
+    const sp = 1, sw = Math.sin(t) * 0.78 * sp, c2 = Math.cos(t * 2);
+    legs(-sw, 0.15 + Math.max(0, Math.sin(t + 1.6)) * 1.15 * sp, sw, 0.15 + Math.max(0, Math.sin(t + 1.6 + Math.PI)) * 1.15 * sp);
+    T.hipsY = 0.9 + Math.abs(Math.cos(t)) * 0.05 * sp; T.hipsX = Math.sin(t) * 0.022 * sp; T.hipsZ = Math.sin(t) * 0.07 * sp; T.hipsYaw = -Math.sin(t) * 0.1 * sp;
+    T.tX = 0.22 * sp - c2 * 0.02 * sp; T.tY = Math.sin(t) * 0.2 * sp; T.tZ = -Math.sin(t) * 0.04 * sp; gunAt(0.02, 0.3, 0.27, -0.45 + c2 * 0.03 * sp, 0.62, 0.2);
+  } else if (kind === 'aim' || kind === 'crouch') {
+    if (kind === 'crouch') { T.hipsY = 0.55; legs(-1.35, 1.45, -0.2, 1.95); T.tX = 0.12; } else legs(-0.12, 0.12, 0.16, 0.1);
+    T.tX += Math.sin(t * 0.9) * 0.008; T.tY = 0.18; gunAt(-0.1, 0.45 + Math.sin(t * 1.1) * 0.004, 0.4, 0, -0.2, 0);
+  } else if (kind === 'prone') {
+    T.rootX = -Math.PI / 2; legs(0.05, 0.1, -0.05, 0.25 + Math.sin(t * 1.3) * 0.1);
+    T.arms = [-0.2 + Math.sin(t * 2) * 0.15, -0.6, -2.4 + Math.sin(t * 1.7) * 0.3, -0.5, 0.2, -0.2]; gunAt(0.3, 0.1, -0.4, 0, 0.8, 1.4);
+  } else if (kind === 'idle') {
+    const b = Math.sin(t * 0.8), w = Math.sin(t * 0.31);
+    legs(-0.05 + w * 0.03, 0.05 + Math.max(0, w) * 0.06, 0.05 - w * 0.03, 0.05 + Math.max(0, -w) * 0.06); T.hipsX = w * 0.025; T.hipsZ = w * 0.03; T.tX = 0.03 + b * 0.02; T.tZ = -w * 0.03; T.tY = w * 0.05;
+    gunAt(-0.03, 0.24 + b * 0.004, 0.25, 0.55, 0.4, 0);
+  }
+  r.root.rotation.x = T.rootX; r.hips.position.set(T.hipsX, T.hipsY, 0); r.hips.rotation.set(0, T.hipsYaw, T.hipsZ); r.torso.rotation.set(T.tX, T.tY, T.tZ);
+  r.hL.rotation.set(T.legs[0], 0, 0); r.kL.rotation.set(T.legs[1], 0, 0); r.hR.rotation.set(T.legs[2], 0, 0); r.kR.rotation.set(T.legs[3], 0, 0);
+  if (kind === 't') { r.gun.visible = false; r.sR.rotation.set(0, 0, -Math.PI / 2); r.sL.rotation.set(0, 0, Math.PI / 2); r.eR.rotation.set(0, 0, 0); r.eL.rotation.set(0, 0, 0); r.headP.rotation.set(0, 0, 0); r.torso.scale.set(1, 1, 1); return; }
+  r.gun.visible = true; r.gun.position.set(T.gun[0], T.gun[1], T.gun[2]); r.gun.rotation.set(T.gun[3], T.gun[4], T.gun[5]);
+  if (T.arms) { const a = T.arms; r.sR.rotation.set(a[0], 0, a[4]); r.eR.rotation.set(a[1], 0, 0); r.sL.rotation.set(a[2], 0, a[5]); r.eL.rotation.set(a[3], 0, 0); }
+  else { const gq = GRIP[0].clone().applyQuaternion(r.gun.quaternion).add(r.gun.position), gl = GRIP[1].clone().applyQuaternion(r.gun.quaternion).add(r.gun.position); ikArm(r.sR, r.eR, gq, POLE_R); ikArm(r.sL, r.eL, gl, POLE_L); }
+  // what a living body does on its own (Rig.life): the breath, the head looking about a little
+  const calm = kind === 'idle' ? 1 : 0.3, b = 0.011 * Math.sin(r.breath * (kind === 'run' ? 2.8 : 1.25)); r.torso.scale.set(1 + b * 0.4, 1 + b, 1 + b * 0.8);
+  r.headP.rotation.set((0.045 * Math.sin(r.breath * 0.7 + 1)) * calm, (0.16 * Math.sin(r.breath * 0.41)) * calm, 0.035 * Math.sin(r.breath * 0.53 + 0.7) * calm);
+}
+
+const figs = []; let kind = 'idle', spin = false;
+try {
+  const geo = figureGeometry();
+  for (const A of ARMIES) {
+    const r = makeRig(A, geo);
+    const tag = document.createElement('div'); tag.className = 'tag'; tag.innerHTML = `${A.name}<small>${A.sub}</small>`; document.body.appendChild(tag);
+    figs.push({ r, tag, A });
+  }
+  document.getElementById('load').remove();
+} catch (e) { document.getElementById('load').textContent = 'הטעינה נכשלה. רעננו את הדף.'; console.error(e); }
+for (const b of document.querySelectorAll('#bar button[data-pose]')) b.onclick = () => { kind = b.dataset.pose; for (const x of document.querySelectorAll('#bar button[data-pose]')) x.setAttribute('aria-pressed', String(x === b)); };
+bSpin.onclick = () => { spin = !spin; bSpin.setAttribute('aria-pressed', String(spin)); };
 addEventListener('resize', () => { R.setSize(innerWidth, innerHeight); cam.aspect = innerWidth / innerHeight; cam.updateProjectionMatrix(); });
-const v = new THREE.Vector3(), clock = new THREE.Clock();
-R.setAnimationLoop(() => {
-  const dt = clock.getDelta(); if (spin) for (const { f } of figs) f.rotation.y += dt * 0.6;
+const v = new THREE.Vector3(), clock = new THREE.Clock(); let t = 0;
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+function frame() {
+  const dt = Math.min(clock.getDelta(), 0.05); t += reduce ? 0 : dt;
+  for (const { r } of figs) { r.breath += dt; if (spin) r.root.rotation.y += dt * 0.6; pose(r, kind, kind === 'run' ? t * 9 : t); }
   ctl.update(); R.render(scene, cam);
-  for (const { f, tag } of figs) { v.set(f.position.x, 0.02, 0).project(cam); tag.style.left = (v.x * 0.5 + 0.5) * innerWidth + 'px'; tag.style.top = Math.min((-v.y * 0.5 + 0.5) * innerHeight + 8, innerHeight - 118) + 'px'; const sx = (v.x * 0.5 + 0.5) * innerWidth; tag.style.display = v.z < 1 && sx > -80 && sx < innerWidth + 80 ? '' : 'none'; }
-});
-window.__view = { cam, ctl, setPose };   /* for checking it from outside */
+  for (const { r, tag } of figs) { v.set(r.root.position.x, 0.02, 0).project(cam); const sx = (v.x * 0.5 + 0.5) * innerWidth; tag.style.left = sx + 'px'; tag.style.top = Math.min((-v.y * 0.5 + 0.5) * innerHeight + 8, innerHeight - 118) + 'px'; tag.style.display = v.z < 1 && sx > -80 && sx < innerWidth + 80 ? '' : 'none'; }
+}
+R.setAnimationLoop(frame);
+window.__view = { cam, ctl, setPose: (k) => { kind = k; }, frame, figs };   /* for checking it from outside */
 window.__ready = true;
 </script>
 </html>
