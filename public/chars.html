@@ -267,7 +267,7 @@ function pose(r, kind, t) {
     const sp = kind === 'walk' ? 0.45 : 1, sw = Math.sin(t) * 0.78 * sp, c2 = Math.cos(t * 2);
     legs(-sw, 0.15 + Math.max(0, Math.sin(t + 1.6)) * 1.15 * sp, sw, 0.15 + Math.max(0, Math.sin(t + 1.6 + Math.PI)) * 1.15 * sp);
     T.hipsY = 0.9 + Math.abs(Math.cos(t)) * 0.05 * sp; T.hipsX = Math.sin(t) * 0.022 * sp; T.hipsZ = Math.sin(t) * 0.07 * sp; T.hipsYaw = -Math.sin(t) * 0.1 * sp;
-    T.tX = 0.22 * sp - c2 * 0.02 * sp; T.tY = Math.sin(t) * 0.2 * sp; T.tZ = -Math.sin(t) * 0.04 * sp; gunAt(0.02, 0.3, 0.27, -0.45 + c2 * 0.03 * sp, 0.62, 0.2);
+    T.tX = 0.22 * sp - c2 * 0.02 * sp; T.tY = Math.sin(t) * 0.2 * sp; T.tZ = -Math.sin(t) * 0.04 * sp; if (r.wk === 'rpg7') gunAt(-0.16, 0.57, 0.14, -0.5 + c2 * 0.03 * sp, -0.08, 0.05); else gunAt(0.02, 0.3, 0.27, -0.45 + c2 * 0.03 * sp, 0.62, 0.2);
   } else if (kind === 'aim' || kind === 'crouch' || kind === 'fire') {
     if (kind === 'crouch') { T.hipsY = 0.55; legs(-1.35, 1.45, -0.2, 1.95); T.tX = 0.12; } else legs(-0.12, 0.12, 0.16, 0.1);
     T.tX += Math.sin(t * 0.9) * 0.008 - r.kick * 0.05;
@@ -279,7 +279,7 @@ function pose(r, kind, t) {
   } else if (kind === 'idle') {
     const b = Math.sin(t * 0.8), w = Math.sin(t * 0.31);
     legs(-0.05 + w * 0.03, 0.05 + Math.max(0, w) * 0.06, 0.05 - w * 0.03, 0.05 + Math.max(0, -w) * 0.06); T.hipsX = w * 0.025; T.hipsZ = w * 0.03; T.tX = 0.03 + b * 0.02; T.tZ = -w * 0.03; T.tY = w * 0.05;
-    gunAt(-0.03, 0.24 + b * 0.004, 0.25, 0.55, 0.4, 0);
+    if (r.wk === 'rpg7') gunAt(-0.16, 0.56 + b * 0.004, 0.16, -0.35, -0.08, 0); else gunAt(-0.03, 0.24 + b * 0.004, 0.25, 0.55, 0.4, 0);
   }
   r.root.rotation.x = T.rootX; r.hips.position.set(T.hipsX, T.hipsY, 0); r.hips.rotation.set(0, T.hipsYaw, T.hipsZ); r.torso.rotation.set(T.tX, T.tY, T.tZ);
   r.hL.rotation.set(T.legs[0], 0, 0); r.kL.rotation.set(T.legs[1], 0, 0); r.hR.rotation.set(T.legs[2], 0, 0); r.kR.rotation.set(T.legs[3], 0, 0);

@@ -588,7 +588,7 @@ class Rig {
       R.legs(-sw, 0.15 + Math.max(0, Math.sin(t + 1.6)) * 1.15 * sp, sw, 0.15 + Math.max(0, Math.sin(t + 1.6 + Math.PI)) * 1.15 * sp);
       T.hipsY = 0.9 + Math.abs(Math.cos(t)) * 0.05 * sp; T.hipsX = Math.sin(t) * 0.022 * sp; T.hipsZ = Math.sin(t) * 0.07 * sp; T.hipsYaw = -Math.sin(t) * 0.1 * sp;
       T.torsoX = 0.22 * sp - c2 * 0.02 * sp; T.torsoY = Math.sin(t) * 0.2 * sp; T.torsoZ = -Math.sin(t) * 0.04 * sp;
-      R.gunAt(0.02, 0.3, 0.27, -0.45 + c2 * 0.03 * sp, 0.62, 0.2);
+      if (R.wkind === 'rpg') R.gunAt(-0.16, 0.57, 0.14, -0.5 + c2 * 0.03 * sp, -0.08, 0.05); else R.gunAt(0.02, 0.3, 0.27, -0.45 + c2 * 0.03 * sp, 0.62, 0.2);
     } else if (kind === 'aim' || kind === 'crouch') {
       if (kind === 'crouch') { T.hipsY = 0.55; R.legs(-1.35, 1.45, -0.2, 1.95); T.torsoX = 0.12; }
       else R.legs(-0.12, 0.12, 0.16, 0.1);
@@ -602,7 +602,7 @@ class Rig {
       // standing easy: weight shifts slowly from foot to foot, the chest rises with the breath
       const b = Math.sin(t * 0.8), w = Math.sin(t * 0.31);
       R.legs(-0.05 + w * 0.03, 0.05 + Math.max(0, w) * 0.06, 0.05 - w * 0.03, 0.05 + Math.max(0, -w) * 0.06); T.hipsX = w * 0.025; T.hipsZ = w * 0.03; T.torsoX = 0.03 + b * 0.02; T.torsoZ = -w * 0.03; T.torsoY = w * 0.05;
-      R.gunAt(-0.03, 0.24 + b * 0.004, 0.25, 0.55, 0.4, 0);
+      if (R.wkind === 'rpg') R.gunAt(-0.16, 0.56 + b * 0.004, 0.16, -0.35, -0.08, 0); else R.gunAt(-0.03, 0.24 + b * 0.004, 0.25, 0.55, 0.4, 0);   // the RPG rests on the shoulder
     } else if (kind === 'prone') {
       T.rootX = -Math.PI / 2; R.legs(0.05, 0.1, -0.05, 0.25 + Math.sin(t * 1.3) * 0.1);
       R.arms(-0.2 + Math.sin(t * 2) * 0.15, -0.6, -2.4 + Math.sin(t * 1.7) * 0.3, -0.5, 0.2, -0.2); R.gunAt(0.3, 0.1, -0.4, 0, 0.8, 1.4);

@@ -201,12 +201,35 @@ function falGeo() {
 const FAL_MAT = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.46, metalness: 0.55 });   // the game's MAT.vcMetal
 // a weapon for a hand: the packed model (in the game's weapon frame already), the detailed FAL, or the old boxes
 function weapon(kind) {
-  if ((kind === 'akms' || kind === 'rpg7') && window.mdlHas && mdlHas(kind)) { const g = mdlMesh(kind, 0); g.traverse((m) => { m.castShadow = true; }); return g; }
+  if ((kind === 'akms' || kind === 'rpg7') && typeof mdlHas === 'function' && mdlHas(kind)) { const g = mdlMesh(kind, 0); g.traverse((m) => { m.castShadow = true; }); return g; }
   if (kind === 'fal' && window.FAL_W_DATA) { const m = new THREE.Mesh(falGeo(), FAL_MAT); m.castShadow = true; return m; }
   return boxRifle(kind === 'fal' || kind === 'falbox' ? 'fal' : 'ak');
 }
 // the game's grips (4_actors.js GRIPS): where the right hand holds and where the left hand supports
 const GRIPS = { rifle: [V3(0, -0.075, 0.03), V3(0, -0.04, 0.22)], fal: [V3(0, -0.085, -0.04), V3(0, -0.04, 0.235)], rpg: [V3(0, -0.07, -0.05), V3(0, -0.07, 0.17)] };
+// the game's fist grip (4_actors.js ikFist): the middle of the fist on the grip, the forearm turned so the grip runs through it
+const NS_FIST = [V3(0.022, -0.306, 0.05), V3(-0.022, -0.306, 0.05)];
+const NS_BLADE = 0.45, NS_AIM = { fal: [0.058, 0.47, 0.359], rifle: [0.002, 0.47, 0.241] };
+const NS_GRIP = {
+  fal: [[V3(0, -0.08, -0.045), V3(0, -0.83, -0.55).normalize(), V3(1, 0, 0)], [V3(0, 0.012, 0.205), V3(0, 0, 1), V3(0.4, -1, 0).normalize()]],
+  rifle: [[V3(0, -0.09, 0.02), V3(0, -0.88, -0.47).normalize(), V3(1, 0, 0)], [V3(0, -0.006, 0.215), V3(0, 0, 1), V3(0.4, -1, 0).normalize()]],
+  rpg: [[V3(0, -0.065, -0.045), V3(0, -1, 0), V3(1, 0, 0)], [V3(0, -0.1, 0.128), V3(0, -0.995, -0.1).normalize(), V3(1, 0, 0)]],
+};
+const nsGripOf = (gr, hg) => [[gr.clone().add(V3(0, -0.012, -0.01)), V3(0, -0.9, -0.43).normalize(), V3(1, 0, 0)], [hg.clone().add(V3(0, 0.035, 0.03)), V3(0, 0, 1), V3(0.4, -1, 0).normalize()]];
+const _fP = V3(), _fA = V3(), _fD = V3(), _fT = V3(), _fF = V3(), _fqi = new THREE.Quaternion(), _fqt = new THREE.Quaternion(), _fY = V3(0, 1, 0);
+function ikFist(sh, el, g, G, fist, pole) {
+  _fP.copy(G[0]).applyQuaternion(g.quaternion).add(g.position); _fA.copy(G[1]).applyQuaternion(g.quaternion); _fD.copy(G[2]).applyQuaternion(g.quaternion); _fT.copy(_fP);
+  const pn = fist.x > 0 ? 1 : -1;
+  for (let it = 0; it < 3; it++) {
+    ikArm(sh, el, _fT, pole);
+    _fqi.multiplyQuaternions(sh.quaternion, el.quaternion).invert();
+    const a = _fA.clone().applyQuaternion(_fqi), d = _fD.clone().applyQuaternion(_fqi); let th = Math.atan2(a.x, a.z);
+    if (pn * (d.x * Math.cos(th) - d.z * Math.sin(th)) < 0) th += Math.PI;
+    el.quaternion.multiply(_fqt.setFromAxisAngle(_fY, th));
+    _fF.copy(fist).applyQuaternion(el.quaternion).add(el.position).applyQuaternion(sh.quaternion).add(sh.position);
+    _fT.add(_fP).sub(_fF);
+  }
+}
 const US = 1.14, POLE_R = V3(-0.75, -0.55, -0.2).normalize(), POLE_L = V3(0.35, -1, 0.05).normalize();
 const IKV = { t: V3(), h: V3(), e: V3(), p: V3(), c: V3(), q1: new THREE.Quaternion(), q2: new THREE.Quaternion(), down: V3(0, -1, 0) };
 function ikArm(sh, el, target, pole) {
@@ -232,7 +255,7 @@ function makeRig(A, geo) {
   r.breath = Math.random() * 6; r.kick = 0; return r;
 }
 function setGun(r, kind) {
-  if (r.gun) r.gunP.remove(r.gun); r.gun = weapon(kind); r.gunP.add(r.gun); r.wk = kind;
+  if (r.gun) r.gunP.remove(r.gun); r.gun = weapon(kind); r.gunP.add(r.gun); r.wk = kind; r.boxG = null;
   const det = kind === 'fal' && window.FAL_W_DATA; r.grip = GRIPS[kind === 'rpg7' ? 'rpg' : det ? 'fal' : 'rifle'];
   r.flash.position.set(0, 0.012, kind === 'rpg7' ? 0.75 : kind === 'akms' ? 0.5 : det ? falGeo().boundingBox.max.z + 0.04 : 0.62);
 }
@@ -244,26 +267,29 @@ function pose(r, kind, t) {
     const sp = kind === 'walk' ? 0.45 : 1, sw = Math.sin(t) * 0.78 * sp, c2 = Math.cos(t * 2);
     legs(-sw, 0.15 + Math.max(0, Math.sin(t + 1.6)) * 1.15 * sp, sw, 0.15 + Math.max(0, Math.sin(t + 1.6 + Math.PI)) * 1.15 * sp);
     T.hipsY = 0.9 + Math.abs(Math.cos(t)) * 0.05 * sp; T.hipsX = Math.sin(t) * 0.022 * sp; T.hipsZ = Math.sin(t) * 0.07 * sp; T.hipsYaw = -Math.sin(t) * 0.1 * sp;
-    T.tX = 0.22 * sp - c2 * 0.02 * sp; T.tY = Math.sin(t) * 0.2 * sp; T.tZ = -Math.sin(t) * 0.04 * sp; gunAt(0.02, 0.3, 0.27, -0.45 + c2 * 0.03 * sp, 0.62, 0.2);
+    T.tX = 0.22 * sp - c2 * 0.02 * sp; T.tY = Math.sin(t) * 0.2 * sp; T.tZ = -Math.sin(t) * 0.04 * sp; if (r.wk === 'rpg7') gunAt(-0.16, 0.57, 0.14, -0.5 + c2 * 0.03 * sp, -0.08, 0.05); else gunAt(0.02, 0.3, 0.27, -0.45 + c2 * 0.03 * sp, 0.62, 0.2);
   } else if (kind === 'aim' || kind === 'crouch' || kind === 'fire') {
     if (kind === 'crouch') { T.hipsY = 0.55; legs(-1.35, 1.45, -0.2, 1.95); T.tX = 0.12; } else legs(-0.12, 0.12, 0.16, 0.1);
-    T.tX += Math.sin(t * 0.9) * 0.008 - r.kick * 0.05; T.tY = 0.18; gunAt(-0.1, 0.45 + Math.sin(t * 1.1) * 0.004 + r.kick * 0.012, 0.4 - r.kick * 0.045, -r.kick * 0.09, -0.2, 0);
+    T.tX += Math.sin(t * 0.9) * 0.008 - r.kick * 0.05;
+    if (r.wk === 'rpg7') { T.tY = 0.18; gunAt(-0.15, 0.53 - r.kick * 0.01, 0.02 - r.kick * 0.03, -r.kick * 0.05, -0.18, 0); }
+    else { const B = NS_AIM[r.wk === 'fal' && window.FAL_W_DATA ? 'fal' : 'rifle']; T.tY = -NS_BLADE; T.hY = NS_BLADE; gunAt(B[0], B[1] + Math.sin(t * 1.1) * 0.004 + r.kick * 0.012, B[2] - r.kick * 0.045, -r.kick * 0.09, NS_BLADE, 0); }
   } else if (kind === 'prone') {
     T.rootX = -Math.PI / 2; legs(0.05, 0.1, -0.05, 0.25 + Math.sin(t * 1.3) * 0.1);
     T.arms = [-0.2 + Math.sin(t * 2) * 0.15, -0.6, -2.4 + Math.sin(t * 1.7) * 0.3, -0.5, 0.2, -0.2]; gunAt(0.3, 0.1, -0.4, 0, 0.8, 1.4);
   } else if (kind === 'idle') {
     const b = Math.sin(t * 0.8), w = Math.sin(t * 0.31);
     legs(-0.05 + w * 0.03, 0.05 + Math.max(0, w) * 0.06, 0.05 - w * 0.03, 0.05 + Math.max(0, -w) * 0.06); T.hipsX = w * 0.025; T.hipsZ = w * 0.03; T.tX = 0.03 + b * 0.02; T.tZ = -w * 0.03; T.tY = w * 0.05;
-    gunAt(-0.03, 0.24 + b * 0.004, 0.25, 0.55, 0.4, 0);
+    if (r.wk === 'rpg7') gunAt(-0.16, 0.56 + b * 0.004, 0.16, -0.35, -0.08, 0); else gunAt(-0.03, 0.24 + b * 0.004, 0.25, 0.55, 0.4, 0);
   }
   r.root.rotation.x = T.rootX; r.hips.position.set(T.hipsX, T.hipsY, 0); r.hips.rotation.set(0, T.hipsYaw, T.hipsZ); r.torso.rotation.set(T.tX, T.tY, T.tZ);
   r.hL.rotation.set(T.legs[0], 0, 0); r.kL.rotation.set(T.legs[1], 0, 0); r.hR.rotation.set(T.legs[2], 0, 0); r.kR.rotation.set(T.legs[3], 0, 0);
   if (kind === 't') { r.gunP.visible = false; r.sR.rotation.set(0, 0, -Math.PI / 2); r.sL.rotation.set(0, 0, Math.PI / 2); r.eR.rotation.set(0, 0, 0); r.eL.rotation.set(0, 0, 0); r.headP.rotation.set(0, 0, 0); r.torso.scale.set(1, 1, 1); return; }
   r.gunP.visible = true; r.gunP.position.set(T.gun[0], T.gun[1], T.gun[2]); r.gunP.rotation.set(T.gun[3], T.gun[4], T.gun[5]);
   if (T.arms) { const a = T.arms; r.sR.rotation.set(a[0], 0, a[4]); r.eR.rotation.set(a[1], 0, 0); r.sL.rotation.set(a[2], 0, a[5]); r.eL.rotation.set(a[3], 0, 0); }
-  else { const gq = r.grip[0].clone().applyQuaternion(r.gunP.quaternion).add(r.gunP.position), gl = r.grip[1].clone().applyQuaternion(r.gunP.quaternion).add(r.gunP.position); ikArm(r.sR, r.eR, gq, POLE_R); ikArm(r.sL, r.eL, gl, POLE_L); }
+  else { const G = r.wk === 'fal' && window.FAL_W_DATA ? NS_GRIP.fal : r.wk === 'akms' && typeof mdlHas === 'function' && mdlHas('akms') ? NS_GRIP.rifle : r.wk === 'rpg7' && typeof mdlHas === 'function' && mdlHas('rpg7') ? NS_GRIP.rpg : (r.boxG || (r.boxG = nsGripOf(r.grip[0], r.grip[1]))); r.gunP.updateMatrix(); ikFist(r.sR, r.eR, r.gunP, G[0], NS_FIST[0], POLE_R); ikFist(r.sL, r.eL, r.gunP, G[1], NS_FIST[1], POLE_L); }
   const calm = kind === 'idle' ? 1 : 0.3, b = 0.011 * Math.sin(r.breath * (kind === 'run' ? 2.8 : 1.25)); r.torso.scale.set(1 + b * 0.4, 1 + b, 1 + b * 0.8);
-  r.headP.rotation.set((0.045 * Math.sin(r.breath * 0.7 + 1)) * calm, (0.16 * Math.sin(r.breath * 0.41)) * calm, 0.035 * Math.sin(r.breath * 0.53 + 0.7) * calm);
+  r.hY = (r.hY || 0) + ((T.hY || 0) - (r.hY || 0)) * 0.15;
+  r.headP.rotation.set((0.045 * Math.sin(r.breath * 0.7 + 1)) * calm, (0.16 * Math.sin(r.breath * 0.41)) * calm + r.hY, 0.035 * Math.sin(r.breath * 0.53 + 0.7) * calm);
 }
 
 /* ---- the models: their names, their groups ---- */

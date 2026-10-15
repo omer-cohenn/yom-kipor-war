@@ -1,4 +1,4 @@
-LD.mod(0, 296, 2000);
+LD.mod(0, 295, 2000);
 import * as THREE from 'three';
 import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
 import { Water } from 'three/addons/objects/Water.js';
@@ -658,7 +658,7 @@ function followSun(x, z) { const sx = Math.round(x / 3) * 3, sz = Math.round(z /
 const _q = new THREE.Quaternion();
 function updateVmLight() { _q.copy(camera.quaternion).invert(); vmKey.position.copy(SUN.dir).applyQuaternion(_q).multiplyScalar(5); vmKey.target.position.set(0, 0, 0); }
 setTimeOfDay(0);
-await LD.mod(296, 309, 2000);
+await LD.mod(295, 309, 2000);
 
 /* ================= models from the asset pipeline =================
    Downloaded models, cut down and packed by tools/assets/pack.py into the 4f_data_*.js files. Each model has up to three levels of detail,
@@ -2275,7 +2275,7 @@ function propWall(mode, kind, x, y, z, ry, seed = 1, side = 'e') {
   else { const w = kind === 'map' ? 1.3 : kind === 'portrait' ? 0.5 : 0.32, h = kind === 'map' ? 0.95 : kind === 'portrait' ? 0.66 : 0.46; m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshStandardMaterial({ map: wallTexOf(kind, seed, side), roughness: 0.75 })); if (kind !== 'calendar') { const fr = new THREE.Mesh(new THREE.BoxGeometry(w + 0.06, h + 0.06, 0.03), new THREE.MeshStandardMaterial({ color: kind === 'map' ? 0x5a4a3a : 0x3a2a1a, roughness: 0.7 })); fr.position.z = -0.02; m.add(fr); } }
   m.position.set(x, y, z); m.rotation.y = ry; scene.add(onLayer1(m)); if (PROPS.reg[mode]) PROPS.reg[mode](m); return m;
 }
-await LD.mod(605, 748, 2000);
+await LD.mod(604, 747, 2000);
 
 /* ================= soldier kit: models from the asset pipeline =================
    The helmets, the back bag and the boots come from a modelled kit, reshaped for 1973 and cut down to three levels of detail each
@@ -2867,6 +2867,36 @@ function ikArm(sh, el, target, pole) {
   const ang = Math.atan2(IKV.c.crossVectors(e, pp).dot(t), e.dot(pp)); IKV.q2.setFromAxisAngle(t, ang); sh.quaternion.multiplyQuaternions(IKV.q2, IKV.q1);
 }
 const _gq = V3(), _gl = V3(), _qt = new THREE.Quaternion(), _eu = new THREE.Euler();
+/* the new figure's hands close round the weapon: what reaches the grip is the middle of the fist (the hole the curled fingers make, a little
+   past the wrist and to the palm side: NS_FIST, in the forearm's own frame, right then left), not the end of the forearm, and the forearm
+   turns on its own axis so that hole lines up with the grip - the pistol grip through the right fist, the handguard (along the barrel)
+   through the left - with the palm on the side it belongs. NS_GRIP: per weapon, for each hand [the fist's centre, the grip's axis, the way
+   the palm faces], in the weapon's frame (muzzle +z) */
+const NS_FIST = [V3(0.022, -0.306, 0.05), V3(-0.022, -0.306, 0.05)];
+/* at the shoulder the new figure stands bladed (the body turned NS_BLADE to the right, the rifle turned back to the target), the butt in the
+   pocket of the right shoulder: that is what brings the left hand to the handguard. NS_AIM: where each weapon's origin then sits */
+const NS_BLADE = 0.45, NS_AIM = { fal: [0.058, 0.47, 0.359], rifle: [0.002, 0.47, 0.241], smg: [0.0, 0.47, 0.26], lmg: [0.002, 0.47, 0.25], sniper: [0.03, 0.47, 0.33] };
+const NS_GRIP = {
+  fal: [[V3(0, -0.08, -0.045), V3(0, -0.83, -0.55).normalize(), V3(1, 0, 0)], [V3(0, 0.012, 0.205), V3(0, 0, 1), V3(0.4, -1, 0).normalize()]],
+  rifle: [[V3(0, -0.09, 0.02), V3(0, -0.88, -0.47).normalize(), V3(1, 0, 0)], [V3(0, -0.006, 0.215), V3(0, 0, 1), V3(0.4, -1, 0).normalize()]],
+  rpg: [[V3(0, -0.065, -0.045), V3(0, -1, 0), V3(1, 0, 0)], [V3(0, -0.1, 0.128), V3(0, -0.995, -0.1).normalize(), V3(1, 0, 0)]],
+};
+const _nsGG = new Map();
+function nsGripOf(gr, hg) { let G = _nsGG.get(gr); if (!G) _nsGG.set(gr, (G = [[gr.clone().add(V3(0, -0.012, -0.01)), V3(0, -0.9, -0.43).normalize(), V3(1, 0, 0)], [hg.clone().add(V3(0, 0.035, 0.03)), V3(0, 0, 1), V3(0.4, -1, 0).normalize()]])); return G; }
+const _fP = V3(), _fA = V3(), _fD = V3(), _fT = V3(), _fF = V3(), _fqi = new THREE.Quaternion(), _fqt = new THREE.Quaternion(), _fY = V3(0, 1, 0);
+function ikFist(sh, el, g, G, fist, pole) {
+  _fP.copy(G[0]).applyQuaternion(g.quaternion).add(g.position); _fA.copy(G[1]).applyQuaternion(g.quaternion); _fD.copy(G[2]).applyQuaternion(g.quaternion); _fT.copy(_fP);
+  const pn = fist.x > 0 ? 1 : -1;
+  for (let it = 0; it < 3; it++) {
+    ikArm(sh, el, _fT, pole);
+    _fqi.multiplyQuaternions(sh.quaternion, el.quaternion).invert();   // the forearm's frame before its twist
+    const a = _fA.clone().applyQuaternion(_fqi), d = _fD.clone().applyQuaternion(_fqi); let th = Math.atan2(a.x, a.z);
+    if (pn * (d.x * Math.cos(th) - d.z * Math.sin(th)) < 0) th += Math.PI;   // the palm (local +-x after the twist) toward where it should face
+    el.quaternion.multiply(_fqt.setFromAxisAngle(_fY, th));
+    _fF.copy(fist).applyQuaternion(el.quaternion).add(el.position).applyQuaternion(sh.quaternion).add(sh.position);
+    _fT.add(_fP).sub(_fF);
+  }
+}
 /* Every pose is written as a set of joint targets; the limbs then ease toward them frame by frame, so a soldier who drops to a crouch
    or rises to run flows through the change instead of snapping. A unit that has just been placed snaps once, so it never slides in. */
 class Rig {
@@ -2892,7 +2922,8 @@ class Rig {
     this.snapNext = true; this.kind = ''; this.blendT = 0;
   }
   ikHands() {
-    const w = this.wkind || 'rifle', g = this.gun, [gr, hg] = GRIPS[w === 'rifle' && this.side === 'f' ? 'fal' : w];   /* our FAL: its pistol grip a little behind, its handguard at the left hand */
+    const w = this.wkind || 'rifle', g = this.gun, k = w === 'rifle' && this.side === 'f' ? 'fal' : w, [gr, hg] = GRIPS[k];   /* our FAL: its pistol grip a little behind, its handguard at the left hand */
+    if (this.nsOn) { const G = NS_GRIP[k] || nsGripOf(gr, hg); ikFist(this.sR, this.eR, g, G[0], NS_FIST[0], POLE_R); ikFist(this.sL, this.eL, g, G[1], NS_FIST[1], POLE_L); return; }
     _gq.copy(gr).applyQuaternion(g.quaternion).add(g.position); ikArm(this.sR, this.eR, _gq, POLE_R);
     _gl.copy(hg).applyQuaternion(g.quaternion).add(g.position); ikArm(this.sL, this.eL, _gl, POLE_L);
   }
@@ -2901,26 +2932,28 @@ class Rig {
   arms(sr, er, sl, el, srz = 0.3, slz = -0.5) { this.T.arms = [sr, er, sl, el, srz, slz]; this.T.ik = false; }
   gunAt(px, py, pz, rx, ry, rz) { const G = this.T.gun; G[0] = px; G[1] = py; G[2] = pz; G[3] = rx; G[4] = ry; G[5] = rz; }
   pose(kind, t, pitch = 0) {
-    const R = this, T = R.T; T.rootX = 0; T.hipsY = 0.93; T.hipsX = 0; T.hipsZ = 0; T.hipsYaw = 0; T.torsoX = 0; T.torsoY = 0; T.torsoZ = 0; T.arms = null; T.ik = true;
+    const R = this, T = R.T; R.hYaw = 0; T.rootX = 0; T.hipsY = 0.93; T.hipsX = 0; T.hipsZ = 0; T.hipsYaw = 0; T.torsoX = 0; T.torsoY = 0; T.torsoZ = 0; T.arms = null; T.ik = true;
     if (kind === 'run' || kind === 'walk') {
       // the stride: legs swing, the pelvis rolls and yaws with them, the shoulders turn against the hips, the whole body leans into the run
       const sp = kind === 'run' ? 1 : 0.55, sw = Math.sin(t) * 0.78 * sp, c2 = Math.cos(t * 2);
       R.legs(-sw, 0.15 + Math.max(0, Math.sin(t + 1.6)) * 1.15 * sp, sw, 0.15 + Math.max(0, Math.sin(t + 1.6 + Math.PI)) * 1.15 * sp);
       T.hipsY = 0.9 + Math.abs(Math.cos(t)) * 0.05 * sp; T.hipsX = Math.sin(t) * 0.022 * sp; T.hipsZ = Math.sin(t) * 0.07 * sp; T.hipsYaw = -Math.sin(t) * 0.1 * sp;
       T.torsoX = 0.22 * sp - c2 * 0.02 * sp; T.torsoY = Math.sin(t) * 0.2 * sp; T.torsoZ = -Math.sin(t) * 0.04 * sp;
-      R.gunAt(0.02, 0.3, 0.27, -0.45 + c2 * 0.03 * sp, 0.62, 0.2);
+      if (R.wkind === 'rpg') R.gunAt(-0.16, 0.57, 0.14, -0.5 + c2 * 0.03 * sp, -0.08, 0.05); else R.gunAt(0.02, 0.3, 0.27, -0.45 + c2 * 0.03 * sp, 0.62, 0.2);
     } else if (kind === 'aim' || kind === 'crouch') {
       if (kind === 'crouch') { T.hipsY = 0.55; R.legs(-1.35, 1.45, -0.2, 1.95); T.torsoX = 0.12; }
       else R.legs(-0.12, 0.12, 0.16, 0.1);
       T.torsoX += -pitch * 0.7 + Math.sin(t * 0.9) * 0.008; T.torsoY = 0.18;
-      if (R.wkind === 'rpg') R.gunAt(-0.15, 0.53, 0.02, -pitch * 0.3, -0.18, 0); else R.gunAt(-0.1, 0.45 + Math.sin(t * 1.1) * 0.004, 0.4, -pitch * 0.3, -0.2, 0);
+      if (R.wkind === 'rpg') R.gunAt(-0.15, 0.53, 0.02, -pitch * 0.3, -0.18, 0);
+      else if (R.nsOn) { const B = NS_AIM[R.wkind === 'rifle' && R.side === 'f' ? 'fal' : R.wkind] || NS_AIM.rifle; T.torsoY = -NS_BLADE; R.gunAt(B[0], B[1] + Math.sin(t * 1.1) * 0.004, B[2], -pitch * 0.3, NS_BLADE, 0); R.hYaw = NS_BLADE; }
+      else R.gunAt(-0.1, 0.45 + Math.sin(t * 1.1) * 0.004, 0.4, -pitch * 0.3, -0.2, 0);
     } else if (kind === 'hide') {
       T.hipsY = 0.42; R.legs(-1.75, 2.15, -0.7, 2.3); T.torsoX = 0.6 + Math.sin(t * 1.4) * 0.015; R.gunAt(0.0, 0.24, 0.24, -1.15, 0.25, 0);
     } else if (kind === 'idle') {
       // standing easy: weight shifts slowly from foot to foot, the chest rises with the breath
       const b = Math.sin(t * 0.8), w = Math.sin(t * 0.31);
       R.legs(-0.05 + w * 0.03, 0.05 + Math.max(0, w) * 0.06, 0.05 - w * 0.03, 0.05 + Math.max(0, -w) * 0.06); T.hipsX = w * 0.025; T.hipsZ = w * 0.03; T.torsoX = 0.03 + b * 0.02; T.torsoZ = -w * 0.03; T.torsoY = w * 0.05;
-      R.gunAt(-0.03, 0.24 + b * 0.004, 0.25, 0.55, 0.4, 0);
+      if (R.wkind === 'rpg') R.gunAt(-0.16, 0.56 + b * 0.004, 0.16, -0.35, -0.08, 0); else R.gunAt(-0.03, 0.24 + b * 0.004, 0.25, 0.55, 0.4, 0);   // the RPG rests on the shoulder
     } else if (kind === 'prone') {
       T.rootX = -Math.PI / 2; R.legs(0.05, 0.1, -0.05, 0.25 + Math.sin(t * 1.3) * 0.1);
       R.arms(-0.2 + Math.sin(t * 2) * 0.15, -0.6, -2.4 + Math.sin(t * 1.7) * 0.3, -0.5, 0.2, -0.2); R.gunAt(0.3, 0.1, -0.4, 0, 0.8, 1.4);
@@ -2999,7 +3032,8 @@ class Rig {
     const quick = kind === 'run' ? 2.8 : kind === 'walk' ? 1.9 : 1.25, b = 0.011 * Math.sin(R.breath * quick) * (kind === 'fall' ? 0.3 : 1); R.torso.scale.set(1 + b * 0.4, 1 + b, 1 + b * 0.8);
     if (kind === 'fall') { R.headP.rotation.set(0.12, 0, 0.1); if (!R.shut && !R.deadOpen && R.blendT <= 0) { R.shut = true; R.head.material = MAT.facesShut[R.side][R.faceV]; } return; }
     const calm = kind === 'idle' ? 1 : kind === 'walk' ? 0.8 : kind === 'aim' || kind === 'crouch' || kind === 'hide' || kind === 'prone' ? 0.25 : 0.45, t = R.breath;
-    R.headP.rotation.set((0.045 * Math.sin(t * 0.7 + 1) + 0.015 * Math.sin(t * 2.3)) * calm, (0.16 * Math.sin(t * 0.41) + 0.07 * Math.sin(t * 1.13 + 2)) * calm, 0.035 * Math.sin(t * 0.53 + 0.7) * calm);
+    R.hY = (R.hY || 0) + ((R.hYaw || 0) - (R.hY || 0)) * Math.min(1, FDT * 8);   // a man standing bladed to his rifle keeps his eyes on the target
+    R.headP.rotation.set((0.045 * Math.sin(t * 0.7 + 1) + 0.015 * Math.sin(t * 2.3)) * calm, (0.16 * Math.sin(t * 0.41) + 0.07 * Math.sin(t * 1.13 + 2)) * calm + R.hY, 0.035 * Math.sin(t * 0.53 + 0.7) * calm);
     R.blinkT -= FDT; if (R.blinkT <= 0) { R.shut = !R.shut; R.head.material = R.shut ? MAT.facesShut[R.side][R.faceV] : MAT.faces[R.side][R.faceV]; R.blinkT = R.shut ? 0.11 : (Math.random() < 0.2 ? 0.25 : rand(2.2, 6.5)); }
   }
 }
@@ -3312,7 +3346,7 @@ function fireRocket(from, to, owner) {
   const dir = to.clone().sub(from).normalize();
   PROJ.push({ type: 'rocket', m, v: dir.multiplyScalar(115), owner, life: 3.5, target: to.clone() });
 }
-await LD.mod(1353, 346, 2000);
+await LD.mod(1351, 350, 2000);
 
 /* ================= viewmodel: the FN FAL in the player's hands =================
    Built from a modeller's reference sheet of the 1973 Israeli-issue rifle. The side profiles are traced from the drawing (its pixels -> metres
@@ -3884,6 +3918,215 @@ function setSoldiers(v, live) {
   if (!live) return; try { localStorage.setItem('yk73.sol', v); } catch (e) {} nsRefresh();
 }
 { const el = $('#sol'); if (el) el.addEventListener('click', (e) => { const b = e.target.closest('button'); if (b && b.dataset.sol) setSoldiers(b.dataset.sol, true); }); setSoldiers(NEWSOL.on ? 'new' : 'old', false); }
+
+/* ================= terrain maps made outside the code =================
+   Each field chapter can have a map (tools/maps/pack_maps.py -> maps/<name>.bin): heights, colour, splat weights for four ground
+   materials, vegetation densities and a mask. mapsLoad fetches the chapter's own when the mission loads (with its material set and the
+   vegetation cards, once); without them (an old build, no network) every chapter keeps its procedural ground. mapH puts a map under a
+   chapter's height function: inside the map's box the map gives the ground and its colour, blending over edge_blend metres back to the
+   procedural ground outside it, and the chapter then carves what must be exact (trenches, ramparts, canals) on top. */
+const MAPS = {}, MAPSET = {}, MAPV = { kinds: null, atlas: null, mat: null };
+const MAP_OF = { rescue: 'rescue', armor: 'armor', farm: 'farm', cross: 'cross', hermon: 'hermon', army: 'army', range: 'range' };
+const MAP_URL = 'maps/', MAP_EDGE = 60;
+async function mapFetch(url, type) {
+  const r = await fetch(url, { cache: 'force-cache' }); if (!r.ok) throw new Error(url + ' ' + r.status);
+  if (type === 'zbin') { if (typeof DecompressionStream === 'undefined') throw new Error('no DecompressionStream'); return new Response(r.body.pipeThrough(new DecompressionStream('deflate'))).arrayBuffer(); }
+  return type === 'json' ? r.json() : type === 'blob' ? r.blob() : r.arrayBuffer();
+}
+// heights come stored as their difference from the plane through the left, upper and upper-left samples: add the plane back
+function mapUnpredict(r, W, H, hmin, hmax) {
+  const h = new Uint16Array(W * H), out = new Float32Array(W * H), k = (hmax - hmin) / 65535;
+  for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) {
+    const o = j * W + i, p = i === 0 && j === 0 ? 0 : j === 0 ? h[o - 1] : i === 0 ? h[o - W] : h[o - 1] + h[o - W] - h[o - W - 1];
+    h[o] = (r[o] + p) & 65535; out[o] = hmin + h[o] * k;
+  }
+  return out;
+}
+function mapParse(buf) {
+  const dv = new DataView(buf), n = dv.getUint32(0, true), hdr = JSON.parse(new TextDecoder().decode(new Uint8Array(buf, 4, n))), base = 4 + n, L = (k) => { const [o, len, t] = hdr.off[k]; return t === 'u16' ? new Uint16Array(buf, base + o, len / 2) : new Uint8Array(buf, base + o, len); };
+  const M = { name: hdr.name, hdr, box: hdr.box, W: hdr.size[0], H: hdr.size[1] };
+  M.h = mapUnpredict(L('h'), M.W, M.H, hdr.hmin, hdr.hmax);
+  for (const k of ['c', 's', 'v', 'm']) if (hdr.off[k]) M[k] = { a: L(k), W: hdr.layers[k].size[0], H: hdr.layers[k].size[1], ch: hdr.layers[k].ch };
+  if (hdr.far) { const F = hdr.far; M.far = { box: F.box, W: F.size[0], H: F.size[1], h: mapUnpredict(L('fh'), F.size[0], F.size[1], F.hmin, F.hmax), c: { a: L('fc'), W: F.csize[0], H: F.csize[1], ch: 3 } }; }
+  return M;
+}
+// an image file's pixels (RGBA), drawn at its own size
+async function mapPixels(url) {
+  const bmp = await createImageBitmap(await mapFetch(url, 'blob'), { colorSpaceConversion: 'none', premultiplyAlpha: 'none' }), c = document.createElement('canvas'); c.width = bmp.width; c.height = bmp.height;
+  const g = c.getContext('2d', { willReadFrequently: true }); g.drawImage(bmp, 0, 0); return { w: bmp.width, h: bmp.height, d: g.getImageData(0, 0, bmp.width, bmp.height).data };
+}
+/* a set's four materials as two texture arrays: albedo (with its AO) and height in alpha; normal x, y in red and green */
+async function mapMaterials(set) {
+  if (MAPSET[set]) return MAPSET[set];
+  if (!MAPV.man) MAPV.man = await mapFetch(MAP_URL + 'mat/materials.json', 'json');
+  const ms = MAPV.man[set]; if (!ms) throw new Error('no material set ' + set);
+  const imgs = await Promise.all(ms.flatMap((m) => [mapPixels(`${MAP_URL}mat/${set}/${m.name}_a.jpg`), mapPixels(`${MAP_URL}mat/${set}/${m.name}_n.jpg`)]));
+  const S = imgs[0].w, A = new Uint8Array(S * S * 4 * 4), N = new Uint8Array(S * S * 4 * 4);
+  ms.forEach((m, i) => { const a = imgs[i * 2].d, nn = imgs[i * 2 + 1].d, o = i * S * S * 4;
+    for (let p = 0; p < S * S * 4; p += 4) { A[o + p] = a[p]; A[o + p + 1] = a[p + 1]; A[o + p + 2] = a[p + 2]; A[o + p + 3] = nn[p + 2]; N[o + p] = nn[p]; N[o + p + 1] = nn[p + 1]; N[o + p + 2] = 255; N[o + p + 3] = 255; } });
+  const arr = (data, srgb) => { const t = new THREE.DataArrayTexture(data, S, S, 4); t.format = THREE.RGBAFormat; t.type = THREE.UnsignedByteType; t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    t.minFilter = THREE.LinearMipmapLinearFilter; t.magFilter = THREE.LinearFilter; t.generateMipmaps = true; t.anisotropy = ANISO; t.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace; t.needsUpdate = true; return t; };
+  return (MAPSET[set] = { ms, alb: arr(A, true), nrm: arr(N, false) });
+}
+async function mapVegLoad() {
+  if (MAPV.kinds) return;
+  const v = await mapFetch(MAP_URL + 'veg.json', 'json'), t = new THREE.TextureLoader().load(MAP_URL + 'veg_atlas.png');
+  t.colorSpace = THREE.SRGBColorSpace; t.flipY = false; t.anisotropy = ANISO; MAPV.atlas = t; MAPV.types = v.types;
+  MAPV.kinds = {}; for (const [k, g] of Object.entries(v.kinds)) { const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(g.p, 3)); geo.setAttribute('uv', new THREE.Float32BufferAttribute(g.uv, 2)); geo.setIndex(g.i); geo.computeVertexNormals();
+    // cards: light them as if they faced up, so both sides of a leaf take the sun the same
+    const nr = geo.attributes.normal; for (let i = 0; i < nr.count; i++) nr.setXYZ(i, 0, 1, 0); MAPV.kinds[k] = geo; }
+  MAPV.mat = new THREE.MeshStandardMaterial({ map: t, alphaTest: 0.5, side: THREE.DoubleSide, roughness: 0.92, metalness: 0 });
+}
+/* the chapter's map, its materials and the vegetation cards; any failure leaves the chapter on its procedural ground */
+async function mapsLoad(m) {
+  const name = MAP_OF[m]; if (!name || MAPS[name] !== undefined) return;
+  try {
+    const M = mapParse(await mapFetch(`${MAP_URL}${name}.bin?v=${MAP_VER}`, 'zbin'));
+    if (M.hdr.set && (!LITE || QS.has('maptex'))) M.set = await mapMaterials(M.hdr.set);   // the textured ground: high quality (or ?maptex)
+    if (M.v) await mapVegLoad();
+    MAPS[name] = M;
+  } catch (e) { console.warn('map', name, 'not loaded - the procedural ground stays', e); MAPS[name] = null; }
+}
+const MAP_VER = '20261015a';
+// a layer sampled at a point of the map's box (u, v in 0..1, corner-aligned): bilinear
+function mapBil(a, W, H, u, v) {
+  const x = clamp(u, 0, 1) * (W - 1), y = clamp(v, 0, 1) * (H - 1), i = Math.min(W - 2, Math.floor(x)), j = Math.min(H - 2, Math.floor(y)), fx = x - i, fy = y - j, o = j * W + i;
+  return (a[o] * (1 - fx) + a[o + 1] * fx) * (1 - fy) + (a[o + W] * (1 - fx) + a[o + W + 1] * fx) * fy;
+}
+function mapCh(L, u, v, c) {
+  const x = clamp(u, 0, 1) * (L.W - 1), y = clamp(v, 0, 1) * (L.H - 1), i = Math.min(L.W - 2, Math.floor(x)), j = Math.min(L.H - 2, Math.floor(y)), fx = x - i, fy = y - j, n = L.ch, a = L.a, o = (j * L.W + i) * n;
+  return ((a[o + c] * (1 - fx) + a[o + n + c] * fx) * (1 - fy) + (a[o + L.W * n + c] * (1 - fx) + a[o + L.W * n + n + c] * fx) * fy) / 255;
+}
+const mapUV = (M, x, z) => [(x - M.box[0]) / (M.box[1] - M.box[0]), (z - M.box[2]) / (M.box[3] - M.box[2])];
+function mapHeightAt(M, x, z) { const [u, v] = mapUV(M, x, z); return mapBil(M.h, M.W, M.H, u, v); }
+/* the ground of a chapter from its map: (x, z) -> height, leaving the colour in COL. Inside the box the map, blending back to fallback
+   (the chapter's procedural ground) over MAP_EDGE metres at its edges; then carve(x, z, h) - the chapter's exact features - if given */
+function mapH(name, fallback, carve) {
+  const M = MAPS[name]; if (!M) return carve ? (x, z) => carve(x, z, fallback(x, z)) : fallback;
+  const bw = M.box[1] - M.box[0], bd = M.box[3] - M.box[2];
+  return (x, z) => {
+    const u = (x - M.box[0]) / bw, v = (z - M.box[2]) / bd, e = Math.min(u * bw, (1 - u) * bw, v * bd, (1 - v) * bd);
+    let h;
+    if (e <= 0) h = fallback(x, z);
+    else {
+      const w = smooth(0, MAP_EDGE, e), hm = mapBil(M.h, M.W, M.H, u, v);
+      let r = mapCh(M.c, u, v, 0), g = mapCh(M.c, u, v, 1), b = mapCh(M.c, u, v, 2);
+      if (w < 1) { const hf = fallback(x, z); r = lerp(COL[0], r, w); g = lerp(COL[1], g, w); b = lerp(COL[2], b, w); h = lerp(hf, hm, w); } else h = hm;
+      COL[0] = r; COL[1] = g; COL[2] = b;
+    }
+    return carve ? carve(x, z, h) : h;
+  };
+}
+
+/* ---------- the ground's material: four PBR materials blended by the splat weights ----------
+   Near the camera each material's own texture (two scales, to hide the repeat), blended by its height so sand settles between stones;
+   the map's colour (in the vertices) keeps the hue, so far ground and near ground agree. Past ~260 m it is the colour alone */
+function mapTerrainMat(M) {
+  if (!M || !M.set || !M.s) return terrainMat();
+  if (M.mat) return M.mat;
+  const S = M.set, ms = S.ms, sp = new THREE.DataTexture(new Uint8Array(M.s.a), M.s.W, M.s.H, THREE.RGBAFormat); sp.magFilter = THREE.LinearFilter; sp.minFilter = THREE.LinearFilter; sp.needsUpdate = true;
+  const v4 = (f) => new THREE.Vector4(...ms.map(f)), avg = ms.map((m) => new THREE.Vector3(...m.avg.map(lin)));
+  const U = { uSplat: { value: sp }, uBox: { value: new THREE.Vector4(M.box[0], M.box[2], M.box[1] - M.box[0], M.box[3] - M.box[2]) }, uAlb: { value: S.alb }, uNrm: { value: S.nrm },
+    uSize: { value: v4((m) => m.size) }, uDepth: { value: v4((m) => m.depth) }, uRough: { value: v4((m) => m.rough) }, uAvg: { value: avg }, uMicro: { value: TX.micro } };
+  const m = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95, metalness: 0, envMapIntensity: 0.3 });
+  m.onBeforeCompile = (sh) => {
+    Object.assign(sh.uniforms, U);
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vWPos; varying vec3 vWNrm;')
+      .replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\nvWPos = (modelMatrix * vec4(transformed, 1.0)).xyz; vWNrm = normalize(mat3(modelMatrix) * objectNormal);');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>
+      precision highp sampler2DArray;
+      varying vec3 vWPos; varying vec3 vWNrm; uniform sampler2D uSplat; uniform sampler2D uMicro; uniform sampler2DArray uAlb; uniform sampler2DArray uNrm;
+      uniform vec4 uBox, uSize, uDepth, uRough; uniform vec3 uAvg[4];
+      vec4 gB; float gNear; vec2 gN;
+      vec4 tAlb(int i, vec2 p) { return texture(uAlb, vec3(p, float(i))); }`)
+      .replace('#include <color_fragment>', `#include <color_fragment>
+      {
+        float cd = length(vWPos - cameraPosition);
+        gNear = 1.0 - smoothstep(70.0, 260.0, cd);
+        vec4 w = texture2D(uSplat, (vWPos.xz - uBox.xy) / uBox.zw);
+        w /= max(w.x + w.y + w.z + w.w, 1e-3);
+        vec3 alb = vec3(0.0); vec2 nn = vec2(0.0); vec4 hh;
+        vec4 a0 = tAlb(0, vWPos.xz / uSize.x), a1 = tAlb(1, vWPos.xz / uSize.y), a2 = tAlb(2, vWPos.xz / uSize.z), a3 = tAlb(3, vWPos.xz / uSize.w);
+        vec4 b0 = tAlb(0, vWPos.xz / (uSize.x * 4.7) + 0.37), b1 = tAlb(1, vWPos.xz / (uSize.y * 4.7) + 0.37), b2 = tAlb(2, vWPos.xz / (uSize.z * 4.7) + 0.37), b3 = tAlb(3, vWPos.xz / (uSize.w * 4.7) + 0.37);
+        a0 = mix(a0, b0, 0.35); a1 = mix(a1, b1, 0.35); a2 = mix(a2, b2, 0.35); a3 = mix(a3, b3, 0.35);
+        hh = w + vec4(a0.a, a1.a, a2.a, a3.a) * uDepth * 6.0 * step(0.002, w);
+        float mx = max(max(hh.x, hh.y), max(hh.z, hh.w)) - 0.18;
+        vec4 b = max(hh - mx, 0.0) * step(0.002, w); b /= max(b.x + b.y + b.z + b.w, 1e-4); gB = b;
+        alb = a0.rgb * b.x + a1.rgb * b.y + a2.rgb * b.z + a3.rgb * b.w;
+        vec3 av = uAvg[0] * b.x + uAvg[1] * b.y + uAvg[2] * b.z + uAvg[3] * b.w;
+        diffuseColor.rgb *= mix(vec3(1.0), clamp(alb / max(av, vec3(0.02)), 0.0, 2.2), gNear);
+        // the far ground is not one flat colour: broad lighter and darker patches
+        vec3 p1 = texture2D(uMicro, vWPos.xz / 61.0 + 0.5).rgb, p2 = texture2D(uMicro, vWPos.xz / 230.0 + 0.13).rgb;
+        diffuseColor.rgb *= mix(vec3(0.84), vec3(1.05), (p1.g * 0.55 + p2.g * 0.45) / 0.8);
+      }`)
+      .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = mix(roughnessFactor, dot(gB, uRough), gNear);')
+      .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
+      if (gNear > 0.0) {
+        vec2 n0 = texture(uNrm, vec3(vWPos.xz / uSize.x, 0.0)).rg, n1 = texture(uNrm, vec3(vWPos.xz / uSize.y, 1.0)).rg, n2 = texture(uNrm, vec3(vWPos.xz / uSize.z, 2.0)).rg, n3 = texture(uNrm, vec3(vWPos.xz / uSize.w, 3.0)).rg;
+        vec2 t = (n0 * gB.x + n1 * gB.y + n2 * gB.z + n3 * gB.w) * 2.0 - 1.0;
+        vec3 nW = normalize(vWNrm), T = normalize(vec3(1.0, 0.0, 0.0) - nW * nW.x), Bt = cross(nW, T);
+        vec3 pw = normalize(nW + (T * t.x + Bt * t.y) * 0.9 * gNear);
+        normal = normalize((viewMatrix * vec4(pw, 0.0)).xyz);
+      }`);
+  };
+  m.customProgramCacheKey = () => 'mapTerrain';
+  return (M.mat = m);
+}
+
+/* ---------- vegetation from the map: its density layer (RGBA, one kind - or a share of kinds - per channel) ----------
+   Shrubs and trees stand once over the whole box, as many as the density asks up to a cap; grass and reeds, too many for that, live in a
+   patch that follows the camera: a fixed set of slots on a world-space grid round it, each kept or dropped by the density there */
+const MAPVEG_CAP = { grass_dry: 0, grass_green: 0, reeds: 0, shrub_desert: LITE ? 1400 : 3600, garrigue: LITE ? 1600 : 4200, tamarisk: LITE ? 260 : 700, oak: LITE ? 160 : 420, palm: LITE ? 140 : 360 };
+const MAPVEG_PATCH = { grass_dry: 1, grass_green: 1, reeds: 1 };
+const MAPGRASS = { list: [], R: LITE ? 34 : 56, step: LITE ? 1.7 : 1.25 };
+function mapVeg(M, at, ok) {
+  if (!M || !M.v || !MAPV.kinds) return [];
+  const out = [], r = rng(9173 + M.W), V = M.v, cw = (M.box[1] - M.box[0]) / (V.W - 1), cd = (M.box[3] - M.box[2]) / (V.H - 1), types = Object.fromEntries(MAPV.types.map((t) => [t.name, t]));
+  const want = {}, cells = {};
+  'RGBA'.split('').forEach((chn, c) => { for (const [kind, share] of (M.hdr.veg && M.hdr.veg[chn]) || []) { if (MAPVEG_PATCH[kind]) { (MAPGRASS.kinds = MAPGRASS.kinds || []).push([M, c, kind, share * M.hdr.vegMax[c]]); continue; }
+    let tot = 0; for (let j = 0; j < V.H; j++) for (let i = 0; i < V.W; i++) tot += V.a[(j * V.W + i) * 4 + c] / 255 * M.hdr.vegMax[c] * share * cw * cd;
+    want[kind] = { c, share, k: Math.min(1, (MAPVEG_CAP[kind] ?? 500) / Math.max(1, tot)) }; } });
+  for (const [kind, W] of Object.entries(want)) {
+    const geo = MAPV.kinds[kind], t = types[kind]; if (!geo || !t || W.k <= 0) continue; const mats = [], M4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), sc = V3();
+    for (let j = 0; j < V.H; j++) for (let i = 0; i < V.W; i++) {
+      const n = V.a[(j * V.W + i) * 4 + W.c] / 255 * M.hdr.vegMax[W.c] * W.share * cw * cd * W.k; let cnt = Math.floor(n) + (r() < n % 1 ? 1 : 0);
+      while (cnt-- > 0) { const x = M.box[0] + (i + r() - 0.5) * cw, z = M.box[2] + (j + r() - 0.5) * cd; if (ok && !ok(x, z)) continue; const y = at(x, z); if (y < 0.2) continue;
+        const s = 0.7 + r() * 0.6; e.set(0, r() * Math.PI * 2, 0); q.setFromEuler(e); sc.set(s, s * (0.85 + r() * 0.3), s); mats.push(M4.compose(V3(x, y - 0.05 * s, z), q, sc).clone()); }
+    }
+    if (!mats.length) continue;
+    const im = new THREE.InstancedMesh(geo, MAPV.mat, mats.length); mats.forEach((m4, k) => im.setMatrixAt(k, m4)); im.instanceMatrix.needsUpdate = true; im.computeBoundingSphere();
+    im.castShadow = !LITE && t.height_m > 1.5; im.receiveShadow = false; scene.add(onLayer1(im)); out.push(im);
+  }
+  mapGrassBuild(at, ok);
+  return out;
+}
+// the grass patch: a ring of slots round the camera on a world grid, refreshed when the camera crosses a grid cell
+function mapGrassBuild(at, ok) {
+  if (!MAPGRASS.kinds || !MAPGRASS.kinds.length) return;
+  const n = Math.ceil((2 * MAPGRASS.R / MAPGRASS.step) ** 2 * 0.8);
+  for (const [M, c, kind, max] of MAPGRASS.kinds) { if (MAPGRASS.list.some((g) => g.M === M && g.kind === kind)) continue; const geo = MAPV.kinds[kind]; if (!geo) continue;
+    const im = new THREE.InstancedMesh(geo, MAPV.mat, n); im.count = 0; im.frustumCulled = false; im.castShadow = false; im.userData.dyn = true; scene.add(onLayer1(im));
+    MAPGRASS.list.push({ M, c, kind, max, im, at, ok, cx: 1e9, cz: 1e9 }); }
+  MAPGRASS.kinds = [];
+}
+const _gM = new THREE.Matrix4(), _gQ = new THREE.Quaternion(), _gS = V3(), _gP = V3(), _gY = V3(0, 1, 0);
+function mapGrassTick() {
+  if (!MAPGRASS.list.length) return; const st = MAPGRASS.step, R = MAPGRASS.R, cam = camera.position;
+  for (const G of MAPGRASS.list) {
+    const vis = GROUND && G.M === MAPS[MAP_OF[MODE]]; G.im.visible = vis; if (!vis) continue;
+    const cx = Math.round(cam.x / st), cz = Math.round(cam.z / st); if (Math.abs(cx - G.cx) + Math.abs(cz - G.cz) < 2) continue; G.cx = cx; G.cz = cz;
+    const n0 = Math.ceil(R / st), M = G.M; let k = 0;
+    for (let j = -n0; j <= n0; j++) for (let i = -n0; i <= n0; i++) {
+      if (i * i + j * j > n0 * n0) continue; const gi = cx + i, gj = cz + j, hsh = Math.abs(Math.sin(gi * 127.1 + gj * 311.7) * 43758.5453) % 1, h2 = Math.abs(Math.sin(gi * 269.5 + gj * 183.3) * 24634.6345) % 1;
+      const x = (gi + h2 - 0.5) * st, z = (gj + hsh - 0.5) * st, [u, v] = mapUV(M, x, z); if (u < 0 || u > 1 || v < 0 || v > 1) continue;
+      const d = mapCh(M.v, u, v, G.c) * G.max * st * st * 0.28; if (hsh > d) continue;
+      if (G.ok && !G.ok(x, z)) continue; const y = G.at(x, z); if (y < 0.15 || k >= G.im.instanceMatrix.count) continue;
+      const s = 0.65 + h2 * 0.7; _gQ.setFromAxisAngle(_gY, hsh * 40); _gS.set(s, s * (0.8 + (hsh * 7) % 0.4), s); _gM.compose(_gP.set(x, y - 0.03, z), _gQ, _gS); G.im.setMatrixAt(k++, _gM);
+    }
+    G.im.count = k; G.im.instanceMatrix.needsUpdate = true;
+  }
+}
+{ const prev = scene.onBeforeRender; scene.onBeforeRender = function (...a) { prev.apply(this, a); mapGrassTick(); }; }
 
 /* ================= settings ================= */
 /* three levels, one route and one story: what changes is how forgiving the war is. The higher the level, the more Egyptians, the sooner they
@@ -5569,7 +5812,7 @@ async function loadMission(m, go) {
     await LD.paint();
     if (base) { LD.step('base', LD_MS.base); await LD.paint(); ensureBase(); }
     if (mez) { LD.step('mez', LD_MS.mez); await LD.paint(); ensureMez(); }
-    if (chap) { LD.step('chap', LD_MS[m] || 900); await LD.paint(); if (m === 'suez') { ensureBase(); buildSuez(); } else { const C = CHAP[m]; C.built = true; const g0 = GROUND; C.build(); GROUND = g0; } }
+    if (chap) { LD.step('chap', LD_MS[m] || 900); await LD.paint(); await mapsLoad(m); if (m === 'suez') { ensureBase(); buildSuez(); } else { const C = CHAP[m]; C.built = true; const g0 = GROUND; C.build(); GROUND = g0; } }
     if (FACEQ.length) { LD.step('faces'); await facesPaint((f) => LD.frac(f)); }
     LD.step('gfx'); await gfxWarm(m, (f) => LD.frac(f));
     // a long wait has used up the click that chose the mission: the browser wants a fresh one for the sound and for taking the mouse
@@ -6937,8 +7180,10 @@ function makeGround(d) {
   const idx = new Uint32Array((NX - 1) * (NZ - 1) * 6); let p = 0;
   for (let j = 0; j < NZ - 1; j++) for (let i = 0; i < NX - 1; i++) { const a = j * NX + i, b = a + 1, c = a + NX, e = c + 1; idx[p++] = a; idx[p++] = c; idx[p++] = b; idx[p++] = b; idx[p++] = c; idx[p++] = e; }
   const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('color', new THREE.BufferAttribute(col, 3)); geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); geo.setIndex(new THREE.BufferAttribute(idx, 1)); geo.computeVertexNormals();
-  const mesh = new THREE.Mesh(geo, terrainMat()); mesh.receiveShadow = !LITE; scene.add(mesh);
-  return { mesh, at(x, z) { const i = findIdx(XS, x), j = findIdx(ZS, z); const tx = clamp((x - XS[i]) / (XS[i + 1] - XS[i]), 0, 1), tz = clamp((z - ZS[j]) / (ZS[j + 1] - ZS[j]), 0, 1); const k = j * NX + i; return lerp(lerp(HG[k], HG[k + 1], tx), lerp(HG[k + NX], HG[k + NX + 1], tx), tz); } };
+  const Mp = d.map ? MAPS[d.map] : null, mesh = new THREE.Mesh(geo, Mp ? mapTerrainMat(Mp) : terrainMat()); mesh.receiveShadow = !LITE; scene.add(mesh);
+  const G = { mesh, at(x, z) { const i = findIdx(XS, x), j = findIdx(ZS, z); const tx = clamp((x - XS[i]) / (XS[i + 1] - XS[i]), 0, 1), tz = clamp((z - ZS[j]) / (ZS[j + 1] - ZS[j]), 0, 1); const k = j * NX + i; return lerp(lerp(HG[k], HG[k + 1], tx), lerp(HG[k + NX], HG[k + NX + 1], tx), tz); } };
+  if (Mp) G.veg = mapVeg(Mp, G.at, d.vegOk);   // the map's own plants, standing on this ground
+  return G;
 }
 function showWorld(mode) {
   PROPS.cur = mode; if (mode !== 'suez') szClarityOff();
@@ -8127,7 +8372,7 @@ function inConceal(x, z) { const C = CHAP[MODE]; if (!C || !C.conceal) return fa
 /* patches placed along a route and over an area */
 function patchesNear(pts, n, dmin, dmax, seed, ok, rmin = 4, rmax = 10) { return scatterNear(pts, n, dmin, dmax, seed, ok, (x, z, r) => [x, z, rmin + r() * (rmax - rmin)]); }
 function patchesIn(n, x0, x1, z0, z1, seed, ok, rmin = 4, rmax = 11) { return scatterIn(n, x0, x1, z0, z1, seed, ok, (x, z, r) => [x, z, rmin + r() * (rmax - rmin)]); }
-await LD.mod(1699, 240, 2000);
+await LD.mod(1701, 240, 2000);
 
 /* ================= chapter 2: the rescue of the Purkan garrison, the night of 8-9 October 1973 =================
    After the account of the brigade commander, Amnon Reshef. The 33 men of the strongpoint walked out at night, after moonset,
@@ -8152,7 +8397,7 @@ const RS_STAGES = [
 ];
 const RS_TOD = [3 * 60 + 40, 4 * 60 + 20, 4 * 60 + 48, 5 * 60 + 22, 5 * 60 + 48];   // the clock at the start of each stage: a night that turns into first light
 const RS_NAMES = ['מאירק׳ה', 'שמעון', 'יצחק', 'רוני', 'אליהו', 'דני', 'זאב', 'יעקב', 'חנן', 'מנחם', 'עזרא', 'פנחס'];
-function rsH(x, z) {
+function rsNat(x, z) {
   const lx = x - RS.o.x, lz = z - RS.o.z;
   const base = 9 + 4 * fbm(lx / 420, lz / 420, 3); let h = base;
   const w = fbm(lx / 160, lz / 260, 2), r = 1 - Math.abs(noise(lx / 95 + w * 1.4, lz / 210)); h += 6.5 * r * r * r;
@@ -8160,7 +8405,12 @@ function rsH(x, z) {
   { const d = Math.hypot(lx - RS_HILL[0], lz - RS_HILL[1]); h += 9 * (1 - smooth(12, 62, d)); }   // the hill the Egyptians stood on
   mix3(PAL.sandL, PAL.sandD, smooth(-0.35, 0.45, fbm(lx / 140, lz / 140, 3) + 0.5 * fbm(lx / 22, lz / 22, 2))); mixIn(PAL.sandR, 0.3 * smooth(0.1, 0.5, noise(lx / 700, lz / 700))); mixIn(PAL.fresh, 0.35 * r * r);
   { const belt = smooth(-330, -440, lx); if (belt > 0) { h -= belt * r * r * r * 4; const f = noise(Math.floor((lx + 2000) / 45) * 1.9, Math.floor((lz + 2000) / 60) * 1.3); mixIn(f > 0 ? [0.42, 0.44, 0.27] : [0.52, 0.43, 0.3], belt * 0.65); } }
-  if (Math.abs(lz) < 90 && lx > -560 && lx < 680) { const d = distPolyline(lx, lz, RS_TRACK_S); if (d < 14) { const k = 1 - smooth(4, 13, d); h = lerp(h, base + 1.2, k); mixIn(PAL.sandD, 0.5 * (1 - smooth(1.2, 4.5, d))); if (d > 1.0 && d < 2.6) mixIn([0.45, 0.39, 0.31], 0.45); } }
+  return h;
+}
+// the track the column drives: levelled (the map comes levelled already) and rutted
+function rsCarve(x, z, h) {
+  const lx = x - RS.o.x, lz = z - RS.o.z;
+  if (Math.abs(lz) < 90 && lx > -560 && lx < 680) { const d = distPolyline(lx, lz, RS_TRACK_S); if (d < 14) { if (!MAPS.rescue) { const k = 1 - smooth(4, 13, d); h = lerp(h, 9 + 4 * fbm(lx / 420, lz / 420, 3) + 1.2, k); } mixIn(PAL.sandD, 0.5 * (1 - smooth(1.2, 4.5, d))); if (d > 1.0 && d < 2.6) mixIn([0.45, 0.39, 0.31], 0.45); } }
   return h;
 }
 const RS_GROUPS = {
@@ -8174,7 +8424,7 @@ const RS_GROUPS = {
 };
 function rsArc(x) { let best = 0, bd = 1e9, acc = 0; for (let i = 0; i < RS_TRACK.length - 1; i++) { const a = RS_TRACK[i], b = RS_TRACK[i + 1], L = Math.hypot(b[0] - a[0], b[1] - a[1]); for (let u = 0; u <= 1; u += 0.02) { const px = lerp(a[0], b[0], u); if (Math.abs(px - x) < bd) { bd = Math.abs(px - x); best = acc + L * u; } } acc += L; } return best; }
 function rsBuild() {
-  const C = CHAP.rescue; C.ground = makeGround({ x0: RS.o.x - 780, x1: RS.o.x + 760, z0: RS.o.z - 330, z1: RS.o.z + 330, step: 3.2, h: rsH }); GROUND = C.ground;
+  const C = CHAP.rescue; C.ground = makeGround({ x0: RS.o.x - 780, x1: RS.o.x + 760, z0: RS.o.z - 330, z1: RS.o.z + 330, step: 3.2, h: mapH('rescue', rsNat, rsCarve), map: 'rescue', vegOk: (x, z) => distPolyline(x - RS.o.x, z - RS.o.z, RS_TRACK_S) > 7 }); GROUND = C.ground;
   const BAGS = [], sv = BATCH.bag; BATCH.bag = BAGS; const k0 = COVER.length; C.slots = []; C.nestBush = []; C.fires = [];
   { const r = rng(4242); for (const id of ['A', 'B', 'C', 'D']) { const g = RS_GROUPS[id], cx = g.at ?? g.pts[0][0]; if (g.extra) continue; g.extra = true; for (let k = 0; k < 5; k++) { const sd = k % 2 ? 1 : -1; g.pts.push([cx + (r() - 0.5) * 200, sd * (70 + r() * 120)]); g.kinds.push(['rifle', 'rpg', 'rifle', 'rifle', 'atgm'][k]); } } }
   for (const [id, g] of Object.entries(RS_GROUPS)) g.pts.forEach(([x0, z0], i) => { const lane = id === 'W' ? RS_WEST : id === 'S' ? RS_SOUTH : RS_TRACK, [x, z] = corr(lane, x0, z0, 23, id === 'W' || id === 'S' ? 4 : 12); const [wx, wz] = RW(x, z); let tx = x, tz = 0; { let bd = 1e9; for (const p of id === 'W' || id === 'S' ? [RS_MEET2, [-560, -66]] : densify(RS_TRACK, 10)) { const d = Math.hypot(p[0] - x, p[1] - z); if (d < bd) { bd = d; tx = p[0]; tz = p[1]; } } } const dx = tx - x, dz = tz - z, l = Math.hypot(dx, dz) || 1; const s = foxhole(wx, wz, dx / l, dz / l, C.slots); s.grp = id; s.kind = g.kinds[i]; if (g.bush) for (let k = 0; k < 6; k++) { const a = Math.atan2(dx, dz) + rand(-2.4, 2.4), d = rand(1.6, 3.4); C.nestBush.push([wx + Math.sin(a) * d, wz + Math.cos(a) * d, rand(0.9, 1.6), rand(0, 6), greenBush(Math.random)]); } });
@@ -8549,28 +8799,35 @@ const crInVillage = (lx, lz, pad = 0) => lx > -252 - pad && lx < -152 + pad && M
 // the column of tanks in the last film: down the east bank, over the bridge, west along the road
 const CR_CONV = [[330, 440], [318, 330], [330, 220], [300, 120], [250, 60], [190, 24], [140, 6], [110, 0], [-100, 0], [-150, 0], [-430, 0]];
 const crBench = (x, z) => groundAt(x, z) + 0.4;
-function crH(x, z) {
+/* the land itself (crNat, or the map) and the crossing's works carved into it (crCarve): the canal, both ramparts and their breaches, the
+   Egyptian trench, the sweet-water canal, the roads, the village's trodden dust */
+function crNat(x, z) {
+  const lx = x - CR.o.x, lz = z - CR.o.z, ax = Math.abs(lx);
+  let h;
+  if (lx > 0) { h = 0.9 + 1.4 * smooth(100, 125, lx) + 0.3 * fbm(lx / 90, lz / 90, 2); mix3(PAL.sandL, PAL.sandD, smooth(-0.3, 0.4, fbm(lx / 120, lz / 120, 3))); }
+  else {
+    const fieldH = 1.6 + 0.25 * fbm(lx / 70, lz / 70, 2), bank = 0.9 + 0.7 * smooth(100, 112, ax);
+    h = lerp(bank, fieldH, smooth(-108, -150, lx)); mix3(PAL.sandL, PAL.sandD, smooth(-0.3, 0.4, fbm(lx / 100, lz / 100, 3)));
+    if (lx < -150) { const f = smooth(-150, -175, lx), strip = noise(Math.floor((lx + 1000) / 38) * 1.7, Math.floor((lz + 1000) / 55) * 1.3);
+      mixIn(strip > 0.05 ? [lerp(0.30, 0.42, strip), lerp(0.38, 0.47, strip), lerp(0.18, 0.24, strip)] : [0.47, 0.38, 0.27], 0.85 * f); }
+  }
+  return h;
+}
+function crCarve(x, z, h) {
   const lx = x - CR.o.x, lz = z - CR.o.z, ax = Math.abs(lx);
   if (ax < 100) { const t = smooth(76, 100, ax); mix3(PAL.deep, PAL.wet, t); return lerp(-5.5, 0.9, t); }
-  let h;
   if (lx > 0) {
-    h = 0.9 + 1.4 * smooth(100, 125, lx) + 0.3 * fbm(lx / 90, lz / 90, 2); mix3(PAL.sandL, PAL.sandD, smooth(-0.3, 0.4, fbm(lx / 120, lz / 120, 3)));
     const breach = 1 - smooth(32, 50, Math.abs(lz)); const r = 7 * Math.exp(-(((lx - 142) / 9) ** 2)) * (1 - breach); h += r; mixIn(PAL.fresh, smooth(1, 5, r) * 0.5);
     mixIn(PAL.wet, 1 - smooth(100, 108, lx));
     { const d = Math.abs(lz); if (d < 5 && lx < 340) mixIn([0.56, 0.5, 0.4], 0.6 * (1 - smooth(2.5, 5, d))); }
     { const dc = distPolyline(lx, lz, CR_CONV); if (dc < 5 && lx > 110) mixIn([0.58, 0.52, 0.41], 0.55 * (1 - smooth(2.5, 5, dc))); }
   } else {
-    const breach = 1 - smooth(12, 34, Math.abs(lz)), nr = 1 - smooth(6, 24, Math.abs(lz - CR_RAMP_Z));
-    const fieldH = 1.6 + 0.25 * fbm(lx / 70, lz / 70, 2), bank = 0.9 + 0.7 * smooth(100, 112, ax), dr = Math.abs(lx + 128);
+    const breach = 1 - smooth(12, 34, Math.abs(lz)), nr = 1 - smooth(6, 24, Math.abs(lz - CR_RAMP_Z)), dr = Math.abs(lx + 128);
     const ramp = 9 * (1 - smooth(6.5, 17, dr)) * (1 - breach) * (1 - 0.8 * nr) * smooth(10, 30, Math.abs(lz - CR_RAFT_Z));
-    h = lerp(bank, fieldH, smooth(-108, -150, lx)) + ramp;
-    mix3(PAL.sandL, PAL.sandD, smooth(-0.3, 0.4, fbm(lx / 100, lz / 100, 3))); mixIn(PAL.fresh, smooth(2, 8, ramp) * 0.4);
+    h += ramp; mixIn(PAL.fresh, smooth(2, 8, ramp) * 0.4);
     // the Egyptian trench: a cut in the flat top of the rampart, sandbags on its lips
     if (lz > CR_TZ0 - 3 && lz < CR_TZ1 + 3) { const d = Math.abs(lx - crTX(lz)), k = smooth(CR_TZ0 - 3, CR_TZ0 + 2, lz) * (1 - smooth(CR_TZ1 - 2, CR_TZ1 + 3, lz)); const c = 1.0 * (1 - smooth(1.4, 2.8, d)) * k; h -= c; mixIn(PAL.sandD, c * 0.6); }
     if (lx < -150) {
-      const f = smooth(-150, -175, lx), strip = noise(Math.floor((lx + 1000) / 38) * 1.7, Math.floor((lz + 1000) / 55) * 1.3);
-      const green = [lerp(0.30, 0.42, strip), lerp(0.38, 0.47, strip), lerp(0.18, 0.24, strip)], tilled = [0.47, 0.38, 0.27];
-      mixIn(strip > 0.05 ? green : tilled, 0.85 * f);
       const dr2 = Math.abs(lz); if (dr2 < 4) mixIn([0.6, 0.53, 0.42], 0.8 * (1 - smooth(2, 4, dr2)));
       { const dj = distPolyline(lx, lz, CR_JEEP_S); if (dj < 4) mixIn([0.6, 0.53, 0.42], 0.7 * (1 - smooth(2, 4, dj))); }
       const dc = Math.abs(lx - CR_BRIDGE); if (dc < 14) { h = lerp(h, -1.6, 1 - smooth(5, 12, dc)); mixIn(PAL.mud, 1 - smooth(6, 13, dc)); if (Math.abs(lz) < 4 && dc < 12) h = Math.max(h, 1.75); }
@@ -8582,6 +8839,7 @@ function crH(x, z) {
   }
   return h;
 }
+const crH = (x, z) => crCarve(x, z, crNat(x, z));
 /* ---------- the village: walls with real thickness, wide doorways, windows to shoot from ---------- */
 // a straight wall in local coordinates (along x or along z), its outward normal, and its openings [from, to, 'door' | 'win'] measured along it
 // paint: { out: outward normal [x, z] or null, c: the colour outside, band: the painted band at the foot (or null), in: the whitewash inside }
@@ -8905,7 +9163,7 @@ const BR_FRONT = build([[G.cyl(0.05, 0.05, 4.2, 6), 0x2a2a28, M4(0, 3.6, 2.3)], 
 const JEEP_MG = build([[G.box(0.1, 0.13, 0.95), 0x1d1d1b, M4(0, 0, -0.35)], [G.cyl(0.024, 0.024, 0.75, 6), 0x151515, M4(0, 0.012, -1.17, Math.PI / 2, 0, 0)], [G.cyl(0.04, 0.04, 0.3, 8), 0x2a2a28, M4(0, 0.012, -0.95, Math.PI / 2, 0, 0)], [G.box(0.07, 0.2, 0.1), 0x24221f, M4(0, -0.13, -0.05)], [G.box(0.17, 0.11, 0.26), 0x2a2a24, M4(0, 0.07, -0.5)], [G.box(0.2, 0.15, 0.2), 0x4a4c3a, M4(-0.16, -0.03, -0.5)], [G.box(0.05, 0.08, 0.05), 0x1a1a1a, M4(0, 0.1, -1.45)]]);
 const CRANE_BOOM = build([[G.box(9.9, 0.42, 0.42), 0xc9a43a, M4(4.95, 0, 0)], [G.box(9.9, 0.08, 0.5), 0x8a7428, M4(4.95, 0.25, 0)], [G.box(1.4, 0.9, 1.0), 0x7a6a30, M4(0.2, 0, 0)], [G.cyl(0.18, 0.18, 0.6, 10), 0x2a2a28, M4(9.9, -0.3, 0)]]);
 function crBuild() {
-  const C = CHAP.cross; C.ground = makeGround({ x0: CR.o.x - 440, x1: CR.o.x + 345, z0: CR.o.z - 160, z1: CR.o.z + 450, step: 1.9, h: crH }); GROUND = C.ground;
+  const C = CHAP.cross; C.ground = makeGround({ x0: CR.o.x - 440, x1: CR.o.x + 345, z0: CR.o.z - 160, z1: CR.o.z + 450, step: 1.9, h: mapH('cross', crNat, crCarve), map: 'cross', vegOk: (x, z) => { const lx = x - CR.o.x, lz = z - CR.o.z; return Math.abs(lx) > 106 && Math.abs(lz) > 5 && Math.abs(lx - CR_BRIDGE) > 12 && !(lx > -262 && lx < -142 && Math.abs(lz) < 70); } }); GROUND = C.ground;
   const BAGS = [], sv = BATCH.bag; BATCH.bag = BAGS; const k0 = COVER.length; C.slots = [];
   // the trench on the rampart north of the breach: sandbag lips, traverses, bunkers, the Egyptian flag
   { const line = []; for (let lz = CR_TZ0; lz <= CR_TZ1; lz += 2.5) line.push([crTX(lz), lz]); const W = (dx) => line.map(([x, z]) => CW(x + dx, z));
@@ -8963,7 +9221,12 @@ function crBuild() {
     dressRoute(CR_ROAD.map(([x, z]) => CW(x, z)), okF, 800, 1, 0.8); dressRoute(CR_JEEP.map(([x, z]) => CW(x, z)), okF, 805, 1.2, 0.6); dressArea(X0, X1, Z0, Z1, okF, 820, 0.8, 0.8);
     { const okE = (x, z) => { const [lx, lz] = L(x, z); return lx > 104 && !(Math.abs(lz) < 40 && lx < 160) && Math.abs(lz) > 6 && distPolyline(lx, lz, CR_CONV) > 7; }; dressArea(CR.o.x + 104, CR.o.x + 345, Z0, Z1, okE, 840, 0.5, 0.1); const okR = (x, z) => { const [lx, lz] = L(x, z); return lx < -100 && lx > -150 && Math.abs(lx - crTX(lz)) > 3.2 && Math.abs(lz) > 20 && distPolyline(lx, lz, CR_JEEP) > 6; }; dressArea(CR.o.x - 150, CR.o.x - 100, Z0, Z1, okR, 860, 0.35, 0.3); }
     instScatter(BUSH_G, scatterIn(LITE ? 300 : 700, X0, CR.o.x - 152, Z0, Z1, 501, okF, (x, z, r) => [x, z, 0.7 + r() * 1.0, r() * 6, greenBush(r), 0, 0.9]).concat(nb));
-    { const rows = []; for (const [x0, x1, z0, z1] of [[-430, -350, -150, -12], [-430, -350, 12, 160], [-320, -190, 120, 240], [-330, -280, 300, 440]]) for (let x = x0; x < x1; x += 1.6) for (let z = z0; z < z1; z += 6.5) { const [wx, wz] = CW(x, z); if (!okF(wx, wz)) continue; rows.push([wx, wz, 1, 0, 0x5c7a3a + (Math.random() < 0.5 ? 0x060300 : 0), 0, 1]); } const cg = build([[G.box(0.45, 0.55, 6.0), 0xffffff, M4(0, 0.27, 0)]]); instScatter(cg, rows, DET_MAT, false); }
+    { const rows = []; for (const [x0, x1, z0, z1] of [[-430, -350, -150, -12], [-430, -350, 12, 160], [-320, -190, 120, 240], [-330, -280, 300, 440]]) for (let x = x0; x < x1; x += 1.6) for (let z = z0; z < z1; z += 6.5) { const [wx, wz] = CW(x, z); if (!okF(wx, wz)) continue; rows.push([wx, wz, 1, 0, 0x5c7a3a + (Math.random() < 0.5 ? 0x060300 : 0), 0, 1]); }
+      if (MAPV.kinds && MAPV.kinds.grass_green) {   // with the map's plant cards: rows of young crop, plant by plant, instead of green boxes
+        const geo = MAPV.kinds.grass_green, M = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), sc = V3(), r = rng(4711), mats = [], step = LITE ? 1.1 : 0.75;
+        for (const [wx, wz] of rows) for (let d = -2.9; d < 3.0; d += step) { const z = wz + d + (r() - 0.5) * 0.3, x = wx + (r() - 0.5) * 0.18, y = groundAt(x, z), s = 0.75 + r() * 0.5; e.set(0, r() * Math.PI, 0); q.setFromEuler(e); sc.set(s, s * (0.8 + r() * 0.5), s); mats.push(M.compose(V3(x, y - 0.04, z), q, sc).clone()); }
+        const im = new THREE.InstancedMesh(geo, MAPV.mat, mats.length); mats.forEach((m4, k) => im.setMatrixAt(k, m4)); im.instanceMatrix.needsUpdate = true; im.computeBoundingSphere(); im.castShadow = false; scene.add(onLayer1(im));
+      } else { const cg = build([[G.box(0.45, 0.55, 6.0), 0xffffff, M4(0, 0.27, 0)]]); instScatter(cg, rows, DET_MAT, false); } }
     { const reeds = []; for (let lz = -160; lz < 450; lz += 2.6) for (const sd of [-1, 1]) { if (Math.abs(lz) < 6 || Math.random() < 0.3) continue; const [wx, wz] = CW(CR_BRIDGE + sd * rand(7, 9.5), lz + rand(-1, 1)); reeds.push([wx, wz, 0.8 + Math.random() * 0.5, Math.random() * 6, Math.random() < 0.5 ? 0x7a8a4a : 0x8a8a58, 0, 1]); } instScatter(REED_G, reeds, DET_MAT, false); }
     { const hs = []; for (const [x, z] of [[-212, -120], [-224, -126], [-300, 180], [-312, 190], [-290, 360]]) { const [wx, wz] = CW(x, z); hs.push([G.cyl(1.4, 1.6, 1.8, 12), 0xc8b070, M4(wx, groundAt(wx, wz) + 0.9, wz)], [G.cone(1.5, 0.9, 12), 0xbca262, M4(wx, groundAt(wx, wz) + 2.2, wz)]); addCollider(wx, wz, 1.4, 1.4, 0, groundAt(wx, wz) + 2.2); coverBox(wx, wz, 1.4, 1.4, 0, 1.8); } scene.add(SH(onLayer1(new THREE.Mesh(build(hs), MAT.vc)))); }
     for (const [x, z, w, d, h, ru, col] of [[-318, 14, 4, 4, 2.6, 0, '#bfae8e'], [-380, -36, 6, 4, 2.8, 0, '#c7b490'], [-200, 96, 5, 4, 2.4, 1, '#c2ab84'], [-404, 52, 5, 5, 2.6, 0, '#cbb894'], [-276, 352, 5, 4, 2.5, 1, '#c4ae86'], [-192, 248, 4, 4, 2.4, 0, '#c9b48e']]) { const [wx, wz] = CW(x, z); smallHut(wx, wz, w, d, h, col, 0x7a6a52, !!ru); }
@@ -9428,7 +9691,7 @@ const AR_ROUTE0 = [[60, -1100], [40, -930], [-30, -760], [30, -560], [-10, -380]
 const AR_ROUTE2 = [[0, -232], [10, -170], [60, -40], [130, 110], [190, 250], [236, 370], [252, 432]], AR_ROUTE0_S = smoothPath(AR_ROUTE0, 5), AR_ROUTE2_S = smoothPath(AR_ROUTE2, 5);
 const AR_ROAD = -200, AR_KM = [[-140, AR_ROAD], [340, AR_ROAD]];
 const coastZ = (lx) => 520 - 0.25 * lx;
-function arH(x, z) {
+function arNat(x, z) {
   const lx = x - AR.o.x, lz = z - AR.o.z;
   let h = 4 + 5 * fbm(lx / 520, lz / 520, 3) + 0.9 * fbm(lx / 60, lz / 60, 2); { const hill = 1 - Math.abs(noise(lx / 260 + 3.1, lz / 300)); h += 7 * hill * hill * hill * smooth(-100, 400, Math.abs(lz - AR_ROAD)) * (lz < coastZ(lx) - 60 ? 1 : 0); }
   { const dn = smooth(-420, -700, lz); if (dn > 0) { const r = 1 - Math.abs(noise(lx / 70 + fbm(lx / 200, lz / 200, 2), lz / 160)); h += dn * 5.5 * r * r * r; } }
@@ -9436,16 +9699,19 @@ function arH(x, z) {
   mix3(PAL.sandD, PAL.rock, 0.2 + 0.35 * smooth(-0.3, 0.5, fbm(lx / 180, lz / 180, 3) + 0.6 * fbm(lx / 20, lz / 20, 2))); mixIn(PAL.sandL, 0.3 * smooth(0, 0.5, noise(lx / 90, lz / 90)));
   // Jebel Ataqa: the mountain behind the plain, west and south-west
   { const m = smooth(-320, -1300, lx) * (0.55 + 0.45 * smooth(-900, 300, lz)); if (m > 0) { const ridge = 1 - Math.abs(noise(lx / 380, lz / 520)); const mh = m * (180 + 160 * ridge * ridge + 60 * fbm(lx / 160, lz / 160, 3)); h += mh; mixIn(PAL.rock, smooth(10, 90, mh) * 0.8); } }
-  // the Suez-Cairo road
-  { const d = Math.abs(lz - AR_ROAD); if (d < 12) { h = lerp(h, 4.2 + 1.2 * fbm(lx / 700, 0, 2), 1 - smooth(5, 12, d)); if (d < 4.5) mix3([0.26, 0.26, 0.25], [0.32, 0.31, 0.29], noise(lx / 8, lz / 8) * 0.5 + 0.5); } }
   // the gulf: a beach, then deep water
   { const c = lz - coastZ(lx); if (c > -40) { mixIn(PAL.fresh, 0.5 * (1 - smooth(-40, 0, c)) + 0.4 * smooth(-40, -5, c)); mixIn(PAL.wet, smooth(-6, 4, c)); h = lerp(h, 0.9 - c * 0.08, smooth(-40, -4, c)); if (c > 0) { h = lerp(0.9, -6, smooth(0, 70, c)); mix3(PAL.wet, PAL.deep, smooth(0, 50, c)); } } }
-  // the tracks the column follows
+  return h;
+}
+// the road and the column's tracks (the map comes with them levelled: only their surface is drawn here)
+function arCarve(x, z, h) {
+  const lx = x - AR.o.x, lz = z - AR.o.z;
+  { const d = Math.abs(lz - AR_ROAD); if (d < 12) { if (!MAPS.army) h = lerp(h, 4.2 + 1.2 * fbm(lx / 700, 0, 2), 1 - smooth(5, 12, d)); if (d < 4.5) mix3([0.26, 0.26, 0.25], [0.32, 0.31, 0.29], noise(lx / 8, lz / 8) * 0.5 + 0.5); } }
   if (lz < 480) { const d = Math.min(distPolyline(lx, lz, AR_ROUTE0_S), distPolyline(lx, lz, AR_ROUTE2_S)); if (d < 9) { h = lerp(h, h - 0.15, 1 - smooth(3, 9, d)); mixIn(PAL.sandL, 0.35 * (1 - smooth(1.5, 5, d))); } }
   return h;
 }
 function arBuild() {
-  const C = CHAP.army; C.ground = makeGround({ x0: AR.o.x - 520, x1: AR.o.x + 980, z0: AR.o.z - 1180, z1: AR.o.z + 620, step: 3.6, h: arH }); GROUND = C.ground;
+  const C = CHAP.army; C.ground = makeGround({ x0: AR.o.x - 520, x1: AR.o.x + 980, z0: AR.o.z - 1180, z1: AR.o.z + 620, step: 3.6, h: mapH('army', arNat, arCarve), map: 'army', vegOk: (x, z) => { const lx = x - AR.o.x, lz = z - AR.o.z; return Math.abs(lz - AR_ROAD) > 7 && lz < coastZ(lx) - 6 && Math.min(distPolyline(lx, lz, AR_ROUTE0_S), distPolyline(lx, lz, AR_ROUTE2_S)) > 5; } }); GROUND = C.ground;
   const BAGS = [], sv = BATCH.bag; BATCH.bag = BAGS; const k0 = COVER.length; C.slots = [];
   const fox = (pts, grp, kinds) => pts.forEach(([x0, z0], i) => { const [x, z] = corr(grp === 'P' ? AR_ROUTE2 : grp === 'K' ? AR_KM : AR_ROUTE0, x0, z0, 23, 11); const [wx, wz] = AW(x, z); let bd = 1e9, tx = 0, tz = 0; for (const p of densify([...AR_ROUTE0, ...AR_ROUTE2], 12)) { const d = Math.hypot(p[0] - x, p[1] - z); if (d < bd) { bd = d; tx = p[0]; tz = p[1]; } } const dx = tx - x, dz = tz - z, l = Math.hypot(dx, dz) || 1; const s = foxhole(wx, wz, dx / l, dz / l, C.slots); s.grp = grp; s.kind = kinds[i % kinds.length]; });
   fox([[-90, -900], [150, -860], [-130, -650], [160, -560], [-100, -430], [120, -390], [-60, -300], [80, -980], [-70, -800], [90, -700], [-80, -520], [70, -340]], 'R', ['atgm', 'rifle', 'rpg', 'rifle', 'rifle', 'rpg', 'rifle', 'rifle', 'atgm', 'rifle', 'rifle', 'rpg']);
@@ -9703,12 +9969,17 @@ const OTRUCK_GEO = build(truckParts({ B: 0x5f6146, D: 0x55573e, K: 0x1f1e1b, C: 
 const BTR_GEO = build([[G.box(6.6, 1.0, 2.6), 0x8e8058, M4(0, 1.1, 0)], [G.box(1.5, 0.75, 2.5), 0x857852, M4(3.6, 1.05, 0, 0, 0, -0.45)], [G.box(1.2, 0.7, 2.5), 0x857852, M4(-3.45, 1.0, 0, 0, 0, 0.35)], [G.box(5.4, 0.5, 2.2), 0x8a7c55, M4(-0.2, 1.8, 0)], [G.cyl(0.45, 0.52, 0.5, 12), 0x7d7050, M4(0.9, 2.3, 0)], [G.cyl(0.04, 0.04, 1.3, 6), 0x2a2a26, M4(1.6, 2.4, 0, 0, 0, Math.PI / 2)], ...[-2.4, -0.8, 0.8, 2.4].flatMap((x) => [-1, 1].map((sd) => [G.cyl(0.55, 0.55, 0.36, 14), 0x22201c, M4(x, 0.55, sd * 1.25, Math.PI / 2, 0, 0)]))]);
 const MARK_GEO = build([[G.cyl(0.06, 0.08, 2.2, 6), 0x3a3a34, M4(0, 1.1, 0)], [G.box(0.02, 0.5, 0.8), 0xe8641e, M4(0, 1.9, 0.4)]]);
 const amCrest = (lz) => 8 * Math.sin(lz / 180) + 4 * Math.sin(lz / 67 + 1.3);   // the ridge line wanders a little
-function amH(x, z) {
+/* the ground in two parts: the land itself (amNat - or the map, when the chapter has one) and what the battle needs exactly on top of it (amCarve) */
+function amNat(x, z) {
   const lx = x - AM.o.x, lz = z - AM.o.z, cx = lx - amCrest(lz);
   let h = 1.1 * fbm(lx / 170, lz / 170, 3) + 0.35 * fbm(lx / 28, lz / 28, 2);
   const ridge = 13 * Math.exp(-((cx / 46) ** 2)); h += ridge; h += cx > 0 ? 3 * smooth(40, 180, cx) * (0.6 + 0.4 * fbm(lx / 90, lz / 90, 2)) : 0;
   mix3(PAL.sandL, PAL.sandD, smooth(-0.35, 0.45, fbm(lx / 120, lz / 120, 3) + 0.5 * fbm(lx / 18, lz / 18, 2))); mixIn(PAL.rock, smooth(5, 12, ridge) * 0.4);
   if (cx < -80) { const d = 1 - Math.abs(noise(lx / 90 + 7, lz / 140)); h += 2.6 * d * d * d * smooth(-80, -220, cx); const w = Math.abs(lx + 560 + 40 * Math.sin(lz / 120)); if (w < 20) { h -= 2.2 * (1 - smooth(5, 20, w)); mixIn(PAL.sandD, 0.5 * (1 - smooth(4, 16, w))); } mixIn([0.5, 0.44, 0.34], 0.25 * smooth(0.2, 0.6, noise(lx / 60, lz / 60))); }
+  return h;
+}
+function amCarve(x, z, h) {
+  const lx = x - AM.o.x, lz = z - AM.o.z, cx = lx - amCrest(lz);
   // the positions: berms of sand to hide a tank behind, churned ground, the track along the back of the ridge
   for (const Z of AM_Z) { const dx = lx - Z.x, dz = lz - Z.z, d = Math.hypot(dx, dz); if (d < Z.r + 20) { mixIn([0.47, 0.41, 0.32], 0.35 * (1 - smooth(Z.r - 10, Z.r + 15, d)));
     for (const oz of [-28, 0, 28]) { const bz = Math.abs(dz - oz); if (bz < 10) h += 1.9 * Math.exp(-(((dx + 10) / 3.4) ** 2)) * (1 - smooth(5, 10, bz)); } } }
@@ -9716,7 +9987,7 @@ function amH(x, z) {
   return h;
 }
 function amBuild() {
-  const C = CHAP.armor; C.ground = makeGround({ x0: AM.o.x - 1150, x1: AM.o.x + 260, z0: AM.o.z - 220, z1: AM.o.z + 920, step: 3.2, h: amH }); GROUND = C.ground;
+  const C = CHAP.armor; C.ground = makeGround({ x0: AM.o.x - 1150, x1: AM.o.x + 260, z0: AM.o.z - 220, z1: AM.o.z + 920, step: 3.2, h: mapH('armor', amNat, amCarve), map: 'armor', vegOk: (x, z) => { const lx = x - AM.o.x, lz = z - AM.o.z; return !AM_Z.some((Z) => Math.hypot(lx - Z.x, lz - Z.z) < 36) && Math.abs(lz - 366) > 6; } }); GROUND = C.ground;
   const BAGS = [], sv = BATCH.bag; BATCH.bag = BAGS; const k0 = COVER.length; C.slots = [];
   const L = (x, z) => [x - AM.o.x, z - AM.o.z], inZone = (lx, lz) => AM_Z.some((Z) => Math.hypot(lx - Z.x, lz - Z.z) < 22), ok = (x, z) => { const [lx, lz] = L(x, z); return !inZone(lx, lz) && !C.slots.some((s) => Math.hypot(s.x - x, s.z - z) < 5); };
   // Sagger and bazooka nests in front of the northern positions
@@ -9910,13 +10181,25 @@ const HM_NAMES = ['אבי', 'גיורא', 'דודי', 'ציון', 'ניסים', 
 const hmRock = (r) => [0xb4b2ac, 0x9e9c97, 0xc6c4bd, 0x8c8b86, 0xa9a69e, 0xd0cec6][Math.floor(r() * 6)];
 function hmBase(lx, lz) { const cz = clamp(lz, -420, 700), cx = clamp(lx, -260, 260), a = 0.3 * (cz + 200), b = 132 + 0.06 * (cz - 240), ax = Math.abs(cx); return lerp(a, b, smooth(220, 262, cz)) + 0.0009 * cx * cx * (1 - smooth(50, 110, ax)) - 0.28 * Math.max(0, ax - 90) * smooth(80, 140, ax); }
 const HM_PY = hmBase(0, 290) + 0.2, HM_L0 = HM_PY - 3.2, HM_U1 = HM_PY + 3.2, HM_RY = HM_U1 + 0.3;
+const hmH = (x, z) => hmCarve(x, z, hmNat(x, z));
+/* past the map's box the ground is the map's far country (the backdrop's own heights and colour), so the mountain falls away to the Golan
+   and the Hula on every side instead of running on as a flat shelf */
+function hmOuter(x, z) {
+  const F = MAPS.hermon && MAPS.hermon.far; if (!F) return hmNat(x, z);
+  const [u, v] = mapUV(F, x, z); COL[0] = mapCh(F.c, u, v, 0); COL[1] = mapCh(F.c, u, v, 1); COL[2] = mapCh(F.c, u, v, 2); return mapBil(F.h, F.W, F.H, u, v);
+}
 const hmY = (f) => (f === 2 ? HM_RY : f ? HM_PY : HM_L0);
 const hmDist = (lx, lz) => { const dx = Math.max(HM_F.x0 - lx, 0, lx - HM_F.x1), dz = Math.max(HM_F.z0 - lz, 0, lz - HM_F.z1); return Math.hypot(dx, dz); };
-function hmH(x, z) {
+/* the mountain itself (hmNat, or the map) and the post's works carved into it (hmCarve): the road, the levelled summit, the trenches, the bunker's floor */
+function hmNat(x, z) {
   const lx = x - HM.o.x, lz = z - HM.o.z, base = hmBase(lx, lz);
   let h = base + 2.6 * fbm(lx / 42, lz / 42, 3) + 0.7 * fbm(lx / 9, lz / 9, 2);
   // bare limestone, grey and white; dark thorn cushions; dry yellow grass in the hollows
   mix3([0.64, 0.645, 0.65], [0.52, 0.525, 0.53], smooth(-0.3, 0.5, fbm(lx / 30, lz / 30, 3))); mixIn([0.72, 0.72, 0.7], 0.3 * smooth(0.2, 0.6, fbm(lx / 11, lz / 11, 2))); mixIn([0.5, 0.39, 0.31], 0.2 * smooth(0.15, 0.6, noise(lx / 48 + 3, lz / 48))); mixIn([0.34, 0.37, 0.3], 0.14 * smooth(0.3, 0.7, noise(lx / 25, lz / 25 + 9)));
+  return h;
+}
+function hmCarve(x, z, h) {
+  const lx = x - HM.o.x, lz = z - HM.o.z, base = hmBase(lx, lz);
   { const d = distPolyline(lx, lz, HM_ROAD_S); if (d < 8) { h = lerp(h, base + 0.3 * fbm(lx / 30, lz / 30, 2), 1 - smooth(3.5, 8, d)); mixIn([0.5, 0.47, 0.43], 0.75 * (1 - smooth(2, 4, d))); } }
   // the summit plateau, levelled for the post out past the outer ring; the bunker's lower level sunk into the rock
   { const dp = hmDist(lx, lz); const k = 1 - smooth(42, 78, dp); if (k > 0) { h = lerp(h, HM_PY + 0.25 * fbm(lx / 20, lz / 20, 2) * smooth(4, 16, dp), k); mixIn([0.6, 0.6, 0.59], 0.4 * k); }
@@ -10066,7 +10349,7 @@ function hmRoomProps(x0, x1, z0, z1, f, kind, r, door = null) {
   }
 }
 function hmBuild() {
-  const C = CHAP.hermon; C.ground = makeGround({ x0: HM.o.x - 230, x1: HM.o.x + 230, z0: HM.o.z - 210, z1: HM.o.z + 345, step: 1.6, h: hmH }); GROUND = C.ground;
+  const C = CHAP.hermon; C.ground = makeGround({ x0: HM.o.x - 230, x1: HM.o.x + 230, z0: HM.o.z - 210, z1: HM.o.z + 345, step: 1.6, h: mapH('hermon', hmOuter, hmCarve), map: 'hermon', vegOk: (x, z) => { const lx = x - HM.o.x, lz = z - HM.o.z; return distPolyline(lx, lz, HM_ROAD_S) > 5 && hmDist(lx, lz) > 70; } }); GROUND = C.ground;
   const BAGS = [], sv = BATCH.bag; BATCH.bag = BAGS; const k0 = COVER.length; C.slots = [];
   const K = hmBuildKit(), r = rng(2210), stone = [], L = (x, z) => [x - HM.o.x, z - HM.o.z], y0 = HM_L0, y1 = HM_PY, u0 = HM_PY, u1 = HM_U1, yR = HM_RY;
   const { x0, x1, z0, z1 } = HM_F, [c0, c1] = HM_CORR, [dx, dz] = HM_DOOR, U = HM_U, ST = HM_STAIR, RS = HM_RSTAIR;
@@ -10240,14 +10523,15 @@ function hmPanoH(E, N) {
 }
 function hmPano() {
   if (HM_PANO) return;
-  const NR = LITE ? 70 : 112, NA = LITE ? 180 : 300, R0 = 0.12, R1 = 62, [cx, cz] = HW(0, 290), post = HM_PY;
+  const NR = LITE ? 70 : 112, NA = LITE ? 180 : 300, R0 = 0.12, R1 = 62, [cx, cz] = HW(0, 290), post = HM_PY, F = MAPS.hermon && MAPS.hermon.far;   // the far country from the map when it has one
   const pos = new Float32Array(NR * NA * 3), col = new Float32Array(NR * NA * 3), hz = new Float32Array(NR * NA), K = 1 / 0.787, C = (r, g, b) => [lin(r) * K, lin(g) * K, lin(b) * K], r = rng(2290);
   const LIME = C(0.68, 0.67, 0.64), ROCK = C(0.52, 0.5, 0.47), OCHRE = C(0.58, 0.5, 0.37), SCRUB = C(0.37, 0.38, 0.28), DRY = C(0.64, 0.57, 0.4), BASALT = C(0.33, 0.31, 0.28), FIELD = C(0.42, 0.48, 0.3), FIELD2 = C(0.56, 0.5, 0.36), ORCH = C(0.3, 0.37, 0.24), WATER = C(0.24, 0.36, 0.46), VILL = C(0.72, 0.7, 0.66);
   const mixc = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
   for (let i = 0; i < NR; i++) { const km = R0 * Math.pow(R1 / R0, i / (NR - 1));
     for (let j = 0; j < NA; j++) { const a = (j / NA) * Math.PI * 2, E = Math.sin(a) * km, N = Math.cos(a) * km, lx = -E * 1000, lz = 290 + N * 1000;
       // near the post the mountain of the map itself, far off the country round it
-      const near = hmBase(lx, lz) + 2.6 * fbm(lx / 42, lz / 42, 3) - post, far = hmPanoH(E, N), w = smooth(0.35, 1.6, km), h = lerp(near, far, w), o = (i * NA + j) * 3;
+      let far, fc = null; if (F) { const [u, v] = mapUV(F, HM.o.x + lx, HM.o.z + lz); far = mapBil(F.h, F.W, F.H, u, v) - post; fc = C(mapCh(F.c, u, v, 0), mapCh(F.c, u, v, 1), mapCh(F.c, u, v, 2)); } else far = hmPanoH(E, N);
+      const near = hmBase(lx, lz) + 2.6 * fbm(lx / 42, lz / 42, 3) - post, w = smooth(0.35, 1.6, km), h = lerp(near, far, w), o = (i * NA + j) * 3;
       pos[o] = cx + lx; pos[o + 1] = post + h; pos[o + 2] = cz + lz - 290;
       // the colour: limestone on the heights, dry ochre slopes, the yellow plateau with its black basalt, green fields in the valleys, the lake
       const n1 = fbm(E / 1.7 + 7, N / 1.7, 3), cell = Math.sin(Math.floor(E / 0.55) * 12.9898 + Math.floor(N / 0.42) * 78.233) * 43758.5 % 1, cv = Math.abs(cell);
@@ -10258,6 +10542,7 @@ function hmPano() {
       if (h < -2270) c = WATER;
       for (const [vx, vz, vr] of [[0.4, -5.6, 0.7], [1.6, -4.8, 0.45], [3.2, -6.4, 0.4], [-9, -14.5, 0.6], [24, -12, 1.2], [38, 6, 3.2]]) if (Math.hypot(E - vx, N - vz) < vr) c = mixc(c, VILL, 0.55);   // Majdal Shams, Mas'ade, Buq'ata, Banias; Sasa and Damascus far off
       if (h > -250) c = mixc(c, LIME, smooth(-250, 300, h) * 0.5);
+      if (fc) c = mixc(c, fc, w);   // the map's own country (its lake drawn in its colour)
       col[o] = c[0]; col[o + 1] = c[1]; col[o + 2] = c[2];
       hz[i * NA + j] = Math.min(0.9, 1 - Math.exp(-km / 24)) * (0.85 + 0.15 * smooth(-1500, 0, -h)); } }
   const idx = []; for (let i = 0; i < NR - 1; i++) for (let j = 0; j < NA; j++) { const a = i * NA + j, b = i * NA + (j + 1) % NA, c2 = (i + 1) * NA + j, d = (i + 1) * NA + (j + 1) % NA; idx.push(a, c2, b, b, c2, d); }
@@ -10713,9 +10998,10 @@ const fmDitchD = (lx, lz) => { let d = 1e9; for (const x of FM_DX) d = Math.min(
 const FM_PLOTS = (() => { const out = []; for (let i = 0; i < FM_DX.length - 1; i++) for (let j = 0; j < FM_DZ.length - 1; j++) { const x0 = FM_DX[i] + FM_DW + 0.3, x1 = FM_DX[i + 1] - FM_DW - 0.3, z0 = FM_DZ[j + 1] + FM_DW + 0.3, z1 = FM_DZ[j] - FM_DW - 0.3; out.push({ x0, x1, z0, z1, top: FY, i, j: j - 1, strip: j === 0 }); } return out; })();
 const fmPlotAt = (lx, lz) => FM_PLOTS.find((p) => lx > p.x0 && lx < p.x1 && lz > p.z0 && lz < p.z1) || null;
 /* ---------- the ground ---------- */
-function fmH(x, z) {
+/* the land itself (fmNat, or the map) and the farm's exact works carved into it (fmCarve): the canal and the lake, the sweet-water canal,
+   our rampart and the Yard, the farm block cut to the ditches' floor, the roads, the knoll */
+function fmNat(x, z) {
   const lx = x - FM.o.x, lz = z - FM.o.z;
-  const dC = Math.abs(lx - FM_CANAL.x);
   let h;
   // the desert of the east bank: low swells, sand, desert pavement; west of the canal the green strip of Africa
   h = FY + 0.9 * fbm(lx / 140, lz / 140, 3) * smooth(30, 120, Math.abs(lz - FM_TIR) + Math.abs(lx) * 0.2) + 0.35 * fbm(lx / 30, lz / 30, 2);
@@ -10724,8 +11010,12 @@ function fmH(x, z) {
     const k = smooth(FM_CANAL.x - FM_CANAL.hw - 2, FM_CANAL.x - FM_CANAL.hw - 26, lx); h = lerp(0.9, 1.5 + 0.25 * fbm(lx / 50, lz / 50, 2), k);
     const strip = noise(Math.floor((lx + 2000) / 34) * 1.7, Math.floor((lz + 2000) / 48) * 1.3), green = [lerp(0.36, 0.47, strip), lerp(0.42, 0.5, strip), lerp(0.24, 0.3, strip)];
     mixIn(strip > 0 ? green : [0.56, 0.47, 0.34], 0.75 * smooth(-500, -560, lx));
-    const dS = Math.abs(lx + 575); if (dS < 7) { h = lerp(h, -0.9, 1 - smooth(3, 7, dS)); mixIn(PAL.mud, 1 - smooth(3.5, 7, dS)); }
   }
+  return h;
+}
+function fmCarve(x, z, h) {
+  const lx = x - FM.o.x, lz = z - FM.o.z, dC = Math.abs(lx - FM_CANAL.x);
+  if (lx < FM_CANAL.x - FM_CANAL.hw) { const dS = Math.abs(lx + 575); if (dS < 7) { h = lerp(h, -0.9, 1 - smooth(3, 7, dS)); mixIn(PAL.mud, 1 - smooth(3.5, 7, dS)); } }
   // the canal and the lake
   if (dC < FM_CANAL.hw + 10) { const t = smooth(FM_CANAL.hw - 14, FM_CANAL.hw + 2, dC); h = lerp(-5.5, Math.min(h, 0.9), t); mix3(PAL.deep, PAL.wet, t); }
   { const sh = FM_LAKE + 30 * Math.sin(lx / 260) - 60 * smooth(0, 400, lx); if (lz > sh - 12) { const t = smooth(sh + 26, sh - 4, lz); h = lerp(-3.2, h, t); mixIn(PAL.wet, (1 - t) * 0.9); } }
@@ -10746,6 +11036,7 @@ function fmH(x, z) {
   { const dL = Math.abs(lx - FM_LEX); if (dL < 7 && lz < FM_LAKE - 30 && !fmInFarm(lx, lz, 1)) { h = lerp(h, FY + 0.1, 1 - smooth(4.5, 7, dL)); mixIn([0.55, 0.52, 0.47], 0.7 * (1 - smooth(3.5, 5, dL))); } }
   { const dT = Math.abs(lz - FM_TIR); if (dT < 7 && lx > FM_LEX - 2 && !fmInFarm(lx, lz, 0.5)) { h = lerp(h, FY + 0.1, 1 - smooth(4.5, 7, dT)); mixIn([0.6, 0.55, 0.46], 0.6 * (1 - smooth(3, 4.5, dT))); } }
   { const dA = distPolyline(lx, lz, FM_AKAVISH); if (dA < 8) { h = lerp(h, FY + 0.1, 1 - smooth(5, 8, dA)); mixIn([0.53, 0.5, 0.46], 0.75 * (1 - smooth(3.5, 5, dA))); } }
+  { const k = fmKnollH(lx, lz); if (k > 0) { mixIn([0.82, 0.75, 0.62], Math.min(1, k / FM_KNOLL.h) * 0.5); h += k; } }
   return h;
 }
 /* ---------- models made here ---------- */
@@ -10804,7 +11095,7 @@ function fmJpTex(i) {
 /* the low hill south of Tirtur where the paratroopers lay, "tens of metres from the Egyptians" */
 const FM_KNOLL = { x: 150, z: -200, r: 24, h: 2.8 };
 const fmKnollH = (lx, lz) => { const d = Math.hypot(lx - FM_KNOLL.x, (lz - FM_KNOLL.z) * 1.25); return d < FM_KNOLL.r ? FM_KNOLL.h * Math.pow(Math.cos(d / FM_KNOLL.r * Math.PI / 2), 1.6) : 0; };
-function fmHk(x, z) { const lx = x - FM.o.x, lz = z - FM.o.z, h = fmH(x, z), k = fmKnollH(lx, lz); if (k > 0) { mixIn([0.82, 0.75, 0.62], Math.min(1, k / FM_KNOLL.h) * 0.5); return h + k; } return h; }
+const fmHk = (x, z) => fmCarve(x, z, fmNat(x, z));   // the ground without a map (the knoll is carved with the rest)
 /* ---------- the plots: raised blocks of dry field between the ditches ---------- */
 function fmPlots() {
   const K = 1 / 0.787, C = (r, g, b) => [lin(r) * K, lin(g) * K, lin(b) * K], B = 0.06;
@@ -10909,7 +11200,7 @@ function fmSplash(p, k = 1) {
 }
 /* ---------- building the battlefield ---------- */
 function fmBuild() {
-  const C = CHAP.farm; C.ground = makeGround({ x0: FM.o.x - 660, x1: FM.o.x + 720, z0: FM.o.z - 880, z1: FM.o.z + 460, step: 4, h: fmHk,
+  const C = CHAP.farm; C.ground = makeGround({ x0: FM.o.x - 660, x1: FM.o.x + 720, z0: FM.o.z - 880, z1: FM.o.z + 460, step: 4, h: mapH('farm', fmNat, fmCarve), map: 'farm', vegOk: (x, z) => { const lx = x - FM.o.x, lz = z - FM.o.z; return !fmInFarm(lx, lz, 4) && Math.abs(lx - FM_CANAL.x) > FM_CANAL.hw + 3 && Math.abs(lx - FM_LEX) > 6 && Math.abs(lz - FM_TIR) > 6 && distPolyline(lx, lz, FM_AKAVISH) > 6 && !(lz > FM_YARD.z0 - 6 && lz < FM_YARD.z1 + 6 && lx > FM_YARD.x0 - 10 && lx < FM_YARD.x1 + 6); },
     fineX: [[FM_FARM.x0 - 9, FM_FARM.x0 + 13, 1.25], [FM_FARM.x1 - 13, FM_FARM.x1 + 9, 1.25]].map(([a, b, s]) => [FM.o.x + a, FM.o.x + b, s]),
     fineZ: [[FM_FARM.z0 - 9, FM_FARM.z0 + 13, 1.25], [FM_FARM.z1 - 13, FM_FARM.z1 + 9, 1.25]].map(([a, b, s]) => [FM.o.z + a, FM.o.z + b, s]) }); GROUND = C.ground;
   const BAGS = [], sv = BATCH.bag; BATCH.bag = BAGS; const k0 = COVER.length; C.slots = []; C.shelters = []; C.fires = [];
@@ -11741,14 +12032,19 @@ const RG_FRIENDS = [[-31, 'אבי'], [-27, 'יוסי'], [-15, 'מוטי'], [-9, 
 // the enemy park, out in the field: knocked out, each burns a while and stands there whole again
 const RG_EVEH = [['t55', 62, -62], ['jeep', 66, -42], ['jeep', 58, -26], ['atgun', 48, -8]];
 
-function rgH(x, z) {
+function rgNat(x, z) {
   const lx = x - RG.o.x, lz = z - RG.o.z, R = Math.hypot(lx, lz);
   let h = 2.2 + 0.3 * fbm(lx / 70, lz / 70, 2) + 0.1 * fbm(lx / 9, lz / 9, 2);
   mix3(PAL.sandD, PAL.sandL, 0.35 + 0.35 * smooth(-0.3, 0.4, fbm(lx / 50, lz / 50, 3))); mixIn(PAL.rock, 0.16 * smooth(0, 0.5, noise(lx / 22, lz / 22)));
+    // low hills all round the horizon
+  { const f = smooth(170, 420, R); if (f > 0) { const ridge = 1 - Math.abs(noise(lx / 160, lz / 160)); h += f * (14 + 30 * ridge * ridge + 10 * fbm(lx / 80, lz / 80, 3)); mixIn(PAL.rock, f * 0.45); } }
+  return h;
+}
+// the range itself: the stop butt behind the enemy line, the firing point, the vehicle park, the pond
+function rgCarve(x, z, h) {
+  const lx = x - RG.o.x, lz = z - RG.o.z;
   // the stop butt: an earth bank behind the enemy's line
   if (Math.abs(lx) < 150) { const d = Math.abs(lz + 150 + 4 * Math.sin(lx / 23)), b = (1 - smooth(0, 10, d)) * (1 - smooth(115, 150, Math.abs(lx))); h += 6.5 * b; mixIn(PAL.sandR, 0.6 * b); }
-  // low hills all round the horizon
-  { const f = smooth(170, 420, R); if (f > 0) { const ridge = 1 - Math.abs(noise(lx / 160, lz / 160)); h += f * (14 + 30 * ridge * ridge + 10 * fbm(lx / 80, lz / 80, 3)); mixIn(PAL.rock, f * 0.45); } }
   // the firing point and the vehicle park: trodden, lighter sand
   { const d = Math.max(Math.abs(lx) - 40, Math.abs(lz - 44) - 8); if (d < 4) mixIn(PAL.fresh, 0.35 * (1 - smooth(0, 4, d))); }
   { const d = Math.max(Math.abs(lx + 58) - 9, Math.abs(lz - 18) - 38); if (d < 5) { mixIn(PAL.yard, 0.5 * (1 - smooth(0, 5, d))); h = lerp(h, 2.2, 0.7 * (1 - smooth(0, 5, d))); } }
@@ -11782,7 +12078,7 @@ function rgJeep(lx, lz, rot, paint, parent = null) {
   addCollider(x, z, 2.05, 0.95, rot, y + 1.5); coverBox(x, z, 2.05, 0.95, rot, 1.3); return r;
 }
 function rgBuild() {
-  const C = CHAP.range, O = RG.o; C.ground = makeGround({ x0: O.x - 240, x1: O.x + 240, z0: O.z - 260, z1: O.z + 200, step: 3, h: rgH }); GROUND = C.ground;
+  const C = CHAP.range, O = RG.o; C.ground = makeGround({ x0: O.x - 240, x1: O.x + 240, z0: O.z - 260, z1: O.z + 200, step: 3, h: mapH('range', rgNat, rgCarve), map: 'range', vegOk: (x, z) => { const lx = x - RG.o.x, lz = z - RG.o.z; return !(Math.abs(lx) < 46 && Math.abs(lz - 44) < 14) && rgPondD(lx, lz) > 1.3 && !(Math.abs(lx + 58) < 14 && Math.abs(lz - 18) < 44); } }); GROUND = C.ground;
   const BAGS = [], sv = BATCH.bag; BATCH.bag = BAGS; const k0 = COVER.length; C.slots = [];
   // the firing line: a sandbag wall with gaps, the three guns in it, a flag
   for (const [a, b] of [[-38, -25.5], [-18.5, -3.4], [3.4, 18.5], [25.5, 38]]) bagWall([RGW(a, 40), RGW(b, 40)], 4);
