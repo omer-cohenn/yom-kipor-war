@@ -726,7 +726,13 @@ function playCine(def) {
   if (CINE.on) endCine(true);
   Object.assign(CINE, { on: true, t: 0, def, slow: 1, ev: (def.ev || []).slice().sort((a, b) => a[0] - b[0]), caps: (def.caps || []).map((c) => ({ t: c[0], html: c[1], d: c[2] || 3.6 })), total: def.shots.reduce((a, s) => a + s.d, 0), capT: 0, fov0: camera.fov, vid: null });
   $('#app').classList.add('cine'); $('#cine').hidden = false; $('#cineCap').innerHTML = ''; $('#cineTitle').textContent = def.title || ''; $('#cineTitle').classList.toggle('on', !!def.title);
-  CINE.vm0 = vm.visible; P.ads = 0; INPUT.fire = false; vm.visible = false; $('#tsight').classList.remove('on'); cvidStart(def.vid); updCine(0);
+  CINE.vm0 = vm.visible; P.ads = 0; INPUT.fire = false; vm.visible = false; $('#tsight').classList.remove('on'); if (def.boatFilm) boatsFreeze(); cvidStart(def.vid); updCine(0);
+}
+/* a film of the boats stops the battle: they row on in it, but when it ends - watched to the end or skipped - each boat is put back where it
+   was when the film began (only the one the film lands, filmLand, is on the beach), and the waves behind wait out the film at the quays */
+function boatsFreeze() { for (const b of BOATS) b.ft0 = !b.dead && (b.state === 'wait' || b.state === 'cross') ? b.t : undefined; }
+function boatsThaw() {
+  for (const b of BOATS) { if (b.ft0 === undefined) continue; if (!b.dead && (b.state === 'wait' || b.state === 'cross')) { b.t = b.filmLand ? Math.max(b.t, b.len / b.speed) : b.ft0; b.holding = false; } b.ft0 = undefined; b.filmLand = false; }
 }
 function updCine(dt) {
   if (CINE.vid) { const v = CVID.el;
@@ -748,7 +754,7 @@ function updCine(dt) {
 function endCine(skip) {
   if (!CINE.on) return; const def = CINE.def; if (skip) while (CINE.ev.length) CINE.ev.shift()[1]();
   CINE.on = false; CINE.slow = 1; FILMW.length = 0; if (CINE.vid) cvidStop(); $('#app').classList.remove('cine'); $('#cine').hidden = true; $('#cineCap').innerHTML = ''; camera.fov = CINE.fov0 || 72; camera.updateProjectionMatrix();
-  vm.visible = CINE.vm0 || P.mode === 'rifle'; if (def && def.end) def.end(skip);   // the rifle as it was before the film (a film that starts on a gun hid it too)
+  vm.visible = CINE.vm0 || P.mode === 'rifle'; if (def && def.boatFilm) boatsThaw(); if (def && def.end) def.end(skip);   // the rifle as it was before the film (a film that starts on a gun hid it too)
 }
 $('#cineSkip').addEventListener('click', () => endCine(true));
 /* film extras: men walking a straight line through a shot - a file climbing a road, prisoners with their hands up. Cleared by the film's end */
@@ -762,10 +768,10 @@ const camOrbit = (c, r, a0, a1, h, fov) => (u) => { const C = typeof c === 'func
 /* ---------- film, chapter 1, the big wave: the canal full of boats rowing at the rampart, the first of them grounding on the beach ---------- */
 function mzBoatsFilm() {
   if (D.boatsFilm || CINE.on) return; const W = BOATS.filter((b) => !b.dead && (b.state === 'wait' || b.state === 'cross')); if (W.length < 2) return; D.boatsFilm = true;
-  // the rows are already timed (rowsStart) so that the first of them, two boats, grounds while the film runs - its men the first up the beach -
-  // and the next row lands a moment after the player has the gun again. The lead boat is the first row's nearest the middle of the wave
+  // the waves are already timed (rowsStart) so that the first of them, one boat, grounds while the film runs - its men the first up the beach;
+  // the film stops the battle (boatsFreeze), so the rest are back where they were when it ends. The lead boat is the first wave's
   const T_LAND = 14.6, zc = 20, byZ = (a, b) => Math.abs(a.zLand - zc) - Math.abs(b.zLand - zc), rowA = W.filter((b) => b.wave === 0), rowB = W.filter((b) => b.wave === 1);
-  const lead = (rowA.length ? rowA : W).slice().sort(byZ)[0], mid = (rowB.length ? rowB : W.filter((b) => b !== lead)).slice().sort(byZ)[0] || lead;
+  const lead = (rowA.length ? rowA : W).slice().sort(byZ)[0], mid = (rowB.length ? rowB : W.filter((b) => b !== lead)).slice().sort(byZ)[0] || lead; lead.filmLand = true;
   if (!rowA.length) W.forEach((b, i) => { const u = b === lead ? 1 - (T_LAND * b.speed) / b.len : b === mid ? 0.55 : 0.34 + 0.28 * ((i * 0.618034) % 1); b.t = (u * b.len) / b.speed; });
   for (const b of W) filmRow(b, true);   // the oars shipped for the film, as in the drone's (up close the rowing does not look right)
   const zl = lead.zLand, bx = () => lead.g.position.clone(), cx = crestX(zc), cy = groundAt(cx, zc), fwd = (b) => V3(Math.sin(b.heading), 0, Math.cos(b.heading)), rgt = (b) => V3(Math.cos(b.heading), 0, -Math.sin(b.heading));
@@ -788,7 +794,7 @@ function mzBoatsFilm() {
     ev,
     caps: [[0.3, '<b>לפנות ערב.</b> הם זורקים את הכול: סירות לכל אורך הסוללה המערבית, מקצה לקצה.', 4.8], [5.8, 'בכל סירה חיילים צפופים. החותרים לא עוצרים, גם כשהמים מסביבם רותחים מאש.', 4.2],
       [10.4, '<b>תצפית:</b> הראשונים כבר ליד החוף! עוד רגע הם על הסוללה!', 3.6], [14.8, '<b>מ״פ:</b> הם נוחתים! כולם לסוללה המערבית!', 3.6], [19.8, '<b>מ״פ:</b> לא נותנים להם לעלות. אש על הסירות, עכשיו!', 3.0]],
-    boatFilm: true, end: () => { for (const b of BOATS) if (b.filmHide) filmRow(b, false); },
+    boatFilm: true, boatRate: 0.4, end: () => { for (const b of BOATS) if (b.filmHide) filmRow(b, false); },   /* the rest row on at less than half pace in it: none of them lands */
   });
 }
 /* ---------- film, chapter 1, the boats up close: the moment the player takes a gun on the western rampart, a drone's pass along the line of

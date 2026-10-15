@@ -641,13 +641,13 @@ function boatWave(z0, z1, n, t0, gap, seats, rpg = 0, flame = 0, hp, near) {
 function boatSnap() {
   if (MODE !== 'mezach' || SURV.on) return [];
   return BOATS.filter((b) => !b.dead && (b.state === 'wait' || b.state === 'cross') && aboard(b) > 0).map((b) => ({ z: b.zLand, t: b.t, hp: b.hp, wave: b.wave,
-    men: b.seats.filter((q) => !q.rower && q.alive && !q.gone).length, rpg: b.seats.filter((q) => q.kind === 'rpg' && q.alive).length, flame: b.seats.filter((q) => q.kind === 'flame' && q.alive).length }));
+    men: b.seats.filter((q) => !q.rower && q.alive && !q.gone).length, rowers: b.seats.filter((q) => q.rower).length, spread: b.spread, rpg: b.seats.filter((q) => q.kind === 'rpg' && q.alive).length, flame: b.seats.filter((q) => q.kind === 'flame' && q.alive).length }));
 }
-function boatRestore(list) { for (const o of list) { const b = launchBoat(o.z, 0, 8, o.rpg, o.flame, o.men); b.t = o.t; b.hp = o.hp; if (o.wave !== undefined) b.wave = o.wave; } }
-function launchBoat(zLand, delay, n, rpg = 0, flame = 0, men) {
+function boatRestore(list) { for (const o of list) { const b = launchBoat(o.z, 0, 8, o.rpg, o.flame, o.men, o.spread, o.rowers); b.t = o.t; b.hp = o.hp; if (o.wave !== undefined) b.wave = o.wave; } }
+function launchBoat(zLand, delay, n, rpg = 0, flame = 0, men, spread = 90, rowers) {
   const seed = 9001 + Math.round(zLand * 13) + Math.max(0, D.scene) * 7919, r = rng(seed);
-  const to = [tongueWestX(zLand) - 4.5, zLand]; const from = [nearX(-400), clamp(zLand + (r() - 0.5) * 90, -380, 380)];   // from just off the Port Tewfik quays
-  const bt = new Boat(from, to, men ?? (SURV.on ? Math.max(2, Math.ceil(n * 0.55)) : 8), diff.boat * 0.34, delay); /* a full boat (survival keeps its own count); a heavy rowboat: about three metres a second, a minute and a half across */ bt.zLand = zLand; bt.state = 'wait'; bt.seed = seed;
+  const to = [tongueWestX(zLand) - 4.5, zLand]; const from = [nearX(-400), clamp(zLand + (r() - 0.5) * spread, -380, 380)];   // from just off the Port Tewfik quays
+  const bt = new Boat(from, to, men ?? (SURV.on ? Math.max(2, Math.ceil(n * 0.55)) : 8), diff.boat * 0.34, delay, rowers); /* a full boat (survival keeps its own count); a heavy rowboat: about three metres a second, a minute and a half across */ bt.zLand = zLand; bt.state = 'wait'; bt.seed = seed; bt.spread = spread;
   const ns = bt.seats.length;   // the boat carries fewer men than the wave counts: never index past its seats (that froze the game)
   for (let i = 0; i < rpg && i < ns; i++) bt.seats[i].kind = 'rpg';
   for (let i = 0; i < flame && ns - 1 - i > rpg - 1 && i < ns; i++) bt.seats[ns - 1 - i].kind = 'flame';
@@ -680,17 +680,24 @@ function boatFire(bt, dt, x, z) {
 /* while the beach already has its fill - the men ashore and still alive, and those still in the boats that have gone past the line - the
    boats behind wait on the water some twenty-five metres out, rowing against the current, until there is room. LANDCAP.n is in boatloads,
    set by the stage and the level; one boat always comes in when the beach is empty */
-const LANDCAP = { n: 999 };
+const LANDCAP = { n: 999, wave: 0, open: -1 };
+/* the great wave comes in waves: a wave lands together, and only once the beach has thinned to LANDCAP.wave men; until then it waits on the
+   water twenty-five metres out, and the waves behind it wait in line behind it, thirty metres apart (LANDCAP.open: the last wave let in) */
 const aboard = (bt) => { let n = 0; for (const s of bt.seats) if (s.alive && !s.gone) n++; return n; };
 function updBoats(dt) {
   // counted before any boat moves this frame (a boat coming to the line must not count itself)
-  let men = 0; if (LANDCAP.n < 999 && !CINE.on) { for (const e of UNITS.enemies) if (e.alive) men++; for (const bt of BOATS) if (!bt.dead && (bt.state === 'landed' || (bt.state === 'cross' && bt.t * bt.speed > bt.len - 25 + 0.01))) men += aboard(bt); }
+  let men = 0; if ((LANDCAP.n < 999 || LANDCAP.wave) && !CINE.on) { for (const e of UNITS.enemies) if (e.alive) men++; for (const bt of BOATS) if (!bt.dead && (bt.state === 'landed' || (bt.state === 'cross' && bt.t * bt.speed > bt.len - 25 + 0.01))) men += aboard(bt); }
   const load = 8 + (LITE ? 4 : 6), room = (LANDCAP.n + 0.3) * load;
   for (const bt of BOATS) {
-    if (bt.dead) continue; bt.t += dt;
+    if (bt.dead) continue;
+    { const fz = CINE.on && bt.ft0 !== undefined && !bt.filmLand; bt.t += fz ? dt * (CINE.def.boatRate || 1) : dt; if (fz) bt.t = Math.min(bt.t, (bt.len - 5) / bt.speed); }   /* in a film of the boats (boatsFreeze) only its own boat lands */
     if (bt.state === 'wait') { if (bt.t >= 0) { bt.state = 'cross'; bt.g.visible = true; } else continue; }
     if (bt.state === 'cross') {
-      { const tHold = (bt.len - 25) / bt.speed; bt.holding = false;
+      if (LANDCAP.wave && bt.wave !== undefined) { bt.holding = false;
+        if (bt.wave > LANDCAP.open && bt.len - bt.t * bt.speed < 25) LANDCAP.open = bt.wave;   /* in past the line (in a film, or put there): its wave is in */
+        if (!CINE.on && bt.wave > LANDCAP.open) { const k = bt.wave - LANDCAP.open - 1, tl = (bt.len - 25 - 32 * k - (bt.back ? 9 : 0)) / bt.speed;   /* the second row waits a boat's length behind the first */
+          if (bt.t > tl && bt.t - dt <= tl + 1e-3) { if (k === 0 && men <= LANDCAP.wave) LANDCAP.open = bt.wave; else { bt.holding = true; bt.t = tl; } } } }
+      else { const tHold = (bt.len - 25) / bt.speed; bt.holding = false;
         if (LANDCAP.n < 999 && !CINE.on && bt.t > tHold && bt.t - dt <= tHold + 1e-3) { const a = aboard(bt); if (men > 0 && men + a > room) { bt.holding = true; bt.t = tHold; } else men += a; } }
       const u = Math.min(1, bt.t * bt.speed / bt.len); const x = lerp(bt.from[0], bt.to[0], u), z = lerp(bt.from[1], bt.to[1], u);
       // the boat rides bow-up under power and climbs the waves it is drawn on: lifted by their height, pitched and heeled by their slope, plus its own slap over the chop
@@ -722,26 +729,28 @@ function updBoats(dt) {
    the boats ahead are held off the beach (the landing cap), or the canal holds as many boats as it can draw, the waves behind wait */
 const ROWS = { on: false, q: [] };
 function rowsStart(o) { Object.assign(ROWS, { on: true, q: [], j: 0, men: 0, shift: 0, total: o.total, z0: o.z0, z1: o.z1, every: o.every, ctrl: o.ctrl, aLand: o.aLand, r: rng(7300 + Math.round(GAME.t * 7)) }); }
-const ROW_LOAD = () => 8 + (LITE ? 4 : 6);
+const ROW_MEN = 6, ROW_OARS = 4, ROW_LOAD = () => ROW_MEN + ROW_OARS;   /* a boat of the great wave: ten men, six soldiers and four at the oars - a wave of six boats is sixty */
 function rowsWave() {   // the next wave's boats: where each lands on the beach and when
   const j = ROWS.j++, r = ROWS.r, out = [], zc = (ROWS.z0 + ROWS.z1) / 2, d = (ROWS.z1 - ROWS.z0) / 3.4, cl = (z) => clamp(z, ROWS.z0, ROWS.z1);
-  const boat = (land, z) => out.push({ land: land + rand(-0.5, 0.5), z: cl(z + (r() - 0.5) * 4), wave: j, rpg: r() < 0.3 ? 1 : 0, flame: j > 2 && r() < 0.12 ? 1 : 0 });
+  const boat = (land, z, back = false) => out.push({ land: land + rand(-0.5, 0.5), z: cl(z + (r() - 0.5) * 4), wave: j, back, rpg: r() < 0.3 ? 1 : 0, flame: j > 2 && r() < 0.12 ? 1 : 0 });
   if (j === 0) boat(ROWS.aLand, zc + (r() - 0.5) * 8);
   else if (j === 1) { boat(ROWS.ctrl + 10, zc - d * 0.9); boat(ROWS.ctrl + 10.8, zc + d * 0.9); }
   else { const L = ROWS.ctrl + 10 + ROWS.every * (j - 1), c = zc + (r() - 0.5) * 8, sg = j % 2 ? 1 : -1;
-    for (const k of [-1, 0, 1]) boat(L, c + k * d); for (const k of [-1, 0, 1]) boat(L + 2.6, c + sg * d / 2 + k * d); }
+    for (const k of [-1, 0, 1]) boat(L, c + k * d); for (const k of [-1, 0, 1]) boat(L + 2.6, c + sg * d / 2 + k * d, true); }
+  out.length = Math.min(out.length, Math.max(1, Math.ceil((ROWS.total - ROWS.men) / ROW_LOAD())));   /* the last wave: only what is left of the total */
   ROWS.men += out.length * ROW_LOAD(); ROWS.q.push(...out); ROWS.q.sort((a, b) => a.land - b.land);
 }
 function rowsPending() { return ROWS.on ? Math.max(0, ROWS.total - ROWS.men) + ROWS.q.length * ROW_LOAD() : 0; }
 function rowsUpd(dt) {
   if (!ROWS.on || MODE !== 'mezach' || SURV.on) return;
+  if (CINE.on && CINE.def && CINE.def.boatFilm) { ROWS.shift += dt; return; }   /* a film of the boats stops the battle: the waves behind wait it out at the quays */
   const maxOut = LITE ? 26 : 32; /* far off a boat is one piece to draw (Boat.setLod), so the canal can hold this many */ let out = 0, holding = false; for (const b of BOATS) if (!b.dead && (b.state === 'wait' || b.state === 'cross')) { out++; if (b.holding) holding = true; }
   if (out >= maxOut || holding) { ROWS.shift += dt; return; }   // the canal is full, or the boats ahead are held off the beach: the waves behind wait at the quays
   const sp = diff.boat * 0.34, cross = (tongueWestX(20) - 4.5 - nearX(-400)) / sp;
   for (;;) {
     if (!ROWS.q.length) { if (ROWS.men >= ROWS.total) break; rowsWave(); }
     const e = ROWS.q[0], land = e.land + ROWS.shift; if (land - cross > GAME.t + 1.5) break;   // not due to push off yet
-    ROWS.q.shift(); const b = launchBoat(e.z, 0, 8, e.rpg, e.flame); b.wave = e.wave; b.t = (b.len - (land - GAME.t) * b.speed) / b.speed;
+    ROWS.q.shift(); const b = launchBoat(e.z, 0, 8, e.rpg, e.flame, ROW_MEN, 6, ROW_OARS); b.wave = e.wave; b.back = e.back;   /* straight across, so a row stays a line */ b.t = (b.len - (land - GAME.t) * b.speed) / b.speed;
     if (CINE.on && CINE.def && CINE.def.boatFilm) filmRow(b, true); if (++out >= maxOut) break;
   }
   if (!ROWS.q.length && ROWS.men >= ROWS.total) ROWS.on = false;
@@ -785,8 +794,8 @@ const SCENES = [
     focus: () => { const w = nearestWounded(); return w ? [w.unit.pos.x, w.unit.pos.y, w.unit.pos.z, `פצוע · ${w.name}`] : null; },
     entries: [12, 24, 35, 46], radio: ['דודו', 'פגיעה ישירה בעמדה! יש פצועים בתעלה הדרומית!'], start: medevacStart },
   { title: 'הגל הגדול', sub: 'לפנות ערב הם זורקים את הכול: סירות לכל אורך הסוללה המערבית, מקצה לקצה, והשמש השוקעת מאחוריהם. המוצב הקטן הזה הוא כל מה שנשאר מהקו.', goal: 'החזיקו את התעלה המערבית כולה, עד המצרי האחרון', open: [96, 250], spawn: () => trenchAt(-2), face: 338, focus: w2Focus,
-    entries: [-50, -27, -14, 8.5, 24, 46, 56, 68], radio: ['מ״פ', 'גל גדול של סירות! כולם לסוללה המערבית!'], cap: LITE ? [3, 4, 4] : [3, 4, 5], pre(len) { const lv = Math.max(0, DIFF.indexOf(diff)), film = !D.boatsFilm, ctrl = GAME.t + len + (film ? 21 : 0);   // the film takes 21 s of the battle's time (its slow shot runs at half speed); its first boat grounds 14.4 s in
-      rowsStart({ z0: -25, z1: 63, total: [400, 600, 800][lv], every: [9, 8, 7][lv], ctrl, aLand: ctrl - (film ? 6.6 : 6) }); }, start() { mzBoatsFilm(); } },   // the great wave: some six hundred men, row after row
+    entries: [-50, -27, -14, 8.5, 24, 46, 56, 68], radio: ['מ״פ', 'גל גדול של סירות! כולם לסוללה המערבית!'], waveRoom: [20, 26, 32], pre(len) { const lv = Math.max(0, DIFF.indexOf(diff)), film = !D.boatsFilm, ctrl = GAME.t + len;   // the film stops the battle (boatsFreeze): the player has the gun again with the boats where they were as it began - but for its own boat, which grounds 14.4 s into it
+      rowsStart({ z0: -25, z1: 63, total: [240, 360, 480][lv], every: [9, 8, 7][lv], ctrl, aLand: film ? ctrl + 14.4 : ctrl - 6 }); }, start() { mzBoatsFilm(); } },   // the great wave: some six hundred men, row after row
 ];
 function scCorr(i) {
   const S = SCENES[i]; if (S._c) return S._c; const [a, b] = S.open;
@@ -833,7 +842,7 @@ function introScene(i, len) {
   applyBarricades(i);
   for (const f of FRIENDS) if ((f.state === 'wounded' || f.state === 'stable') && !corridorHas(scCorr(i), f.unit.pos.x, f.unit.pos.z)) { f.state = 'saved'; f.marker.visible = false; feed(`חובשים פינו את ${f.name} לתאג״ד`, 'good'); }
   CP.boats = boatSnap();   // the boats already on the water as the stage begins: after a death they are put back just where they were
-  const S = SCENES[i]; LANDCAP.n = S.cap ? S.cap[Math.max(0, DIFF.indexOf(diff))] : 999; if (S.pre) S.pre(len);
+  const S = SCENES[i], lv = Math.max(0, DIFF.indexOf(diff)); LANDCAP.n = S.cap ? S.cap[lv] : 999; LANDCAP.wave = S.waveRoom ? S.waveRoom[lv] : 0; LANDCAP.open = -1; if (S.pre) S.pre(len);
   toast(`שלב ${i + 1} מתוך ${SCENES.length} · ${S.title}`, S.sub); feed(`שלב ${i + 1}: ${S.title}`); radio(S.radio[0], S.radio[1], 4.5); snapRequest('stage');
   if (i > 0) { P.reserve = 160; P.gren = diff.gren0; for (const p of POSTS) if (p.mag) { p.mag.belt = p.mag.cap || 200; p.mag.reload = 0; } if (!corridorHas(scCorr(i), P.pos.x, P.pos.z)) moveToScene(i); }
 }
@@ -1387,7 +1396,7 @@ function drawMinimap() {
 function clearBattle() {
   SLOW.left = 0; SLOW.k = 1; SLOW.look = null;
   for (const e of UNITS.enemies) { e.alive = false; e.rig.root.visible = false; e.deadAt = undefined; e.tag.visible = false; e.cover = null; e.state = 'dead'; e.sz = null; e.slot = null; e.cov = null; }
-  for (const b of [...BOATS]) b.dispose(); BOATS.length = 0; GROUPS.length = 0; DIRQ.length = 0; dropsClear(); flotReset(); ROWS.on = false; LANDCAP.n = 999;
+  for (const b of [...BOATS]) b.dispose(); BOATS.length = 0; GROUPS.length = 0; DIRQ.length = 0; dropsClear(); flotReset(); ROWS.on = false; LANDCAP.n = 999; LANDCAP.wave = 0;
   for (const q of PROJ) { scene.remove(q.m); if (q.marker) scene.remove(q.marker); } PROJ.length = 0;
   FX.flashes.clear(); FX.glows.clear(); FX.smoke.clear(); FX.dust.clear(); FX.fire.clear(); FX.trail.clear(); FX.exh.clear(); for (const t of FX.tracers) { t.on = false; t.m.visible = false; }
   DRUMFIRE.on = false; LIGHTS.fire.intensity = 0; LIGHTS.boom.intensity = 0; LIGHTS.wreck.intensity = 0; for (const p of POSTS) if (p.occupant === 'player') p.occupant = null;

@@ -752,7 +752,7 @@ const BOATS = [], BOAT_S = 1.55;
 const SEATS = [[-1.95, -0.36], [-1.95, 0.36], [-0.65, -0.36], [-0.65, 0.36], [0.65, -0.36], [0.65, 0.36], [1.95, -0.3], [1.95, 0.3], [-2.35, 0], [2.35, 0]];
 const ROW_SEATS = [[-1.3, -0.24], [-1.3, 0.24], [0, -0.24], [0, 0.24], [1.3, -0.24], [1.3, 0.24]];
 class Boat {
-  constructor(from, to, n, speed, delay) {
+  constructor(from, to, n, speed, delay, nr = LITE ? 4 : 6) {
     this.g = new THREE.Group(); this.hull = new THREE.Mesh(BOAT_GEO, MAT.boatWood); this.g.add(this.hull); SH(this.hull, true, false);
     this.from = from; this.to = to; this.speed = speed; this.t = -delay; this.hp = 240; this.state = 'wait'; this.g.scale.setScalar(BOAT_S);
     this.len = Math.hypot(to[0] - from[0], to[1] - from[1]); this.heading = Math.atan2(to[0] - from[0], to[1] - from[1]); this.ph = Math.random() * 6.28;
@@ -760,8 +760,7 @@ class Boat {
     // the soldiers, facing the bow with their rifles
     for (let i = 0; i < n && i < SEATS.length; i++) { const m = new THREE.Mesh(SEATED, MAT.clothE); m.position.set(SEATS[i][0], 0.02, SEATS[i][1]); m.rotation.y = Math.PI / 2; m.scale.setScalar(US / BOAT_S); this.g.add(m); this.seats.push({ m, alive: true, kind: 'rifle', sp: SEATS[i] }); }
     // the rowers face the stern, each with his oar over his own side
-    const nr = LITE ? 4 : 6;
-    for (let i = 0; i < nr; i++) { const [x, z] = ROW_SEATS[LITE ? i + 2 : i], m = new THREE.Mesh(SEATED_ROW, MAT.clothE); m.position.set(x, 0.02, z); m.rotation.order = 'YXZ'; m.rotation.y = -Math.PI / 2; m.scale.setScalar(US / BOAT_S); this.g.add(m);
+    for (let i = 0; i < nr; i++) { const [x, z] = ROW_SEATS[nr <= 4 ? i + 2 : i], m = new THREE.Mesh(SEATED_ROW, MAT.clothE); m.position.set(x, 0.02, z); m.rotation.order = 'YXZ'; m.rotation.y = -Math.PI / 2; m.scale.setScalar(US / BOAT_S); this.g.add(m);
       const sd = Math.sign(z), oar = new THREE.Group(); oar.position.set(x, boatG(x / BOAT_L) + 0.07, sd * boatW(x / BOAT_L)); oar.rotation.order = 'YXZ'; const om = new THREE.Mesh(OAR_GEO, MAT.vc); om.rotation.y = sd < 0 ? Math.PI : 0; oar.add(om); this.g.add(oar);
       this.seats.push({ m, alive: true, kind: 'rifle', sp: [x, z], rower: true, oar, sd }); }
     if (Math.random() < 0.34) { const F = boatFlag(), pole = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.022, 1.3, 5).translate(0, 0.65, 0), MAT.wood || MAT.vc); pole.position.set(BOAT_L * 0.9, boatG(0.9), 0); const fl = new THREE.Mesh(F.geo, F.mat); fl.position.set(0, 1.12, 0); pole.add(fl); this.g.add(pole); this.flag = pole; }
