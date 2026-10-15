@@ -10574,6 +10574,8 @@ function hmPano() {
   for (let j = 0; j < NA; j++) { const o = ((NR - 1) * NA + j) * 3, o2 = (NR * NA + j) * 3; pos[o2] = pos[o]; pos[o2 + 1] = post + 40; pos[o2 + 2] = pos[o + 2]; col[o2] = col[o]; col[o2 + 1] = col[o + 1]; col[o2 + 2] = col[o + 2]; hz[NR * NA + j] = 1; }
   const idx = []; for (let i = 0; i < NR; i++) for (let j = 0; j < NA; j++) { const a = i * NA + j, b = i * NA + (j + 1) % NA, c2 = (i + 1) * NA + j, d = (i + 1) * NA + (j + 1) % NA; idx.push(a, c2, b, b, c2, d); }
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.BufferAttribute(col, 3)); g.setAttribute('aHaze', new THREE.BufferAttribute(hz, 1)); g.setIndex(idx); g.computeVertexNormals();
+  // the rings run the other way round to the faces' front, so the computed normals point down: turned over, the near slopes take the sun (they were lit from below, black under the haze)
+  { const nn = g.attributes.normal.array; for (let i = 0; i < nn.length; i++) nn[i] = -nn[i]; }
   const mat = new THREE.MeshLambertMaterial({ vertexColors: true, fog: false });
   const uHaze = { value: new THREE.Color(0xb8c4ce) };
   mat.onBeforeCompile = (sh) => { sh.uniforms.uHaze = uHaze; sh.vertexShader = 'attribute float aHaze;\nvarying float vHaze;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvHaze = aHaze;');
