@@ -290,7 +290,7 @@ function killEnemy(e, headshot) {
   e.fallKind = headshot && r < 0.75 ? 'head' : run && r < 0.5 ? 'stumble' : pick(['knees', 'knees', 'back', 'spin', 'crumple', 'knees', 'back']);
   e.fallDir = e.fallKind === 'back' || e.fallKind === 'spin' ? 1 : e.fallKind === 'stumble' ? -1 : Math.random() < 0.5 ? 1 : -1; e.spinDir = Math.random() < 0.5 ? 1 : -1; e.dropped = false; corpseCap();
 }
-/* the dead stay where they fell, but only so many of them: past that the oldest goes (a great wave leaves hundreds, and each one is drawn) */
+/* the dead stay where they fell for half a minute (updEnemy), and only so many of them: past that the oldest goes (a great wave leaves hundreds, and each one is drawn) */
 function corpseCap() {
   const max = LITE ? 14 : 26; let n = 0, old = null;
   for (const e of UNITS.enemies) if (!e.alive && e.rig.root.visible && e.deadAt !== undefined) { n++; if (e.state === 'dead' && (!old || e.deadAt < old.deadAt)) old = e; }
@@ -348,7 +348,7 @@ function updEnemy(e, dt) {
     if (e.fall >= FV.drop && !e.dropped) { e.dropped = true; dropGun(e); }
     e.rig.fallPose(e.fall, e.fallDir, e.fallKind); e.sync(); if (e.fall > FV.dur) e.state = 'dead'; return;
   }
-  if (e.state === 'dead') return;
+  if (e.state === 'dead') { if (e.deadAt !== undefined && GAME.t - e.deadAt > 30) { e.rig.root.visible = false; if (e.tag) e.tag.visible = false; } return; }   /* a body is cleared away half a minute after he fell */
   if (e.state === 'film') { e.sync(); return; }
   e.inside = inPoly(e.pos.x, e.pos.z, YARD);
   e.scanCd -= dt; if (e.scanCd <= 0) { e.scanCd = rand(0.5, 0.9); const was = !!(e.target && e.target.player); e.target = targetsFor(e); if (!was && e.target && e.target.player) e.fireCd = Math.max(e.fireCd, diff.react * rand(0.8, 1.2)); }   /* a man who has just seen the player needs a moment before he fires: longer on the easy level */
