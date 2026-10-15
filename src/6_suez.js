@@ -66,10 +66,10 @@ function facadeWeather(g, W, H, r, ground, plaster) {
 }
 function plasterTex(seed, base) {
   const W = 256, c = canvas(W, W), g = c.getContext('2d'), r = rng(seed); g.fillStyle = base; g.fillRect(0, 0, W, W);
-  for (let i = 0; i < 2600; i++) { g.fillStyle = r() < 0.5 ? 'rgba(70,58,44,0.08)' : 'rgba(255,250,235,0.1)'; g.fillRect(r() * W, r() * W, 2 + r() * 8, 1 + r() * 6); }
-  tileBlotches(g, W, r, 14, 12, 48, 'rgba(90,76,58,0.16)', 'rgba(255,255,255,0.12)', 0.6); g.lineCap = 'round';
+  for (let i = 0; i < 2600; i++) { g.fillStyle = r() < 0.5 ? 'rgba(70,58,44,0.04)' : 'rgba(255,250,235,0.05)'; g.fillRect(r() * W, r() * W, 2 + r() * 6, 1 + r() * 4); }
+  tileBlotches(g, W, r, 14, 12, 48, 'rgba(90,76,58,0.07)', 'rgba(255,255,255,0.06)', 0.6); g.lineCap = 'round';
   for (let k = 0; k < 3; k++) { let x = r() * W, y = r() * W; g.strokeStyle = `rgba(50,42,32,${0.2 + r() * 0.25})`; g.lineWidth = 0.6 + r() * 0.6; g.beginPath(); g.moveTo(x, y); for (let j = 0; j < 6; j++) { x += (r() - 0.5) * 14; y += 5 + r() * 12; g.lineTo(x, y); } g.stroke(); }
-  for (let k = 0; k < 2; k++) { const x = r() * W, y = r() * W, w = 10 + r() * 24, h = 6 + r() * 14; g.fillStyle = 'rgba(150,140,124,0.55)'; g.beginPath(); for (let a = 0; a < 6.3; a += 0.8) g.lineTo(x + Math.cos(a) * w * (0.7 + r() * 0.4), y + Math.sin(a) * h * (0.7 + r() * 0.4)); g.closePath(); g.fill(); }
+  for (let k = 0; k < 2; k++) { const x = r() * W, y = r() * W, w = 10 + r() * 24, h = 6 + r() * 14; g.fillStyle = 'rgba(150,140,124,0.3)'; g.beginPath(); for (let a = 0; a < 6.3; a += 0.8) g.lineTo(x + Math.cos(a) * w * (0.7 + r() * 0.4), y + Math.sin(a) * h * (0.7 + r() * 0.4)); g.closePath(); g.fill(); }
   const t = tex(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; return t;
 }
 
@@ -468,6 +468,27 @@ function buildCornerBuilding() {
   // furniture pack (src/4f_data_furn.js); the sandbags, the ceiling lamps, the mirrors, the curtains, the rugs and the pictures are drawn here
   const furn = [], rr = rng(55), soft = [], pics = [], FM = {};
   const deco = (g, c) => furn.push([g, c]);
+  // the outside, dressed like the blocks round the square: a band at every floor, a cornice under the parapet, a plinth, and every window
+  // framed, with a sill and a pair of open wooden shutters folded back against the wall
+  { const out = (axis, c0, sg, a0, a1, y0, y1, d0, d1, col, list = parts) => { const f0 = c0 + sg * (T / 2 + d0), f1 = c0 + sg * (T / 2 + d1), lo = Math.min(f0, f1), hi = Math.max(f0, f1);
+      list.push([axis === 'x' ? boxUV(X(a0), X(a1), y0, y1, Z(lo), Z(hi), 3, 3) : boxUV(X(lo), X(hi), y0, y1, Z(a0), Z(a1), 3, 3), col]); };
+    const FACES = [['x', TB.z1, 1, TB.x0, TB.x1, (f) => (f === 0 ? [-71, -68.3] : [-80.5, -75.5, -71, -68.3])], ['x', TB.z0, -1, TB.x0, TB.x1, () => [-75, -70]], ['z', TB.x1, 1, TB.z0, TB.z1, () => [-34.5, -27.2]], ['z', TB.x0, -1, TB.z0, TB.z1, () => [-26.8]]];
+    const BAND = 0xc6b898, TRIM = 0xe4dac4, SHUT = [0x5e4630, 0x4f5f49, 0x6b5238, 0x55606a], sr = rng(73);
+    for (const [ax, c0, sg, a0, a1, wins] of FACES) {
+      const e = ax === 'x' ? T / 2 + 0.14 : 0, b0 = a0 - e, b1 = a1 + e;
+      for (let f = 1; f <= 3; f++) out(ax, c0, sg, b0, b1, FY(f) - 0.12, FY(f) + 0.16, 0, 0.12, BAND);
+      out(ax, c0, sg, b0 - (ax === 'x' ? 0.06 : 0), b1 + (ax === 'x' ? 0.06 : 0), RY + 0.84, RY + 1.06, 0, 0.18, BAND);
+      if (ax === 'x' && sg > 0) { out(ax, c0, sg, b0, TB.door[0] - 0.12, CHH, CHH + 0.8, 0, 0.05, 0xa89a80); out(ax, c0, sg, TB.door[1] + 0.12, b1, CHH, CHH + 0.8, 0, 0.05, 0xa89a80);
+        out(ax, c0, sg, TB.door[0] - 0.14, TB.door[1] + 0.14, CHH + 2.6, CHH + 2.8, 0, 0.1, TRIM); for (const d of [TB.door[0] - 0.14, TB.door[1]]) out(ax, c0, sg, d, d + 0.14, CHH, CHH + 2.6, 0, 0.08, TRIM); }
+      else out(ax, c0, sg, b0, b1, CHH, CHH + 0.8, 0, 0.05, 0xa89a80);
+      for (let f = 0; f < 3; f++) { const y = FY(f); for (const c of wins(f)) {
+        out(ax, c0, sg, c - 0.78, c + 0.78, y + 0.88, y + 0.95, 0, 0.15, TRIM); out(ax, c0, sg, c - 0.78, c + 0.78, y + 2.75, y + 2.92, 0, 0.08, TRIM);
+        out(ax, c0, sg, c - 0.78, c - 0.65, y + 0.95, y + 2.75, 0, 0.07, TRIM); out(ax, c0, sg, c + 0.65, c + 0.78, y + 0.95, y + 2.75, 0, 0.07, TRIM);
+        const sc = SHUT[Math.floor(sr() * SHUT.length)];
+        for (const [s0, s1] of [[c - 1.28, c - 0.8], [c + 0.8, c + 1.28]]) { out(ax, c0, sg, s0, s1, y + 1.0, y + 2.7, 0.01, 0.045, sc, furn);
+          for (let k = 0; k < 7; k++) { const yy = y + 1.1 + k * 0.22; out(ax, c0, sg, s0 + 0.05, s1 - 0.05, yy, yy + 0.06, 0.045, 0.07, sc, furn); } } } }
+    }
+  }
   const B = (x, y, z, w, h, d, c) => deco(new THREE.BoxGeometry(w, h, d).translate(X(x), y, Z(z)), c);
   // a solid piece: it blocks up to its top and, with cover, gives cover points round it that belong to its floor
   const solid = (x, z, hx, hz, rot, y, h, f, cover) => { addCollider(X(x), Z(z), hx, hz, rot, y + h, y - 0.1); if (!cover) return; const k0 = COVER.length; coverBox(X(x), Z(z), hx, hz, rot, h); for (let i = k0; i < COVER.length; i++) { COVER[i].y = FY(f); COVER[i].floor = f; SZ.covers.push(COVER[i]); } };
@@ -522,7 +543,7 @@ function buildCornerBuilding() {
   for (let f = 0; f < 3; f++) for (const [x, z] of [[-75, -34], [-69, -34], [-74, -26.8], [-68.5, -26.8]]) { B(x, FY(f + 1) - 0.45, z, 0.02, 0.6, 0.02, 0x2a2a28); deco(new THREE.SphereGeometry(0.13, 8, 6).translate(X(x), FY(f + 1) - 0.8, Z(z)), 0xfff2c8); }
   // the small things: on every table, counter and crate, and on the walls - the coffee house below, the family above, the command post over them
   PROPS.reg.suez = (m) => SZ.objs.push(m); szProps(FY);
-  const mat = (() => { const t = plasterTex(71, '#efe8da'); return new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95, map: t, bumpMap: bumpOf(t), bumpScale: 0.6 }); })();
+  const mat = (() => { const t = plasterTex(71, '#efe8da'); return new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95, map: t, bumpMap: bumpOf(t), bumpScale: 0.3 }); })();
   const mk = (list, m2 = mat) => { const g = build(list.map(([gg, c]) => [gg, c])); const m = new THREE.Mesh(g, m2); scene.add(SH(onLayer1(m))); SZ.objs.push(m); };
   mk(parts); mk(furn, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85, map: TX.grime, side: THREE.DoubleSide })); { const m = new THREE.Mesh(build(slabParts.map((g) => [g, 0x9c9384])), mat); scene.add(SH(onLayer1(m))); SZ.objs.push(m); }
   // the furniture models: all the copies of each in one draw (the lighter level of detail in the light setting); only the bigger pieces cast shadows

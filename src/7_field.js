@@ -1162,7 +1162,7 @@ function groundMats(name, nm, grey) {
   const key = name + (nm ? '|n' : '') + (grey ? '|g' : ''); if (_GMAT[key]) return _GMAT[key];
   return (_GMAT[key] = mdlMats(name).map((m0) => {
     const m = m0.clone(); if (!nm) m.normalMap = null;
-    if (grey) { m.onBeforeCompile = (sh) => { sh.fragmentShader = sh.fragmentShader.replace('#include <map_fragment>', '#include <map_fragment>\n\tdiffuseColor.rgb = vec3( dot( diffuseColor.rgb, vec3( 0.3, 0.59, 0.11 ) ) * 1.45 );'); }; m.customProgramCacheKey = () => 'greystone'; }
+    if (grey) { m.onBeforeCompile = (sh) => { sh.fragmentShader = sh.fragmentShader.replace('#include <map_fragment>', '#include <map_fragment>\n\tdiffuseColor.rgb = dot( diffuseColor.rgb, vec3( 0.3, 0.59, 0.11 ) ) * vec3( 0.88, 0.85, 0.8 );'); }; m.customProgramCacheKey = () => 'greystone'; }
     return m;
   }));
 }

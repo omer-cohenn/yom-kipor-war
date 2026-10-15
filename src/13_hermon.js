@@ -34,7 +34,7 @@ const HM_STAIR = { x0: 2.5, x1: 11, z0: 282, z1: 286, top: 10.5 };          // t
 const HM_RSTAIR = { x0: 22.4, x1: 25.4, z0: 289, z1: 300, zl: 303 };        // the outside stair to the roof, along the east wall of the upper block (rises toward +z)
 const HM_CABLE = [56, 44];
 const HM_NAMES = ['אבי', 'גיורא', 'דודי', 'ציון', 'ניסים', 'משה', 'יוסי', 'שמוליק', 'רמי', 'עוזי'];
-const hmRock = (r) => [0xb4b2ac, 0x9e9c97, 0xc6c4bd, 0x8c8b86, 0xa9a69e, 0xd0cec6][Math.floor(r() * 6)];
+const hmRock = (r) => [0x8f8a80, 0x7d786f, 0x9a948a, 0x6e6a63, 0x878177, 0xa39d92][Math.floor(r() * 6)];   // weathered limestone, grey-tan with lichen (lighter greys read as snow in the sun)
 function hmBase(lx, lz) { const cz = clamp(lz, -420, 700), cx = clamp(lx, -260, 260), a = 0.3 * (cz + 200), b = 132 + 0.06 * (cz - 240), ax = Math.abs(cx); return lerp(a, b, smooth(220, 262, cz)) + 0.0009 * cx * cx * (1 - smooth(50, 110, ax)) - 0.28 * Math.max(0, ax - 90) * smooth(80, 140, ax); }
 const HM_PY = hmBase(0, 290) + 0.2, HM_L0 = HM_PY - 3.2, HM_U1 = HM_PY + 3.2, HM_RY = HM_U1 + 0.3;
 const hmH = (x, z) => hmCarve(x, z, hmNat(x, z));
@@ -73,11 +73,13 @@ function hmCarve(x, z, h) {
 function hmBuildKit() {
   const K = { con: [], dark: [], gab: [], wood: [], prop: [], lamps: [] };
   // a straight wall from (a) to (b) in local coordinates, with door gaps [from, to] measured along it
+  // the walls' concrete is tiled every 2 m (a plain box would stretch the whole texture along a 52 m wall)
+  const wUV = (g, len, h, th) => { const uv = g.attributes.uv, n = g.attributes.normal; for (let i = 0; i < uv.count; i++) { const w = Math.abs(n.getX(i)) > 0.5 ? th : len, hh = Math.abs(n.getY(i)) > 0.5 ? th : h; uv.setXY(i, uv.getX(i) * w / 2, uv.getY(i) * hh / 2); } return g; };
   K.wall = (ax, az, bx, bz, y0, y1, gaps = [], th = 0.35) => {
     const L = Math.hypot(bx - ax, bz - az), ux = (bx - ax) / L, uz = (bz - az) / L, rot = Math.atan2(-uz, ux); let s = 0; const segs = [];
     for (const [g0, g1] of [...gaps].sort((p, q) => p[0] - q[0])) { if (g0 > s) segs.push([s, g0]); s = g1; } if (s < L) segs.push([s, L]);
-    for (const [s0, s1] of segs) { const m = (s0 + s1) / 2, [wx, wz] = HW(ax + ux * m, az + uz * m), len = s1 - s0; K.con.push([new THREE.BoxGeometry(len, y1 - y0, th).rotateY(rot).translate(wx, (y0 + y1) / 2, wz), 0xffffff]); addCollider(wx, wz, len / 2, th / 2, rot, y1, y0); }
-    for (const [g0, g1] of gaps) { const m = (g0 + g1) / 2, [wx, wz] = HW(ax + ux * m, az + uz * m); K.con.push([new THREE.BoxGeometry(g1 - g0, 0.6, th).rotateY(rot).translate(wx, y1 - 0.3, wz), 0xffffff]); addCollider(wx, wz, (g1 - g0) / 2, th / 2, rot, y1, y1 - 0.6); }
+    for (const [s0, s1] of segs) { const m = (s0 + s1) / 2, [wx, wz] = HW(ax + ux * m, az + uz * m), len = s1 - s0; K.con.push([wUV(new THREE.BoxGeometry(len, y1 - y0, th), len, y1 - y0, th).rotateY(rot).translate(wx, (y0 + y1) / 2, wz), 0xffffff]); addCollider(wx, wz, len / 2, th / 2, rot, y1, y0); }
+    for (const [g0, g1] of gaps) { const m = (g0 + g1) / 2, [wx, wz] = HW(ax + ux * m, az + uz * m); K.con.push([wUV(new THREE.BoxGeometry(g1 - g0, 0.6, th), g1 - g0, 0.6, th).rotateY(rot).translate(wx, y1 - 0.3, wz), 0xffffff]); addCollider(wx, wz, (g1 - g0) / 2, th / 2, rot, y1, y1 - 0.6); }
   };
   K.slab = (x0, x1, z0, z1, y, t = 0.3, collide = true) => { const [a, b] = HW(x0, z0), [c, d] = HW(x1, z1); K.con.push([boxUV(a, c, y - t, y, b, d, 2, 2), 0xd8d4cc]); if (collide) addCollider((a + c) / 2, (b + d) / 2, (c - a) / 2, (d - b) / 2, 0, y, y - t); };
   K.gabion = (lx, lz, w, d, h, y) => { const [wx, wz] = HW(lx, lz); K.gab.push(boxUV(wx - w / 2, wx + w / 2, y, y + h, wz - d / 2, wz + d / 2, 1, 1)); addCollider(wx, wz, w / 2, d / 2, 0, y + h, y - 0.2); };
@@ -380,14 +382,15 @@ function hmPanoH(E, N) {
 function hmPano() {
   if (HM_PANO) return;
   const NR = LITE ? 70 : 112, NA = LITE ? 180 : 300, R0 = 0.12, R1 = 62, [cx, cz] = HW(0, 290), post = HM_PY, F = MAPS.hermon && MAPS.hermon.far;   // the far country from the map when it has one
-  const pos = new Float32Array(NR * NA * 3), col = new Float32Array(NR * NA * 3), hz = new Float32Array(NR * NA), K = 1 / 0.787, C = (r, g, b) => [lin(r) * K, lin(g) * K, lin(b) * K], r = rng(2290);
+  const pos = new Float32Array((NR + 1) * NA * 3), col = new Float32Array((NR + 1) * NA * 3), hz = new Float32Array((NR + 1) * NA), K = 1 / 0.787, C = (r, g, b) => [lin(r) * K, lin(g) * K, lin(b) * K], r = rng(2290);
   const LIME = C(0.68, 0.67, 0.64), ROCK = C(0.52, 0.5, 0.47), OCHRE = C(0.58, 0.5, 0.37), SCRUB = C(0.37, 0.38, 0.28), DRY = C(0.64, 0.57, 0.4), BASALT = C(0.33, 0.31, 0.28), FIELD = C(0.42, 0.48, 0.3), FIELD2 = C(0.56, 0.5, 0.36), ORCH = C(0.3, 0.37, 0.24), WATER = C(0.24, 0.36, 0.46), VILL = C(0.72, 0.7, 0.66);
   const mixc = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
   for (let i = 0; i < NR; i++) { const km = R0 * Math.pow(R1 / R0, i / (NR - 1));
     for (let j = 0; j < NA; j++) { const a = (j / NA) * Math.PI * 2, E = Math.sin(a) * km, N = Math.cos(a) * km, lx = -E * 1000, lz = 290 + N * 1000;
       // near the post the mountain of the map itself, far off the country round it
-      let far, fc = null; if (F) { const [u, v] = mapUV(F, HM.o.x + lx, HM.o.z + lz); far = mapBil(F.h, F.W, F.H, u, v) - post; fc = C(mapCh(F.c, u, v, 0), mapCh(F.c, u, v, 1), mapCh(F.c, u, v, 2)); } else far = hmPanoH(E, N);
-      const near = hmBase(lx, lz) + 2.6 * fbm(lx / 42, lz / 42, 3) - post, w = smooth(0.35, 1.6, km), h = lerp(near, far, w), o = (i * NA + j) * 3;
+      // the far map is drawn with its distances squeezed past 4 km (r' = 4 + 0.42 (r - 4)), so it is read at the squeezed radius
+      let far, fc = null; if (F) { const q = km > 4 ? (4 + (km - 4) * 0.42) / km : 1, [u, v] = mapUV(F, HM.o.x + lx * q, HM.o.z + 290 + (lz - 290) * q); const fr = mapCh(F.c, u, v, 0), fg = mapCh(F.c, u, v, 1), fb = mapCh(F.c, u, v, 2), dry = 1 - smooth(0.02, 0.08, fb - fr); far = mapBil(F.h, F.W, F.H, u, v) - post + dry * (6 + 40 * smooth(0.3, 4, km)) * fbm(E / 0.4, N / 0.4, 3); fc = C(fr, fg, fb); } else far = hmPanoH(E, N);
+      const near = hmBase(lx, lz) + 2.6 * fbm(lx / 42, lz / 42, 3) - post, w = F ? smooth(0.16, 0.42, km) : smooth(0.35, 1.6, km), h = lerp(near, far, w), o = (i * NA + j) * 3;
       pos[o] = cx + lx; pos[o + 1] = post + h; pos[o + 2] = cz + lz - 290;
       // the colour: limestone on the heights, dry ochre slopes, the yellow plateau with its black basalt, green fields in the valleys, the lake
       const n1 = fbm(E / 1.7 + 7, N / 1.7, 3), cell = Math.sin(Math.floor(E / 0.55) * 12.9898 + Math.floor(N / 0.42) * 78.233) * 43758.5 % 1, cv = Math.abs(cell);
@@ -398,10 +401,13 @@ function hmPano() {
       if (h < -2270) c = WATER;
       for (const [vx, vz, vr] of [[0.4, -5.6, 0.7], [1.6, -4.8, 0.45], [3.2, -6.4, 0.4], [-9, -14.5, 0.6], [24, -12, 1.2], [38, 6, 3.2]]) if (Math.hypot(E - vx, N - vz) < vr) c = mixc(c, VILL, 0.55);   // Majdal Shams, Mas'ade, Buq'ata, Banias; Sasa and Damascus far off
       if (h > -250) c = mixc(c, LIME, smooth(-250, 300, h) * 0.5);
-      if (fc) c = mixc(c, fc, w);   // the map's own country (its lake drawn in its colour)
+      if (fc) c = mixc(c, fc, w * (fc[2] > fc[0] * 1.15 ? 1 : 0.78));   // the map's own country (its lake drawn in its colour), keeping a little of the patchwork above so its smooth slopes are not one flat grey
       col[o] = c[0]; col[o + 1] = c[1]; col[o + 2] = c[2];
       hz[i * NA + j] = Math.min(0.9, 1 - Math.exp(-km / 24)) * (0.85 + 0.15 * smooth(-1500, 0, -h)); } }
-  const idx = []; for (let i = 0; i < NR - 1; i++) for (let j = 0; j < NA; j++) { const a = i * NA + j, b = i * NA + (j + 1) % NA, c2 = (i + 1) * NA + j, d = (i + 1) * NA + (j + 1) % NA; idx.push(a, c2, b, b, c2, d); }
+  // a haze bank round the outer edge, rising to the post's own level: from up here the land ends a degree below the horizon, and the sky under
+  // the horizon would show there as a black band
+  for (let j = 0; j < NA; j++) { const o = ((NR - 1) * NA + j) * 3, o2 = (NR * NA + j) * 3; pos[o2] = pos[o]; pos[o2 + 1] = post + 40; pos[o2 + 2] = pos[o + 2]; col[o2] = col[o]; col[o2 + 1] = col[o + 1]; col[o2 + 2] = col[o + 2]; hz[NR * NA + j] = 1; }
+  const idx = []; for (let i = 0; i < NR; i++) for (let j = 0; j < NA; j++) { const a = i * NA + j, b = i * NA + (j + 1) % NA, c2 = (i + 1) * NA + j, d = (i + 1) * NA + (j + 1) % NA; idx.push(a, c2, b, b, c2, d); }
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.BufferAttribute(col, 3)); g.setAttribute('aHaze', new THREE.BufferAttribute(hz, 1)); g.setIndex(idx); g.computeVertexNormals();
   const mat = new THREE.MeshLambertMaterial({ vertexColors: true, fog: false });
   const uHaze = { value: new THREE.Color(0xb8c4ce) };
