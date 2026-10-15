@@ -26,12 +26,21 @@ function nsGeometry() {
   geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('normal', new THREE.BufferAttribute(nrm, 3, true)); geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
   geo.setAttribute('skinIndex', new THREE.BufferAttribute(si, 4)); geo.setAttribute('skinWeight', new THREE.BufferAttribute(sw, 4, true)); geo.setIndex(new THREE.BufferAttribute(idx, 1));
   geo.boundingSphere = new THREE.Sphere(V3(0, -0.1, 0), 1.5);
+  // the lighter levels (tools/chars/ns_lod.py): the same vertices, skin and all, with fewer triangles - a third, then an eighth
+  NEWSOL.geos = [geo];
+  if (H.groups[0].idx1 !== undefined) for (const L of [1, 2]) {
+    let n = 0; for (const g of H.groups) n += g['i' + L];
+    const ix2 = new Uint32Array(n), g2 = new THREE.BufferGeometry(); let vv = 0, ii = 0;
+    for (const g of H.groups) { const ix = new Uint16Array(buf, g['idx' + L], g['i' + L]); for (let k = 0; k < ix.length; k++) ix2[ii + k] = ix[k] + vv; g2.addGroup(ii, ix.length, NS_GROUPS.indexOf(g.name)); vv += g.v; ii += ix.length; }
+    for (const k of ['position', 'normal', 'uv', 'skinIndex', 'skinWeight']) g2.setAttribute(k, geo.attributes[k]);
+    g2.setIndex(new THREE.BufferAttribute(ix2, 1)); g2.boundingSphere = geo.boundingSphere; NEWSOL.geos.push(g2);
+  }
   return (NEWSOL.geo = geo);
 }
 /* the cloth: blotches of each colour where a tileable noise field passes its threshold - stretched sideways for the Egyptian brush strokes,
    round for the Syrian forest pattern - and the weave over it; the same recipe as chars.html */
 function nsCamo(c) {
-  const N = QUAL === 'low' ? 256 : 512, cv = canvas(N), ctx = cv.getContext('2d'), img = ctx.createImageData(N, N), D = img.data;
+  const N = QUAL === 'low' ? 512 : 1024, cv = canvas(N), ctx = cv.getContext('2d'), img = ctx.createImageData(N, N), D = img.data;
   let st = c.seed >>> 0; const rnd = () => { st = (st + 0x6d2b79f5) >>> 0; let t = st; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
   const field = (px, py) => {
     const oct = [1, 2, 4].map((m) => { const W = px * m, Hh = py * m, g = new Float32Array(W * Hh).map(rnd); return { W, H: Hh, g, a: 1 / m }; });
@@ -56,6 +65,34 @@ function nsNet() {   // the M1's net: knotted cord in diamonds over the olive pa
   const t = tex(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; return t;
 }
 function nsImage(url) { const t = new THREE.TextureLoader().load(url); t.flipY = false; t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = ANISO; return t; }
+/* the waist: the figure's cloth is one piece from the collar to the boots, so the paint draws where the shirt ends and the trousers begin -
+   the trousers a shade darker, a dark seam where the shirt is tucked in, the shirt a little bunched above it - and the web belt gets a woven
+   look and its buckle at the front. Read from the figure's own (bind) position: hips at y 0, the front +z */
+const NS_WAIST = `{ float yb = vBindP.y;
+  float pants = 1.0 - smoothstep(0.082, 0.098, yb);
+  diffuseColor.rgb *= mix(vec3(1.0), vec3(0.83, 0.85, 0.83), pants);
+  float seam = smoothstep(0.072, 0.086, yb) * (1.0 - smoothstep(0.092, 0.106, yb));
+  diffuseColor.rgb *= 1.0 - 0.5 * seam;
+  diffuseColor.rgb *= 1.0 + 0.07 * smoothstep(0.1, 0.112, yb) * (1.0 - smoothstep(0.125, 0.17, yb)); }`;
+const NS_BELT = `{ vec3 bp = vBindP;
+  float buckle = (1.0 - smoothstep(0.022, 0.03, abs(bp.x))) * (1.0 - smoothstep(0.016, 0.024, abs(bp.y - 0.152))) * smoothstep(0.12, 0.16, bp.z);
+  diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.62, 0.6, 0.55), buckle * 0.85); }`;
+function nsBindPaint(m, glsl, tag) {
+  const prev = m.onBeforeCompile, key = m.customProgramCacheKey ? m.customProgramCacheKey() : '';
+  m.onBeforeCompile = (sh, r) => {
+    if (prev) prev.call(m, sh, r);
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vBindP;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvBindP = position;');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vBindP;').replace('#include <map_fragment>', '#include <map_fragment>\n' + glsl);
+  };
+  m.customProgramCacheKey = () => key + '|' + tag; return m;
+}
+// woven web: a fine basket weave and the stitched edge of each strap, pale so the material colour is the colour
+function nsWebTex() {
+  const W = 64, c = canvas(W, W), g = c.getContext('2d'); g.fillStyle = '#d8d4c8'; g.fillRect(0, 0, W, W);
+  for (let y = 0; y < W; y += 2) for (let x = 0; x < W; x += 2) { g.fillStyle = ((x + y) >> 1) & 1 ? 'rgba(60,56,44,0.22)' : 'rgba(255,255,250,0.12)'; g.fillRect(x, y, 2, 1); }
+  for (const y of [3, W - 4]) { g.fillStyle = 'rgba(40,36,28,0.35)'; g.fillRect(0, y, W, 1); for (let x = 0; x < W; x += 4) { g.fillStyle = 'rgba(40,36,28,0.5)'; g.fillRect(x, y + 1, 2, 1); } }
+  const t = tex(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(3, 3); return t;
+}
 function nsMaterials() {
   if (NEWSOL.mats) return NEWSOL.mats;
   const T = SOLDIER_DATA.tex, std = (o) => new THREE.MeshStandardMaterial(Object.assign({ roughness: 0.9, metalness: 0 }, o));
@@ -65,9 +102,10 @@ function nsMaterials() {
   const head = nsImage(T.head), headAr = nsImage(T.headAr || T.head), hands = nsImage(T.hands), eyes = nsImage(T.eyes), net = nsNet();
   const hidden = new THREE.MeshBasicMaterial({ visible: false });
   const skin = (map, tint) => std({ map, roughness: 0.6, color: tint });
-  const f = [cloth('f', uniF, 0xffffff), cloth('f', null, 0x5c5737), std({ color: 0x4a2c1c, roughness: 0.55 }), skin(head, 0xffffff), skin(hands, 0xffffff), std({ map: eyes, roughness: 0.15 }),
+  const web = nsWebTex(), belt = (side, color) => nsBindPaint(cloth(side, web, color), NS_BELT, 'belt' + side), waist = (m, side) => nsBindPaint(m, NS_WAIST, 'waist' + side);
+  const f = [waist(cloth('f', uniF, 0xffffff), 'f'), belt('f', 0x8a8458), std({ color: 0x4a2c1c, roughness: 0.55 }), skin(head, 0xffffff), skin(hands, 0xffffff), std({ map: eyes, roughness: 0.15 }),
     std({ map: net, roughness: 0.8 }), std({ color: 0x3a3a2a, roughness: 0.85 }), hidden];
-  const e = [cloth('e', NEWSOL.camo.eg, 0xffffff), cloth('e', null, 0x8f7c52), std({ color: 0x1d1b19, roughness: 0.55 }), skin(headAr, 0xf0d5ba), skin(hands, 0xf0d5ba), std({ map: eyes, roughness: 0.15 }),
+  const e = [waist(cloth('e', NEWSOL.camo.eg, 0xffffff), 'e'), belt('e', 0x5e4c32), std({ color: 0x1d1b19, roughness: 0.55 }), skin(headAr, 0xf0d5ba), skin(hands, 0xf0d5ba), std({ map: eyes, roughness: 0.15 }),
     hidden, hidden, std({ color: 0x7a7150, roughness: 0.6 })];
   NEWSOL.mats = { f, e }; nsUniformFor(MODE); return NEWSOL.mats;
 }
@@ -75,7 +113,7 @@ function nsMaterials() {
 function nsUniformFor(mode) {
   if (!NEWSOL.mats) return; const sy = mode === 'hermon', E = NEWSOL.mats.e;
   if (sy && !NEWSOL.camo.sy) NEWSOL.camo.sy = nsCamo(NS_CAMO.sy);
-  E[0].map = sy ? NEWSOL.camo.sy : NEWSOL.camo.eg; E[1].color.set(sy ? 0x4e5236 : 0x8f7c52); E[8].color.set(sy ? 0x434a30 : 0x7a7150); E[3].color.set(sy ? 0xf2dac2 : 0xf0d5ba); E[4].color.copy(E[3].color);
+  E[0].map = sy ? NEWSOL.camo.sy : NEWSOL.camo.eg; E[1].color.set(sy ? 0x3c3f2a : 0x5e4c32); E[8].color.set(sy ? 0x434a30 : 0x7a7150); E[3].color.set(sy ? 0xf2dac2 : 0xf0d5ba); E[4].color.copy(E[3].color);
   for (const m of [E[0], E[1], E[8]]) m.needsUpdate = true;
 }
 { const _uf = uniformFor; uniformFor = function (mode) { _uf(mode); nsUniformFor(mode); nsRefresh(); }; }   /* reassigns the declaration in 4_actors.js (one module) */
@@ -110,6 +148,8 @@ function nsShow(R, on) {
 /* who wears it: a man nearer than NS_D (by what the eye sees: closer through a sight, and the far enemies drawn larger count as far),
    its own distance - not the old figure's levels of detail, which on medium and low quality never reach the finest */
 const NS_D = { high: 26, med: 19, low: 12 }[QUAL], NS_MAX = { high: 14, med: 9, low: 6 }[QUAL];   // and never more than NS_MAX at once: the nearest
+// the figure's level of detail by that same distance: whole near, a third of its triangles past NS_L[0], an eighth past NS_L[1]
+const NS_L = { high: [18, 40], med: [15, 34], low: [11, 26] }[QUAL];
 const NSB = { t: -1, allow: new Set(), cand: [] };
 function nsDecide(u) {
   const R = u.rig; if (!R) return; const far = camera.position.distanceTo(u.pos), eff = far * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2) / 0.7265 / (u.vs || 1);
@@ -119,6 +159,10 @@ function nsDecide(u) {
   const near = NEWSOL.on && MODE !== 'farm' && eff < (R.nsOn ? NS_D * 1.12 : NS_D);
   if (near) { u.nsRank = eff * (R.nsOn ? 0.85 : 1) * (u.alive ? 1 : 1.6); NSB.cand.push(u); }
   const w = near && NSB.allow.has(u); if (w !== !!R.nsOn) nsShow(R, w);
+  if (w && R.ns && NEWSOL.geos && NEWSOL.geos.length > 1) {
+    const cur = R.nsLod ?? 0, h = cur === 0 ? 1.1 : 0.92, l = eff < NS_L[0] * (cur === 0 ? h : 1) ? 0 : eff < NS_L[1] * (cur <= 1 ? 1.08 : 0.94) ? 1 : 2;   /* a little hysteresis: no flicker on the line */
+    if (l !== cur) { R.nsLod = l; R.ns.geometry = NEWSOL.geos[Math.min(l, NEWSOL.geos.length - 1)]; R.ns.castShadow = !LITE && l < 2; }   /* the farthest cast no shadow */
+  }
 }
 { const _sync = Unit.prototype.sync; Unit.prototype.sync = function () { _sync.call(this); nsDecide(this); }; }
 /* the setting changed (or the chapter): every soldier dresses again at once */

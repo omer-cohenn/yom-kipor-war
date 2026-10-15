@@ -376,3 +376,19 @@ function magSightUpd(dt, off) {
   return k;
 }
 
+
+/* ---------- the FAL in our soldiers' hands: the viewmodel's own rifle ----------
+   The same parts as the rifle in the player's hands (vmRifleGeo, vmMagGeo), turned into the soldiers' weapon frame - the muzzle forward
+   along +z - and set so the pistol grip and the back of the handguard fall either side of where the rig puts the right and the left hand
+   (GRIPS.rifle). At that size the wood and the steel are their colours, baked into the vertices (the soldiers' guns use MAT.vcMetal).
+   It replaces the box-built FAL_W in place, so every soldier, rig and dropped rifle that holds FAL_W gets it. */
+{
+  const R = vmRifleGeo(), mag = vmMagGeo();
+  const tint = (g, r, gg, b) => { const c = g.attributes.color; for (let i = 0; i < c.count; i++) c.setXYZ(i, c.getX(i) * r, c.getY(i) * gg, c.getZ(i) * b); return g; };
+  tint(R.metal, 0.3, 0.3, 0.3); tint(mag, 0.36, 0.36, 0.36); tint(R.wood, 0.42, 0.29, 0.2);
+  const g = mergeGeometries([R.metal, R.wood, mag].map((x) => { const y = x.index ? x.toNonIndexed() : x; for (const k of Object.keys(y.attributes)) if (!['position', 'normal', 'uv', 'color'].includes(k)) y.deleteAttribute(k); return y; }), false);
+  // turned about y, then moved so the pistol grip is where the rig puts the right hand for the FAL (GRIPS.fal: 0.04 behind the box rifle's)
+  // and the back of the handguard, 0.27 m in front of it, is where the left hand goes
+  g.applyMatrix4(new THREE.Matrix4().makeTranslation(0, 0.01, 0.0015).multiply(new THREE.Matrix4().makeRotationY(Math.PI)));
+  g.computeBoundingSphere(); FAL_W.copy(g); FAL_W.computeBoundingSphere(); FAL_W.userData = {};
+}

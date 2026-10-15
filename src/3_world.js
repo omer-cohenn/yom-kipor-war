@@ -498,12 +498,12 @@ const FAL_W = build([
    on a gun mesh gives it its look as well (gunGeo); userData.lods holds both levels and is shared by them. Without the data: the old gun. */
 function wpnModel(name, old) {
   if (!mdlHas(name)) return old;
-  const u = { wmat: mdlMats(name)[0], lods: [0, 1].map((L) => mdlGeo(name, L)[0].g) };
+  const u = { wmat: mdlMats(name)[0], lods: MDL_DATA[name].lods.map((_, L) => mdlGeo(name, L)[0].g) };
   for (const g of u.lods) g.userData = u;
   return u.lods[0];
 }
 // a gun's geometry onto a mesh, at the level of detail of its soldier's figure (0 near, 1 and 2 farther), with the model's own material
-function gunGeo(m, geo, lod = 0) { const u = geo.userData; m.geometry = u.lods ? u.lods[lod > 0 ? 1 : 0] : geo; m.material = u.wmat || MAT.vcMetal; }
+function gunGeo(m, geo, lod = 0) { const u = geo.userData; m.geometry = u.lods ? u.lods[Math.min(lod, u.lods.length - 1)] : geo; m.material = u.wmat || MAT.vcMetal; }
 const AK_W = wpnModel('akms', build([
   [G.box(0.04, 0.09, 0.2), 0x6b4424, M4(0, -0.03, -0.29, 0.12, 0, 0)], [G.box(0.05, 0.07, 0.3), 0x1d1d1d, M4(0, 0, -0.03)], [G.box(0.05, 0.055, 0.18), 0x6b4424, M4(0, -0.005, 0.2)],
   [G.cyl(0.01, 0.01, 0.34, 6), 0x151515, M4(0, 0.008, 0.42, Math.PI / 2, 0, 0)], [G.cyl(0.012, 0.012, 0.2, 6), 0x1d1d1d, M4(0, 0.042, 0.2, Math.PI / 2, 0, 0)],
@@ -1015,11 +1015,13 @@ function buildTrenches() {
   SURV_BARR_K = [kz(-49), kz(49)];
   const bt = sandbagWallTex(); MAT.bagWall = new THREE.MeshStandardMaterial({ map: bt, bumpMap: bumpOf(bt), bumpScale: 3, roughness: 1, side: THREE.DoubleSide });
   const pos = [], uv = [], idx = [], slats = [], mm = new THREE.Matrix4(), q = new THREE.Quaternion(), up = V3(0, 1, 0);
+  const epos = [], euv = [], eidx = [], posts = [];   // the earth of the top and the outer slope; the posts that hold the planks
   const J = TRENCH_LINES[3].pts[0];
   const nearPost = (x, z, r) => POST_SPOTS.some(([px, pz]) => Math.hypot(px - x, pz - z) < r);
   ROOF_K.push(58, kz(-33), kz(-1.5), kz(17), kz(40));
   const dugDoor = (x, z) => DUGOUTS.some((d) => Math.hypot(x - d.p[0], z - d.p[1]) < 0.75);
   const isExit = (line, outer, s, len, x, z, inner = false) => s < 1.2 || s > len - 1.2 || (outer ? nearPost(x, z, 3.3) : line.perimeter && Math.hypot(x - J[0], z - J[1]) < 1.9) || (inner && dugDoor(x, z));
+  const equad = (a, b, c, d, u0, u1, v0, v1, v2, v3) => { const base = epos.length / 3; epos.push(...a, ...b, ...c, ...d); euv.push(u0, v0, u1, v1, u0, v2, u1, v3); eidx.push(base, base + 1, base + 2, base + 1, base + 3, base + 2); };
   const quad = (a, b, c, d, u0, u1, v0, v1, v2, v3) => { const base = pos.length / 3; pos.push(...a, ...b, ...c, ...d); uv.push(u0, v0, u1, v1, u0, v2, u1, v3); idx.push(base, base + 1, base + 2, base + 1, base + 3, base + 2); };
   for (const line of TRENCH_LINES) {
     const pts = densify(line.pts, 0.9); const S = [0]; for (let i = 1; i < pts.length; i++) S.push(S[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1])); const len = S[S.length - 1];
@@ -1028,7 +1030,7 @@ function buildTrenches() {
     const outSd = Math.hypot(mid[0] + nm[0] * 3 - TRENCH_CENTER[0], mid[1] + nm[1] * 3 - TRENCH_CENTER[1]) > Math.hypot(mid[0] - nm[0] * 3 - TRENCH_CENTER[0], mid[1] - nm[1] * 3 - TRENCH_CENTER[1]) ? 1 : -1;
     for (const sd of [-1, 1]) {
       const outer = line.perimeter && sd === outSd;
-      /* a solid revetment: sloped sandbag face, a 0.75 m wide top and an outer face down into the ground */
+      /* a solid revetment: a wall of planks held by posts, a 0.75 m wide top of earth with one layer of sandbags along it, an outer face down into the ground */
       const V = pts.map((p, i) => {
         const [nx, nz] = N[i], fl = groundAt(p[0], p[1]), o = (d) => [p[0] + nx * sd * d, p[1] + nz * sd * d];
         const [ax, az] = o(TW), [tx, tz] = o(TW + 0.18), [cx, cz] = o(TW + 0.95), [ex, ez] = o(TW + 1.15);
@@ -1038,11 +1040,13 @@ function buildTrenches() {
       for (let i = 0; i < pts.length - 1; i++) {
         const m = [(pts[i][0] + pts[i + 1][0]) / 2, (pts[i][1] + pts[i + 1][1]) / 2]; if (isExit(line, outer, (S[i] + S[i + 1]) / 2, len, m[0], m[1], line.perimeter && sd !== outSd)) continue;
         const a = V[i], b = V[i + 1], u0 = S[i] / 2.4, u1 = S[i + 1] / 2.4;
-        quad([a.ax, a.fl - 0.12, a.az], [b.ax, b.fl - 0.12, b.az], [a.tx, a.top, a.tz], [b.tx, b.top, b.tz], u0, u1, 0, 0, (a.top - a.fl + 0.12) / 1.2, (b.top - b.fl + 0.12) / 1.2);
-        quad([a.tx, a.top, a.tz], [b.tx, b.top, b.tz], [a.cx, a.top - 0.05, a.cz], [b.cx, b.top - 0.05, b.cz], u0, u1, 0, 0, 0.62, 0.62);
-        quad([a.cx, a.top - 0.05, a.cz], [b.cx, b.top - 0.05, b.cz], [a.ex, a.low, a.ez], [b.ex, b.low, b.ez], u0, u1, 0, 0, (a.top - a.low) / 1.2, (b.top - b.low) / 1.2);
+        quad([a.ax, a.fl - 0.12, a.az], [b.ax, b.fl - 0.12, b.az], [a.tx, a.top, a.tz], [b.tx, b.top, b.tz], u0, u1, 0, 0, (a.top - a.fl + 0.12) / 1.28, (b.top - b.fl + 0.12) / 1.28);
+        equad([a.tx, a.top, a.tz], [b.tx, b.top, b.tz], [a.cx, a.top - 0.05, a.cz], [b.cx, b.top - 0.05, b.cz], u0, u1, 0, 0, 0.32, 0.32);
+        equad([a.cx, a.top - 0.05, a.cz], [b.cx, b.top - 0.05, b.cz], [a.ex, a.low, a.ez], [b.ex, b.low, b.ez], u0, u1, 0, 0, (a.top - a.low) / 2.4, (b.top - b.low) / 2.4);
+        // a post every 2.4 m, standing against the planks
+        if (Math.floor(S[i] / 2.4) !== Math.floor(S[i + 1] / 2.4)) posts.push([a.ax + N[i][0] * sd * 0.06, (a.fl - 0.12 + a.top) / 2 + 0.02, a.az + N[i][1] * sd * 0.06, Math.atan2(-(b.az - a.az), b.ax - a.ax), 0.13, a.top - a.fl + 0.16, 0.11]);
         const cx = (a.ax + b.ax) / 2 + N[i][0] * sd * 0.2, cz = (a.az + b.az) / 2 + N[i][1] * sd * 0.2, L = Math.hypot(b.ax - a.ax, b.az - a.az);
-        if (!(line.perimeter && sd !== outSd && DUGOUTS.some((d) => Math.hypot(m[0] - d.p[0], m[1] - d.p[1]) < 1.35))) addCollider(cx, cz, L / 2 + 0.05, 0.2, Math.atan2(-(b.az - a.az), b.ax - a.ax), Math.max(a.top, b.top) + (outer ? 0.4 : 0.2));
+        if (!(line.perimeter && sd !== outSd && DUGOUTS.some((d) => Math.hypot(m[0] - d.p[0], m[1] - d.p[1]) < 1.35))) addCollider(cx, cz, L / 2 + 0.05, 0.2, Math.atan2(-(b.az - a.az), b.ax - a.ax), Math.max(a.top, b.top) + 0.25);
       }
       const bags = densify(line.pts, 0.56); let s0 = 0;
       bags.forEach((p, i) => {
@@ -1050,13 +1054,18 @@ function buildTrenches() {
         const b2 = bags[i + 1], dx = b2[0] - p[0], dz = b2[1] - p[1], l = Math.hypot(dx, dz) || 1, nx = dz / l, nz = -dx / l, rot = Math.atan2(-dz, dx);
         const mx = (p[0] + b2[0]) / 2, mz = (p[1] + b2[1]) / 2; if (isExit(line, outer, s0, len, mx, mz, line.perimeter && sd !== outSd)) return;
         const ax = mx + nx * sd * TW, az = mz + nz * sd * TW, top = Math.max(groundAt(mx, mz) + 1.12, groundAt(ax, az) + trenchCut(ax, az) + 0.12) + (outer ? 0.22 : 0);
-        for (const [off, lays] of outer ? [[0.42, 3], [0.8, 2]] : [[0.42, 2], [0.8, 1]]) for (let lay = 0; lay < lays; lay++) { const st = (lay % 2 ? 0.14 : -0.14) + (off > 0.5 ? 0.28 : 0); BATCH.bag.push([mx + nx * sd * (TW + off) + st * dx / l, top + 0.06 + lay * 0.19, mz + nz * sd * (TW + off) + st * dz / l, rot]); }
+        for (const [off, lays] of [[0.42, 1], [0.8, 1]]) for (let lay = 0; lay < lays; lay++) { const st = (lay % 2 ? 0.14 : -0.14) + (off > 0.5 ? 0.28 : 0); BATCH.bag.push([mx + nx * sd * (TW + off) + st * dx / l, top + 0.06 + lay * 0.19, mz + nz * sd * (TW + off) + st * dz / l, rot]); }
       });
     }
     const dk = densify(line.pts, 0.75); dk.forEach((p, i) => { if (i === dk.length - 1) return; const b = dk[i + 1]; slats.push([p[0], groundAt(p[0], p[1]) + 0.04, p[1], Math.atan2(-(b[1] - p[1]), b[0] - p[0]) + Math.PI / 2]); });
   }
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals();
-  scene.add(SH(onLayer1(new THREE.Mesh(g, MAT.bagWall))));
+  // the planks: the Plank Fence pack's boards (2.4 m to a repeat, 1.28 m high) where its texture is there, else the farm's painted boards
+  const pk = !!MDL_TEX['props/plank/map'], plk = new THREE.MeshStandardMaterial({ map: pk ? mdlTex('props/plank/map') : plankTex(), roughness: 0.95, side: THREE.DoubleSide });
+  if (pk && !LITE) { plk.normalMap = mdlTex('props/plank/nmap', false); plk.normalScale.set(0.9, 0.9); }
+  scene.add(SH(onLayer1(new THREE.Mesh(g, plk))));
+  { const e = new THREE.BufferGeometry(); e.setAttribute('position', new THREE.Float32BufferAttribute(epos, 3)); e.setAttribute('uv', new THREE.Float32BufferAttribute(euv, 2)); e.setIndex(eidx); e.computeVertexNormals(); scene.add(SH(onLayer1(new THREE.Mesh(e, MAT.sand)))); }
+  if (posts.length) { const pm = new THREE.InstancedMesh(GEO.box, MAT.wood, posts.length); posts.forEach(([x, y, z, r, sx, sy, sz], i) => pm.setMatrixAt(i, mm.compose(V3(x, y, z), q.setFromAxisAngle(up, r), V3(sx, sy, sz)))); scene.add(SH(onLayer1(pm))); }
   const sm = new THREE.InstancedMesh(new THREE.BoxGeometry(1.5, 0.05, 0.22), MAT.wood, slats.length);
   slats.forEach(([x, y, z, r], i) => sm.setMatrixAt(i, mm.compose(V3(x, y, z), q.setFromAxisAngle(up, r), V3(1, 1, 1))));
   scene.add(SH(onLayer1(sm), false, true));

@@ -105,6 +105,36 @@ for nm, P, N, UV, J, W, I in groups:
     else: merged[nm] = [P, N, UV, J, W, I]
 ORDER = ['uniform', 'webbing', 'boots', 'head', 'hands', 'eyes', 'm1', 'm1fit', 'sov']
 
+# ---------------- finer: the coarse cloth and the helmets split (each triangle into four), the new points on the curved surface ----------------
+def pn_split(P, N, UV, J, W, I):
+    """one level of curved (PN) subdivision: the old points stay where they are, each edge gets a point on the cubic through its two ends
+    along their normals (normals taken smooth over the welded position, so seams stay closed), with the mean uv, normal and skin of the ends"""
+    P = P.astype(float); k = np.round(P / 1e-5).astype(np.int64); _, tid = np.unique(k, axis=0, return_inverse=True); tid = tid.ravel()
+    Ns = np.zeros((tid.max() + 1, 3)); np.add.at(Ns, tid, N.astype(float)); Ns /= np.maximum(np.linalg.norm(Ns, axis=1, keepdims=True), 1e-9)
+    E = np.concatenate([I[:, [0, 1]], I[:, [1, 2]], I[:, [2, 0]]]); E = np.sort(E, 1)
+    ue, inv = np.unique(E, axis=0, return_inverse=True); inv = inv.ravel(); a, c = ue[:, 0], ue[:, 1]
+    P1, P2, N1, N2 = P[a], P[c], Ns[tid[a]], Ns[tid[c]]
+    w12 = ((P2 - P1) * N1).sum(1, keepdims=True); w21 = ((P1 - P2) * N2).sum(1, keepdims=True)
+    d = -(w12 * N1 + w21 * N2) / 8; L = np.linalg.norm(P2 - P1, axis=1, keepdims=True); dl = np.linalg.norm(d, axis=1, keepdims=True)
+    d *= np.minimum(1, 0.2 * L / np.maximum(dl, 1e-12))   # never more than a fifth of the edge: a crease does not balloon
+    M = (P1 + P2) / 2 + d
+    MN = N[a].astype(float) + N[c]; MN /= np.maximum(np.linalg.norm(MN, axis=1, keepdims=True), 1e-9)
+    MUV = (UV[a] + UV[c]) / 2
+    nj = int(J.max()) + 1; D = np.zeros((len(ue), nj)); r = np.arange(len(ue))
+    for q in range(J.shape[1]):
+        np.add.at(D, (r, J[a, q]), W[a, q] * 0.5); np.add.at(D, (r, J[c, q]), W[c, q] * 0.5)
+    MJ = np.argsort(-D, 1)[:, :J.shape[1]]; MW = np.take_along_axis(D, MJ, 1); MW /= np.maximum(MW.sum(1, keepdims=True), 1e-9)
+    n0, nt = len(P), len(I); m = inv + n0; m01, m12, m20 = m[:nt], m[nt:2 * nt], m[2 * nt:]; i0, i1, i2 = I[:, 0], I[:, 1], I[:, 2]
+    I2 = np.concatenate([np.stack([i0, m01, m20], 1), np.stack([m01, i1, m12], 1), np.stack([m20, m12, i2], 1), np.stack([m01, m12, m20], 1)])
+    return [np.concatenate([P, M]), np.concatenate([N, MN.astype(N.dtype)]), np.concatenate([UV, MUV.astype(UV.dtype)]), np.concatenate([J, MJ.astype(J.dtype)]), np.concatenate([W, MW.astype(W.dtype)]), I2]
+SUB = {'uniform': 1, 'm1': 2, 'm1fit': 1, 'sov': 1}   # the uniform's triangles were 3 cm a side, the M1's 5 cm
+for nm, lv in SUB.items():
+    for _ in range(lv): merged[nm] = pn_split(*merged[nm])
+    assert len(merged[nm][0]) < 65536, nm
+# the hands use only the top of the arm texture (its third tile, rows 0.64-1): that strip alone, at full size, and their uvs moved onto it
+HV0 = 0.64
+merged['hands'][2] = merged['hands'][2].copy(); merged['hands'][2][:, 0] -= 2.0; merged['hands'][2][:, 1] = (merged['hands'][2][:, 1] - HV0) / (1 - HV0)
+
 # ---------------- write ----------------
 allP = np.concatenate([tf(merged[k][0]) for k in ORDER]); pmin = allP.min(0); pmax = allP.max(0); span = pmax - pmin
 blob = bytearray(); hdr = {'bones': RB, 'min': pmin.tolist(), 'span': span.tolist(), 'groups': []}
@@ -129,8 +159,16 @@ def jpg_of(im, size, q=84):
 def glb_tex(matname):
     m = next(x for x in j['materials'] if x['name'] == matname); ti = m['pbrMetallicRoughness']['baseColorTexture']['index']
     im = j['images'][j['textures'][ti]['source']]; bv = j['bufferViews'][im['bufferView']]; return Image.open(io.BytesIO(b[bv.get('byteOffset', 0): bv.get('byteOffset', 0) + bv['byteLength']]))
-tex['head'] = jpg_of(glb_tex('Std_Skin_Head'), 1024); tex['hands'] = jpg_of(glb_tex('Std_Skin_Arm'), 512); tex['eyes'] = jpg_of(glb_tex('Std_Eye_R'), 256, 88)
-if TEXD: tex['headAr'] = jpg_of(Image.open(TEXD + '/head_ar.jpg'), 1024)
+# the face and the hands straight from the Character Creator file, at its full 2048 (the built figure keeps smaller copies)
+CC = '/mnt/user-data/uploads/Downloads/military+game+character+.glb'; jc, bc = gltf.load(CC)
+def cc_tex(matname):
+    m = next(x for x in jc['materials'] if x['name'] == matname); ti = m['pbrMetallicRoughness']['baseColorTexture']['index']
+    im = jc['images'][jc['textures'][ti]['source']]; bv = jc['bufferViews'][im['bufferView']]; return Image.open(io.BytesIO(bc[bv.get('byteOffset', 0): bv.get('byteOffset', 0) + bv['byteLength']]))
+arm = cc_tex('Std_Skin_Arm').convert('RGB'); aw, ah = arm.size; strip = arm.crop((0, int(ah * HV0), aw, ah))
+def jpg_rect(im, q=84):
+    bio = io.BytesIO(); im.convert('RGB').save(bio, 'JPEG', quality=q); return 'data:image/jpeg;base64,' + base64.b64encode(bio.getvalue()).decode()
+tex['head'] = jpg_of(cc_tex('Std_Skin_Head'), 2048, 82); tex['hands'] = jpg_rect(strip, 84); tex['eyes'] = jpg_of(glb_tex('Std_Eye_R'), 512, 88)
+if TEXD: tex['headAr'] = jpg_of(Image.open(TEXD + '/head_ar.jpg'), 2048, 82)
 js = ('/* the new soldier (tools: chars/build_char.py, build_game.py): geometry for the game rig, and its textures. Generated - do not edit */\n'
       'const SOLDIER_DATA = ' + json.dumps({'hdr': hdr, 'tex': tex}, separators=(',', ':'))[:-1] + ',"bin":"' + base64.b64encode(bytes(blob)).decode() + '"};\n')
 open(OUT, 'w').write(js)

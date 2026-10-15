@@ -504,7 +504,7 @@ const SEATED = build([
 ]);
 /* two-bone arm IK: both hands sit on the weapon (pistol grip and handguard) in every two-handed pose */
 const IKV = { t: V3(), h: V3(), e: V3(), p: V3(), c: V3(), q1: new THREE.Quaternion(), q2: new THREE.Quaternion(), down: V3(0, -1, 0) };
-const GRIPS = { rifle: [V3(0, -0.075, 0.03), V3(0, -0.04, 0.22)], rpg: [V3(0, -0.07, -0.05), V3(0, -0.07, 0.17)], smg: [V3(0, -0.075, -0.06), V3(0, -0.05, 0.1)], lmg: [V3(0, -0.075, 0.03), V3(0, -0.03, 0.3)], sniper: [V3(0, -0.07, 0.0), V3(0, -0.035, 0.28)] };
+const GRIPS = { rifle: [V3(0, -0.075, 0.03), V3(0, -0.04, 0.22)], fal: [V3(0, -0.085, -0.04), V3(0, -0.04, 0.235)], rpg: [V3(0, -0.07, -0.05), V3(0, -0.07, 0.17)], smg: [V3(0, -0.075, -0.06), V3(0, -0.05, 0.1)], lmg: [V3(0, -0.075, 0.03), V3(0, -0.03, 0.3)], sniper: [V3(0, -0.07, 0.0), V3(0, -0.035, 0.28)] };
 const WGEO = { get rifle() { return AK_W; }, get smg() { return SMG_W; }, get lmg() { return LMG_W; }, get sniper() { return SVD_W; }, get rpg() { return RPG_W; } };
 const WKIND = (kind) => (kind === 'rpg' ? 'rpg' : kind === 'smg' ? 'smg' : kind === 'lmg' ? 'lmg' : kind === 'sniper' ? 'sniper' : 'rifle');
 const POLE_R = V3(-0.75, -0.55, -0.2).normalize(), POLE_L = V3(0.35, -1, 0.05).normalize();
@@ -541,7 +541,7 @@ class Rig {
     this.snapNext = true; this.kind = ''; this.blendT = 0;
   }
   ikHands() {
-    const g = this.gun, [gr, hg] = GRIPS[this.wkind || 'rifle'];
+    const w = this.wkind || 'rifle', g = this.gun, [gr, hg] = GRIPS[w === 'rifle' && this.side === 'f' ? 'fal' : w];   /* our FAL: its pistol grip a little behind, its handguard at the left hand */
     _gq.copy(gr).applyQuaternion(g.quaternion).add(g.position); ikArm(this.sR, this.eR, _gq, POLE_R);
     _gl.copy(hg).applyQuaternion(g.quaternion).add(g.position); ikArm(this.sL, this.eL, _gl, POLE_L);
   }

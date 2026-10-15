@@ -31,6 +31,7 @@ function mdlMats(name, o = null, tag = '') {
   return (_MDL_MAT[key] = MDL_DATA[name].mats.map((m) => {
     const mat = new THREE.MeshStandardMaterial({ color: (o && o.color) ?? m.color, roughness: (o && o.rough) ?? m.rough, metalness: (o && o.metal) ?? m.metal });
     if (m.map) mat.map = mdlTex(m.map); if (m.nmap && !LITE) { mat.normalMap = mdlTex(m.nmap, false); mat.normalScale.set(0.8, 0.8); }
+    if (m.rmap && !LITE) { mat.roughnessMap = mdlTex(m.rmap, false); mat.roughness = Math.min(1, ((o && o.rough) ?? m.rough) * 1.6); }
     return mat;
   }));
 }
