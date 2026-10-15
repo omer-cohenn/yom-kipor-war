@@ -38,9 +38,9 @@ import { clone as skClone } from 'three/addons/utils/SkeletonUtils.js';
 const ARMIES = [
   { id: 'il', name: 'צה״ל', sub: 'מדי זית, קסדת M1 עם רשת', helmet: 'm1', x: 1.05, colors: { Uniform: 0x5f5a3a, Webbing: 0x5c5737, Boots: 0x4a2c1c, HelmetM1: 0x4c4e34, HelmetLiner: 0x3e3d2b, HelmetBand: 0x34331f } },
   { id: 'eg', name: 'מצרים', sub: 'הסוואת חאקי, קסדה סובייטית', helmet: 'sov', x: 0, colors: { Webbing: 0x8f7c52, Boots: 0x1d1b19, HelmetSoviet: 0x7a7150 },
-    camo: { seed: 7, base: 0xb5a072, layers: [[0x8c7148, 0.55, 4, 10], [0x6c6946, 0.63, 5, 12], [0xcbb98b, 0.68, 8, 18]] } },
+    face: 'ar', skin: 0xf0d5ba, camo: { seed: 7, base: 0xb5a072, layers: [[0x8c7148, 0.55, 4, 10], [0x6c6946, 0.63, 5, 12], [0xcbb98b, 0.68, 8, 18]] } },
   { id: 'sy', name: 'סוריה', sub: 'הסוואת יער, קסדה סובייטית', helmet: 'sov', x: -1.05, colors: { Webbing: 0x4e5236, Boots: 0x1d1b19, HelmetSoviet: 0x434a30 },
-    camo: { seed: 31, base: 0x5f6a43, layers: [[0x37462b, 0.52, 5, 6], [0x5b4630, 0.6, 6, 7], [0x20261b, 0.69, 9, 10]] } },
+    face: 'ar', skin: 0xf2dac2, camo: { seed: 31, base: 0x5f6a43, layers: [[0x37462b, 0.52, 5, 6], [0x5b4630, 0.6, 6, 7], [0x20261b, 0.69, 9, 10]] } },
 ];
 const R = new THREE.WebGLRenderer({ antialias: true }); R.setPixelRatio(Math.min(2, devicePixelRatio)); R.setSize(innerWidth, innerHeight);
 R.shadowMap.enabled = true; R.shadowMap.type = THREE.PCFSoftShadowMap; R.toneMapping = THREE.ACESFilmicToneMapping; R.toneMappingExposure = 1.25;
@@ -92,7 +92,11 @@ function camoTexture(c) {
   ctx.putImageData(img, 0, 0); const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(0.55, 0.55); t.anisotropy = 4; return t;
 }
 const figs = []; let pose = 'ease', spin = false;
-new GLTFLoader().load('chars/soldier.glb', (g) => {
+/* the Egyptian and Syrian soldiers' face: the same figure with a moustache, dark brows and short dark hair (chars/head_ar.jpg), and a warmer,
+   more olive skin over the face and hands */
+const faceAr = new THREE.TextureLoader().load('chars/head_ar.jpg'); faceAr.flipY = false; faceAr.colorSpace = THREE.SRGBColorSpace;
+const SKIN = ['Std_Skin_Head', 'Std_Skin_Arm', 'Std_Nails'];
+const onModel = (g) => {
   document.getElementById('load').remove();
   for (const A of ARMIES) {
     const f = skClone(g.scene), camo = A.camo ? camoTexture(A.camo) : null; f.position.x = A.x; f.rotation.y = 0;
@@ -102,12 +106,19 @@ new GLTFLoader().load('chars/soldier.glb', (g) => {
       if (o.name.startsWith('HelmetSoviet')) o.visible = A.helmet === 'sov';
       o.material = o.material.clone(); const c = A.colors[o.material.name]; if (c !== undefined) o.material.color.set(c);
       if (camo && o.material.name === 'Uniform') { o.material.map = camo; o.material.color.set(0xffffff); }
+      if (A.skin && SKIN.includes(o.material.name)) o.material.color.set(A.skin);
+      if (A.face === 'ar' && o.material.name === 'Std_Skin_Head') o.material.map = faceAr;
     });
     scene.add(f); armsDown(f, 1.22);
     const tag = document.createElement('div'); tag.className = 'tag'; tag.innerHTML = `${A.name}<small>${A.sub}</small>`; document.body.appendChild(tag);
     figs.push({ f, tag });
   }
-}, undefined, (e) => { document.getElementById('load').textContent = 'הטעינה נכשלה. רעננו את הדף.'; console.error(e); });
+};
+const onErr = (e) => { document.getElementById('load').textContent = 'הטעינה נכשלה. רעננו את הדף.'; console.error(e); };
+if (window.SOLDIER_B64) {   // where .glb files cannot be served the model comes as text in a script (chars/soldier.js)
+  const s64 = atob(window.SOLDIER_B64), u8 = new Uint8Array(s64.length); for (let i = 0; i < s64.length; i++) u8[i] = s64.charCodeAt(i);
+  new GLTFLoader().parse(u8.buffer, '', onModel, onErr);
+} else new GLTFLoader().load('chars/soldier.glb', onModel, undefined, onErr);
 const setPose = (p) => { pose = p; for (const { f } of figs) armsDown(f, p === 'ease' ? 1.22 : 0); bEase.setAttribute('aria-pressed', p === 'ease'); bT.setAttribute('aria-pressed', p === 't'); };
 bEase.onclick = () => setPose('ease'); bT.onclick = () => setPose('t'); bSpin.onclick = () => { spin = !spin; bSpin.setAttribute('aria-pressed', spin); };
 addEventListener('resize', () => { R.setSize(innerWidth, innerHeight); cam.aspect = innerWidth / innerHeight; cam.updateProjectionMatrix(); });
