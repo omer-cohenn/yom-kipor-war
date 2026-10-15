@@ -15,12 +15,17 @@ const OTRUCK_GEO = build(truckParts({ B: 0x5f6146, D: 0x55573e, K: 0x1f1e1b, C: 
 const BTR_GEO = build([[G.box(6.6, 1.0, 2.6), 0x8e8058, M4(0, 1.1, 0)], [G.box(1.5, 0.75, 2.5), 0x857852, M4(3.6, 1.05, 0, 0, 0, -0.45)], [G.box(1.2, 0.7, 2.5), 0x857852, M4(-3.45, 1.0, 0, 0, 0, 0.35)], [G.box(5.4, 0.5, 2.2), 0x8a7c55, M4(-0.2, 1.8, 0)], [G.cyl(0.45, 0.52, 0.5, 12), 0x7d7050, M4(0.9, 2.3, 0)], [G.cyl(0.04, 0.04, 1.3, 6), 0x2a2a26, M4(1.6, 2.4, 0, 0, 0, Math.PI / 2)], ...[-2.4, -0.8, 0.8, 2.4].flatMap((x) => [-1, 1].map((sd) => [G.cyl(0.55, 0.55, 0.36, 14), 0x22201c, M4(x, 0.55, sd * 1.25, Math.PI / 2, 0, 0)]))]);
 const MARK_GEO = build([[G.cyl(0.06, 0.08, 2.2, 6), 0x3a3a34, M4(0, 1.1, 0)], [G.box(0.02, 0.5, 0.8), 0xe8641e, M4(0, 1.9, 0.4)]]);
 const amCrest = (lz) => 8 * Math.sin(lz / 180) + 4 * Math.sin(lz / 67 + 1.3);   // the ridge line wanders a little
-function amH(x, z) {
+/* the ground in two parts: the land itself (amNat - or the map, when the chapter has one) and what the battle needs exactly on top of it (amCarve) */
+function amNat(x, z) {
   const lx = x - AM.o.x, lz = z - AM.o.z, cx = lx - amCrest(lz);
   let h = 1.1 * fbm(lx / 170, lz / 170, 3) + 0.35 * fbm(lx / 28, lz / 28, 2);
   const ridge = 13 * Math.exp(-((cx / 46) ** 2)); h += ridge; h += cx > 0 ? 3 * smooth(40, 180, cx) * (0.6 + 0.4 * fbm(lx / 90, lz / 90, 2)) : 0;
   mix3(PAL.sandL, PAL.sandD, smooth(-0.35, 0.45, fbm(lx / 120, lz / 120, 3) + 0.5 * fbm(lx / 18, lz / 18, 2))); mixIn(PAL.rock, smooth(5, 12, ridge) * 0.4);
   if (cx < -80) { const d = 1 - Math.abs(noise(lx / 90 + 7, lz / 140)); h += 2.6 * d * d * d * smooth(-80, -220, cx); const w = Math.abs(lx + 560 + 40 * Math.sin(lz / 120)); if (w < 20) { h -= 2.2 * (1 - smooth(5, 20, w)); mixIn(PAL.sandD, 0.5 * (1 - smooth(4, 16, w))); } mixIn([0.5, 0.44, 0.34], 0.25 * smooth(0.2, 0.6, noise(lx / 60, lz / 60))); }
+  return h;
+}
+function amCarve(x, z, h) {
+  const lx = x - AM.o.x, lz = z - AM.o.z, cx = lx - amCrest(lz);
   // the positions: berms of sand to hide a tank behind, churned ground, the track along the back of the ridge
   for (const Z of AM_Z) { const dx = lx - Z.x, dz = lz - Z.z, d = Math.hypot(dx, dz); if (d < Z.r + 20) { mixIn([0.47, 0.41, 0.32], 0.35 * (1 - smooth(Z.r - 10, Z.r + 15, d)));
     for (const oz of [-28, 0, 28]) { const bz = Math.abs(dz - oz); if (bz < 10) h += 1.9 * Math.exp(-(((dx + 10) / 3.4) ** 2)) * (1 - smooth(5, 10, bz)); } } }
@@ -28,7 +33,7 @@ function amH(x, z) {
   return h;
 }
 function amBuild() {
-  const C = CHAP.armor; C.ground = makeGround({ x0: AM.o.x - 1150, x1: AM.o.x + 260, z0: AM.o.z - 220, z1: AM.o.z + 920, step: 3.2, h: amH }); GROUND = C.ground;
+  const C = CHAP.armor; C.ground = makeGround({ x0: AM.o.x - 1150, x1: AM.o.x + 260, z0: AM.o.z - 220, z1: AM.o.z + 920, step: 3.2, h: mapH('armor', amNat, amCarve), map: 'armor', vegOk: (x, z) => { const lx = x - AM.o.x, lz = z - AM.o.z; return !AM_Z.some((Z) => Math.hypot(lx - Z.x, lz - Z.z) < 36) && Math.abs(lz - 366) > 6; } }); GROUND = C.ground;
   const BAGS = [], sv = BATCH.bag; BATCH.bag = BAGS; const k0 = COVER.length; C.slots = [];
   const L = (x, z) => [x - AM.o.x, z - AM.o.z], inZone = (lx, lz) => AM_Z.some((Z) => Math.hypot(lx - Z.x, lz - Z.z) < 22), ok = (x, z) => { const [lx, lz] = L(x, z); return !inZone(lx, lz) && !C.slots.some((s) => Math.hypot(s.x - x, s.z - z) < 5); };
   // Sagger and bazooka nests in front of the northern positions

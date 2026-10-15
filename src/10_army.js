@@ -13,7 +13,7 @@ const AR_ROUTE0 = [[60, -1100], [40, -930], [-30, -760], [30, -560], [-10, -380]
 const AR_ROUTE2 = [[0, -232], [10, -170], [60, -40], [130, 110], [190, 250], [236, 370], [252, 432]], AR_ROUTE0_S = smoothPath(AR_ROUTE0, 5), AR_ROUTE2_S = smoothPath(AR_ROUTE2, 5);
 const AR_ROAD = -200, AR_KM = [[-140, AR_ROAD], [340, AR_ROAD]];
 const coastZ = (lx) => 520 - 0.25 * lx;
-function arH(x, z) {
+function arNat(x, z) {
   const lx = x - AR.o.x, lz = z - AR.o.z;
   let h = 4 + 5 * fbm(lx / 520, lz / 520, 3) + 0.9 * fbm(lx / 60, lz / 60, 2); { const hill = 1 - Math.abs(noise(lx / 260 + 3.1, lz / 300)); h += 7 * hill * hill * hill * smooth(-100, 400, Math.abs(lz - AR_ROAD)) * (lz < coastZ(lx) - 60 ? 1 : 0); }
   { const dn = smooth(-420, -700, lz); if (dn > 0) { const r = 1 - Math.abs(noise(lx / 70 + fbm(lx / 200, lz / 200, 2), lz / 160)); h += dn * 5.5 * r * r * r; } }
@@ -21,16 +21,19 @@ function arH(x, z) {
   mix3(PAL.sandD, PAL.rock, 0.2 + 0.35 * smooth(-0.3, 0.5, fbm(lx / 180, lz / 180, 3) + 0.6 * fbm(lx / 20, lz / 20, 2))); mixIn(PAL.sandL, 0.3 * smooth(0, 0.5, noise(lx / 90, lz / 90)));
   // Jebel Ataqa: the mountain behind the plain, west and south-west
   { const m = smooth(-320, -1300, lx) * (0.55 + 0.45 * smooth(-900, 300, lz)); if (m > 0) { const ridge = 1 - Math.abs(noise(lx / 380, lz / 520)); const mh = m * (180 + 160 * ridge * ridge + 60 * fbm(lx / 160, lz / 160, 3)); h += mh; mixIn(PAL.rock, smooth(10, 90, mh) * 0.8); } }
-  // the Suez-Cairo road
-  { const d = Math.abs(lz - AR_ROAD); if (d < 12) { h = lerp(h, 4.2 + 1.2 * fbm(lx / 700, 0, 2), 1 - smooth(5, 12, d)); if (d < 4.5) mix3([0.26, 0.26, 0.25], [0.32, 0.31, 0.29], noise(lx / 8, lz / 8) * 0.5 + 0.5); } }
   // the gulf: a beach, then deep water
   { const c = lz - coastZ(lx); if (c > -40) { mixIn(PAL.fresh, 0.5 * (1 - smooth(-40, 0, c)) + 0.4 * smooth(-40, -5, c)); mixIn(PAL.wet, smooth(-6, 4, c)); h = lerp(h, 0.9 - c * 0.08, smooth(-40, -4, c)); if (c > 0) { h = lerp(0.9, -6, smooth(0, 70, c)); mix3(PAL.wet, PAL.deep, smooth(0, 50, c)); } } }
-  // the tracks the column follows
+  return h;
+}
+// the road and the column's tracks (the map comes with them levelled: only their surface is drawn here)
+function arCarve(x, z, h) {
+  const lx = x - AR.o.x, lz = z - AR.o.z;
+  { const d = Math.abs(lz - AR_ROAD); if (d < 12) { if (!MAPS.army) h = lerp(h, 4.2 + 1.2 * fbm(lx / 700, 0, 2), 1 - smooth(5, 12, d)); if (d < 4.5) mix3([0.26, 0.26, 0.25], [0.32, 0.31, 0.29], noise(lx / 8, lz / 8) * 0.5 + 0.5); } }
   if (lz < 480) { const d = Math.min(distPolyline(lx, lz, AR_ROUTE0_S), distPolyline(lx, lz, AR_ROUTE2_S)); if (d < 9) { h = lerp(h, h - 0.15, 1 - smooth(3, 9, d)); mixIn(PAL.sandL, 0.35 * (1 - smooth(1.5, 5, d))); } }
   return h;
 }
 function arBuild() {
-  const C = CHAP.army; C.ground = makeGround({ x0: AR.o.x - 520, x1: AR.o.x + 980, z0: AR.o.z - 1180, z1: AR.o.z + 620, step: 3.6, h: arH }); GROUND = C.ground;
+  const C = CHAP.army; C.ground = makeGround({ x0: AR.o.x - 520, x1: AR.o.x + 980, z0: AR.o.z - 1180, z1: AR.o.z + 620, step: 3.6, h: mapH('army', arNat, arCarve), map: 'army', vegOk: (x, z) => { const lx = x - AR.o.x, lz = z - AR.o.z; return Math.abs(lz - AR_ROAD) > 7 && lz < coastZ(lx) - 6 && Math.min(distPolyline(lx, lz, AR_ROUTE0_S), distPolyline(lx, lz, AR_ROUTE2_S)) > 5; } }); GROUND = C.ground;
   const BAGS = [], sv = BATCH.bag; BATCH.bag = BAGS; const k0 = COVER.length; C.slots = [];
   const fox = (pts, grp, kinds) => pts.forEach(([x0, z0], i) => { const [x, z] = corr(grp === 'P' ? AR_ROUTE2 : grp === 'K' ? AR_KM : AR_ROUTE0, x0, z0, 23, 11); const [wx, wz] = AW(x, z); let bd = 1e9, tx = 0, tz = 0; for (const p of densify([...AR_ROUTE0, ...AR_ROUTE2], 12)) { const d = Math.hypot(p[0] - x, p[1] - z); if (d < bd) { bd = d; tx = p[0]; tz = p[1]; } } const dx = tx - x, dz = tz - z, l = Math.hypot(dx, dz) || 1; const s = foxhole(wx, wz, dx / l, dz / l, C.slots); s.grp = grp; s.kind = kinds[i % kinds.length]; });
   fox([[-90, -900], [150, -860], [-130, -650], [160, -560], [-100, -430], [120, -390], [-60, -300], [80, -980], [-70, -800], [90, -700], [-80, -520], [70, -340]], 'R', ['atgm', 'rifle', 'rpg', 'rifle', 'rifle', 'rpg', 'rifle', 'rifle', 'atgm', 'rifle', 'rifle', 'rpg']);

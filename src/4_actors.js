@@ -516,6 +516,36 @@ function ikArm(sh, el, target, pole) {
   const ang = Math.atan2(IKV.c.crossVectors(e, pp).dot(t), e.dot(pp)); IKV.q2.setFromAxisAngle(t, ang); sh.quaternion.multiplyQuaternions(IKV.q2, IKV.q1);
 }
 const _gq = V3(), _gl = V3(), _qt = new THREE.Quaternion(), _eu = new THREE.Euler();
+/* the new figure's hands close round the weapon: what reaches the grip is the middle of the fist (the hole the curled fingers make, a little
+   past the wrist and to the palm side: NS_FIST, in the forearm's own frame, right then left), not the end of the forearm, and the forearm
+   turns on its own axis so that hole lines up with the grip - the pistol grip through the right fist, the handguard (along the barrel)
+   through the left - with the palm on the side it belongs. NS_GRIP: per weapon, for each hand [the fist's centre, the grip's axis, the way
+   the palm faces], in the weapon's frame (muzzle +z) */
+const NS_FIST = [V3(0.022, -0.306, 0.05), V3(-0.022, -0.306, 0.05)];
+/* at the shoulder the new figure stands bladed (the body turned NS_BLADE to the right, the rifle turned back to the target), the butt in the
+   pocket of the right shoulder: that is what brings the left hand to the handguard. NS_AIM: where each weapon's origin then sits */
+const NS_BLADE = 0.45, NS_AIM = { fal: [0.058, 0.47, 0.359], rifle: [0.002, 0.47, 0.241], smg: [0.0, 0.47, 0.26], lmg: [0.002, 0.47, 0.25], sniper: [0.03, 0.47, 0.33] };
+const NS_GRIP = {
+  fal: [[V3(0, -0.08, -0.045), V3(0, -0.83, -0.55).normalize(), V3(1, 0, 0)], [V3(0, 0.012, 0.205), V3(0, 0, 1), V3(0.4, -1, 0).normalize()]],
+  rifle: [[V3(0, -0.09, 0.02), V3(0, -0.88, -0.47).normalize(), V3(1, 0, 0)], [V3(0, -0.006, 0.215), V3(0, 0, 1), V3(0.4, -1, 0).normalize()]],
+  rpg: [[V3(0, -0.065, -0.045), V3(0, -1, 0), V3(1, 0, 0)], [V3(0, -0.1, 0.128), V3(0, -0.995, -0.1).normalize(), V3(1, 0, 0)]],
+};
+const _nsGG = new Map();
+function nsGripOf(gr, hg) { let G = _nsGG.get(gr); if (!G) _nsGG.set(gr, (G = [[gr.clone().add(V3(0, -0.012, -0.01)), V3(0, -0.9, -0.43).normalize(), V3(1, 0, 0)], [hg.clone().add(V3(0, 0.035, 0.03)), V3(0, 0, 1), V3(0.4, -1, 0).normalize()]])); return G; }
+const _fP = V3(), _fA = V3(), _fD = V3(), _fT = V3(), _fF = V3(), _fqi = new THREE.Quaternion(), _fqt = new THREE.Quaternion(), _fY = V3(0, 1, 0);
+function ikFist(sh, el, g, G, fist, pole) {
+  _fP.copy(G[0]).applyQuaternion(g.quaternion).add(g.position); _fA.copy(G[1]).applyQuaternion(g.quaternion); _fD.copy(G[2]).applyQuaternion(g.quaternion); _fT.copy(_fP);
+  const pn = fist.x > 0 ? 1 : -1;
+  for (let it = 0; it < 3; it++) {
+    ikArm(sh, el, _fT, pole);
+    _fqi.multiplyQuaternions(sh.quaternion, el.quaternion).invert();   // the forearm's frame before its twist
+    const a = _fA.clone().applyQuaternion(_fqi), d = _fD.clone().applyQuaternion(_fqi); let th = Math.atan2(a.x, a.z);
+    if (pn * (d.x * Math.cos(th) - d.z * Math.sin(th)) < 0) th += Math.PI;   // the palm (local +-x after the twist) toward where it should face
+    el.quaternion.multiply(_fqt.setFromAxisAngle(_fY, th));
+    _fF.copy(fist).applyQuaternion(el.quaternion).add(el.position).applyQuaternion(sh.quaternion).add(sh.position);
+    _fT.add(_fP).sub(_fF);
+  }
+}
 /* Every pose is written as a set of joint targets; the limbs then ease toward them frame by frame, so a soldier who drops to a crouch
    or rises to run flows through the change instead of snapping. A unit that has just been placed snaps once, so it never slides in. */
 class Rig {
@@ -541,7 +571,8 @@ class Rig {
     this.snapNext = true; this.kind = ''; this.blendT = 0;
   }
   ikHands() {
-    const w = this.wkind || 'rifle', g = this.gun, [gr, hg] = GRIPS[w === 'rifle' && this.side === 'f' ? 'fal' : w];   /* our FAL: its pistol grip a little behind, its handguard at the left hand */
+    const w = this.wkind || 'rifle', g = this.gun, k = w === 'rifle' && this.side === 'f' ? 'fal' : w, [gr, hg] = GRIPS[k];   /* our FAL: its pistol grip a little behind, its handguard at the left hand */
+    if (this.nsOn) { const G = NS_GRIP[k] || nsGripOf(gr, hg); ikFist(this.sR, this.eR, g, G[0], NS_FIST[0], POLE_R); ikFist(this.sL, this.eL, g, G[1], NS_FIST[1], POLE_L); return; }
     _gq.copy(gr).applyQuaternion(g.quaternion).add(g.position); ikArm(this.sR, this.eR, _gq, POLE_R);
     _gl.copy(hg).applyQuaternion(g.quaternion).add(g.position); ikArm(this.sL, this.eL, _gl, POLE_L);
   }
@@ -550,7 +581,7 @@ class Rig {
   arms(sr, er, sl, el, srz = 0.3, slz = -0.5) { this.T.arms = [sr, er, sl, el, srz, slz]; this.T.ik = false; }
   gunAt(px, py, pz, rx, ry, rz) { const G = this.T.gun; G[0] = px; G[1] = py; G[2] = pz; G[3] = rx; G[4] = ry; G[5] = rz; }
   pose(kind, t, pitch = 0) {
-    const R = this, T = R.T; T.rootX = 0; T.hipsY = 0.93; T.hipsX = 0; T.hipsZ = 0; T.hipsYaw = 0; T.torsoX = 0; T.torsoY = 0; T.torsoZ = 0; T.arms = null; T.ik = true;
+    const R = this, T = R.T; R.hYaw = 0; T.rootX = 0; T.hipsY = 0.93; T.hipsX = 0; T.hipsZ = 0; T.hipsYaw = 0; T.torsoX = 0; T.torsoY = 0; T.torsoZ = 0; T.arms = null; T.ik = true;
     if (kind === 'run' || kind === 'walk') {
       // the stride: legs swing, the pelvis rolls and yaws with them, the shoulders turn against the hips, the whole body leans into the run
       const sp = kind === 'run' ? 1 : 0.55, sw = Math.sin(t) * 0.78 * sp, c2 = Math.cos(t * 2);
@@ -562,7 +593,9 @@ class Rig {
       if (kind === 'crouch') { T.hipsY = 0.55; R.legs(-1.35, 1.45, -0.2, 1.95); T.torsoX = 0.12; }
       else R.legs(-0.12, 0.12, 0.16, 0.1);
       T.torsoX += -pitch * 0.7 + Math.sin(t * 0.9) * 0.008; T.torsoY = 0.18;
-      if (R.wkind === 'rpg') R.gunAt(-0.15, 0.53, 0.02, -pitch * 0.3, -0.18, 0); else R.gunAt(-0.1, 0.45 + Math.sin(t * 1.1) * 0.004, 0.4, -pitch * 0.3, -0.2, 0);
+      if (R.wkind === 'rpg') R.gunAt(-0.15, 0.53, 0.02, -pitch * 0.3, -0.18, 0);
+      else if (R.nsOn) { const B = NS_AIM[R.wkind === 'rifle' && R.side === 'f' ? 'fal' : R.wkind] || NS_AIM.rifle; T.torsoY = -NS_BLADE; R.gunAt(B[0], B[1] + Math.sin(t * 1.1) * 0.004, B[2], -pitch * 0.3, NS_BLADE, 0); R.hYaw = NS_BLADE; }
+      else R.gunAt(-0.1, 0.45 + Math.sin(t * 1.1) * 0.004, 0.4, -pitch * 0.3, -0.2, 0);
     } else if (kind === 'hide') {
       T.hipsY = 0.42; R.legs(-1.75, 2.15, -0.7, 2.3); T.torsoX = 0.6 + Math.sin(t * 1.4) * 0.015; R.gunAt(0.0, 0.24, 0.24, -1.15, 0.25, 0);
     } else if (kind === 'idle') {
@@ -648,7 +681,8 @@ class Rig {
     const quick = kind === 'run' ? 2.8 : kind === 'walk' ? 1.9 : 1.25, b = 0.011 * Math.sin(R.breath * quick) * (kind === 'fall' ? 0.3 : 1); R.torso.scale.set(1 + b * 0.4, 1 + b, 1 + b * 0.8);
     if (kind === 'fall') { R.headP.rotation.set(0.12, 0, 0.1); if (!R.shut && !R.deadOpen && R.blendT <= 0) { R.shut = true; R.head.material = MAT.facesShut[R.side][R.faceV]; } return; }
     const calm = kind === 'idle' ? 1 : kind === 'walk' ? 0.8 : kind === 'aim' || kind === 'crouch' || kind === 'hide' || kind === 'prone' ? 0.25 : 0.45, t = R.breath;
-    R.headP.rotation.set((0.045 * Math.sin(t * 0.7 + 1) + 0.015 * Math.sin(t * 2.3)) * calm, (0.16 * Math.sin(t * 0.41) + 0.07 * Math.sin(t * 1.13 + 2)) * calm, 0.035 * Math.sin(t * 0.53 + 0.7) * calm);
+    R.hY = (R.hY || 0) + ((R.hYaw || 0) - (R.hY || 0)) * Math.min(1, FDT * 8);   // a man standing bladed to his rifle keeps his eyes on the target
+    R.headP.rotation.set((0.045 * Math.sin(t * 0.7 + 1) + 0.015 * Math.sin(t * 2.3)) * calm, (0.16 * Math.sin(t * 0.41) + 0.07 * Math.sin(t * 1.13 + 2)) * calm + R.hY, 0.035 * Math.sin(t * 0.53 + 0.7) * calm);
     R.blinkT -= FDT; if (R.blinkT <= 0) { R.shut = !R.shut; R.head.material = R.shut ? MAT.facesShut[R.side][R.faceV] : MAT.faces[R.side][R.faceV]; R.blinkT = R.shut ? 0.11 : (Math.random() < 0.2 ? 0.25 : rand(2.2, 6.5)); }
   }
 }

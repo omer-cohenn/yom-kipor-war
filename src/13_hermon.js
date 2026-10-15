@@ -37,13 +37,25 @@ const HM_NAMES = ['אבי', 'גיורא', 'דודי', 'ציון', 'ניסים', 
 const hmRock = (r) => [0xb4b2ac, 0x9e9c97, 0xc6c4bd, 0x8c8b86, 0xa9a69e, 0xd0cec6][Math.floor(r() * 6)];
 function hmBase(lx, lz) { const cz = clamp(lz, -420, 700), cx = clamp(lx, -260, 260), a = 0.3 * (cz + 200), b = 132 + 0.06 * (cz - 240), ax = Math.abs(cx); return lerp(a, b, smooth(220, 262, cz)) + 0.0009 * cx * cx * (1 - smooth(50, 110, ax)) - 0.28 * Math.max(0, ax - 90) * smooth(80, 140, ax); }
 const HM_PY = hmBase(0, 290) + 0.2, HM_L0 = HM_PY - 3.2, HM_U1 = HM_PY + 3.2, HM_RY = HM_U1 + 0.3;
+const hmH = (x, z) => hmCarve(x, z, hmNat(x, z));
+/* past the map's box the ground is the map's far country (the backdrop's own heights and colour), so the mountain falls away to the Golan
+   and the Hula on every side instead of running on as a flat shelf */
+function hmOuter(x, z) {
+  const F = MAPS.hermon && MAPS.hermon.far; if (!F) return hmNat(x, z);
+  const [u, v] = mapUV(F, x, z); COL[0] = mapCh(F.c, u, v, 0); COL[1] = mapCh(F.c, u, v, 1); COL[2] = mapCh(F.c, u, v, 2); return mapBil(F.h, F.W, F.H, u, v);
+}
 const hmY = (f) => (f === 2 ? HM_RY : f ? HM_PY : HM_L0);
 const hmDist = (lx, lz) => { const dx = Math.max(HM_F.x0 - lx, 0, lx - HM_F.x1), dz = Math.max(HM_F.z0 - lz, 0, lz - HM_F.z1); return Math.hypot(dx, dz); };
-function hmH(x, z) {
+/* the mountain itself (hmNat, or the map) and the post's works carved into it (hmCarve): the road, the levelled summit, the trenches, the bunker's floor */
+function hmNat(x, z) {
   const lx = x - HM.o.x, lz = z - HM.o.z, base = hmBase(lx, lz);
   let h = base + 2.6 * fbm(lx / 42, lz / 42, 3) + 0.7 * fbm(lx / 9, lz / 9, 2);
   // bare limestone, grey and white; dark thorn cushions; dry yellow grass in the hollows
   mix3([0.64, 0.645, 0.65], [0.52, 0.525, 0.53], smooth(-0.3, 0.5, fbm(lx / 30, lz / 30, 3))); mixIn([0.72, 0.72, 0.7], 0.3 * smooth(0.2, 0.6, fbm(lx / 11, lz / 11, 2))); mixIn([0.5, 0.39, 0.31], 0.2 * smooth(0.15, 0.6, noise(lx / 48 + 3, lz / 48))); mixIn([0.34, 0.37, 0.3], 0.14 * smooth(0.3, 0.7, noise(lx / 25, lz / 25 + 9)));
+  return h;
+}
+function hmCarve(x, z, h) {
+  const lx = x - HM.o.x, lz = z - HM.o.z, base = hmBase(lx, lz);
   { const d = distPolyline(lx, lz, HM_ROAD_S); if (d < 8) { h = lerp(h, base + 0.3 * fbm(lx / 30, lz / 30, 2), 1 - smooth(3.5, 8, d)); mixIn([0.5, 0.47, 0.43], 0.75 * (1 - smooth(2, 4, d))); } }
   // the summit plateau, levelled for the post out past the outer ring; the bunker's lower level sunk into the rock
   { const dp = hmDist(lx, lz); const k = 1 - smooth(42, 78, dp); if (k > 0) { h = lerp(h, HM_PY + 0.25 * fbm(lx / 20, lz / 20, 2) * smooth(4, 16, dp), k); mixIn([0.6, 0.6, 0.59], 0.4 * k); }
@@ -193,7 +205,7 @@ function hmRoomProps(x0, x1, z0, z1, f, kind, r, door = null) {
   }
 }
 function hmBuild() {
-  const C = CHAP.hermon; C.ground = makeGround({ x0: HM.o.x - 230, x1: HM.o.x + 230, z0: HM.o.z - 210, z1: HM.o.z + 345, step: 1.6, h: hmH }); GROUND = C.ground;
+  const C = CHAP.hermon; C.ground = makeGround({ x0: HM.o.x - 230, x1: HM.o.x + 230, z0: HM.o.z - 210, z1: HM.o.z + 345, step: 1.6, h: mapH('hermon', hmOuter, hmCarve), map: 'hermon', vegOk: (x, z) => { const lx = x - HM.o.x, lz = z - HM.o.z; return distPolyline(lx, lz, HM_ROAD_S) > 5 && hmDist(lx, lz) > 70; } }); GROUND = C.ground;
   const BAGS = [], sv = BATCH.bag; BATCH.bag = BAGS; const k0 = COVER.length; C.slots = [];
   const K = hmBuildKit(), r = rng(2210), stone = [], L = (x, z) => [x - HM.o.x, z - HM.o.z], y0 = HM_L0, y1 = HM_PY, u0 = HM_PY, u1 = HM_U1, yR = HM_RY;
   const { x0, x1, z0, z1 } = HM_F, [c0, c1] = HM_CORR, [dx, dz] = HM_DOOR, U = HM_U, ST = HM_STAIR, RS = HM_RSTAIR;
@@ -367,14 +379,15 @@ function hmPanoH(E, N) {
 }
 function hmPano() {
   if (HM_PANO) return;
-  const NR = LITE ? 70 : 112, NA = LITE ? 180 : 300, R0 = 0.12, R1 = 62, [cx, cz] = HW(0, 290), post = HM_PY;
+  const NR = LITE ? 70 : 112, NA = LITE ? 180 : 300, R0 = 0.12, R1 = 62, [cx, cz] = HW(0, 290), post = HM_PY, F = MAPS.hermon && MAPS.hermon.far;   // the far country from the map when it has one
   const pos = new Float32Array(NR * NA * 3), col = new Float32Array(NR * NA * 3), hz = new Float32Array(NR * NA), K = 1 / 0.787, C = (r, g, b) => [lin(r) * K, lin(g) * K, lin(b) * K], r = rng(2290);
   const LIME = C(0.68, 0.67, 0.64), ROCK = C(0.52, 0.5, 0.47), OCHRE = C(0.58, 0.5, 0.37), SCRUB = C(0.37, 0.38, 0.28), DRY = C(0.64, 0.57, 0.4), BASALT = C(0.33, 0.31, 0.28), FIELD = C(0.42, 0.48, 0.3), FIELD2 = C(0.56, 0.5, 0.36), ORCH = C(0.3, 0.37, 0.24), WATER = C(0.24, 0.36, 0.46), VILL = C(0.72, 0.7, 0.66);
   const mixc = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
   for (let i = 0; i < NR; i++) { const km = R0 * Math.pow(R1 / R0, i / (NR - 1));
     for (let j = 0; j < NA; j++) { const a = (j / NA) * Math.PI * 2, E = Math.sin(a) * km, N = Math.cos(a) * km, lx = -E * 1000, lz = 290 + N * 1000;
       // near the post the mountain of the map itself, far off the country round it
-      const near = hmBase(lx, lz) + 2.6 * fbm(lx / 42, lz / 42, 3) - post, far = hmPanoH(E, N), w = smooth(0.35, 1.6, km), h = lerp(near, far, w), o = (i * NA + j) * 3;
+      let far, fc = null; if (F) { const [u, v] = mapUV(F, HM.o.x + lx, HM.o.z + lz); far = mapBil(F.h, F.W, F.H, u, v) - post; fc = C(mapCh(F.c, u, v, 0), mapCh(F.c, u, v, 1), mapCh(F.c, u, v, 2)); } else far = hmPanoH(E, N);
+      const near = hmBase(lx, lz) + 2.6 * fbm(lx / 42, lz / 42, 3) - post, w = smooth(0.35, 1.6, km), h = lerp(near, far, w), o = (i * NA + j) * 3;
       pos[o] = cx + lx; pos[o + 1] = post + h; pos[o + 2] = cz + lz - 290;
       // the colour: limestone on the heights, dry ochre slopes, the yellow plateau with its black basalt, green fields in the valleys, the lake
       const n1 = fbm(E / 1.7 + 7, N / 1.7, 3), cell = Math.sin(Math.floor(E / 0.55) * 12.9898 + Math.floor(N / 0.42) * 78.233) * 43758.5 % 1, cv = Math.abs(cell);
@@ -385,6 +398,7 @@ function hmPano() {
       if (h < -2270) c = WATER;
       for (const [vx, vz, vr] of [[0.4, -5.6, 0.7], [1.6, -4.8, 0.45], [3.2, -6.4, 0.4], [-9, -14.5, 0.6], [24, -12, 1.2], [38, 6, 3.2]]) if (Math.hypot(E - vx, N - vz) < vr) c = mixc(c, VILL, 0.55);   // Majdal Shams, Mas'ade, Buq'ata, Banias; Sasa and Damascus far off
       if (h > -250) c = mixc(c, LIME, smooth(-250, 300, h) * 0.5);
+      if (fc) c = mixc(c, fc, w);   // the map's own country (its lake drawn in its colour)
       col[o] = c[0]; col[o + 1] = c[1]; col[o + 2] = c[2];
       hz[i * NA + j] = Math.min(0.9, 1 - Math.exp(-km / 24)) * (0.85 + 0.15 * smooth(-1500, 0, -h)); } }
   const idx = []; for (let i = 0; i < NR - 1; i++) for (let j = 0; j < NA; j++) { const a = i * NA + j, b = i * NA + (j + 1) % NA, c2 = (i + 1) * NA + j, d = (i + 1) * NA + (j + 1) % NA; idx.push(a, c2, b, b, c2, d); }

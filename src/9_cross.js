@@ -47,28 +47,35 @@ const crInVillage = (lx, lz, pad = 0) => lx > -252 - pad && lx < -152 + pad && M
 // the column of tanks in the last film: down the east bank, over the bridge, west along the road
 const CR_CONV = [[330, 440], [318, 330], [330, 220], [300, 120], [250, 60], [190, 24], [140, 6], [110, 0], [-100, 0], [-150, 0], [-430, 0]];
 const crBench = (x, z) => groundAt(x, z) + 0.4;
-function crH(x, z) {
+/* the land itself (crNat, or the map) and the crossing's works carved into it (crCarve): the canal, both ramparts and their breaches, the
+   Egyptian trench, the sweet-water canal, the roads, the village's trodden dust */
+function crNat(x, z) {
+  const lx = x - CR.o.x, lz = z - CR.o.z, ax = Math.abs(lx);
+  let h;
+  if (lx > 0) { h = 0.9 + 1.4 * smooth(100, 125, lx) + 0.3 * fbm(lx / 90, lz / 90, 2); mix3(PAL.sandL, PAL.sandD, smooth(-0.3, 0.4, fbm(lx / 120, lz / 120, 3))); }
+  else {
+    const fieldH = 1.6 + 0.25 * fbm(lx / 70, lz / 70, 2), bank = 0.9 + 0.7 * smooth(100, 112, ax);
+    h = lerp(bank, fieldH, smooth(-108, -150, lx)); mix3(PAL.sandL, PAL.sandD, smooth(-0.3, 0.4, fbm(lx / 100, lz / 100, 3)));
+    if (lx < -150) { const f = smooth(-150, -175, lx), strip = noise(Math.floor((lx + 1000) / 38) * 1.7, Math.floor((lz + 1000) / 55) * 1.3);
+      mixIn(strip > 0.05 ? [lerp(0.30, 0.42, strip), lerp(0.38, 0.47, strip), lerp(0.18, 0.24, strip)] : [0.47, 0.38, 0.27], 0.85 * f); }
+  }
+  return h;
+}
+function crCarve(x, z, h) {
   const lx = x - CR.o.x, lz = z - CR.o.z, ax = Math.abs(lx);
   if (ax < 100) { const t = smooth(76, 100, ax); mix3(PAL.deep, PAL.wet, t); return lerp(-5.5, 0.9, t); }
-  let h;
   if (lx > 0) {
-    h = 0.9 + 1.4 * smooth(100, 125, lx) + 0.3 * fbm(lx / 90, lz / 90, 2); mix3(PAL.sandL, PAL.sandD, smooth(-0.3, 0.4, fbm(lx / 120, lz / 120, 3)));
     const breach = 1 - smooth(32, 50, Math.abs(lz)); const r = 7 * Math.exp(-(((lx - 142) / 9) ** 2)) * (1 - breach); h += r; mixIn(PAL.fresh, smooth(1, 5, r) * 0.5);
     mixIn(PAL.wet, 1 - smooth(100, 108, lx));
     { const d = Math.abs(lz); if (d < 5 && lx < 340) mixIn([0.56, 0.5, 0.4], 0.6 * (1 - smooth(2.5, 5, d))); }
     { const dc = distPolyline(lx, lz, CR_CONV); if (dc < 5 && lx > 110) mixIn([0.58, 0.52, 0.41], 0.55 * (1 - smooth(2.5, 5, dc))); }
   } else {
-    const breach = 1 - smooth(12, 34, Math.abs(lz)), nr = 1 - smooth(6, 24, Math.abs(lz - CR_RAMP_Z));
-    const fieldH = 1.6 + 0.25 * fbm(lx / 70, lz / 70, 2), bank = 0.9 + 0.7 * smooth(100, 112, ax), dr = Math.abs(lx + 128);
+    const breach = 1 - smooth(12, 34, Math.abs(lz)), nr = 1 - smooth(6, 24, Math.abs(lz - CR_RAMP_Z)), dr = Math.abs(lx + 128);
     const ramp = 9 * (1 - smooth(6.5, 17, dr)) * (1 - breach) * (1 - 0.8 * nr) * smooth(10, 30, Math.abs(lz - CR_RAFT_Z));
-    h = lerp(bank, fieldH, smooth(-108, -150, lx)) + ramp;
-    mix3(PAL.sandL, PAL.sandD, smooth(-0.3, 0.4, fbm(lx / 100, lz / 100, 3))); mixIn(PAL.fresh, smooth(2, 8, ramp) * 0.4);
+    h += ramp; mixIn(PAL.fresh, smooth(2, 8, ramp) * 0.4);
     // the Egyptian trench: a cut in the flat top of the rampart, sandbags on its lips
     if (lz > CR_TZ0 - 3 && lz < CR_TZ1 + 3) { const d = Math.abs(lx - crTX(lz)), k = smooth(CR_TZ0 - 3, CR_TZ0 + 2, lz) * (1 - smooth(CR_TZ1 - 2, CR_TZ1 + 3, lz)); const c = 1.0 * (1 - smooth(1.4, 2.8, d)) * k; h -= c; mixIn(PAL.sandD, c * 0.6); }
     if (lx < -150) {
-      const f = smooth(-150, -175, lx), strip = noise(Math.floor((lx + 1000) / 38) * 1.7, Math.floor((lz + 1000) / 55) * 1.3);
-      const green = [lerp(0.30, 0.42, strip), lerp(0.38, 0.47, strip), lerp(0.18, 0.24, strip)], tilled = [0.47, 0.38, 0.27];
-      mixIn(strip > 0.05 ? green : tilled, 0.85 * f);
       const dr2 = Math.abs(lz); if (dr2 < 4) mixIn([0.6, 0.53, 0.42], 0.8 * (1 - smooth(2, 4, dr2)));
       { const dj = distPolyline(lx, lz, CR_JEEP_S); if (dj < 4) mixIn([0.6, 0.53, 0.42], 0.7 * (1 - smooth(2, 4, dj))); }
       const dc = Math.abs(lx - CR_BRIDGE); if (dc < 14) { h = lerp(h, -1.6, 1 - smooth(5, 12, dc)); mixIn(PAL.mud, 1 - smooth(6, 13, dc)); if (Math.abs(lz) < 4 && dc < 12) h = Math.max(h, 1.75); }
@@ -80,6 +87,7 @@ function crH(x, z) {
   }
   return h;
 }
+const crH = (x, z) => crCarve(x, z, crNat(x, z));
 /* ---------- the village: walls with real thickness, wide doorways, windows to shoot from ---------- */
 // a straight wall in local coordinates (along x or along z), its outward normal, and its openings [from, to, 'door' | 'win'] measured along it
 // paint: { out: outward normal [x, z] or null, c: the colour outside, band: the painted band at the foot (or null), in: the whitewash inside }
@@ -403,7 +411,7 @@ const BR_FRONT = build([[G.cyl(0.05, 0.05, 4.2, 6), 0x2a2a28, M4(0, 3.6, 2.3)], 
 const JEEP_MG = build([[G.box(0.1, 0.13, 0.95), 0x1d1d1b, M4(0, 0, -0.35)], [G.cyl(0.024, 0.024, 0.75, 6), 0x151515, M4(0, 0.012, -1.17, Math.PI / 2, 0, 0)], [G.cyl(0.04, 0.04, 0.3, 8), 0x2a2a28, M4(0, 0.012, -0.95, Math.PI / 2, 0, 0)], [G.box(0.07, 0.2, 0.1), 0x24221f, M4(0, -0.13, -0.05)], [G.box(0.17, 0.11, 0.26), 0x2a2a24, M4(0, 0.07, -0.5)], [G.box(0.2, 0.15, 0.2), 0x4a4c3a, M4(-0.16, -0.03, -0.5)], [G.box(0.05, 0.08, 0.05), 0x1a1a1a, M4(0, 0.1, -1.45)]]);
 const CRANE_BOOM = build([[G.box(9.9, 0.42, 0.42), 0xc9a43a, M4(4.95, 0, 0)], [G.box(9.9, 0.08, 0.5), 0x8a7428, M4(4.95, 0.25, 0)], [G.box(1.4, 0.9, 1.0), 0x7a6a30, M4(0.2, 0, 0)], [G.cyl(0.18, 0.18, 0.6, 10), 0x2a2a28, M4(9.9, -0.3, 0)]]);
 function crBuild() {
-  const C = CHAP.cross; C.ground = makeGround({ x0: CR.o.x - 440, x1: CR.o.x + 345, z0: CR.o.z - 160, z1: CR.o.z + 450, step: 1.9, h: crH }); GROUND = C.ground;
+  const C = CHAP.cross; C.ground = makeGround({ x0: CR.o.x - 440, x1: CR.o.x + 345, z0: CR.o.z - 160, z1: CR.o.z + 450, step: 1.9, h: mapH('cross', crNat, crCarve), map: 'cross', vegOk: (x, z) => { const lx = x - CR.o.x, lz = z - CR.o.z; return Math.abs(lx) > 106 && Math.abs(lz) > 5 && Math.abs(lx - CR_BRIDGE) > 12 && !(lx > -262 && lx < -142 && Math.abs(lz) < 70); } }); GROUND = C.ground;
   const BAGS = [], sv = BATCH.bag; BATCH.bag = BAGS; const k0 = COVER.length; C.slots = [];
   // the trench on the rampart north of the breach: sandbag lips, traverses, bunkers, the Egyptian flag
   { const line = []; for (let lz = CR_TZ0; lz <= CR_TZ1; lz += 2.5) line.push([crTX(lz), lz]); const W = (dx) => line.map(([x, z]) => CW(x + dx, z));

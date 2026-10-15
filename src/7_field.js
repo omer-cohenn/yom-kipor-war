@@ -55,8 +55,10 @@ function makeGround(d) {
   const idx = new Uint32Array((NX - 1) * (NZ - 1) * 6); let p = 0;
   for (let j = 0; j < NZ - 1; j++) for (let i = 0; i < NX - 1; i++) { const a = j * NX + i, b = a + 1, c = a + NX, e = c + 1; idx[p++] = a; idx[p++] = c; idx[p++] = b; idx[p++] = b; idx[p++] = c; idx[p++] = e; }
   const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('color', new THREE.BufferAttribute(col, 3)); geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); geo.setIndex(new THREE.BufferAttribute(idx, 1)); geo.computeVertexNormals();
-  const mesh = new THREE.Mesh(geo, terrainMat()); mesh.receiveShadow = !LITE; scene.add(mesh);
-  return { mesh, at(x, z) { const i = findIdx(XS, x), j = findIdx(ZS, z); const tx = clamp((x - XS[i]) / (XS[i + 1] - XS[i]), 0, 1), tz = clamp((z - ZS[j]) / (ZS[j + 1] - ZS[j]), 0, 1); const k = j * NX + i; return lerp(lerp(HG[k], HG[k + 1], tx), lerp(HG[k + NX], HG[k + NX + 1], tx), tz); } };
+  const Mp = d.map ? MAPS[d.map] : null, mesh = new THREE.Mesh(geo, Mp ? mapTerrainMat(Mp) : terrainMat()); mesh.receiveShadow = !LITE; scene.add(mesh);
+  const G = { mesh, at(x, z) { const i = findIdx(XS, x), j = findIdx(ZS, z); const tx = clamp((x - XS[i]) / (XS[i + 1] - XS[i]), 0, 1), tz = clamp((z - ZS[j]) / (ZS[j + 1] - ZS[j]), 0, 1); const k = j * NX + i; return lerp(lerp(HG[k], HG[k + 1], tx), lerp(HG[k + NX], HG[k + NX + 1], tx), tz); } };
+  if (Mp) G.veg = mapVeg(Mp, G.at, d.vegOk);   // the map's own plants, standing on this ground
+  return G;
 }
 function showWorld(mode) {
   PROPS.cur = mode; if (mode !== 'suez') szClarityOff();

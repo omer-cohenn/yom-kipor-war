@@ -20,14 +20,19 @@ const RG_FRIENDS = [[-31, 'אבי'], [-27, 'יוסי'], [-15, 'מוטי'], [-9, 
 // the enemy park, out in the field: knocked out, each burns a while and stands there whole again
 const RG_EVEH = [['t55', 62, -62], ['jeep', 66, -42], ['jeep', 58, -26], ['atgun', 48, -8]];
 
-function rgH(x, z) {
+function rgNat(x, z) {
   const lx = x - RG.o.x, lz = z - RG.o.z, R = Math.hypot(lx, lz);
   let h = 2.2 + 0.3 * fbm(lx / 70, lz / 70, 2) + 0.1 * fbm(lx / 9, lz / 9, 2);
   mix3(PAL.sandD, PAL.sandL, 0.35 + 0.35 * smooth(-0.3, 0.4, fbm(lx / 50, lz / 50, 3))); mixIn(PAL.rock, 0.16 * smooth(0, 0.5, noise(lx / 22, lz / 22)));
+    // low hills all round the horizon
+  { const f = smooth(170, 420, R); if (f > 0) { const ridge = 1 - Math.abs(noise(lx / 160, lz / 160)); h += f * (14 + 30 * ridge * ridge + 10 * fbm(lx / 80, lz / 80, 3)); mixIn(PAL.rock, f * 0.45); } }
+  return h;
+}
+// the range itself: the stop butt behind the enemy line, the firing point, the vehicle park, the pond
+function rgCarve(x, z, h) {
+  const lx = x - RG.o.x, lz = z - RG.o.z;
   // the stop butt: an earth bank behind the enemy's line
   if (Math.abs(lx) < 150) { const d = Math.abs(lz + 150 + 4 * Math.sin(lx / 23)), b = (1 - smooth(0, 10, d)) * (1 - smooth(115, 150, Math.abs(lx))); h += 6.5 * b; mixIn(PAL.sandR, 0.6 * b); }
-  // low hills all round the horizon
-  { const f = smooth(170, 420, R); if (f > 0) { const ridge = 1 - Math.abs(noise(lx / 160, lz / 160)); h += f * (14 + 30 * ridge * ridge + 10 * fbm(lx / 80, lz / 80, 3)); mixIn(PAL.rock, f * 0.45); } }
   // the firing point and the vehicle park: trodden, lighter sand
   { const d = Math.max(Math.abs(lx) - 40, Math.abs(lz - 44) - 8); if (d < 4) mixIn(PAL.fresh, 0.35 * (1 - smooth(0, 4, d))); }
   { const d = Math.max(Math.abs(lx + 58) - 9, Math.abs(lz - 18) - 38); if (d < 5) { mixIn(PAL.yard, 0.5 * (1 - smooth(0, 5, d))); h = lerp(h, 2.2, 0.7 * (1 - smooth(0, 5, d))); } }
@@ -61,7 +66,7 @@ function rgJeep(lx, lz, rot, paint, parent = null) {
   addCollider(x, z, 2.05, 0.95, rot, y + 1.5); coverBox(x, z, 2.05, 0.95, rot, 1.3); return r;
 }
 function rgBuild() {
-  const C = CHAP.range, O = RG.o; C.ground = makeGround({ x0: O.x - 240, x1: O.x + 240, z0: O.z - 260, z1: O.z + 200, step: 3, h: rgH }); GROUND = C.ground;
+  const C = CHAP.range, O = RG.o; C.ground = makeGround({ x0: O.x - 240, x1: O.x + 240, z0: O.z - 260, z1: O.z + 200, step: 3, h: mapH('range', rgNat, rgCarve), map: 'range', vegOk: (x, z) => { const lx = x - RG.o.x, lz = z - RG.o.z; return !(Math.abs(lx) < 46 && Math.abs(lz - 44) < 14) && rgPondD(lx, lz) > 1.3 && !(Math.abs(lx + 58) < 14 && Math.abs(lz - 18) < 44); } }); GROUND = C.ground;
   const BAGS = [], sv = BATCH.bag; BATCH.bag = BAGS; const k0 = COVER.length; C.slots = [];
   // the firing line: a sandbag wall with gaps, the three guns in it, a flag
   for (const [a, b] of [[-38, -25.5], [-18.5, -3.4], [3.4, 18.5], [25.5, 38]]) bagWall([RGW(a, 40), RGW(b, 40)], 4);

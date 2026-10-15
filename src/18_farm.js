@@ -59,9 +59,10 @@ const fmDitchD = (lx, lz) => { let d = 1e9; for (const x of FM_DX) d = Math.min(
 const FM_PLOTS = (() => { const out = []; for (let i = 0; i < FM_DX.length - 1; i++) for (let j = 0; j < FM_DZ.length - 1; j++) { const x0 = FM_DX[i] + FM_DW + 0.3, x1 = FM_DX[i + 1] - FM_DW - 0.3, z0 = FM_DZ[j + 1] + FM_DW + 0.3, z1 = FM_DZ[j] - FM_DW - 0.3; out.push({ x0, x1, z0, z1, top: FY, i, j: j - 1, strip: j === 0 }); } return out; })();
 const fmPlotAt = (lx, lz) => FM_PLOTS.find((p) => lx > p.x0 && lx < p.x1 && lz > p.z0 && lz < p.z1) || null;
 /* ---------- the ground ---------- */
-function fmH(x, z) {
+/* the land itself (fmNat, or the map) and the farm's exact works carved into it (fmCarve): the canal and the lake, the sweet-water canal,
+   our rampart and the Yard, the farm block cut to the ditches' floor, the roads, the knoll */
+function fmNat(x, z) {
   const lx = x - FM.o.x, lz = z - FM.o.z;
-  const dC = Math.abs(lx - FM_CANAL.x);
   let h;
   // the desert of the east bank: low swells, sand, desert pavement; west of the canal the green strip of Africa
   h = FY + 0.9 * fbm(lx / 140, lz / 140, 3) * smooth(30, 120, Math.abs(lz - FM_TIR) + Math.abs(lx) * 0.2) + 0.35 * fbm(lx / 30, lz / 30, 2);
@@ -70,8 +71,12 @@ function fmH(x, z) {
     const k = smooth(FM_CANAL.x - FM_CANAL.hw - 2, FM_CANAL.x - FM_CANAL.hw - 26, lx); h = lerp(0.9, 1.5 + 0.25 * fbm(lx / 50, lz / 50, 2), k);
     const strip = noise(Math.floor((lx + 2000) / 34) * 1.7, Math.floor((lz + 2000) / 48) * 1.3), green = [lerp(0.36, 0.47, strip), lerp(0.42, 0.5, strip), lerp(0.24, 0.3, strip)];
     mixIn(strip > 0 ? green : [0.56, 0.47, 0.34], 0.75 * smooth(-500, -560, lx));
-    const dS = Math.abs(lx + 575); if (dS < 7) { h = lerp(h, -0.9, 1 - smooth(3, 7, dS)); mixIn(PAL.mud, 1 - smooth(3.5, 7, dS)); }
   }
+  return h;
+}
+function fmCarve(x, z, h) {
+  const lx = x - FM.o.x, lz = z - FM.o.z, dC = Math.abs(lx - FM_CANAL.x);
+  if (lx < FM_CANAL.x - FM_CANAL.hw) { const dS = Math.abs(lx + 575); if (dS < 7) { h = lerp(h, -0.9, 1 - smooth(3, 7, dS)); mixIn(PAL.mud, 1 - smooth(3.5, 7, dS)); } }
   // the canal and the lake
   if (dC < FM_CANAL.hw + 10) { const t = smooth(FM_CANAL.hw - 14, FM_CANAL.hw + 2, dC); h = lerp(-5.5, Math.min(h, 0.9), t); mix3(PAL.deep, PAL.wet, t); }
   { const sh = FM_LAKE + 30 * Math.sin(lx / 260) - 60 * smooth(0, 400, lx); if (lz > sh - 12) { const t = smooth(sh + 26, sh - 4, lz); h = lerp(-3.2, h, t); mixIn(PAL.wet, (1 - t) * 0.9); } }
@@ -92,6 +97,7 @@ function fmH(x, z) {
   { const dL = Math.abs(lx - FM_LEX); if (dL < 7 && lz < FM_LAKE - 30 && !fmInFarm(lx, lz, 1)) { h = lerp(h, FY + 0.1, 1 - smooth(4.5, 7, dL)); mixIn([0.55, 0.52, 0.47], 0.7 * (1 - smooth(3.5, 5, dL))); } }
   { const dT = Math.abs(lz - FM_TIR); if (dT < 7 && lx > FM_LEX - 2 && !fmInFarm(lx, lz, 0.5)) { h = lerp(h, FY + 0.1, 1 - smooth(4.5, 7, dT)); mixIn([0.6, 0.55, 0.46], 0.6 * (1 - smooth(3, 4.5, dT))); } }
   { const dA = distPolyline(lx, lz, FM_AKAVISH); if (dA < 8) { h = lerp(h, FY + 0.1, 1 - smooth(5, 8, dA)); mixIn([0.53, 0.5, 0.46], 0.75 * (1 - smooth(3.5, 5, dA))); } }
+  { const k = fmKnollH(lx, lz); if (k > 0) { mixIn([0.82, 0.75, 0.62], Math.min(1, k / FM_KNOLL.h) * 0.5); h += k; } }
   return h;
 }
 /* ---------- models made here ---------- */
@@ -150,7 +156,7 @@ function fmJpTex(i) {
 /* the low hill south of Tirtur where the paratroopers lay, "tens of metres from the Egyptians" */
 const FM_KNOLL = { x: 150, z: -200, r: 24, h: 2.8 };
 const fmKnollH = (lx, lz) => { const d = Math.hypot(lx - FM_KNOLL.x, (lz - FM_KNOLL.z) * 1.25); return d < FM_KNOLL.r ? FM_KNOLL.h * Math.pow(Math.cos(d / FM_KNOLL.r * Math.PI / 2), 1.6) : 0; };
-function fmHk(x, z) { const lx = x - FM.o.x, lz = z - FM.o.z, h = fmH(x, z), k = fmKnollH(lx, lz); if (k > 0) { mixIn([0.82, 0.75, 0.62], Math.min(1, k / FM_KNOLL.h) * 0.5); return h + k; } return h; }
+const fmHk = (x, z) => fmCarve(x, z, fmNat(x, z));   // the ground without a map (the knoll is carved with the rest)
 /* ---------- the plots: raised blocks of dry field between the ditches ---------- */
 function fmPlots() {
   const K = 1 / 0.787, C = (r, g, b) => [lin(r) * K, lin(g) * K, lin(b) * K], B = 0.06;
@@ -255,7 +261,7 @@ function fmSplash(p, k = 1) {
 }
 /* ---------- building the battlefield ---------- */
 function fmBuild() {
-  const C = CHAP.farm; C.ground = makeGround({ x0: FM.o.x - 660, x1: FM.o.x + 720, z0: FM.o.z - 880, z1: FM.o.z + 460, step: 4, h: fmHk,
+  const C = CHAP.farm; C.ground = makeGround({ x0: FM.o.x - 660, x1: FM.o.x + 720, z0: FM.o.z - 880, z1: FM.o.z + 460, step: 4, h: mapH('farm', fmNat, fmCarve), map: 'farm', vegOk: (x, z) => { const lx = x - FM.o.x, lz = z - FM.o.z; return !fmInFarm(lx, lz, 4) && Math.abs(lx - FM_CANAL.x) > FM_CANAL.hw + 3 && Math.abs(lx - FM_LEX) > 6 && Math.abs(lz - FM_TIR) > 6 && distPolyline(lx, lz, FM_AKAVISH) > 6 && !(lz > FM_YARD.z0 - 6 && lz < FM_YARD.z1 + 6 && lx > FM_YARD.x0 - 10 && lx < FM_YARD.x1 + 6); },
     fineX: [[FM_FARM.x0 - 9, FM_FARM.x0 + 13, 1.25], [FM_FARM.x1 - 13, FM_FARM.x1 + 9, 1.25]].map(([a, b, s]) => [FM.o.x + a, FM.o.x + b, s]),
     fineZ: [[FM_FARM.z0 - 9, FM_FARM.z0 + 13, 1.25], [FM_FARM.z1 - 13, FM_FARM.z1 + 9, 1.25]].map(([a, b, s]) => [FM.o.z + a, FM.o.z + b, s]) }); GROUND = C.ground;
   const BAGS = [], sv = BATCH.bag; BATCH.bag = BAGS; const k0 = COVER.length; C.slots = []; C.shelters = []; C.fires = [];
