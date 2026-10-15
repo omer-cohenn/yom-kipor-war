@@ -36,6 +36,9 @@ function sndShot(kind, p) {
   if (!AUD.ctx) return; const t0 = AUD.ctx.currentTime;
   if (kind === 'fal' || kind === 'mag') { nz(t0, 0.16, { f: 2600, type: 'bandpass', q: 0.5, vol: kind === 'mag' ? 0.4 : 0.5 }); nz(t0, 0.35, { f: 900, type: 'lowpass', vol: 0.45, f2: 200 }); tone(t0, 0.12, 140, 50, 0.45); nz(t0 + 0.05, 0.6, { f: 500, type: 'lowpass', vol: 0.08, attack: 0.05 }); return; }
   const [v, dl] = distVol(p, kind === 'ak' || kind === 'smg' ? 60 : kind === 'svd' ? 120 : 80); if (v < 0.015) return; const t = t0 + dl;
+  // a hundred rifles on the water: past some thirty shots a second the far ones add nothing to the roar, and every one costs the sound card
+  // and the page a handful of nodes, so the quiet ones are left out
+  { const L = (AUD.shL || 0) * Math.exp(-(t0 - (AUD.shT || t0)) * 6); AUD.shT = t0; if ((L > 3 && v < 0.6) || (L > 6 && v < 0.95)) { AUD.shL = L; return; } AUD.shL = L + 1; }
   if (kind === 'smg') { nz(t, 0.07, { f: 2100, q: 0.8, vol: 0.4 * v }); nz(t, 0.16, { f: 700, type: 'lowpass', vol: 0.18 * v, f2: 200 }); return; }
   if (kind === 'svd') { nz(t, 0.14, { f: 1300, q: 0.6, vol: 0.7 * v }); nz(t, 0.5, { f: 500, type: 'lowpass', vol: 0.35 * v, f2: 120 }); tone(t, 0.1, 120, 50, 0.3 * v); return; }
   nz(t, 0.11, { f: kind === 'ak' ? 1500 : kind === 'lmg' ? 1350 : 1200, q: 0.7, vol: (kind === 'lmg' ? 0.6 : 0.55) * v }); nz(t, 0.3, { f: 600, type: 'lowpass', vol: 0.25 * v, f2: 150 });
@@ -285,9 +288,15 @@ function killEnemy(e, headshot) {
   // how he goes down: a head shot drops him like a sack, a running man staggers on and pitches forward, the rest fold, spin or are thrown back
   const run = e.rig.kind === 'run' || e.rig.kind === 'walk', r = Math.random();
   e.fallKind = headshot && r < 0.75 ? 'head' : run && r < 0.5 ? 'stumble' : pick(['knees', 'knees', 'back', 'spin', 'crumple', 'knees', 'back']);
-  e.fallDir = e.fallKind === 'back' || e.fallKind === 'spin' ? 1 : e.fallKind === 'stumble' ? -1 : Math.random() < 0.5 ? 1 : -1; e.spinDir = Math.random() < 0.5 ? 1 : -1; e.dropped = false;
+  e.fallDir = e.fallKind === 'back' || e.fallKind === 'spin' ? 1 : e.fallKind === 'stumble' ? -1 : Math.random() < 0.5 ? 1 : -1; e.spinDir = Math.random() < 0.5 ? 1 : -1; e.dropped = false; corpseCap();
 }
-function killSeat(bt, i) { const s = bt.seats[i]; if (!s.alive) return; s.alive = false; s.m.visible = false; STATS.kills++; fxDust(bt.seatWorld(i).add(V3(0, 0.3, 0)), true); }
+/* the dead stay where they fell, but only so many of them: past that the oldest goes (a great wave leaves hundreds, and each one is drawn) */
+function corpseCap() {
+  const max = LITE ? 14 : 26; let n = 0, old = null;
+  for (const e of UNITS.enemies) if (!e.alive && e.rig.root.visible && e.deadAt !== undefined) { n++; if (e.state === 'dead' && (!old || e.deadAt < old.deadAt)) old = e; }
+  if (n > max && old) { old.rig.root.visible = false; if (old.tag) old.tag.visible = false; }
+}
+function killSeat(bt, i) { const s = bt.seats[i]; if (!s.alive) return; bt.intact = false; bt.setLod(false); s.alive = false; s.m.visible = false; STATS.kills++; fxDust(bt.seatWorld(i).add(V3(0, 0.3, 0)), true); }
 const seeW = (ax, ay, az, bx, by, bz) => (FIELDM() ? los(ax, ay, az, bx, by, bz) && segHitT(ax, ay, az, bx, by, bz, 0.25) < 0 : losW(ax, ay, az, bx, by, bz)) && !smokeBlocks(ax, ay, az, bx, by, bz);
 function targetsFor(e) {
   // a man firing wild (the hill at Purkan) knows exactly where the tank is and empties his magazine at it whatever the sightline
@@ -628,6 +637,13 @@ function boatWave(z0, z1, n, t0, gap, seats, rpg = 0, flame = 0, hp, near) {
   for (let i = 0; i < N; i++) { const z = lerp(z0, z1, (i * 0.618034) % 1) + (r() - 0.5) * 2.5, b = launchBoat(z, t0 + i * gap + r() * gap * 0.6, seats, i < rpg ? 1 : 0, i === Math.floor(N / 2) && flame ? 1 : 0); if (hp) b.hp = hp;
     if (near) { const left = Math.min(b.len * 0.95, near[0] + i * near[1] + r() * near[1] * 0.4); b.t = (b.len - left) / b.speed; } }
 }
+/* the boats on the water, as they are now (with their men, their RPGs and flamethrowers, how far across they are), and put back again */
+function boatSnap() {
+  if (MODE !== 'mezach' || SURV.on) return [];
+  return BOATS.filter((b) => !b.dead && (b.state === 'wait' || b.state === 'cross') && aboard(b) > 0).map((b) => ({ z: b.zLand, t: b.t, hp: b.hp, wave: b.wave,
+    men: b.seats.filter((q) => !q.rower && q.alive && !q.gone).length, rpg: b.seats.filter((q) => q.kind === 'rpg' && q.alive).length, flame: b.seats.filter((q) => q.kind === 'flame' && q.alive).length }));
+}
+function boatRestore(list) { for (const o of list) { const b = launchBoat(o.z, 0, 8, o.rpg, o.flame, o.men); b.t = o.t; b.hp = o.hp; if (o.wave !== undefined) b.wave = o.wave; } }
 function launchBoat(zLand, delay, n, rpg = 0, flame = 0, men) {
   const seed = 9001 + Math.round(zLand * 13) + Math.max(0, D.scene) * 7919, r = rng(seed);
   const to = [tongueWestX(zLand) - 4.5, zLand]; const from = [nearX(-400), clamp(zLand + (r() - 0.5) * 90, -380, 380)];   // from just off the Port Tewfik quays
@@ -667,6 +683,7 @@ function boatFire(bt, dt, x, z) {
 const LANDCAP = { n: 999 };
 const aboard = (bt) => { let n = 0; for (const s of bt.seats) if (s.alive && !s.gone) n++; return n; };
 function updBoats(dt) {
+  // counted before any boat moves this frame (a boat coming to the line must not count itself)
   let men = 0; if (LANDCAP.n < 999 && !CINE.on) { for (const e of UNITS.enemies) if (e.alive) men++; for (const bt of BOATS) if (!bt.dead && (bt.state === 'landed' || (bt.state === 'cross' && bt.t * bt.speed > bt.len - 25 + 0.01))) men += aboard(bt); }
   const load = 8 + (LITE ? 4 : 6), room = (LANDCAP.n + 0.3) * load;
   for (const bt of BOATS) {
@@ -680,10 +697,11 @@ function updBoats(dt) {
       const wt = waveTilt(x, z, bt.heading, 3.2, 1.2, _wtB);
       // a rowed boat: it lifts and heels with the waves and surges a little with every stroke
       bt.g.position.set(x, 0.03 + wt.h + Math.sin(bt.t * 2.2) * 0.025, z); bt.g.rotation.set(wt.roll * 0.9 + Math.sin(bt.t * 2.3 + bt.len) * 0.03, bt.heading - Math.PI / 2, 0.02 + wt.pitch * 0.9 + Math.sin(bt.ph) * 0.012); bt.g.updateMatrixWorld();
-      if (!bt.filmHide) bt.row(dt);   // in the drone's film the oars are put away: up close the rowing does not look right
+      { const lk = Math.tan(camera.fov * Math.PI / 360) / 0.601, ld = LITE ? 60 : 80; bt.setLod(bt.intact && !bt.filmHide && camera.position.distanceToSquared(bt.g.position) * lk * lk > ld * ld); }   // far off (by what the eye sees: closer through a sight), one piece
+      if (!bt.filmHide && !bt.lodOn) bt.row(dt);   // in the drone's film the oars are put away: up close the rowing does not look right
       if (Math.random() < dt * 4) fxDust(V3(x + Math.sin(bt.heading) * 4.2 + Math.cos(bt.heading) * rand(-0.8, 0.8), 0.12 + wt.h, z + Math.cos(bt.heading) * 4.2 - Math.sin(bt.heading) * rand(-0.8, 0.8)), true);
       boatFire(bt, dt, x, z);
-      if (u >= 1) { bt.state = 'landed'; bt.landT = 0; }
+      if (u >= 1) { bt.state = 'landed'; bt.landT = 0; bt.setLod(false); }
       if (bt.hp <= 0 || bt.aliveCount() === 0) { if (bt.hp <= 0) { bt.seats.forEach((s, i) => { if (s.alive) killSeat(bt, i); }); feed('סירה נפגעה וטבעה', 'good'); } bt.state = 'sinking'; bt.sinkT = 0; }
     } else if (bt.state === 'sinking') { bt.sinkT += dt; bt.g.position.y -= dt * 0.5; bt.g.rotation.z += dt * 0.3; if (bt.sinkT > 4) bt.dispose(); }
     else if (bt.state === 'landed') {
@@ -692,31 +710,41 @@ function updBoats(dt) {
         if (!s.alive || s.gone || bt.landT < i * 0.25) return;   // the soldiers first, then the rowers ship their oars and follow them
         const sp = bt.seatWorld(i), r = rng(bt.seed + i * 97), z = bt.zLand + (i % 2 ? 1 : -1) * (0.5 + r() * 3.5);
         const e = spawnEnemy(tongueWestX(z) + 1.6, z, varyKind(s.kind, z * 3.1, i * 7.7), null, null, { jump: sp });
-        if (!e) return; e.plan = westPlan(e, z, i, r); s.gone = true; s.m.visible = false; if (s.oar) s.oar.visible = false;
+        if (!e) return; e.plan = westPlan(e, z, i, r); bt.intact = false; bt.setLod(false); s.gone = true; s.m.visible = false; if (s.oar) s.oar.visible = false;
       });
       if (bt.seats.every((s) => !s.alive || s.gone) && bt.landT > 30) bt.dispose();
     }
   }
 }
-/* the great wave: rows of boats one behind another - the first of two, then threes - each row on the beach some eight seconds after the one
-   in front of it (later, while the boats ahead are held off the beach). A row is put on the water only when it is due to leave the quays,
-   and never while a dozen boats are already out, so the canal is always full and the scene never holds more than it can draw */
-const ROWS = { on: false, left: 0 };
-function rowsStart(o) { Object.assign(ROWS, { on: true, k: 0, left: o.boats, z0: o.z0, z1: o.z1, every: o.every, first: o.first, base: GAME.t + o.t0, seed: 7300 + Math.round(GAME.t * 7) }); }
-function rowsPending() { return ROWS.on ? ROWS.left * (8 + (LITE ? 4 : 6)) : 0; }
+/* the great wave, in waves: when the player has the gun again one boat is on the beach and two more are ten seconds out; behind them, every
+   few seconds (9 on the easy level), a wave of six pushes off from the quays - two rows of three, the second row in the gaps of the first, a
+   few metres behind it, the rows zigzagging one wave to the next. A boat is put on the water only when it is due to leave the quays; while
+   the boats ahead are held off the beach (the landing cap), or the canal holds as many boats as it can draw, the waves behind wait */
+const ROWS = { on: false, q: [] };
+function rowsStart(o) { Object.assign(ROWS, { on: true, q: [], j: 0, men: 0, shift: 0, total: o.total, z0: o.z0, z1: o.z1, every: o.every, ctrl: o.ctrl, aLand: o.aLand, r: rng(7300 + Math.round(GAME.t * 7)) }); }
+const ROW_LOAD = () => 8 + (LITE ? 4 : 6);
+function rowsWave() {   // the next wave's boats: where each lands on the beach and when
+  const j = ROWS.j++, r = ROWS.r, out = [], zc = (ROWS.z0 + ROWS.z1) / 2, d = (ROWS.z1 - ROWS.z0) / 3.4, cl = (z) => clamp(z, ROWS.z0, ROWS.z1);
+  const boat = (land, z) => out.push({ land: land + rand(-0.5, 0.5), z: cl(z + (r() - 0.5) * 4), wave: j, rpg: r() < 0.3 ? 1 : 0, flame: j > 2 && r() < 0.12 ? 1 : 0 });
+  if (j === 0) boat(ROWS.aLand, zc + (r() - 0.5) * 8);
+  else if (j === 1) { boat(ROWS.ctrl + 10, zc - d * 0.9); boat(ROWS.ctrl + 10.8, zc + d * 0.9); }
+  else { const L = ROWS.ctrl + 10 + ROWS.every * (j - 1), c = zc + (r() - 0.5) * 8, sg = j % 2 ? 1 : -1;
+    for (const k of [-1, 0, 1]) boat(L, c + k * d); for (const k of [-1, 0, 1]) boat(L + 2.6, c + sg * d / 2 + k * d); }
+  ROWS.men += out.length * ROW_LOAD(); ROWS.q.push(...out); ROWS.q.sort((a, b) => a.land - b.land);
+}
+function rowsPending() { return ROWS.on ? Math.max(0, ROWS.total - ROWS.men) + ROWS.q.length * ROW_LOAD() : 0; }
 function rowsUpd(dt) {
   if (!ROWS.on || MODE !== 'mezach' || SURV.on) return;
-  let out = 0, holding = false; for (const b of BOATS) if (!b.dead && (b.state === 'wait' || b.state === 'cross')) { out++; if (b.holding) holding = true; }
-  if (out >= 15 || holding) { ROWS.base += dt; return; }   // the canal is full, or the boats ahead are held off the beach: the rows behind wait at the quays
+  const maxOut = LITE ? 26 : 32; /* far off a boat is one piece to draw (Boat.setLod), so the canal can hold this many */ let out = 0, holding = false; for (const b of BOATS) if (!b.dead && (b.state === 'wait' || b.state === 'cross')) { out++; if (b.holding) holding = true; }
+  if (out >= maxOut || holding) { ROWS.shift += dt; return; }   // the canal is full, or the boats ahead are held off the beach: the waves behind wait at the quays
   const sp = diff.boat * 0.34, cross = (tongueWestX(20) - 4.5 - nearX(-400)) / sp;
-  while (ROWS.left > 0) {
-    const land = ROWS.base + ROWS.k * ROWS.every; if (land - cross > GAME.t + 1.5) break;   // this row is not due to push off yet
-    const n = Math.min(ROWS.left, ROWS.k === 0 ? ROWS.first : 3), r = rng(ROWS.seed + ROWS.k * 31), zs = [];
-    for (let i = 0; i < n; i++) { let z, tries = 0; do { z = lerp(ROWS.z0, ROWS.z1, r()); tries++; } while (tries < 20 && zs.some((q) => Math.abs(q - z) < 11)); zs.push(z); }
-    zs.forEach((z, i) => { const b = launchBoat(z, 0, 8, r() < 0.3 ? 1 : 0, ROWS.k > 2 && i === 0 && r() < 0.25 ? 1 : 0); b.wave = ROWS.k; b.t = (b.len - (land - GAME.t) * b.speed + rand(-2, 2)) / b.speed; if (CINE.on && CINE.def && CINE.def.boatFilm) filmRow(b, true); });
-    ROWS.left -= n; ROWS.k++;
+  for (;;) {
+    if (!ROWS.q.length) { if (ROWS.men >= ROWS.total) break; rowsWave(); }
+    const e = ROWS.q[0], land = e.land + ROWS.shift; if (land - cross > GAME.t + 1.5) break;   // not due to push off yet
+    ROWS.q.shift(); const b = launchBoat(e.z, 0, 8, e.rpg, e.flame); b.wave = e.wave; b.t = (b.len - (land - GAME.t) * b.speed) / b.speed;
+    if (CINE.on && CINE.def && CINE.def.boatFilm) filmRow(b, true); if (++out >= maxOut) break;
   }
-  if (ROWS.left <= 0) ROWS.on = false;
+  if (!ROWS.q.length && ROWS.men >= ROWS.total) ROWS.on = false;
 }
 function northGroup(n, delay, kinds = []) {
   for (let i = 0; i < n; i++) {
@@ -757,7 +785,8 @@ const SCENES = [
     focus: () => { const w = nearestWounded(); return w ? [w.unit.pos.x, w.unit.pos.y, w.unit.pos.z, `פצוע · ${w.name}`] : null; },
     entries: [12, 24, 35, 46], radio: ['דודו', 'פגיעה ישירה בעמדה! יש פצועים בתעלה הדרומית!'], start: medevacStart },
   { title: 'הגל הגדול', sub: 'לפנות ערב הם זורקים את הכול: סירות לכל אורך הסוללה המערבית, מקצה לקצה, והשמש השוקעת מאחוריהם. המוצב הקטן הזה הוא כל מה שנשאר מהקו.', goal: 'החזיקו את התעלה המערבית כולה, עד המצרי האחרון', open: [96, 250], spawn: () => trenchAt(-2), face: 338, focus: w2Focus,
-    entries: [-50, -27, -14, 8.5, 24, 46, 56, 68], radio: ['מ״פ', 'גל גדול של סירות! כולם לסוללה המערבית!'], cap: [2, 3, 3], pre(len) { const men = 8 + (LITE ? 4 : 6), total = [400, 600, 800][Math.max(0, DIFF.indexOf(diff))]; rowsStart({ z0: -25, z1: 63, boats: Math.ceil(total / men), first: 2, every: 8.5, t0: len + (D.boatsFilm ? 0 : 20.6) - 6 }); }, start() { mzBoatsFilm(); } },   // the great wave: some six hundred men, row after row
+    entries: [-50, -27, -14, 8.5, 24, 46, 56, 68], radio: ['מ״פ', 'גל גדול של סירות! כולם לסוללה המערבית!'], cap: LITE ? [3, 4, 4] : [3, 4, 5], pre(len) { const lv = Math.max(0, DIFF.indexOf(diff)), film = !D.boatsFilm, ctrl = GAME.t + len + (film ? 21 : 0);   // the film takes 21 s of the battle's time (its slow shot runs at half speed); its first boat grounds 14.4 s in
+      rowsStart({ z0: -25, z1: 63, total: [400, 600, 800][lv], every: [9, 8, 7][lv], ctrl, aLand: ctrl - (film ? 6.6 : 6) }); }, start() { mzBoatsFilm(); } },   // the great wave: some six hundred men, row after row
 ];
 function scCorr(i) {
   const S = SCENES[i]; if (S._c) return S._c; const [a, b] = S.open;
@@ -803,6 +832,7 @@ function introScene(i, len) {
   CP.scene = i; CP.friends = FRIENDS.map((f) => (f.state === 'kia' ? 'kia' : f.state === 'saved' ? 'saved' : 'post')); CP.stats = { ...STATS };
   applyBarricades(i);
   for (const f of FRIENDS) if ((f.state === 'wounded' || f.state === 'stable') && !corridorHas(scCorr(i), f.unit.pos.x, f.unit.pos.z)) { f.state = 'saved'; f.marker.visible = false; feed(`חובשים פינו את ${f.name} לתאג״ד`, 'good'); }
+  CP.boats = boatSnap();   // the boats already on the water as the stage begins: after a death they are put back just where they were
   const S = SCENES[i]; LANDCAP.n = S.cap ? S.cap[Math.max(0, DIFF.indexOf(diff))] : 999; if (S.pre) S.pre(len);
   toast(`שלב ${i + 1} מתוך ${SCENES.length} · ${S.title}`, S.sub); feed(`שלב ${i + 1}: ${S.title}`); radio(S.radio[0], S.radio[1], 4.5); snapRequest('stage');
   if (i > 0) { P.reserve = 160; P.gren = diff.gren0; for (const p of POSTS) if (p.mag) { p.mag.belt = p.mag.cap || 200; p.mag.reload = 0; } if (!corridorHas(scCorr(i), P.pos.x, P.pos.z)) moveToScene(i); }
@@ -1370,7 +1400,7 @@ function restoreCheckpoint() {
   clearBattle(); Object.assign(STATS, CP.stats); resetTutorial(); for (const k of ['start', 'left', 'run', 'mag', 'man', 'cp']) TUT.seen[k] = true;
   FRIENDS.forEach((f, i) => { if (CP.friends[i] === 'post') placeFriendAtPost(f); });
   resetPlayer(); P.alive = true; const S = SCENES[CP.scene], sp = S.spawn(); P.pos.set(sp[0], groundAt(sp[0], sp[1]), sp[1]); P.yaw = -THREE.MathUtils.degToRad(S.face);
-  D.launched = false; D.droneFilm = false; D.phase = 'intro'; introScene(CP.scene, 5);   // back at the start of the boats: their film comes again when the gun is taken (it can be skipped)
+  const snap = CP.boats || []; D.launched = CP.scene === 0 && snap.length > 0; D.droneFilm = false; D.phase = 'intro'; introScene(CP.scene, 5); boatRestore(snap); CP.boats = snap;   // back at the start of the boats: their film comes again when the gun is taken (it can be skipped)
   GAME.state = 'play'; $('#app').classList.add('play'); for (const m of ['#mBrief', '#mPause', '#mEnd', '#mOps', '#mSet']) $(m).hidden = true; initAudio(); lockPointer();
 }
 function resetGame() {

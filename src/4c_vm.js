@@ -321,37 +321,58 @@ function vmAnimate(dt, firing, reloadU) {
 }
 
 /* ---------- the machine gun's sights, for aiming: the MAG on the rampart and on the jeeps ----------
-   Seen as the gunner sees it with his cheek on the stock: the top of the receiver and the feed cover close below, the side plates either
-   side of it and a few brass rounds of the belt at the right, the rear sight - a thick ring on its post between two guards - and through it,
-   far down the ribbed barrel, the front sight blade between its ears. The line of sight is the camera's own axis, so the ring and the blade
-   sit dead centre whatever the screen. It rises into view as the gun comes up to the eye, and kicks with every round */
+   Drawn from a picture of the gun from the gunner's eye: in the middle the rear sight, a heavy ring on a broad post between two guards on
+   their base, and through the ring, far down the ribbed barrel, the front sight blade between its ears, its tip on the line of sight. Below
+   in the foreground the feed cover with its catch, a big rounded plate either side, and at the right the brass of the belt. Built in the
+   picture's own terms: px(x, y, z) takes a point of the picture (pixels from the ring's centre, y down) to the depth z where that part
+   stands, so the parts keep the picture's proportions; the line of sight is the camera's axis, so the ring is dead centre on any screen.
+   It rises into view as the gun comes up to the eye, and kicks with every round */
 const MAGSIGHT = (() => {
-  const K = 0x2a2927, D = 0x1f1e1c, W = 0x3a3733, B = 0xb48c4c, z0 = -0.16, zf = -0.58;
-  const G = { tor: (r, t, a, b) => new THREE.TorusGeometry(r, t, a, b), box: (x, y, z) => new THREE.BoxGeometry(x, y, z), cyl: (a, b, h, n) => new THREE.CylinderGeometry(a, b, h, n) };
-  const parts = [
-    [G.tor(0.0175, 0.0056, 10, 44), K, M4(0, 0, z0)],                                                                 // the ring of the rear sight
-    [G.box(0.014, 0.03, 0.008), K, M4(0, -0.037, z0)], [G.box(0.034, 0.008, 0.03), D, M4(0, -0.054, z0 + 0.004)],       // its post, and the base it stands on
-    ...[-1, 1].map((sd) => [G.box(0.008, 0.022, 0.022), W, M4(sd * 0.02, -0.045, z0 + 0.002)]),                         // the guards either side
-    [G.box(0.08, 0.06, 0.26), D, M4(0, -0.09, -0.18)],                                                                  // the receiver
-    [G.box(0.052, 0.012, 0.09), W, M4(0, -0.053, -0.1)], [G.cyl(0.0045, 0.0045, 0.003, 10), K, M4(0, -0.0465, -0.085)],  // the feed cover and its catch
-    ...[-1, 1].map((sd) => [G.box(0.012, 0.07, 0.13), W, M4(sd * 0.054, -0.077, -0.12)]),                               // the side plates
-    ...[-1, 1].map((sd) => [G.cyl(0.006, 0.006, 0.13, 8), W, M4(sd * 0.054, -0.042, -0.12, Math.PI / 2, 0, 0)]),         // their rounded tops
-    ...[0, 1, 2, 3].map((k) => [G.cyl(0.0042, 0.0042, 0.026, 8), B, M4(0.074, -0.058 - k * 0.0105, -0.135 + k * 0.004, 0, 0, Math.PI / 2)]),   // the belt: brass rounds
-    [G.cyl(0.0105, 0.0105, -0.3 - zf, 12), D, M4(0, -0.028, (zf - 0.3) / 2 - 0.005, Math.PI / 2, 0, 0)],                  // the barrel and its jacket
-    ...[0, 1, 2, 3, 4, 5, 6, 7].map((k) => [G.cyl(0.0128, 0.0128, 0.007, 12), K, M4(0, -0.028, -0.32 - k * 0.032, Math.PI / 2, 0, 0)]),   // its cooling ribs
-    [G.box(0.013, 0.014, 0.012), K, M4(0, -0.016, zf)], [G.box(0.0022, 0.011, 0.003), D, M4(0, -0.0055, zf)],            // the front sight: its block and blade, the tip on the line
-    ...[-1, 1].map((sd) => [G.box(0.0022, 0.012, 0.004), K, M4(sd * 0.0058, -0.008, zf)]),                              // and its ears
-  ];
-  const g = new THREE.Group(), m = new THREE.Mesh(build(parts), VMAT.metal); g.add(m); g.visible = false; vmScene.add(g); return g;
+  const K = 0x4b4945, D = 0x403e3a, W = 0x57534d, L = 0x232220, B = 0xb48c4c, KZ = 9.06e-4;
+  const m = (px, z) => px * KZ * z;   // a length in the picture at depth z, in metres
+  const box = (w, h, d, c, x, y, z) => [new THREE.BoxGeometry(w, h, d), c, M4(x, y, -z)];
+  const cyl = (r, h, c, x, y, z, ax, n = 16) => [new THREE.CylinderGeometry(r, r, h, n), c, ax === 'z' ? M4(x, y, -z, Math.PI / 2, 0, 0) : ax === 'x' ? M4(x, y, -z, 0, 0, Math.PI / 2) : M4(x, y, -z)];
+  const ext = (shape, depth, c, x, y, z, bev = 0.0015) => [new THREE.ExtrudeGeometry(shape, { depth, curveSegments: 40, bevelEnabled: true, bevelThickness: bev, bevelSize: bev * 0.8, bevelSegments: 2 }), c, M4(x, y, -z - depth / 2)];
+  const rrect = (w, h, r) => { const s = new THREE.Shape(); s.moveTo(-w / 2 + r, -h / 2); s.lineTo(w / 2 - r, -h / 2); s.quadraticCurveTo(w / 2, -h / 2, w / 2, -h / 2 + r); s.lineTo(w / 2, h / 2 - r); s.quadraticCurveTo(w / 2, h / 2, w / 2 - r, h / 2); s.lineTo(-w / 2 + r, h / 2); s.quadraticCurveTo(-w / 2, h / 2, -w / 2, h / 2 - r); s.lineTo(-w / 2, -h / 2 + r); s.quadraticCurveTo(-w / 2, -h / 2, -w / 2 + r, -h / 2); return s; };
+  const rbox = (w, h, d, c, x, y, z, r = Math.min(w, h) * 0.12) => ext(rrect(w, h, r), d, c, x, y, z, Math.min(0.0025, r * 0.5));   // a block with its edges worn round, for the light to catch
+  const parts = [];
+  // the rear sight: ring and post in one plate, the hole through it
+  { const z = 0.32, R = m(180, z), Ri = m(125, z), w = m(85, z), yb = -m(275, z), yj = -Math.sqrt(R * R - w * w), a = Math.atan2(yj, -w), b = Math.atan2(yj, w);
+    const sh = new THREE.Shape(); sh.moveTo(-w, yb); sh.lineTo(-w, yj); sh.absarc(0, 0, R, a, b + Math.PI * 2, true); sh.lineTo(w, yb); sh.lineTo(-w, yb);
+    const hole = new THREE.Path(); hole.absarc(0, 0, Ri, 0, Math.PI * 2, false); sh.holes.push(hole); parts.push(ext(sh, 0.012, K, 0, 0, z));
+    for (const sd of [-1, 1]) {   // the guards: an upright at each side, joined to the post low down
+      parts.push(rbox(m(40, z), m(275, z) - m(150, z), 0.03, D, sd * m(198, z), -(m(150, z) + m(275, z)) / 2, z));
+      parts.push(box(m(93, z), m(18, z), 0.03, D, sd * (m(85, z) + m(178, z)) / 2, -m(275, z) + m(9, z), z));
+    }
+    parts.push(rbox(m(546, z), m(65, z), 0.06, W, 0, -m(307, z), z + 0.01));                 // the base under them
+    parts.push(box(m(580, 0.39), m(25, 0.39), 0.06, L, 0, -m(262, 0.39), 0.39));            // and the rail beyond it
+  }
+  // the barrel: its jacket ribbed for cooling, and on it at the muzzle the front sight, the blade's tip on the line
+  { const top = -0.055, r = 0.027, ay = top - r;
+    parts.push(cyl(0.021, 0.66, D, 0, ay, 0.69, 'z')); for (let zz = 0.4; zz < 0.955; zz += 0.034) parts.push(cyl(r, 0.011, W, 0, ay, zz, 'z'));
+    parts.push(box(0.06, 0.03, 0.1, D, 0, ay - 0.012, 0.41));                                 // its seat under the rear sight
+    const zf = 0.99; parts.push(box(0.07, 0.016, 0.03, K, 0, top + 0.005, zf), box(0.014, 0.046, 0.012, D, 0, -0.023, zf));
+    for (const sd of [-1, 1]) parts.push(box(0.011, 0.024, 0.02, K, sd * 0.028, -0.034, zf));
+  }
+  // the feed cover in the foreground, its catch and its seam; the receiver's shoulders either side of it
+  { parts.push(rbox(0.124, 0.064, 0.13, K, 0, -0.128, 0.235, 0.008), box(0.16, 0.06, 0.13, D, 0, -0.134, 0.235));
+    parts.push(cyl(0.0065, 0.004, W, 0, -0.094, 0.285, 'y', 20), box(0.124, 0.0012, 0.0025, L, 0, -0.0955, 0.23)); }
+  // the big rounded plates either side, their faces to the gunner, and the blocks before them low down
+  { const pw = 0.057, ph = 0.22, rr = 0.012, sh = new THREE.Shape(); sh.moveTo(-pw / 2, -ph); sh.lineTo(pw / 2, -ph); sh.lineTo(pw / 2, -rr); sh.quadraticCurveTo(pw / 2, 0, pw / 2 - rr, 0); sh.lineTo(-pw / 2 + rr, 0); sh.quadraticCurveTo(-pw / 2, 0, -pw / 2, -rr); sh.lineTo(-pw / 2, -ph);
+    for (const sd of [-1, 1]) { parts.push(ext(sh, 0.05, W, sd * (0.0713 + pw / 2), -0.0326, 0.265, 0.003)); parts.push(rbox(0.04, 0.12, 0.06, D, sd * 0.08, -0.14, 0.21, 0.006)); } }
+  // the belt at the right: brass rounds, and the black links between them
+  for (let k = 0; k < 6; k++) { const y = -0.095 - k * 0.0118; parts.push(cyl(0.0057, 0.034, B, 0.142, y, 0.27, 'z', 12), box(0.006, 0.009, 0.012, L, 0.1495, y, 0.262)); }
+  const g = new THREE.Group(); g.add(new THREE.Mesh(build(parts), VMAT.metal)); g.visible = false; vmScene.add(g); return g;
 })();
+const MAGFILL = new THREE.DirectionalLight(0xfff2e2, 0); MAGFILL.position.set(0.35, 0.9, 0.8); vmScene.add(MAGFILL);   // light on the gunner's side of the sights: the gun often faces the sun, and its back would be black
 /* how far the gunner has the sights up (0..1), and the sights placed for it; the world's gun is hidden while they are up */
 function magSightUpd(dt, off) {
   const mag = !off && P.mode === 'mag' && P.post && P.post.mag && !P.post.mag.big && !P.post.mag.heavy, jeep = !off && !!(P.ride && P.ride.mg), k = mag || jeep ? P.ads : 0;
   const gun = mag ? P.post.mag.pivot : jeep ? P.ride.gun : null, hide = gun && k > 0.5 ? gun : null;
   if (P.adsHid && P.adsHid !== hide) { P.adsHid.visible = true; P.adsHid = null; } if (hide && hide.visible) { hide.visible = false; P.adsHid = hide; }
-  MAGSIGHT.visible = k > 0.02; if (!MAGSIGHT.visible) return 0;
+  MAGSIGHT.visible = k > 0.02; MAGFILL.intensity = MAGSIGHT.visible ? 2.2 / renderer.toneMappingExposure : 0; if (!MAGSIGHT.visible) return 0;
   const e = k * k * (3 - 2 * k), kick = P.vmKick || 0; P.vmKick = Math.max(0, kick - dt * 14);
-  MAGSIGHT.position.set(rand(-1, 1) * 0.0006 * kick, -0.14 * (1 - e) + 0.0018 * kick, 0.008 * kick); MAGSIGHT.rotation.set(0.008 * kick, 0, 0);
+  MAGSIGHT.position.set(rand(-1, 1) * 0.0012 * kick, -0.2 * (1 - e) + 0.0035 * kick, 0.016 * kick); MAGSIGHT.rotation.set(0.01 * kick, 0, 0);
   return k;
 }
 

@@ -765,8 +765,14 @@ class Boat {
       const sd = Math.sign(z), oar = new THREE.Group(); oar.position.set(x, boatG(x / BOAT_L) + 0.07, sd * boatW(x / BOAT_L)); oar.rotation.order = 'YXZ'; const om = new THREE.Mesh(OAR_GEO, MAT.vc); om.rotation.y = sd < 0 ? Math.PI : 0; oar.add(om); this.g.add(oar);
       this.seats.push({ m, alive: true, kind: 'rifle', sp: [x, z], rower: true, oar, sd }); }
     if (Math.random() < 0.34) { const F = boatFlag(), pole = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.022, 1.3, 5).translate(0, 0.65, 0), MAT.wood || MAT.vc); pole.position.set(BOAT_L * 0.9, boatG(0.9), 0); const fl = new THREE.Mesh(F.geo, F.mat); fl.position.set(0, 1.12, 0); pole.add(fl); this.g.add(pole); this.flag = pole; }
+    // far off, the boat is drawn as one piece - hull, men and oars baked together, as the scenery's boats are - instead of some twenty: the canal can be full of boats
+    this.lod = new THREE.Mesh(FLOT_GEO, MAT.boatWood); this.lod.visible = false; this.g.add(this.lod); this.lodOn = false; this.intact = true;
     this.g.rotation.order = 'YXZ'; this.g.rotation.y = this.heading - Math.PI / 2; this.g.position.set(from[0], 0, from[1]); this.g.visible = false;
     onLayer1(this.g); this.hull.layers.enableAll(); scene.add(this.g); BOATS.push(this);
+  }
+  setLod(on) {
+    if (on === this.lodOn) return; this.lodOn = on; this.lod.visible = on; this.hull.visible = !on;
+    for (const q of this.seats) { q.m.visible = !on && q.alive && !q.gone && !(q.rower && this.filmHide); if (q.oar) q.oar.visible = !on && !q.gone && !this.filmHide; }
   }
   seatWorld(i, out = V3()) { const s = this.seats[i].sp; out.set(s[0], 0.02, s[1]).applyMatrix4(this.g.matrixWorld); return out; }
   aliveCount() { return this.seats.filter((s) => s.alive).length; }

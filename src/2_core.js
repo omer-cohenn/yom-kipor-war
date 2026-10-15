@@ -22,7 +22,7 @@ const LITE = QUAL !== 'high';
 const QLOD = { high: [16, 48], med: [9, 30], low: [0, 15] }[QUAL];
 const FAR = LITE ? 11000 : 30000;
 const HDRK = LITE ? 1 : 2.4;
-const $ = (s) => document.querySelector(s);
+const $C = new Map(), $ = (s) => { let e = $C.get(s); if (!e || !e.isConnected) { e = document.querySelector(s); if (e) $C.set(s, e); } return e; };   /* the page's elements, looked up once (the HUD asks for them every frame) */
 const V3 = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 
 /* ================= math ================= */
