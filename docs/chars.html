@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>חיילים חדשים · טסט</title>
+<style>
+  :root { --ink: #ece6d6; --dim: #b9b19c; --bg: #1d1c18; --chip: rgba(20, 19, 16, 0.78); --line: rgba(236, 230, 214, 0.22); --accent: #c9a24a; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font-family: Rubik, Heebo, Arial, sans-serif; overflow: hidden; }
+  #view { position: fixed; inset: 0; }
+  #view canvas { display: block; }
+  header { position: fixed; top: 0; right: 0; left: 0; padding: calc(14px + env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) 14px max(16px, env(safe-area-inset-left, 0px)); display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap; pointer-events: none; }
+  header h1 { margin: 0; font-size: 20px; font-weight: 700; letter-spacing: 0; color: #2b2619; }
+  header p { margin: 0; color: #4a4232; font-size: 13px; }
+  #bar { position: fixed; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); right: max(16px, env(safe-area-inset-right, 0px)); left: max(16px, env(safe-area-inset-left, 0px)); display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+  #bar button { background: var(--chip); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 9px 14px; font: inherit; font-size: 14px; cursor: pointer; }
+  #bar button[aria-pressed="true"] { border-color: var(--accent); color: #fff; }
+  #bar button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .tag { position: fixed; transform: translate(-50%, 0); background: var(--chip); border: 1px solid var(--line); border-radius: 6px; padding: 4px 10px; font-size: 14px; white-space: nowrap; pointer-events: none; }
+  .tag small { display: block; color: var(--dim); font-size: 11px; }
+  #load { position: fixed; inset: 0; display: grid; place-items: center; color: var(--dim); font-size: 15px; }
+</style>
+<div id="view"></div>
+<header><h1>חיילים חדשים · טסט</h1><p>הדמויות במשחק עצמו לא שונו. גרירה מסובבת, גלגלת מקרבת.</p></header>
+<div id="load">טוען את הדמויות…</div>
+<div id="bar">
+  <button id="bEase" aria-pressed="true">עמידה</button>
+  <button id="bT" aria-pressed="false">תנוחת T</button>
+  <button id="bSpin" aria-pressed="false">סיבוב</button>
+</div>
+<script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }</script>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { clone as skClone } from 'three/addons/utils/SkeletonUtils.js';
+
+/* one figure, dressed three ways: the uniform, webbing, boots and helmet of each army in 1973 */
+const ARMIES = [
+  { id: 'il', name: 'צה״ל', sub: 'מדי זית, קסדת M1 עם רשת', helmet: 'm1', x: 1.05, colors: { Uniform: 0x5f5a3a, Webbing: 0x5c5737, Boots: 0x4a2c1c, HelmetM1: 0x4c4e34, HelmetLiner: 0x3e3d2b, HelmetBand: 0x34331f } },
+  { id: 'eg', name: 'מצרים', sub: 'הסוואת חאקי, קסדה סובייטית', helmet: 'sov', x: 0, colors: { Webbing: 0x8f7c52, Boots: 0x1d1b19, HelmetSoviet: 0x7a7150 },
+    camo: { seed: 7, base: 0xb5a072, layers: [[0x8c7148, 0.55, 4, 10], [0x6c6946, 0.63, 5, 12], [0xcbb98b, 0.68, 8, 18]] } },
+  { id: 'sy', name: 'סוריה', sub: 'הסוואת יער, קסדה סובייטית', helmet: 'sov', x: -1.05, colors: { Webbing: 0x4e5236, Boots: 0x1d1b19, HelmetSoviet: 0x434a30 },
+    camo: { seed: 31, base: 0x5f6a43, layers: [[0x37462b, 0.52, 5, 6], [0x5b4630, 0.6, 6, 7], [0x20261b, 0.69, 9, 10]] } },
+];
+const R = new THREE.WebGLRenderer({ antialias: true }); R.setPixelRatio(Math.min(2, devicePixelRatio)); R.setSize(innerWidth, innerHeight);
+R.shadowMap.enabled = true; R.shadowMap.type = THREE.PCFSoftShadowMap; R.toneMapping = THREE.ACESFilmicToneMapping; R.toneMappingExposure = 1.25;
+document.getElementById('view').appendChild(R.domElement);
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0xc9b994); scene.fog = new THREE.Fog(0xc9b994, 9, 26);
+const cam = new THREE.PerspectiveCamera(32, innerWidth / innerHeight, 0.05, 60); cam.position.set(0, 1.45, 5.4);
+const ctl = new OrbitControls(cam, R.domElement); ctl.target.set(0, 1.0, 0); ctl.enableDamping = true; ctl.minDistance = 0.6; ctl.maxDistance = 12; ctl.maxPolarAngle = Math.PI * 0.52;
+scene.add(new THREE.HemisphereLight(0xdfe6f0, 0x7a6a4c, 1.1));
+const sun = new THREE.DirectionalLight(0xfff1d8, 2.6); sun.position.set(-3, 6, 4); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, { left: -3, right: 3, top: 3, bottom: -1, near: 1, far: 15 }); sun.shadow.bias = -0.0004; scene.add(sun);
+const ground = new THREE.Mesh(new THREE.CircleGeometry(14, 64), new THREE.MeshStandardMaterial({ color: 0xbfa77a, roughness: 1 })); ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
+
+/* the figure's skeleton keeps its arm bones side by side (the rig that drove them is not in the file), so a pose is made by turning each
+   arm's top bones about the shoulder in the scene's own frame */
+function armsDown(root, ang) {
+  root.updateMatrixWorld(true);
+  const bones = []; root.traverse((o) => { if (o.isBone) bones.push(o); });
+  const rest = new Map(bones.map((b) => [b, { p: b.position.clone(), q: b.quaternion.clone(), s: b.scale.clone() }])); root.userData.rest = root.userData.rest || rest;
+  for (const [b, r] of root.userData.rest) { b.position.copy(r.p); b.quaternion.copy(r.q); b.scale.copy(r.s); }
+  root.updateMatrixWorld(true); if (!ang) return;
+  const wp = (b) => new THREE.Vector3().setFromMatrixPosition(b.matrixWorld);
+  for (const side of [1, -1]) {
+    const sfx = side > 0 ? 'l' : 'r', sh = bones.find((b) => b.name.replace(/\W/g, '') === 'c_arm_twist_offset' + sfx); if (!sh) continue;   /* the loader drops the dot in 'name.l' */
+    const S = wp(sh);
+    const set = bones.filter((b) => b.name.endsWith(sfx) && /arm|hand|thumb|index|middle|ring|pinky/.test(b.name) && wp(b).x * side > S.x * side - 0.03 && wp(b).y > S.y - 0.15);
+    const top = set.filter((b) => !set.includes(b.parent));
+    const M = new THREE.Matrix4().makeTranslation(S.x, S.y, S.z).multiply(new THREE.Matrix4().makeRotationZ(-side * ang)).multiply(new THREE.Matrix4().makeTranslation(-S.x, -S.y, -S.z));
+    for (const b of top) { const w = M.clone().multiply(b.matrixWorld); b.parent.matrixWorld.clone().invert().multiply(w).decompose(b.position, b.quaternion, b.scale); }
+    root.updateMatrixWorld(true);
+  }
+}
+/* camouflage cloth, drawn here: blotches of each colour where a tileable noise field passes its threshold, the field stretched sideways
+   (columns, rows of noise cells) for the Egyptian brush strokes and round for the Syrian forest pattern; then the weave of the cloth over it */
+function camoTexture(c) {
+  const N = 512, cv = document.createElement('canvas'); cv.width = cv.height = N; const ctx = cv.getContext('2d'), img = ctx.createImageData(N, N), D = img.data;
+  let st = c.seed >>> 0; const rnd = () => { st = (st + 0x6d2b79f5) >>> 0; let t = st; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  const field = (px, py) => {   // fractal value noise that tiles: px by py cells, then twice as many, three octaves
+    const oct = [1, 2, 4].map((m) => { const W = px * m, H = py * m, g = new Float32Array(W * H).map(rnd); return { W, H, g, a: 1 / m }; });
+    return (u, v) => { let s = 0, n = 0; for (const o of oct) { const x = u * o.W, y = v * o.H, x0 = Math.floor(x), y0 = Math.floor(y), fx = x - x0, fy = y - y0, sx = fx * fx * (3 - 2 * fx), sy = fy * fy * (3 - 2 * fy);
+      const i = (yy, xx) => o.g[((yy % o.H) * o.W) + (xx % o.W)], a = i(y0, x0), b = i(y0, x0 + 1), d0 = i(y0 + 1, x0), e = i(y0 + 1, x0 + 1);
+      s += (a + (b - a) * sx + (d0 - a) * sy + (a - b - d0 + e) * sx * sy) * o.a; n += o.a; } return s / n; };
+  };
+  const rgb = (h) => [(h >> 16) & 255, (h >> 8) & 255, h & 255], base = rgb(c.base), L = c.layers.map(([col, thr, px, py]) => ({ col: rgb(col), thr, f: field(px, py) })), grain = field(64, 64);
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    let col = base; const u = x / N, v = y / N; for (const l of L) if (l.f(u, v) > l.thr) col = l.col;
+    const w = 0.93 + 0.05 * (((x >> 1) + (y >> 1)) & 1) + 0.06 * (grain(u, v) - 0.5), k = (y * N + x) * 4;
+    D[k] = col[0] * w; D[k + 1] = col[1] * w; D[k + 2] = col[2] * w; D[k + 3] = 255;
+  }
+  ctx.putImageData(img, 0, 0); const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(0.55, 0.55); t.anisotropy = 4; return t;
+}
+const figs = []; let pose = 'ease', spin = false;
+new GLTFLoader().load('chars/soldier.glb', (g) => {
+  document.getElementById('load').remove();
+  for (const A of ARMIES) {
+    const f = skClone(g.scene), camo = A.camo ? camoTexture(A.camo) : null; f.position.x = A.x; f.rotation.y = 0;
+    f.traverse((o) => {
+      if (!o.isMesh) return; o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false;
+      if (o.name.startsWith('HelmetM1')) o.visible = A.helmet === 'm1';
+      if (o.name.startsWith('HelmetSoviet')) o.visible = A.helmet === 'sov';
+      o.material = o.material.clone(); const c = A.colors[o.material.name]; if (c !== undefined) o.material.color.set(c);
+      if (camo && o.material.name === 'Uniform') { o.material.map = camo; o.material.color.set(0xffffff); }
+    });
+    scene.add(f); armsDown(f, 1.22);
+    const tag = document.createElement('div'); tag.className = 'tag'; tag.innerHTML = `${A.name}<small>${A.sub}</small>`; document.body.appendChild(tag);
+    figs.push({ f, tag });
+  }
+}, undefined, (e) => { document.getElementById('load').textContent = 'הטעינה נכשלה. רעננו את הדף.'; console.error(e); });
+const setPose = (p) => { pose = p; for (const { f } of figs) armsDown(f, p === 'ease' ? 1.22 : 0); bEase.setAttribute('aria-pressed', p === 'ease'); bT.setAttribute('aria-pressed', p === 't'); };
+bEase.onclick = () => setPose('ease'); bT.onclick = () => setPose('t'); bSpin.onclick = () => { spin = !spin; bSpin.setAttribute('aria-pressed', spin); };
+addEventListener('resize', () => { R.setSize(innerWidth, innerHeight); cam.aspect = innerWidth / innerHeight; cam.updateProjectionMatrix(); });
+const v = new THREE.Vector3(), clock = new THREE.Clock();
+R.setAnimationLoop(() => {
+  const dt = clock.getDelta(); if (spin) for (const { f } of figs) f.rotation.y += dt * 0.6;
+  ctl.update(); R.render(scene, cam);
+  for (const { f, tag } of figs) { v.set(f.position.x, 0.02, 0).project(cam); tag.style.left = (v.x * 0.5 + 0.5) * innerWidth + 'px'; tag.style.top = Math.min((-v.y * 0.5 + 0.5) * innerHeight + 8, innerHeight - 118) + 'px'; const sx = (v.x * 0.5 + 0.5) * innerWidth; tag.style.display = v.z < 1 && sx > -80 && sx < innerWidth + 80 ? '' : 'none'; }
+});
+window.__view = { cam, ctl, setPose };   /* for checking it from outside */
+window.__ready = true;
+</script>
+</html>
