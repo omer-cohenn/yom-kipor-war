@@ -1,6 +1,6 @@
 
 /* ================= terrain maps made outside the code =================
-   Each field chapter can have a map (tools/maps/pack_maps.py -> maps/<name>.bin): heights, colour, splat weights for four ground
+   Each field chapter can have a map (tools/maps/pack_maps.py -> maps/<name>.json): heights, colour, splat weights for four ground
    materials, vegetation densities and a mask. mapsLoad fetches the chapter's own when the mission loads (with its material set and the
    vegetation cards, once); without them (an old build, no network) every chapter keeps its procedural ground. mapH puts a map under a
    chapter's height function: inside the map's box the map gives the ground and its colour, blending over edge_blend metres back to the
@@ -10,7 +10,7 @@ const MAP_OF = { rescue: 'rescue', armor: 'armor', farm: 'farm', cross: 'cross',
 const MAP_URL = 'maps/', MAP_EDGE = 60;
 async function mapFetch(url, type) {
   const r = await fetch(url, { cache: 'force-cache' }); if (!r.ok) throw new Error(url + ' ' + r.status);
-  if (type === 'zbin') { if (typeof DecompressionStream === 'undefined') throw new Error('no DecompressionStream'); return new Response(r.body.pipeThrough(new DecompressionStream('deflate'))).arrayBuffer(); }
+  if (type === 'zjson') { if (typeof DecompressionStream === 'undefined') throw new Error('no DecompressionStream'); const b = atob((await r.json()).z), u = new Uint8Array(b.length); for (let i = 0; i < b.length; i++) u[i] = b.charCodeAt(i); return new Response(new Blob([u]).stream().pipeThrough(new DecompressionStream('deflate'))).arrayBuffer(); }
   return type === 'json' ? r.json() : type === 'blob' ? r.blob() : r.arrayBuffer();
 }
 // heights come stored as their difference from the plane through the left, upper and upper-left samples: add the plane back
@@ -61,7 +61,7 @@ async function mapVegLoad() {
 async function mapsLoad(m) {
   const name = MAP_OF[m]; if (!name || MAPS[name] !== undefined) return;
   try {
-    const M = mapParse(await mapFetch(`${MAP_URL}${name}.bin?v=${MAP_VER}`, 'zbin'));
+    const M = mapParse(await mapFetch(`${MAP_URL}${name}.json?v=${MAP_VER}`, 'zjson'));
     if (M.hdr.set && (!LITE || QS.has('maptex'))) M.set = await mapMaterials(M.hdr.set);   // the textured ground: high quality (or ?maptex)
     if (M.v) await mapVegLoad();
     MAPS[name] = M;

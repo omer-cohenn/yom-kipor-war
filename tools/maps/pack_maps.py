@@ -1,6 +1,6 @@
 """pack_maps.py [SRC]: the terrain maps made for the game outside it (SRC/tools/maps/<map>/, from the maps session) packed for the browser.
 
-  public/maps/<map>.bin   one zlib stream: 4 bytes of header length, a JSON header, then the layers, each 4-byte aligned:
+  public/maps/<map>.json  {v, z}: z is one zlib stream, in base64: 4 bytes of header length, a JSON header, then the layers, each 4-byte aligned:
                           h  heights, uint16, every sample stored as its difference from the plane through its left, upper and upper-left
                              neighbours (smooth ground packs to almost nothing); the game adds them back
                           c  colour (RGB), s splat weights (RGBA), v vegetation densities (RGBA), m mask (RGB: rocks, plants, keep clear)
@@ -129,7 +129,7 @@ def pack_map(name):
     hdr['off'] = off
     hj = json.dumps(hdr, separators=(',', ':')).encode(); pad = (-(4 + len(hj))) % 4; hj += b' ' * pad
     raw = struct.pack('<I', len(hj)) + hj + bytes(body)
-    z = zlib.compress(raw, 9); open(os.path.join(OUT, name + '.bin'), 'wb').write(z)
+    z = zlib.compress(raw, 9); json.dump({'v': 1, 'z': __import__('base64').b64encode(z).decode()}, open(os.path.join(OUT, name + '.json'), 'w'))   # base64 in JSON: served everywhere (an artifact serves no .bin)
     assert np.array_equal(unpredict(predict(h[:40, :40])), h[:40, :40])
     print(f'{name}: {hdr["size"]} heights {hdr["hmin"]}..{hdr["hmax"]}, veg {hdr["vegMean"]}, empty splat {hdr["splatZero"]}, {len(raw) // 1024} KB -> {len(z) // 1024} KB')
     return hdr
