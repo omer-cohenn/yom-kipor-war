@@ -187,11 +187,14 @@ function plankTex() {
   g.fillStyle = 'rgba(70,58,40,.35)'; for (let k = 0; k < 40; k++) g.fillRect(r() * 256, 200 + r() * 56, 6 + r() * 30, 3 + r() * 8);   // earth splashed on the bottom boards
   const t = tex(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; return t;
 }
+/* the planks: the board wall of the Plank Fence pack (4f_data_props.js, a texture only - thirteen weathered boards standing side by side,
+   one repeat 2.4 m across and 1.28 m high, the trench wall from floor to lip) with its normal map, else the painted boards of plankTex */
+const FM_PLANK = { has: () => !!MDL_TEX['props/plank/map'], H: 1.28 };
 function fmRevet() {
-  const pos = [], uv = [], col = [], posts = [], caps = [], H0 = DY - 0.06, H1 = FY - 0.03, step = LITE ? 3.2 : 1.6, r = rng(4472);
+  const pos = [], uv = [], col = [], posts = [], caps = [], H0 = DY - 0.06, H1 = FY - 0.03, step = LITE ? 3.2 : 1.6, r = rng(4472), pk = FM_PLANK.has();
   // one revetment face from (a) to (b), pushed out along its normal so it sits on the earth wall: panel by panel, each its own shade of old timber
   const face = (ax, az, bx, bz, nx, nz) => { const L = Math.hypot(bx - ax, bz - az); if (L < 1) return; const n = Math.max(1, Math.round(L / 2.4));
-    for (let i = 0; i < n; i++) { const t0 = i / n, t1 = (i + 1) / n, o = 0.035 + (i % 2) * 0.014, [x0, z0] = FW(lerp(ax, bx, t0) + nx * o, lerp(az, bz, t0) + nz * o), [x1, z1] = FW(lerp(ax, bx, t1) + nx * o, lerp(az, bz, t1) + nz * o), u0 = t0 * L / 2.4, u1 = t1 * L / 2.4, v1 = (H1 - H0) / 2.0, k = 0.74 + r() * 0.38, c = [k, k * (0.95 + r() * 0.07), k * (0.88 + r() * 0.12)];
+    for (let i = 0; i < n; i++) { const t0 = i / n, t1 = (i + 1) / n, o = 0.035 + (i % 2) * 0.014, [x0, z0] = FW(lerp(ax, bx, t0) + nx * o, lerp(az, bz, t0) + nz * o), [x1, z1] = FW(lerp(ax, bx, t1) + nx * o, lerp(az, bz, t1) + nz * o), u0 = t0 * L / 2.4, u1 = t1 * L / 2.4, v1 = (H1 - H0) / (pk ? FM_PLANK.H : 2.0), k = (pk ? 0.84 + r() * 0.24 : 0.74 + r() * 0.38), c = [k, k * (0.95 + r() * 0.07), k * (0.88 + r() * 0.12)];
       pos.push(x0, H0, z0, x1, H0, z1, x1, H1, z1, x0, H0, z0, x1, H1, z1, x0, H1, z0); uv.push(u0, 0, u1, 0, u1, v1, u0, 0, u1, v1, u0, v1); for (let q = 0; q < 6; q++) col.push(...c); }
     const m = Math.max(1, Math.round(L / step)); for (let i = 0; i <= m; i++) { const t = i / m, [px, pz] = FW(lerp(ax, bx, t) + nx * 0.1, lerp(az, bz, t) + nz * 0.1); posts.push([px, pz]); }
     const [cx, cz] = FW((ax + bx) / 2 + nx * 0.1, (az + bz) / 2 + nz * 0.1); caps.push([cx, cz, L, Math.atan2(-(bz - az), bx - ax)]); };
@@ -199,7 +202,9 @@ function fmRevet() {
   // the farm's own edge, the outer wall of the trenches that run along it
   const F = FM_FARM; face(F.x1, F.z1 - 0.2, F.x0, F.z1 - 0.2, 0, -1); face(F.x0 + 0.2, F.z1, F.x0 + 0.2, F.z0, 1, 0); face(F.x0, F.z0 + 0.2, F.x1, F.z0 + 0.2, 0, 1); face(F.x1 - 0.2, F.z0, F.x1 - 0.2, F.z1, -1, 0);
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); g.computeVertexNormals();
-  const pt = plankTex(), m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ map: pt, vertexColors: true, roughness: 0.95, metalness: 0, side: THREE.DoubleSide })); m.receiveShadow = !LITE; scene.add(onLayer1(m));
+  const pt = pk ? mdlTex('props/plank/map') : plankTex(), pmat = new THREE.MeshStandardMaterial({ map: pt, vertexColors: true, roughness: 0.95, metalness: 0, side: THREE.DoubleSide });
+  if (pk && !LITE) { pmat.normalMap = mdlTex('props/plank/nmap', false); pmat.normalScale.set(0.9, 0.9); }
+  const m = new THREE.Mesh(g, pmat); m.receiveShadow = !LITE; scene.add(onLayer1(m));
   const mm = new THREE.Matrix4(), q = new THREE.Quaternion(), up = V3(0, 1, 0), one = V3(1, 1, 1);
   const pg = new THREE.BoxGeometry(0.14, H1 - H0 + 0.22, 0.14).translate(0, (H1 + H0) / 2 + 0.08, 0), pm = new THREE.InstancedMesh(pg, new THREE.MeshStandardMaterial({ color: 0x4a3a28, roughness: 1 }), posts.length);
   posts.forEach(([x, z], i) => pm.setMatrixAt(i, mm.makeTranslation(x, 0, z))); scene.add(SH(onLayer1(pm), true, false));
@@ -207,7 +212,7 @@ function fmRevet() {
   const cm = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 0.13, 0.2), new THREE.MeshStandardMaterial({ color: 0x5a4632, roughness: 1 }), caps.length);
   caps.forEach(([x, z, L, a], i) => cm.setMatrixAt(i, mm.compose(V3(x, FY - 0.05, z), q.setFromAxisAngle(up, a), V3(L, 1, 1)))); scene.add(SH(onLayer1(cm), true, false));
   const boards = []; for (const x of FM_DX) for (let z = F.z1; z > F.z0 + 1.2; z -= 2.5) boards.push([x, z - 1.25, Math.PI / 2]); for (const z of FM_DZ) for (let x = F.x0; x < F.x1 - 1.2; x += 2.5) { if (FM_DX.some((dx) => Math.abs(dx - x - 1.25) < 1.4)) continue; boards.push([x + 1.25, z, 0]); }
-  const bm = new THREE.InstancedMesh(new THREE.BoxGeometry(2.36, 0.06, 0.95), new THREE.MeshStandardMaterial({ map: pt, color: 0xb09878, roughness: 1 }), boards.length);
+  const bm = new THREE.InstancedMesh(new THREE.BoxGeometry(2.36, 0.06, 0.95), new THREE.MeshStandardMaterial({ map: pt, color: pk ? 0xc8bca8 : 0xb09878, roughness: 1 }), boards.length);   // the packed boards are brown already: only dusted
   boards.forEach(([x0, z0, a], i) => { const [x, z] = FW(x0, z0); bm.setMatrixAt(i, mm.compose(V3(x, DY + 0.03, z), q.setFromAxisAngle(up, a + (r() - 0.5) * 0.04), one)); }); bm.receiveShadow = !LITE; scene.add(onLayer1(bm));
   // sandbags: one row along both lips of the edge trench where the fighting goes, and the parapet of the Egyptians' fire trench across the fields
   const bagRun = (x0, x1, z, y) => { for (let x = x0; x < x1; x += 10) { const xb = Math.min(x1, x + 10); if (FM_DX.some((dx) => dx > x - 2.2 && dx < xb + 2.2)) continue; const [a, b] = FW(x, z), [c, d] = FW(xb, z); bagWall([[a, b], [c, d]], 1, y ?? groundAt((a + c) / 2, (b + d) / 2) - 0.05, false); } };

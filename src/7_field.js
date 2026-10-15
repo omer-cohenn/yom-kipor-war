@@ -877,8 +877,10 @@ function mzDroneFilm() {
 /* ---------- ground detail for the field maps: rocks, scrub, crops, reeds, poles and wires, fences, huts ---------- */
 const DET_MAT = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, flatShading: true });
 /* ================= the look of the open country =================
-   Everything that dresses the ground is made here, by hand: rocks grown from noise under a painted stone skin, scrub and grass as
-   crossed cut-out cards painted leaf by leaf into one atlas, and the flat-topped acacia of the desert. One instanced mesh per kind. */
+   Everything that dresses the ground is made here: scrub and grass as crossed cut-out cards painted leaf by leaf into one atlas, the
+   flat-topped acacia of the desert, and rocks grown from noise under a painted stone skin. The rocks, the stones by the roads and some of
+   the trees are drawn with downloaded models when their data is packed (4f_data_ground.js, see GSET below); the procedural shapes stay
+   as their stand-ins and as the fallback. One instanced mesh per kind. */
 // a rock: a sphere pushed in and out by noise, its hollows darkened in the vertex colours, the bottom flattened so it sits in the sand.
 // kind 'round' is a weathered boulder, 'slab' a bedded sandstone block with its strata, 'sharp' a split angular chunk
 function rockGeo(seed, detail = 2, sx = 1, sy = 0.78, sz = 1, kind = 'round') {
@@ -908,8 +910,9 @@ function rockTex() {
   for (let k = 0; k < 70; k++) { g.fillStyle = r() < 0.6 ? `rgba(160,170,90,${0.12 + r() * 0.2})` : `rgba(190,120,60,${0.1 + r() * 0.16})`; g.beginPath(); g.ellipse(r() * n, r() * n, 2 + r() * 7, 2 + r() * 5, r() * 3, 0, 6.283); g.fill(); }   // lichen
   const t = tex(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(2, 2); return t;
 }
-TX.rock = rockTex();
-const ROCK_MAT = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.96, map: TX.rock, bumpMap: bumpOf(TX.rock), bumpScale: LITE ? 0.6 : 1.1 });
+// the procedural rocks' skin and material, made only when a rock has to fall back to its procedural shape (its model data missing)
+let ROCK_MAT = null;
+function rockMat() { if (!ROCK_MAT) { TX.rock = rockTex(); ROCK_MAT = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.96, map: TX.rock, bumpMap: bumpOf(TX.rock), bumpScale: LITE ? 0.6 : 1.1 }); } return ROCK_MAT; }
 const ROCK_G = rockGeo(31, 1, 1.1, 0.7, 0.9, 'round'), BOULDER_G = rockGeo(32, LITE ? 2 : 3, 1, 0.82, 1.15, 'round');
 const ROCK_GEOS = new Set([ROCK_G, BOULDER_G]);
 /* ---------- the foliage atlas: six painted cells, 512 px each. Leaves and blades are painted in pale neutral tones and tinted per instance;
@@ -981,7 +984,12 @@ const NAT_GEOS = new Set([BUSH_G, BUSH_GREEN_G, BUSH_TWIG_G, BUSH_SPINY_G, GRASS
 const _tiltE = new THREE.Euler();
 function instScatter(geo, items, mat = DET_MAT, cast = true) {
   // items: [x, z, scale, rot, color, yOff, sy]
-  if (!items.length) return null; const rock = ROCK_GEOS.has(geo) || ROCKS_G.includes(geo), nat = NAT_GEOS.has(geo); if (mat === DET_MAT && rock) mat = ROCK_MAT; if (nat) mat = NAT_MAT;
+  if (!items.length) return null;
+  // a shape that stands for packed models is drawn with them (GSET); without their data it falls through and is drawn as itself
+  const gs = mat === DET_MAT && GROUND_SETS.get(geo); if (gs) { const im = groundScatter(gs, items, cast); if (im) return im; }
+  if (geo === TAMA_G && groundModels(GSET.dead)) { // about a third of the acacias stand dead: bare trees and stumps, in the same places
+    groundScatter(GSET.dead, items.filter((it) => _gHash(it[1], it[0]) < 0.33), true); items = items.filter((it) => _gHash(it[1], it[0]) >= 0.33); if (!items.length) return null; }
+  const rock = ROCK_GEOS.has(geo) || ROCKS_G.includes(geo), nat = NAT_GEOS.has(geo); if (mat === DET_MAT && rock) mat = rockMat(); if (nat) mat = NAT_MAT;
   if (geo === BUSH_G) { // the greener bushes get the rounder, denser cut-out; the dry scrub comes in three kinds
     const hs = (it) => Math.abs(Math.sin(it[0] * 7.13 + it[1] * 3.71) * 10000) % 1, gr = [], dr = [], tw = [], sp = [];
     for (const it of items) { const c = it[4]; if (((c >> 8) & 255) > ((c >> 16) & 255) + 10) gr.push(it); else { const h = hs(it); (h < 0.3 ? tw : h < 0.6 ? sp : dr).push(it); } }
@@ -1002,7 +1010,17 @@ const dryBush = (r) => [0x8a8460, 0x7d7a58, 0x938a66, 0x6f7050, 0x9a9270, 0x857e
 const greenBush = (r) => [0x66744e, 0x5c6c48, 0x707c56, 0x627452, 0x76805c][Math.floor(r() * 5)];   // the greener bushes of a wadi floor or the canal's belt: still grey-green, never lush
 // plants grow where water once ran: clumps and bare ground, from a slow noise over the map
 const clumpy = (ok, scale, bias, off = 0) => (x, z) => (!ok || ok(x, z)) && noise(x / scale + off, z / scale - off * 0.7) > bias;
-function boulders(list) { for (const [x, z, s] of list) { addCollider(x, z, s * 0.8, s * 0.8, 0, groundAt(x, z) + s * 1.1); coverBox(x, z, s * 0.8, s * 0.8, 0, Math.min(1.6, s * 1.1)); } }
+// a boulder stops you and bullets, and you can take cover behind it. Drawn as a model, its box is that model's (picked and posed exactly as
+// instScatter drew it), turned with it: three quarters of its half-width each way (a boulder is round, the corners of its box are empty),
+// up to its top above the sand
+function boulders(list) {
+  const S = GSET.boulder, ms = groundModels(S);
+  for (const [x, z, s, r = 0] of list) {
+    if (!ms) { addCollider(x, z, s * 0.8, s * 0.8, 0, groundAt(x, z) + s * 1.1); coverBox(x, z, s * 0.8, s * 0.8, 0, Math.min(1.6, s * 1.1)); continue; }
+    const f = groundFit(S, groundPick(ms, x, z)), top = s * f.H - groundPose(S, f, x, z, s).sink, hx = 0.36 * f.b[0] * f.k * s, hz = 0.36 * f.b[2] * f.k * s;
+    addCollider(x, z, hx, hz, r, groundAt(x, z) + top); coverBox(x, z, hx, hz, r, Math.min(1.6, top));
+  }
+}
 function powerLine(pts, step = 42, h = 7.5) {
   const poles = densify(pts, step), pm = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.11, 0.15, h, 7).translate(0, h / 2, 0), MAT.wood, poles.length), cm = new THREE.InstancedMesh(new THREE.BoxGeometry(1.6, 0.1, 0.1), MAT.wood, poles.length), mm = new THREE.Matrix4(), q = new THREE.Quaternion();
   const wires = [];
@@ -1084,13 +1102,100 @@ function fieldSign(x, z, text, rot, w = 1.3, h = 2.1) { const g = groundAt(x, z)
 /* an ambush nest in the scrub: a sandbag ring hidden in a clump of bushes */
 function bushNest(x, z, fx, fz, slots, grp, kind, bushes, r) { const s = foxhole(x, z, fx, fz, slots); s.grp = grp; s.kind = kind; for (let k = 0; k < 5; k++) { const a = Math.atan2(fx, fz) + rand(-2.2, 2.2), d = rand(1.6, 3.2); bushes.push([x + Math.sin(a) * d, z + Math.cos(a) * d, rand(0.9, 1.5), rand(0, 6), greenBush(r)]); } return s; }
 const DRUM_G = build([[G.cyl(0.29, 0.29, 0.88, 12), 0xffffff, M4(0, 0.44, 0)]]);
-function fieldDrums(x, z, n) { const r = rng(Math.round(x * 7 + z * 13) >>> 0), items = []; for (let i = 0; i < n; i++) items.push([x + (i % 3) * 0.62 + (r() - 0.5) * 0.1, z + Math.floor(i / 3) * 0.62, 1, r() * 6, [0x2f4a3a, 0x6b3a26, 0x3d4652, 0x7a6a3a][Math.floor(r() * 4)], 0, 1]); instScatter(DRUM_G, items, MAT.vc); addCover(x - 0.8, z, -1, 0, 0.9); }
+// oil drums in a group: the packed drum (3_world.js propSet), its neutral paint tinted each drum's old colour, else the old cylinders
+function fieldDrums(x, z, n) { const r = rng(Math.round(x * 7 + z * 13) >>> 0), items = []; for (let i = 0; i < n; i++) items.push([x + (i % 3) * 0.62 + (r() - 0.5) * 0.1, z + Math.floor(i / 3) * 0.62, 1, r() * 6, [0x2f4a3a, 0x6b3a26, 0x3d4652, 0x7a6a3a][Math.floor(r() * 4)], 0, 1]);
+  if (!propSet('drum', items.map(([ix, iz, , ir]) => propM(ix, groundAt(ix, iz), iz, ir)), items.map((it) => drumTint(it[4])))) instScatter(DRUM_G, items, MAT.vc); addCover(x - 0.8, z, -1, 0, 0.9); }
 /* scatter along a route: items at a random point of the polyline, dmin..dmax to its side (where the player actually looks) */
 function scatterNear(pts, n, dmin, dmax, seed, ok, make) { const r = rng(seed), dp = densify(pts, 6), out = []; for (let k = 0; k < n * 4 && out.length < n; k++) { const i = Math.floor(r() * (dp.length - 1)), a = dp[i], b = dp[i + 1], u = r(), dx = b[0] - a[0], dz = b[1] - a[1], l = Math.hypot(dx, dz) || 1, sd = r() < 0.5 ? -1 : 1, off = lerp(dmin, dmax, r() ** 1.4) * sd; const x = lerp(a[0], b[0], u) - dz / l * off, z = lerp(a[1], b[1], u) + dx / l * off; if (ok && !ok(x, z)) continue; out.push(make(x, z, r)); } return out; }
 /* ---------- lots of detail: a handful of shapes, instanced by the thousand along the roads and over the ground ---------- */
 const PEBBLE_G = build([[new THREE.OctahedronGeometry(0.17, 0), 0xffffff, M4(0, 0, 0, 0.3, 0.2, 0)], [new THREE.OctahedronGeometry(0.12, 0), 0xffffff, M4(0.3, 0, 0.12, 0, 0.7, 0.4)], [new THREE.OctahedronGeometry(0.1, 0), 0xffffff, M4(-0.22, 0, 0.25)], [new THREE.OctahedronGeometry(0.14, 0), 0xffffff, M4(0.05, 0, -0.3, 0.5, 0, 0)]]);
 const SLAB_G = rockGeo(33, LITE ? 1 : 2, 1.7, 0.5, 1.0, 'slab'), SHARP_G = rockGeo(34, 1, 1.0, 0.8, 1.25, 'sharp'), CLUSTER_G = natMerge([rockGeo(35, 1, 1, 0.7, 1.2, 'round').translate(0, 0, 0), rockGeo(36, 1, 0.55, 0.45, 0.6, 'sharp').translate(1.1, -0.15, 0.3), rockGeo(37, 1, 0.4, 0.35, 0.45, 'round').translate(-0.9, -0.2, 0.6)]);
 const ROCKS_G = [ROCK_G, SLAB_G, SHARP_G, CLUSTER_G];
+/* ---------- the downloaded rocks and dead trees (4f_data_ground.js) ----------
+   Each procedural shape above stands for a set of packed models: the same placements, counts, colliders and cover, drawn with the models
+   when their data is there and with the old shape when it is not. One instanced mesh per model, the old palette kept as a soft tint over
+   the painted stone. A set: m - its models [name, share of the items, its own size, a brightness]; w - how wide one unit of the item's
+   scale is, in metres (the mean of the model's x and z, so a scale means what it meant for the old shape), or h - how tall; sq - a
+   vertical squash; lod - the level of detail [on high quality, on the lighter settings]: LOD1 for the big scattered sets, LOD0 only for
+   the boulders (few, and the ones you hide behind); nm - keep the normal map (high quality at LOD0 only); tilt - how far it may lean as
+   it fell, in radians; sink - how deep it is set in the sand, as a share of its height, lean - plus enough that its leaning edge does not
+   lift off; stone - tinted as stone, and a grey palette (the Hermon's basalt) gets a grey stone; make - a cluster built from copies of the
+   model. scree, pile, dead and scrub stand for no shape of their own: scree() draws the stones round the boulders with them, about a
+   third of the acacias stand dead (instScatter), and dressRoute / dressArea add logs and stumps to the scrub. */
+const GSET = {
+  rock: { m: [['g_flat', 0.6], ['g_small', 0.4]], w: 2.0, sq: 0.9, lod: [1, 1], tilt: 0.12, sink: 0.12, lean: 0.3, stone: true },
+  slab: { m: [['g_slab', 1]], w: 2.6, sq: 0.6, lod: [1, 2], tilt: 0.1, sink: 0.12, lean: 0.3, stone: true },
+  sharp: { m: [['g_spire', 1]], w: 1.8, sq: 0.55, lod: [1, 2], tilt: 0.12, sink: 0.1, lean: 0.3, stone: true },
+  cluster: { m: [['g_block', 1]], sq: 0.62, lod: [1, 2], tilt: 0.08, sink: 0.1, lean: 0.3, stone: true, make: rockCluster },
+  boulder: { m: [['g_boulder', 0.45], ['g_slab', 0.3], ['g_block', 0.25]], w: 2.2, sq: 0.8, lod: [0, 1], nm: true, tilt: 0.07, sink: 0.1, lean: 0.3, stone: true },
+  scree: { m: [['g_small', 0.7], ['g_spire', 0.3]], w: 1.8, sq: 0.8, lod: [1, 1], tilt: 0.2, sink: 0.12, lean: 0.3, stone: true },
+  pebble: { m: [['g_small', 1]], sq: 0.8, lod: [2, 2], tilt: 0.1, sink: 0.1, lean: 0.3, stone: true, make: pebbleCluster },
+  pile: { m: [['g_pile', 1]], w: 2.0, sq: 1, lod: [1, 2], tilt: 0.03, sink: 0.06, lean: 0.3, stone: true },
+  dead: { m: [['g_deadtree', 0.4, 3.4], ['g_dtree_c', 0.18, 3.2], ['g_dtree_a', 0.14, 4.4], ['g_dtree_b', 0.12, 3.0], ['g_stump', 0.16, 0.95, 1.35]], h: 3.4, sq: 1, lod: [1, 1], tilt: 0.04, sink: 0.03, lean: 0.02 },
+  scrub: { m: [['g_log', 0.6, 0.42, 1.45], ['g_stump', 0.4, 0.8, 1.35]], h: 0.6, sq: 1, lod: [1, 2], tilt: 0.05, sink: 0.12, lean: 0.05 },
+};
+const GROUND_SETS = new Map([[ROCK_G, GSET.rock], [SLAB_G, GSET.slab], [SHARP_G, GSET.sharp], [CLUSTER_G, GSET.cluster], [BOULDER_G, GSET.boulder], [PEBBLE_G, GSET.pebble]]);
+const _gHash = (x, z) => Math.abs(Math.sin(x * 91.7311 + z * 47.1123) * 31337.77) % 1;
+// the set's models that are packed (null: none, use the procedural shape), and its level of detail at this quality
+function groundModels(S) { if (S.ok === undefined) { S.ms = S.m.filter((e) => mdlHas(e[0])); S.ok = S.ms.length > 0; S.L = S.lod[LITE ? 1 : 0]; } return S.ok ? S.ms : null; }
+// which model an item gets: by a hash of where it lies, so boulders() finds the same one instScatter drew
+function groundPick(ms, x, z) { let tot = 0; for (const e of ms) tot += e[1]; let u = _gHash(x, z) * tot; for (const e of ms) { u -= e[1]; if (u < 0) return e; } return ms[ms.length - 1]; }
+// one unit of an item's scale on a model: the model's scale k, its box b, its height after the squash H and its widest side W
+function groundFit(S, e) {
+  if (e.fit) return e.fit; let b = null, geo = null;
+  if (S.make) { const g = S.make(e[0], S.L); g.computeBoundingBox(); const v = g.boundingBox.getSize(V3()); b = [v.x, v.y, v.z]; geo = [{ g, m: 0 }]; } else b = mdlBox(e[0]);
+  const k = S.make ? 1 : S.h ? (e[2] ?? S.h) / b[1] : (e[2] ?? S.w) / ((b[0] + b[2]) / 2);
+  return (e.fit = { k, b, H: b[1] * k * S.sq, W: Math.max(b[0], b[2]) * k, geo, lit: e[3] ?? 1 });
+}
+// how it lies: the lean from the same hashes the procedural rocks used, and how deep it is set into the sand
+const _gp = { tx: 0, tz: 0, sink: 0, h: 0, h2: 0 };
+function groundPose(S, f, x, z, s) {
+  const h = Math.abs(Math.sin(x * 12.9898 + z * 78.233) * 43758.5453) % 1, h2 = Math.abs(Math.sin(x * 39.3468 + z * 11.135) * 24634.6345) % 1;
+  _gp.h = h; _gp.h2 = h2; _gp.tx = (h - 0.5) * 2 * S.tilt; _gp.tz = (h2 - 0.5) * 2 * S.tilt; _gp.sink = s * (S.sink * f.H + S.lean * f.W * Math.max(Math.abs(_gp.tx), Math.abs(_gp.tz))); return _gp;
+}
+// a model's materials for the ground: the normal map only where asked (and only on high quality, mdlMats leaves it off otherwise), and a
+// grey stone that keeps the painted rock's light and shade but not its colour
+const _GMAT = {};
+function groundMats(name, nm, grey) {
+  const key = name + (nm ? '|n' : '') + (grey ? '|g' : ''); if (_GMAT[key]) return _GMAT[key];
+  return (_GMAT[key] = mdlMats(name).map((m0) => {
+    const m = m0.clone(); if (!nm) m.normalMap = null;
+    if (grey) { m.onBeforeCompile = (sh) => { sh.fragmentShader = sh.fragmentShader.replace('#include <map_fragment>', '#include <map_fragment>\n\tdiffuseColor.rgb = vec3( dot( diffuseColor.rgb, vec3( 0.3, 0.59, 0.11 ) ) * 1.45 );'); }; m.customProgramCacheKey = () => 'greystone'; }
+    return m;
+  }));
+}
+// a grey palette: the items' colours carry almost no hue
+function greyish(items) { let s = 0; for (const it of items) { const c = it[4] | 0, r = (c >> 16) & 255, g = (c >> 8) & 255, b = c & 255, mx = Math.max(r, g, b, 1); s += (mx - Math.min(r, g, b)) / mx; } return s / items.length < 0.12; }
+// the old palette coloured a pale stone skin outright; over a painted rock it only nudges the hue and the light
+const _WHITE = new THREE.Color(1, 1, 1);
+function stoneTint(c, col, h) { c.setHex(col); const L = Math.max(0.01, 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b); return c.multiplyScalar(1 / L).lerp(_WHITE, 0.8).multiplyScalar(0.78 + Math.sqrt(L) * 0.42 + (h - 0.5) * 0.14); }
+// the scatter itself: items as instScatter takes them ([x, z, scale, rot, color]), split between the set's models, one instanced mesh each
+function groundScatter(S, items, cast) {
+  const ms = groundModels(S); if (!ms || !items.length) return null;
+  const grey = S.stone && greyish(items), groups = new Map(), mm = new THREE.Matrix4(), q = new THREE.Quaternion(), eu = new THREE.Euler(), c = new THREE.Color(), pos = V3(), scl = V3(); let first = null;
+  for (const it of items) { const e = groundPick(ms, it[0], it[1]); if (!groups.has(e)) groups.set(e, []); groups.get(e).push(it); }
+  for (const [e, list] of groups) {
+    const f = groundFit(S, e), mats = groundMats(e[0], S.nm && S.L === 0, grey), ims = (f.geo || mdlGeo(e[0], S.L)).map((p) => new THREE.InstancedMesh(p.g, mats[p.m], list.length));
+    list.forEach(([x, z, s, r, col], i) => {
+      const P = groundPose(S, f, x, z, s); eu.set(P.tx, r, P.tz); mm.compose(pos.set(x, groundAt(x, z) - P.sink, z), q.setFromEuler(eu), scl.set(s * f.k, s * f.k * S.sq, s * f.k));
+      if (S.stone) stoneTint(c, col, P.h); else c.setRGB(1, 0.97 + 0.03 * P.h2, 0.92 + 0.06 * P.h2).multiplyScalar((0.82 + 0.3 * P.h) * f.lit);   // dead wood: grey, warmer or cooler
+      for (const im of ims) { im.setMatrixAt(i, mm); im.setColorAt(i, c); }
+    });
+    for (const im of ims) { im.instanceMatrix.needsUpdate = true; im.instanceColor.needsUpdate = true; scene.add(SH(onLayer1(im), cast, true)); first = first || im; }
+  }
+  return first;
+}
+// the old cluster: a rock with two smaller ones at its foot, here copies of one model (the small ones a level lower), in the old shape's units
+function rockCluster(name, lod) {
+  const b = mdlBox(name), u = 1 / ((b[0] + b[2]) / 2), lo = Math.min(2, lod + 1);
+  const part = (L, w, x, z, ry) => mdlGeo(name, L)[0].g.clone().applyMatrix4(M4(x, 0, z, 0, ry, 0, w * u, w * u, w * u));
+  return mergeGeometries([part(lod, 1.9, 0, 0, 0), part(lo, 1.0, 1.3, 0.35, 2.2), part(lo, 0.75, -1.1, 0.7, 4.1)], false);
+}
+// a pebble by the road: three tiny copies of the smallest rock at its lowest level, about the size of the old octahedra
+function pebbleCluster(name, lod) {
+  const b = mdlBox(name), u = 1 / ((b[0] + b[2]) / 2), g0 = mdlGeo(name, lod)[0].g;
+  return mergeGeometries([[0.34, 0, 0, 0.3], [0.25, 0.32, 0.14, 2.0], [0.2, -0.24, 0.27, 4.1]].map(([w, x, z, ry]) => g0.clone().applyMatrix4(M4(x, 0, z, 0, ry, 0, w * u, w * u, w * u))), false);
+}
 const grassCol = (r) => [0x8a8456, 0x9a9060, 0x7a7a4a, 0xa49a68, 0x6f7442][Math.floor(r() * 5)];
 function dressRoute(pts, ok, seed, k = 1, green = 0.2, o = {}) {
   const n = (v) => Math.round(v * k * (LITE ? 0.4 : 1)), rockCol = o.rock || ROCKC, nT = (v) => Math.round(n(v) * 0.55 * (o.trees ?? 1)), nG = (v) => Math.round(n(v) * (o.grass ?? 1));
@@ -1100,6 +1205,7 @@ function dressRoute(pts, ok, seed, k = 1, green = 0.2, o = {}) {
   instScatter(GRASS_G, scatterNear(pts, nG(3600), 4, 60, seed + 6, okG, (x, z, r) => [x, z, 0.7 + r() * 0.9, r() * 6, grassCol(r), 0, 1]), DET_MAT, false);
   instScatter(BUSH_G, scatterNear(pts, n(1500), 7, 110, seed + 7, okB, (x, z, r) => [x, z, 0.4 + r() * 1.0, r() * 6, r() < green ? greenBush(r) : dryBush(r), 0, 0.8]), DET_MAT, false);
   instScatter(TAMA_G, scatterNear(pts, nT(260), 12, 120, seed + 8, okT, (x, z, r) => [x, z, 0.8 + r() * 0.9, r() * 6, r() < 0.5 ? 0x5e6a40 : 0x6e6a44, 0, 1]));
+  groundScatter(GSET.scrub, scatterNear(pts, nT(30), 8, 100, seed + 12, okB, (x, z, r) => [x, z, 0.8 + r() * 0.5, r() * 6, 0, 0, 1]), false);   // dead wood in the scrub: logs and stumps (models only)
   const bl = scatterNear(pts, n(90), 14, 100, seed + 9, ok, (x, z, r) => [x, z, 1.2 + r() * 1.8, r() * 6, rockCol(r), 0.3, 0.7]); instScatter(BOULDER_G, bl); boulders(bl); scree(bl, seed + 11, rockCol);
   for (const [x, z] of scatterNear(pts, n(60), 10, 70, seed + 10, ok, (x, z) => [x, z])) addCover(x, z, 0, 1, 1.0);
 }
@@ -1110,10 +1216,21 @@ function dressArea(x0, x1, z0, z1, ok, seed, k = 1, green = 0.2, o = {}) {
   instScatter(GRASS_G, scatterIn(nG(3200), x0, x1, z0, z1, seed + 4, okG, (x, z, r) => [x, z, 0.7 + r() * 0.9, r() * 6, grassCol(r), 0, 1]), DET_MAT, false);
   instScatter(BUSH_G, scatterIn(n(1400), x0, x1, z0, z1, seed + 5, okB, (x, z, r) => [x, z, 0.4 + r() * 1.0, r() * 6, r() < green ? greenBush(r) : dryBush(r), 0, 0.8]), DET_MAT, false);
   instScatter(TAMA_G, scatterIn(nT(300), x0, x1, z0, z1, seed + 6, okT, (x, z, r) => [x, z, 0.8 + r() * 1.0, r() * 6, r() < 0.5 ? 0x5e6a40 : 0x6e6a44, 0, 1]));
+  groundScatter(GSET.scrub, scatterIn(nT(34), x0, x1, z0, z1, seed + 9, okB, (x, z, r) => [x, z, 0.8 + r() * 0.5, r() * 6, 0, 0, 1]), false);   // dead wood in the scrub: logs and stumps (models only)
   const bl = scatterIn(n(120), x0, x1, z0, z1, seed + 7, ok, (x, z, r) => [x, z, 1.2 + r() * 2.0, r() * 6, rockCol(r), 0.3, 0.7]); instScatter(BOULDER_G, bl); boulders(bl); scree(bl, seed + 8, rockCol);
 }
-/* the broken stone that lies round every boulder */
-function scree(bl, seed, rockCol) { const r = rng(seed), items = []; for (const [x, z, s] of bl) { const n = 3 + Math.floor(r() * 5); for (let i = 0; i < n; i++) { const a = r() * 6.283, d = s * (0.9 + r() * 1.4); items.push([x + Math.cos(a) * d, z + Math.sin(a) * d, 0.15 + r() * 0.35 * s, r() * 6, rockCol(r), 0.15, 0.6]); } } if (items.length) instScatter(SHARP_G, items, DET_MAT, false); }
+/* the broken stone that lies round every boulder: small stones and split chunks (the old sharp rock when the models are missing), and
+   at the foot of about one boulder in four a heap of broken stone (models only). The heaps take their place from a hash of the boulder's
+   position, so the stones round every boulder lie exactly where they did */
+function scree(bl, seed, rockCol) {
+  const r = rng(seed), items = [], heaps = [];
+  for (const [x, z, s] of bl) {
+    const n = 3 + Math.floor(r() * 5); for (let i = 0; i < n; i++) { const a = r() * 6.283, d = s * (0.9 + r() * 1.4); items.push([x + Math.cos(a) * d, z + Math.sin(a) * d, 0.15 + r() * 0.35 * s, r() * 6, rockCol(r), 0.15, 0.6]); }
+    const h = _gHash(z + 3.1, x - 1.7); if (h < 0.25) { const a = h * 25.13, d = s * (1.1 + h * 1.6); heaps.push([x + Math.cos(a) * d, z + Math.sin(a) * d, s * 0.6, h * 24, rockCol(() => (h * 4) % 1), 0, 1]); }
+  }
+  if (items.length && !groundScatter(GSET.scree, items, false)) instScatter(SHARP_G, items, DET_MAT, false);
+  if (heaps.length) groundScatter(GSET.pile, heaps, false);
+}
 /* ---------- tall grass and thick scrub you can walk into: it hides you, more so when you crouch ---------- */
 const tallCol = (r) => [0x8f8a52, 0x9c9458, 0x7f8048, 0xa89e62, 0x76823f, 0x6c7a3a][Math.floor(r() * 6)];
 function concealPatches(list, C, seed, green = 0.5) {

@@ -2,55 +2,91 @@
 <html lang="he" dir="rtl">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>חיילים חדשים · טסט</title>
+<title>חדר תצוגה · טסט</title>
 <style>
-  :root { --ink: #ece6d6; --dim: #b9b19c; --bg: #1d1c18; --chip: rgba(20, 19, 16, 0.78); --line: rgba(236, 230, 214, 0.22); --accent: #c9a24a; --head: #2b2619; --headDim: #4a4232; }
+  :root { color-scheme: dark; --ink: #ece6d6; --dim: #b4ac96; --bg: #1d1c18; --panel: rgba(24, 23, 19, 0.9); --chip: #2c2a23; --chipOn: #4a3f22; --line: rgba(236, 230, 214, 0.18); --accent: #d8b25a; }
   html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font-family: Rubik, Heebo, Arial, sans-serif; overflow: hidden; }
   #view { position: fixed; inset: 0; }
   #view canvas { display: block; }
-  header { position: fixed; top: 0; right: 0; left: 0; padding: calc(14px + env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) 14px max(16px, env(safe-area-inset-left, 0px)); display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap; pointer-events: none; }
-  header h1 { margin: 0; font-size: 20px; font-weight: 700; letter-spacing: 0; color: var(--head); }
-  header p { margin: 0; color: var(--headDim); font-size: 13px; }
-  #bar { position: fixed; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); right: max(16px, env(safe-area-inset-right, 0px)); left: max(16px, env(safe-area-inset-left, 0px)); display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
-  #bar button { background: var(--chip); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 9px 14px; font: inherit; font-size: 14px; cursor: pointer; }
-  #bar button[aria-pressed="true"] { border-color: var(--accent); color: #fff; }
-  #bar button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-  .tag { position: fixed; transform: translate(-50%, 0); background: var(--chip); border: 1px solid var(--line); border-radius: 6px; padding: 4px 10px; font-size: 14px; white-space: nowrap; pointer-events: none; }
+  #panel { position: fixed; top: calc(12px + env(safe-area-inset-top, 0px)); right: max(12px, env(safe-area-inset-right, 0px)); bottom: calc(12px + env(safe-area-inset-bottom, 0px)); width: 300px; overflow-y: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 14px 18px; box-sizing: border-box; display: flex; flex-direction: column; gap: 14px; }
+  #panel h1 { margin: 0; font-size: 18px; font-weight: 700; }
+  #panel p.lede { margin: 2px 0 0; color: var(--dim); font-size: 12.5px; line-height: 1.45; }
+  .sec { display: flex; flex-direction: column; gap: 7px; }
+  .sec > b { font-size: 12.5px; color: var(--accent); font-weight: 600; }
+  .row { display: flex; flex-wrap: wrap; gap: 6px; }
+  .row button, #toggle { background: var(--chip); color: var(--ink); border: 1px solid var(--line); border-radius: 7px; padding: 7px 10px; font: inherit; font-size: 13px; cursor: pointer; line-height: 1.2; }
+  .row button[aria-pressed="true"] { background: var(--chipOn); border-color: var(--accent); color: #fff; }
+  .row button:focus-visible, #toggle:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .list { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .list button { text-align: start; }
+  .list button small { display: block; color: var(--dim); font-size: 11px; margin-top: 2px; }
+  label.sl { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--dim); }
+  label.sl input { flex: 1; accent-color: var(--accent); }
+  #info { font-size: 12.5px; color: var(--dim); line-height: 1.5; min-height: 2.8em; border-top: 1px solid var(--line); padding-top: 10px; }
+  #info strong { color: var(--ink); font-weight: 600; }
+  .tag { position: fixed; transform: translate(-50%, 0); background: rgba(20, 19, 16, 0.8); border: 1px solid var(--line); border-radius: 6px; padding: 3px 9px; font-size: 13px; white-space: nowrap; pointer-events: none; }
   .tag small { display: block; color: var(--dim); font-size: 11px; }
   #load { position: fixed; inset: 0; display: grid; place-items: center; color: var(--dim); font-size: 15px; }
+  #toggle { position: fixed; display: none; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); right: max(14px, env(safe-area-inset-right, 0px)); z-index: 3; background: var(--chipOn); border-color: var(--accent); }
+  [hidden] { display: none !important; }
+  @media (max-width: 720px) {
+    #panel { top: auto; left: max(10px, env(safe-area-inset-left, 0px)); right: max(10px, env(safe-area-inset-right, 0px)); width: auto; max-height: 56vh; bottom: calc(62px + env(safe-area-inset-bottom, 0px)); }
+    #panel.shut { display: none; }
+    #toggle { display: block; }
+  }
 </style>
 <div id="view"></div>
-<header><h1>חיילים חדשים · טסט</h1><p>החיילים כמו שהם במשחק, בתנועות של המשחק. גרירה מסובבת, גלגלת מקרבת.</p></header>
-<div id="load">טוען את הדמויות…</div>
-<div id="bar">
-  <button id="bIdle" data-pose="idle" aria-pressed="true">עמידה</button>
-  <button id="bAim" data-pose="aim" aria-pressed="false">כיוון</button>
-  <button id="bRun" data-pose="run" aria-pressed="false">ריצה</button>
-  <button id="bCrouch" data-pose="crouch" aria-pressed="false">כריעה</button>
-  <button id="bProne" data-pose="prone" aria-pressed="false">שכיבה</button>
-  <button id="bT" data-pose="t" aria-pressed="false">תנוחת T</button>
-  <button id="bSpin" aria-pressed="false">סיבוב</button>
-</div>
+<div id="load">טוען את הדמויות והמודלים…</div>
+<button id="toggle" aria-controls="panel" aria-expanded="true">שליטה</button>
+<aside id="panel" aria-label="שליטה בתצוגה">
+  <div><h1>חדר תצוגה</h1><p class="lede">החיילים והמודלים בדיוק כמו במשחק. גרירה מסובבת, גלגלת או צביטה מקרבת.</p></div>
+  <div class="sec"><b>מה רואים</b><div class="row" id="modeRow"><button data-mode="men" aria-pressed="true">חיילים</button><button data-mode="mdl" aria-pressed="false">מודלים</button></div></div>
+
+  <div id="menUI" class="sec" style="gap:14px">
+    <div class="sec"><b>צבאות</b><div class="row" id="armyRow"><button data-army="il" aria-pressed="true">צה״ל</button><button data-army="eg" aria-pressed="true">מצרים</button><button data-army="sy" aria-pressed="true">סוריה</button></div></div>
+    <div class="sec"><b>הנשק של המצרים והסורים</b><div class="row" id="gunRow"><button data-gun="akms" aria-pressed="true">AKM (חדש)</button><button data-gun="rpg7" aria-pressed="false">RPG-7 (חדש)</button><button data-gun="ak" aria-pressed="false">AK הישן</button></div></div>
+    <div class="sec"><b>תנועה</b><div class="row" id="poseRow"><button data-pose="idle" aria-pressed="true">עמידה</button><button data-pose="walk" aria-pressed="false">הליכה</button><button data-pose="run" aria-pressed="false">ריצה</button><button data-pose="aim" aria-pressed="false">כיוון</button><button data-pose="fire" aria-pressed="false">ירי</button><button data-pose="crouch" aria-pressed="false">כריעה</button><button data-pose="prone" aria-pressed="false">שכיבה</button><button data-pose="t" aria-pressed="false">תנוחת T</button></div></div>
+    <label class="sl">מהירות <input id="speed" type="range" min="0" max="2" step="0.05" value="1"> <span id="speedV">1×</span></label>
+    <div class="row"><button id="bPlay" aria-pressed="true">מנגן</button><button id="bSpinM" aria-pressed="false">סיבוב</button></div>
+  </div>
+
+  <div id="mdlUI" class="sec" style="gap:14px" hidden>
+    <div class="sec"><b>קבוצה</b><div class="row" id="catRow"></div></div>
+    <div class="sec"><b>מודל</b><div class="list" id="mdlList"></div></div>
+    <div class="sec"><b>רמת פירוט</b><div class="row" id="lodRow"><button data-lod="auto" aria-pressed="true">לפי מרחק</button><button data-lod="0" aria-pressed="false">מלאה</button><button data-lod="1" aria-pressed="false">בינונית</button><button data-lod="2" aria-pressed="false">רחוקה</button></div></div>
+    <div class="row"><button id="bSpin" aria-pressed="true">סיבוב</button><button id="bWire" aria-pressed="false">רשת</button><button id="bBox" aria-pressed="false">מידות</button></div>
+  </div>
+
+  <div class="sec"><b>תאורה</b><div class="row" id="lightRow"><button data-light="day" aria-pressed="true">צהריים</button><button data-light="morn" aria-pressed="false">בוקר</button><button data-light="dusk" aria-pressed="false">ערב</button><button data-light="night" aria-pressed="false">לילה</button></div></div>
+  <div class="row"><button id="bReset">מצלמה להתחלה</button></div>
+  <div id="info" aria-live="polite"></div>
+</aside>
 <script src="chars/soldier_data.js"></script>
 <script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }</script>
 <script type="module">
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
-/* the soldiers exactly as the game draws them: the same figure data (the game's 4e_soldier_data.js), skinned to the same joints, posed by
-   the same rig - its rest offsets, its poses and its two-hand grip are copied here from the game (4_actors.js, 4e_soldier.js) - holding a
-   rifle each; dressed the three ways the game dresses them */
+/* the soldiers exactly as the game draws them (the game's figure data, joints, poses and two-hand grip, copied from 4_actors.js and
+   4e_soldier.js) and every model the game took from the asset packs (the same 4f_data_*.js files the game loads, read by its own 4f_models.js) */
 const V3 = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z), clamp = (x, a, b) => Math.min(b, Math.max(a, x));
 const R = new THREE.WebGLRenderer({ antialias: true }); R.setPixelRatio(Math.min(2, devicePixelRatio)); R.setSize(innerWidth, innerHeight);
-R.shadowMap.enabled = true; R.shadowMap.type = THREE.PCFSoftShadowMap; R.toneMapping = THREE.ACESFilmicToneMapping; R.toneMappingExposure = 1.25;
+R.shadowMap.enabled = true; R.shadowMap.type = THREE.PCFSoftShadowMap; R.toneMapping = THREE.ACESFilmicToneMapping; R.toneMappingExposure = 1.2;
 document.getElementById('view').appendChild(R.domElement);
-const scene = new THREE.Scene(); scene.background = new THREE.Color(0xc9b994); scene.fog = new THREE.Fog(0xc9b994, 9, 26);
-const cam = new THREE.PerspectiveCamera(32, innerWidth / innerHeight, 0.05, 60); cam.position.set(-0.3, 1.45, 5.6);
-const ctl = new OrbitControls(cam, R.domElement); ctl.target.set(0, 1.05, 0); ctl.enableDamping = true; ctl.minDistance = 0.6; ctl.maxDistance = 12; ctl.maxPolarAngle = Math.PI * 0.52;
-scene.add(new THREE.HemisphereLight(0xdfe6f0, 0x7a6a4c, 1.1));
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0xc9b994); scene.fog = new THREE.Fog(0xc9b994, 12, 40);
+const cam = new THREE.PerspectiveCamera(32, innerWidth / innerHeight, 0.03, 200); cam.position.set(-0.3, 1.45, 5.6);
+const ctl = new OrbitControls(cam, R.domElement); ctl.target.set(0, 1.05, 0); ctl.enableDamping = true; ctl.minDistance = 0.3; ctl.maxDistance = 60; ctl.maxPolarAngle = Math.PI * 0.52;
+const hemi = new THREE.HemisphereLight(0xdfe6f0, 0x7a6a4c, 1.1); scene.add(hemi);
 const sun = new THREE.DirectionalLight(0xfff1d8, 2.6); sun.position.set(-3, 6, 4); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
-Object.assign(sun.shadow.camera, { left: -3, right: 3, top: 3, bottom: -1, near: 1, far: 15 }); sun.shadow.bias = -0.0004; scene.add(sun);
-const ground = new THREE.Mesh(new THREE.CircleGeometry(14, 64), new THREE.MeshStandardMaterial({ color: 0xbfa77a, roughness: 1 })); ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
+Object.assign(sun.shadow.camera, { left: -6, right: 6, top: 6, bottom: -2, near: 0.5, far: 30 }); sun.shadow.bias = -0.0004; scene.add(sun, sun.target);
+const ground = new THREE.Mesh(new THREE.CircleGeometry(60, 64), new THREE.MeshStandardMaterial({ color: 0xbfa77a, roughness: 1 })); ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
+const LIGHTS = { day: { sky: 0xc9b994, hemi: [0xdfe6f0, 0x7a6a4c, 1.1], sun: [0xfff1d8, 2.6], pos: [-3, 6, 4], exp: 1.2 }, morn: { sky: 0xd8c3a0, hemi: [0xe8dcc8, 0x6a5a40, 0.8], sun: [0xffd2a0, 2.2], pos: [-6, 2.2, 3], exp: 1.15 },
+  dusk: { sky: 0x8a6a58, hemi: [0xb08a78, 0x3a3028, 0.55], sun: [0xff9a60, 1.6], pos: [5, 1.4, -2], exp: 1.3 }, night: { sky: 0x141a26, hemi: [0x5a6a8a, 0x1a1a20, 0.35], sun: [0x9ab0e0, 0.5], pos: [2, 6, 3], exp: 1.6 } };
+function setLight(k) { const L = LIGHTS[k]; scene.background.setHex(L.sky); scene.fog.color.setHex(L.sky); hemi.color.setHex(L.hemi[0]); hemi.groundColor.setHex(L.hemi[1]); hemi.intensity = L.hemi[2]; sun.color.setHex(L.sun[0]); sun.intensity = L.sun[1]; sun.position.set(...L.pos); R.toneMappingExposure = L.exp; ground.material.color.setHex(k === 'night' ? 0x4a4436 : 0xbfa77a); }
+
+/* ---- the game's model runtime (4f_models.js) needs a few of the game's globals ---- */
+Object.assign(window, { THREE, scene, ANISO: 4, LITE: false, SH: (o) => { o.traverse((m) => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } }); return o; }, onLayer1: (o) => o });
+const load = (src) => new Promise((ok, no) => { const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = no; document.body.appendChild(s); });
 
 /* ---- the figure: decoded once, shared by all three ---- */
 const NS_GROUPS = ['uniform', 'webbing', 'boots', 'head', 'hands', 'eyes', 'm1', 'm1fit', 'sov'];
@@ -69,7 +105,6 @@ function figureGeometry() {
   geo.setAttribute('skinIndex', new THREE.BufferAttribute(si, 4)); geo.setAttribute('skinWeight', new THREE.BufferAttribute(sw, 4, true)); geo.setIndex(new THREE.BufferAttribute(idx, 1));
   geo.boundingSphere = new THREE.Sphere(V3(0, -0.1, 0), 1.5); return geo;
 }
-/* the cloth: blotches where a tileable noise field passes each colour's threshold, then the weave (as the game) */
 function camo(c) {
   const N = 512, cv = document.createElement('canvas'); cv.width = cv.height = N; const ctx = cv.getContext('2d'), img = ctx.createImageData(N, N), D = img.data;
   let st = c.seed >>> 0; const rnd = () => { st = (st + 0x6d2b79f5) >>> 0; let t = st; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
@@ -96,12 +131,10 @@ function net() {
 const image = (url) => { const t = new THREE.TextureLoader().load(url); t.flipY = false; t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t; };
 const std = (o) => new THREE.MeshStandardMaterial(Object.assign({ roughness: 0.9, metalness: 0 }, o));
 const hidden = new THREE.MeshBasicMaterial({ visible: false });
-
-/* ---- the three armies, as the game dresses them ---- */
 const ARMIES = [
-  { id: 'il', name: 'צה״ל', sub: 'מדי זית, קסדת M1 עם רשת, FN FAL', x: 1.05, gun: 'fal' },
-  { id: 'eg', name: 'מצרים', sub: 'הסוואת חאקי, קסדה סובייטית, AK-47', x: 0, gun: 'ak' },
-  { id: 'sy', name: 'סוריה', sub: 'הסוואת יער, קסדה סובייטית, AK-47', x: -1.05, gun: 'ak' },
+  { id: 'il', name: 'צה״ל', sub: 'מדי זית, קסדת M1 עם רשת, FN FAL', x: 1.1 },
+  { id: 'eg', name: 'מצרים', sub: 'הסוואת חאקי, קסדה סובייטית', x: 0 },
+  { id: 'sy', name: 'סוריה', sub: 'הסוואת יער, קסדה סובייטית', x: -1.1 },
 ];
 function materials(id) {
   const T = SOLDIER_DATA.tex;
@@ -110,8 +143,8 @@ function materials(id) {
   const C = sy ? { seed: 31, base: 0x5f6a43, layers: [[0x37462b, 0.52, 5, 6], [0x5b4630, 0.6, 6, 7], [0x20261b, 0.69, 9, 10]] } : { seed: 7, base: 0xb5a072, layers: [[0x8c7148, 0.55, 4, 10], [0x6c6946, 0.63, 5, 12], [0xcbb98b, 0.68, 8, 18]] };
   return [std({ map: camo(C), roughness: 0.95 }), std({ color: sy ? 0x4e5236 : 0x8f7c52 }), std({ color: 0x1d1b19, roughness: 0.55 }), std({ map: image(T.headAr || T.head), color: skin, roughness: 0.6 }), std({ map: image(T.hands), color: skin, roughness: 0.6 }), std({ map: image(T.eyes), roughness: 0.15 }), hidden, hidden, std({ color: sy ? 0x434a30 : 0x7a7150, roughness: 0.6 })];
 }
-/* a rifle in the game's frame for it: muzzle forward (+z), the pistol grip and the handguard where the rig puts the hands */
-function rifle(kind) {
+/* the box-built rifles the game drew before (the FAL is still ours), in the game's frame: muzzle forward (+z) */
+function boxRifle(kind) {
   const g = new THREE.Group(), metal = std({ color: 0x1c1c1b, roughness: 0.45, metalness: 0.5 }), wood = std({ color: kind === 'ak' ? 0x6b3b1e : 0x2a2622, roughness: 0.7 });
   const box = (w, h, d, m, x, y, z, rx = 0) => { const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); o.position.set(x, y, z); o.rotation.x = rx; o.castShadow = true; g.add(o); };
   const cyl = (r, l, m, x, y, z) => { const o = new THREE.Mesh(new THREE.CylinderGeometry(r, r, l, 10), m); o.rotation.x = Math.PI / 2; o.position.set(x, y, z); o.castShadow = true; g.add(o); };
@@ -124,9 +157,11 @@ function rifle(kind) {
   }
   return g;
 }
-
-/* ---- the game's rig, its joints where this figure's are (4e_soldier.js), and its two-hand grip ---- */
-const US = 1.14, GRIP = [V3(0, -0.075, 0.03), V3(0, -0.04, 0.22)], POLE_R = V3(-0.75, -0.55, -0.2).normalize(), POLE_L = V3(0.35, -1, 0.05).normalize();
+// a weapon for a hand: the packed model (in the game's weapon frame already) or the old boxes
+function weapon(kind) { if ((kind === 'akms' || kind === 'rpg7') && window.mdlHas && mdlHas(kind)) { const g = mdlMesh(kind, 0); g.traverse((m) => { m.castShadow = true; }); return g; } return boxRifle(kind === 'fal' ? 'fal' : 'ak'); }
+// the game's grips (4_actors.js GRIPS): where the right hand holds and where the left hand supports
+const GRIPS = { rifle: [V3(0, -0.075, 0.03), V3(0, -0.04, 0.22)], rpg: [V3(0, -0.07, -0.05), V3(0, -0.07, 0.17)] };
+const US = 1.14, POLE_R = V3(-0.75, -0.55, -0.2).normalize(), POLE_L = V3(0.35, -1, 0.05).normalize();
 const IKV = { t: V3(), h: V3(), e: V3(), p: V3(), c: V3(), q1: new THREE.Quaternion(), q2: new THREE.Quaternion(), down: V3(0, -1, 0) };
 function ikArm(sh, el, target, pole) {
   const L1 = 0.28, L2 = 0.29, t = IKV.t.subVectors(target, sh.position); const d = clamp(t.length(), 0.1, L1 + L2 - 0.004); t.normalize();
@@ -135,32 +170,34 @@ function ikArm(sh, el, target, pole) {
   const e = IKV.e.copy(IKV.down).applyQuaternion(IKV.q1); e.addScaledVector(t, -t.dot(e)); const pp = IKV.p.copy(pole).addScaledVector(t, -t.dot(pole));
   const ang = Math.atan2(IKV.c.crossVectors(e, pp).dot(t), e.dot(pp)); IKV.q2.setFromAxisAngle(t, ang); sh.quaternion.multiplyQuaternions(IKV.q2, IKV.q1);
 }
+const FLASH = (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d'), gr = g.createRadialGradient(32, 32, 2, 32, 32, 30); gr.addColorStop(0, 'rgba(255,250,220,1)'); gr.addColorStop(0.35, 'rgba(255,190,90,0.9)'); gr.addColorStop(1, 'rgba(255,120,40,0)'); g.fillStyle = gr; g.fillRect(0, 0, 64, 64); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; })();
 function makeRig(A, geo) {
   const J = SOLDIER_DATA.hdr.joints, G = (p) => { const o = new THREE.Group(); if (p) o.position.fromArray(p); return o; };
-  const r = { root: new THREE.Group() }; r.root.rotation.order = 'YXZ'; r.hips = G([0, 0.93, 0]); r.root.add(r.hips); r.torso = G(); r.hips.add(r.torso);
+  const r = { root: new THREE.Group(), A }; r.root.rotation.order = 'YXZ'; r.hips = G([0, 0.93, 0]); r.root.add(r.hips); r.torso = G(); r.hips.add(r.torso);
   r.headP = G(J.headP); r.torso.add(r.headP);
   r.sR = G(J.sR); r.eR = G([0, -J.eLen, 0]); r.sR.add(r.eR); r.sL = G(J.sL); r.eL = G([0, -J.eLen, 0]); r.sL.add(r.eL); r.torso.add(r.sR, r.sL);
   r.hR = G(J.hR); r.kR = G(J.kR); r.hR.add(r.kR); r.hL = G(J.hL); r.kL = G(J.kL); r.hL.add(r.kL); r.hips.add(r.hR, r.hL);
-  r.gun = rifle(A.gun); r.torso.add(r.gun);
-  // bound in the figure's stance: the rig at rest, both arms raised level
+  r.gunP = new THREE.Group(); r.torso.add(r.gunP);
   r.sR.quaternion.setFromAxisAngle(V3(0, 0, 1), -Math.PI / 2); r.sL.quaternion.setFromAxisAngle(V3(0, 0, 1), Math.PI / 2); r.root.updateMatrixWorld(true);
   const bones = ['hips', 'torso', 'sR', 'eR', 'sL', 'eL', 'hR', 'kR', 'hL', 'kL', 'headP'].map((k) => { const b = new THREE.Bone(); r[k].add(b); return b; });
   r.mesh = new THREE.SkinnedMesh(geo, materials(A.id)); r.hips.add(r.mesh); r.root.updateMatrixWorld(true); r.mesh.bind(new THREE.Skeleton(bones));
-  r.mesh.castShadow = true; r.mesh.frustumCulled = false; r.root.scale.setScalar(US); r.root.position.x = A.x; r.root.rotation.y = 0.55; scene.add(r.root);   /* turned a little: the rifle seen side on */
-  r.breath = Math.random() * 6; return r;
+  r.mesh.castShadow = true; r.mesh.frustumCulled = false; r.root.scale.setScalar(US); r.root.position.x = A.x; r.root.rotation.y = 0.85; scene.add(r.root);
+  r.flash = new THREE.Sprite(new THREE.SpriteMaterial({ map: FLASH, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true })); r.flash.scale.setScalar(0.28); r.flash.visible = false; r.gunP.add(r.flash);
+  r.breath = Math.random() * 6; r.kick = 0; return r;
 }
-/* the game's poses (Rig.pose), set straight onto the joints */
+function setGun(r, kind) { if (r.gun) r.gunP.remove(r.gun); r.gun = weapon(kind); r.gunP.add(r.gun); r.wk = kind; r.grip = GRIPS[kind === 'rpg7' ? 'rpg' : 'rifle']; r.flash.position.set(0, 0.012, kind === 'rpg7' ? 0.75 : kind === 'akms' ? 0.5 : 0.62); }
+/* the game's poses (Rig.pose); walking is the run slowed and shortened, firing is the aim with the kick of each shot */
 function pose(r, kind, t) {
   const T = { rootX: 0, hipsY: 0.93, hipsX: 0, hipsZ: 0, hipsYaw: 0, tX: 0, tY: 0, tZ: 0, legs: [0, 0, 0, 0], gun: null, arms: null };
   const legs = (a, b, c, d) => { T.legs = [a, b, c, d]; }, gunAt = (...g) => { T.gun = g; };
-  if (kind === 'run') {
-    const sp = 1, sw = Math.sin(t) * 0.78 * sp, c2 = Math.cos(t * 2);
+  if (kind === 'run' || kind === 'walk') {
+    const sp = kind === 'walk' ? 0.45 : 1, sw = Math.sin(t) * 0.78 * sp, c2 = Math.cos(t * 2);
     legs(-sw, 0.15 + Math.max(0, Math.sin(t + 1.6)) * 1.15 * sp, sw, 0.15 + Math.max(0, Math.sin(t + 1.6 + Math.PI)) * 1.15 * sp);
     T.hipsY = 0.9 + Math.abs(Math.cos(t)) * 0.05 * sp; T.hipsX = Math.sin(t) * 0.022 * sp; T.hipsZ = Math.sin(t) * 0.07 * sp; T.hipsYaw = -Math.sin(t) * 0.1 * sp;
     T.tX = 0.22 * sp - c2 * 0.02 * sp; T.tY = Math.sin(t) * 0.2 * sp; T.tZ = -Math.sin(t) * 0.04 * sp; gunAt(0.02, 0.3, 0.27, -0.45 + c2 * 0.03 * sp, 0.62, 0.2);
-  } else if (kind === 'aim' || kind === 'crouch') {
+  } else if (kind === 'aim' || kind === 'crouch' || kind === 'fire') {
     if (kind === 'crouch') { T.hipsY = 0.55; legs(-1.35, 1.45, -0.2, 1.95); T.tX = 0.12; } else legs(-0.12, 0.12, 0.16, 0.1);
-    T.tX += Math.sin(t * 0.9) * 0.008; T.tY = 0.18; gunAt(-0.1, 0.45 + Math.sin(t * 1.1) * 0.004, 0.4, 0, -0.2, 0);
+    T.tX += Math.sin(t * 0.9) * 0.008 - r.kick * 0.05; T.tY = 0.18; gunAt(-0.1, 0.45 + Math.sin(t * 1.1) * 0.004 + r.kick * 0.012, 0.4 - r.kick * 0.045, -r.kick * 0.09, -0.2, 0);
   } else if (kind === 'prone') {
     T.rootX = -Math.PI / 2; legs(0.05, 0.1, -0.05, 0.25 + Math.sin(t * 1.3) * 0.1);
     T.arms = [-0.2 + Math.sin(t * 2) * 0.15, -0.6, -2.4 + Math.sin(t * 1.7) * 0.3, -0.5, 0.2, -0.2]; gunAt(0.3, 0.1, -0.4, 0, 0.8, 1.4);
@@ -171,38 +208,105 @@ function pose(r, kind, t) {
   }
   r.root.rotation.x = T.rootX; r.hips.position.set(T.hipsX, T.hipsY, 0); r.hips.rotation.set(0, T.hipsYaw, T.hipsZ); r.torso.rotation.set(T.tX, T.tY, T.tZ);
   r.hL.rotation.set(T.legs[0], 0, 0); r.kL.rotation.set(T.legs[1], 0, 0); r.hR.rotation.set(T.legs[2], 0, 0); r.kR.rotation.set(T.legs[3], 0, 0);
-  if (kind === 't') { r.gun.visible = false; r.sR.rotation.set(0, 0, -Math.PI / 2); r.sL.rotation.set(0, 0, Math.PI / 2); r.eR.rotation.set(0, 0, 0); r.eL.rotation.set(0, 0, 0); r.headP.rotation.set(0, 0, 0); r.torso.scale.set(1, 1, 1); return; }
-  r.gun.visible = true; r.gun.position.set(T.gun[0], T.gun[1], T.gun[2]); r.gun.rotation.set(T.gun[3], T.gun[4], T.gun[5]);
+  if (kind === 't') { r.gunP.visible = false; r.sR.rotation.set(0, 0, -Math.PI / 2); r.sL.rotation.set(0, 0, Math.PI / 2); r.eR.rotation.set(0, 0, 0); r.eL.rotation.set(0, 0, 0); r.headP.rotation.set(0, 0, 0); r.torso.scale.set(1, 1, 1); return; }
+  r.gunP.visible = true; r.gunP.position.set(T.gun[0], T.gun[1], T.gun[2]); r.gunP.rotation.set(T.gun[3], T.gun[4], T.gun[5]);
   if (T.arms) { const a = T.arms; r.sR.rotation.set(a[0], 0, a[4]); r.eR.rotation.set(a[1], 0, 0); r.sL.rotation.set(a[2], 0, a[5]); r.eL.rotation.set(a[3], 0, 0); }
-  else { const gq = GRIP[0].clone().applyQuaternion(r.gun.quaternion).add(r.gun.position), gl = GRIP[1].clone().applyQuaternion(r.gun.quaternion).add(r.gun.position); ikArm(r.sR, r.eR, gq, POLE_R); ikArm(r.sL, r.eL, gl, POLE_L); }
-  // what a living body does on its own (Rig.life): the breath, the head looking about a little
+  else { const gq = r.grip[0].clone().applyQuaternion(r.gunP.quaternion).add(r.gunP.position), gl = r.grip[1].clone().applyQuaternion(r.gunP.quaternion).add(r.gunP.position); ikArm(r.sR, r.eR, gq, POLE_R); ikArm(r.sL, r.eL, gl, POLE_L); }
   const calm = kind === 'idle' ? 1 : 0.3, b = 0.011 * Math.sin(r.breath * (kind === 'run' ? 2.8 : 1.25)); r.torso.scale.set(1 + b * 0.4, 1 + b, 1 + b * 0.8);
   r.headP.rotation.set((0.045 * Math.sin(r.breath * 0.7 + 1)) * calm, (0.16 * Math.sin(r.breath * 0.41)) * calm, 0.035 * Math.sin(r.breath * 0.53 + 0.7) * calm);
 }
 
-const figs = []; let kind = 'idle', spin = false;
-try {
-  const geo = figureGeometry();
-  for (const A of ARMIES) {
-    const r = makeRig(A, geo);
-    const tag = document.createElement('div'); tag.className = 'tag'; tag.innerHTML = `${A.name}<small>${A.sub}</small>`; document.body.appendChild(tag);
-    figs.push({ r, tag, A });
+/* ---- the models: their names, their groups ---- */
+const NAMES = {
+  akms: ['AKMS', 'קת מתקפלת, בידי המצרים והסורים'], rpg7: ['RPG-7', 'בידי ציידי הטנקים'],
+  jerry: ['ג׳ריקן', 'בעמדות ובחצרות'], crate: ['ארגז תחמושת', 'בעמדות'], drum: ['חבית', 'בחצרות ובמחסומים'], hedgehog: ['קיפוד נ״ט', 'ברזל חלוד'],
+  g_boulder: ['בולדר', 'סלע גדול'], g_slab: ['סלע שטוח', ''], g_block: ['גוש סלע', ''], g_spire: ['סלע זקוף', ''], g_flat: ['אבן שטוחה', ''], g_small: ['אבן קטנה', 'ובשלוש — חצץ'], g_pile: ['ערימת סלעים', 'לרגלי בולדרים'],
+  g_deadtree: ['עץ מת גדול', ''], g_dtree_a: ['עץ מת', ''], g_dtree_b: ['עץ מת דק', ''], g_dtree_c: ['עץ מת עקום', ''], g_stump: ['גדם', ''], g_log: ['גזע שוכב', ''],
+  f_bed_wood: ['מיטת עץ', 'סואץ'], f_bunk: ['מיטת קומותיים', 'חרמון'], f_mattress: ['מזרן', 'פצועים בסואץ'], f_sofa: ['ספה', 'סואץ'], f_wardrobe: ['ארון בגדים', 'סואץ'], f_table_metal: ['שולחן מתכת', 'בית הקפה, חרמון'],
+  f_bench_metal: ['ספסל מתכת', ''], f_stool_metal: ['שרפרף', ''], f_chair_fold: ['כיסא מתקפל', 'חרמון'], f_oven: ['תנור', 'בית הקפה'], f_radio_set: ['רדיו רודינה', 'סואץ'], f_typewriter: ['מכונת כתיבה', 'חרמון'],
+  f_lamp_k: ['מנורת נפט', ''], f_crate_wood: ['ארגז תחמושת מעץ', ''], f_crate_long: ['ארגז נשק ארוך', ''], f_locker: ['לוקר', 'חרמון'], f_cabinet: ['ארון תיקים', 'משרדים'], f_shelf: ['מדף', ''],
+  f_chair: ['כיסא עץ', ''], f_desk: ['שולחן כתיבה', ''], f_table_wood: ['שולחן עץ', ''], f_lamp_desk: ['מנורת שולחן', ''],
+  w_truck: ['משאית שרופה', 'צידי הדרכים'], w_tanker: ['מכלית', 'צידי הדרכים'], w_bus: ['אוטובוס שרוף', 'רחוב בסואץ'],
+};
+const CATS = [['weap', 'נשק', (n) => n === 'akms' || n === 'rpg7'], ['prop', 'ביצורים', (n) => ['jerry', 'crate', 'drum', 'hedgehog'].includes(n)], ['furn', 'ריהוט', (n) => n.startsWith('f_')], ['ground', 'סלעים ועצים', (n) => n.startsWith('g_')], ['wreck', 'שלדי רכב', (n) => n.startsWith('w_')]];
+const S = { mode: 'men', armies: new Set(['il', 'eg', 'sy']), gun: 'akms', pose: 'idle', speed: 1, play: true, spinM: false, cat: 'weap', one: null, lod: 'auto', spin: true, wire: false, box: false, light: 'day' };
+const figs = [], show = new THREE.Group(); scene.add(show); let boxH = null, dimTag = null;
+const info = document.getElementById('info');
+const tris = (n) => MDL_DATA[n].lods.map((l) => l.reduce((s, p) => s + p.t, 0));
+const fmt = (b) => b.map((v) => (v < 1 ? v.toFixed(2) : v.toFixed(1))).join(' × ');
+
+function buildShow() {
+  show.clear(); if (boxH) { scene.remove(boxH); boxH = null; } if (dimTag) { dimTag.remove(); dimTag = null; }
+  const names = S.one ? [S.one] : Object.keys(MDL_DATA).filter(CATS.find((c) => c[0] === S.cat)[2]);
+  let x = 0, rowZ = 0, rowD = 0, maxW = 0; const placed = [], rowW = names.length > 6 ? 9 : 99;
+  for (const n of names) {
+    const b = mdlBox(n), sz = Math.max(b[0], b[2]), lv = MDL_DATA[n].lods.length;
+    const obj = S.lod === 'auto' ? mdlLOD(n, null, [0, Math.max(3, sz * 3.2), Math.max(8, sz * 8)].slice(0, lv)) : mdlMesh(n, Math.min(+S.lod, lv - 1));
+    obj.traverse((m) => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } });
+    { const bb = new THREE.Box3().setFromObject(obj); if (bb.min.y < 0) obj.position.y = -bb.min.y + 0.01; }   /* the weapons are packed round their grip: lift them onto the ground */
+    if (x > 0 && x + sz > rowW) { rowZ += rowD + 0.8; x = 0; rowD = 0; }
+    const w = new THREE.Group(); w.add(obj); w.position.set(-(x + b[0] / 2), 0, rowZ + b[2] / 2); w.userData.n = n; show.add(w); placed.push(w);
+    x += b[0] + Math.max(0.35, sz * 0.25); rowD = Math.max(rowD, b[2]); maxW = Math.max(maxW, x);
   }
-  document.getElementById('load').remove();
+  // centre the arrangement and frame it
+  const box = new THREE.Box3().setFromObject(show), c = box.getCenter(V3()), s = box.getSize(V3()); show.position.x -= c.x; show.position.z -= c.z; box.setFromObject(show); box.getCenter(c);
+  const r = Math.max(s.x, s.y * 1.6, s.z) * 0.62 + 0.25; ctl.target.set(0, Math.min(s.y * 0.45, 2.5), 0); cam.position.set(r * 0.55, Math.max(0.6, s.y * 0.8) + r * 0.35, r * 1.5 + 0.4); ctl.maxDistance = Math.max(12, r * 6);
+  Object.assign(sun.shadow.camera, { left: -Math.max(6, r * 1.5), right: Math.max(6, r * 1.5), top: Math.max(6, r * 1.5), bottom: -Math.max(6, r * 1.5), far: Math.max(30, r * 6) }); sun.shadow.camera.updateProjectionMatrix();
+  setWire(); if (S.box && S.one) { boxH = new THREE.Box3Helper(new THREE.Box3().setFromObject(show), 0xd8b25a); scene.add(boxH); }
+  if (S.one) { const t = tris(S.one); info.innerHTML = `<strong>${NAMES[S.one]?.[0] || S.one}</strong> · ${NAMES[S.one]?.[1] || ''}<br>גודל: ${fmt(mdlBox(S.one))} מ׳ · משולשים לפי רמת פירוט: ${t.join(' / ')}`; }
+  else info.innerHTML = `<strong>${CATS.find((c) => c[0] === S.cat)[1]}</strong>: ${names.length} מודלים. לחיצה על מודל ברשימה מציגה אותו לבד.`;
+}
+function setWire() { show.traverse((m) => { if (m.isMesh) for (const mt of [].concat(m.material)) mt.wireframe = S.wire; }); }
+function buildList() {
+  const L = document.getElementById('mdlList'); L.innerHTML = '';
+  const all = document.createElement('button'); all.textContent = 'כל הקבוצה'; all.setAttribute('aria-pressed', String(!S.one)); all.onclick = () => { S.one = null; buildList(); buildShow(); }; L.appendChild(all);
+  for (const n of Object.keys(MDL_DATA).filter(CATS.find((c) => c[0] === S.cat)[2])) {
+    const b = document.createElement('button'); b.innerHTML = `${NAMES[n]?.[0] || n}<small>${tris(n)[0]} משולשים</small>`; b.setAttribute('aria-pressed', String(S.one === n)); b.onclick = () => { S.one = n; buildList(); buildShow(); }; L.appendChild(b);
+  }
+}
+function men() {
+  for (const f of figs) { const on = S.mode === 'men' && S.armies.has(f.A.id); f.r.root.visible = on; f.tag.style.display = on ? '' : 'none'; if (f.A.id !== 'il' && f.r.wk !== S.gun) setGun(f.r, S.gun); }
+  if (S.mode === 'men') { ctl.target.set(0, 1.05, 0); cam.position.set(-0.3, 1.45, 5.6); ctl.maxDistance = 14; Object.assign(sun.shadow.camera, { left: -6, right: 6, top: 6, bottom: -2, far: 30 }); sun.shadow.camera.updateProjectionMatrix();
+    const g = S.gun === 'akms' ? 'AKMS (המודל החדש)' : S.gun === 'rpg7' ? 'RPG-7 (המודל החדש)' : 'ה־AK הישן מקופסאות'; info.innerHTML = `<strong>חיילים</strong> · לצה״ל FN FAL, למצרים ולסוריה ${g}.<br>${S.gun === 'akms' ? 'AKMS: ' + tris('akms').join(' / ') + ' משולשים' : S.gun === 'rpg7' ? 'RPG-7: ' + tris('rpg7').join(' / ') + ' משולשים' : ''}`; }
+  show.visible = S.mode === 'mdl';
+}
+// the buttons
+const group = (id, key, fn) => { for (const b of document.querySelectorAll(`#${id} button`)) b.onclick = () => { for (const x of document.querySelectorAll(`#${id} button`)) x.setAttribute('aria-pressed', String(x === b)); fn(b.dataset[key]); }; };
+group('modeRow', 'mode', (v) => { S.mode = v; document.getElementById('menUI').hidden = v !== 'men'; document.getElementById('mdlUI').hidden = v !== 'mdl'; if (v === 'mdl') buildShow(); men(); });
+for (const b of document.querySelectorAll('#armyRow button')) b.onclick = () => { const a = b.dataset.army; if (S.armies.has(a) && S.armies.size > 1) S.armies.delete(a); else S.armies.add(a); b.setAttribute('aria-pressed', String(S.armies.has(a))); men(); };
+group('gunRow', 'gun', (v) => { S.gun = v; men(); });
+group('poseRow', 'pose', (v) => { S.pose = v; });
+group('lodRow', 'lod', (v) => { S.lod = v; buildShow(); });
+group('lightRow', 'light', (v) => { S.light = v; setLight(v); });
+const tog = (id, key, after) => { const b = document.getElementById(id); b.onclick = () => { S[key] = !S[key]; b.setAttribute('aria-pressed', String(S[key])); if (key === 'play') b.textContent = S.play ? 'מנגן' : 'עצור'; if (after) after(); }; };
+tog('bPlay', 'play'); tog('bSpinM', 'spinM'); tog('bSpin', 'spin'); tog('bWire', 'wire', setWire); tog('bBox', 'box', buildShow);
+speed.oninput = () => { S.speed = +speed.value; speedV.textContent = S.speed.toFixed(2).replace(/\.?0+$/, '') + '×'; };
+bReset.onclick = () => (S.mode === 'men' ? men() : buildShow());
+toggle.onclick = () => { const shut = panel.classList.toggle('shut'); toggle.setAttribute('aria-expanded', String(!shut)); };
+
+try {
+  await load('models/4f_models.js'); for (const f of ['ground', 'props', 'furn', 'village']) await load(`models/4f_data_${f}.js`).catch(() => {});
+  const cr = document.getElementById('catRow'); for (const [id, label, f] of CATS) { if (!Object.keys(MDL_DATA).some(f)) continue; const b = document.createElement('button'); b.textContent = label; b.dataset.cat = id; b.setAttribute('aria-pressed', String(id === S.cat)); cr.appendChild(b); }
+  group('catRow', 'cat', (v) => { S.cat = v; S.one = null; buildList(); buildShow(); }); buildList();
+  const geo = figureGeometry();
+  for (const A of ARMIES) { const r = makeRig(A, geo); setGun(r, A.id === 'il' ? 'fal' : S.gun); const tag = document.createElement('div'); tag.className = 'tag'; tag.innerHTML = `${A.name}<small>${A.sub}</small>`; document.body.appendChild(tag); figs.push({ r, tag, A }); }
+  document.getElementById('load').remove(); men();
 } catch (e) { document.getElementById('load').textContent = 'הטעינה נכשלה. רעננו את הדף.'; console.error(e); }
-for (const b of document.querySelectorAll('#bar button[data-pose]')) b.onclick = () => { kind = b.dataset.pose; for (const x of document.querySelectorAll('#bar button[data-pose]')) x.setAttribute('aria-pressed', String(x === b)); };
-bSpin.onclick = () => { spin = !spin; bSpin.setAttribute('aria-pressed', String(spin)); };
 addEventListener('resize', () => { R.setSize(innerWidth, innerHeight); cam.aspect = innerWidth / innerHeight; cam.updateProjectionMatrix(); });
-const v = new THREE.Vector3(), clock = new THREE.Clock(); let t = 0;
+const v = new THREE.Vector3(), clock = new THREE.Clock(); let t = 0, shotT = 0;
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 function frame() {
-  const dt = Math.min(clock.getDelta(), 0.05); t += reduce ? 0 : dt;
-  for (const { r } of figs) { r.breath += dt; if (spin) r.root.rotation.y += dt * 0.6; pose(r, kind, kind === 'run' ? t * 9 : t); }
+  const dt0 = Math.min(clock.getDelta(), 0.05), dt = S.play && !reduce ? dt0 * S.speed : 0; t += dt;
+  if (S.mode === 'men') {
+    // firing: a short burst, a pause; each shot kicks the rifle back and lights the muzzle
+    shotT += dt; const cyc = shotT % 1.6, firing = S.pose === 'fire' && cyc < 0.62, shot = firing && (cyc % 0.11) < 0.04;
+    for (const { r } of figs) { r.breath += dt; if (S.spinM) r.root.rotation.y += dt0 * 0.6; r.kick = firing ? Math.max(r.kick * Math.exp(-dt * 30), shot ? 1 : 0) : r.kick * Math.exp(-dt * 12); r.flash.visible = shot && r.wk !== 'rpg7'; if (r.flash.visible) r.flash.material.rotation = Math.random() * 6; pose(r, S.pose, S.pose === 'run' ? t * 9 : S.pose === 'walk' ? t * 5.5 : t); }
+  } else if (S.spin) for (const w of show.children) w.rotation.y += dt0 * 0.45;
   ctl.update(); R.render(scene, cam);
-  for (const { r, tag } of figs) { v.set(r.root.position.x, 0.02, 0).project(cam); const sx = (v.x * 0.5 + 0.5) * innerWidth; tag.style.left = sx + 'px'; tag.style.top = Math.min((-v.y * 0.5 + 0.5) * innerHeight + 8, innerHeight - 118) + 'px'; tag.style.display = v.z < 1 && sx > -80 && sx < innerWidth + 80 ? '' : 'none'; }
+  for (const { r, tag } of figs) { if (!r.root.visible) continue; v.set(r.root.position.x, 0.02, 0).project(cam); const sx = (v.x * 0.5 + 0.5) * innerWidth; tag.style.left = sx + 'px'; tag.style.top = Math.min((-v.y * 0.5 + 0.5) * innerHeight + 8, innerHeight - 118) + 'px'; tag.style.display = v.z < 1 && sx > -80 && sx < innerWidth + 80 ? '' : 'none'; }
 }
 R.setAnimationLoop(frame);
-window.__view = { cam, ctl, setPose: (k) => { kind = k; }, frame, figs };   /* for checking it from outside */
+window.__view = { cam, ctl, S, frame, figs, show, buildShow, men };
 window.__ready = true;
 </script>
 </html>

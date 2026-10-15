@@ -82,19 +82,262 @@ function crH(x, z) {
 }
 /* ---------- the village: walls with real thickness, wide doorways, windows to shoot from ---------- */
 // a straight wall in local coordinates (along x or along z), its outward normal, and its openings [from, to, 'door' | 'win'] measured along it
-function crWall(ax, az, bx, bz, yb, y0, yt, gaps, P, th = CR_WT) {
+// paint: { out: outward normal [x, z] or null, c: the colour outside, band: the painted band at the foot (or null), in: the whitewash inside }
+function crWall(ax, az, bx, bz, yb, y0, yt, gaps, P, th = CR_WT, paint = null) {
   const alongX = Math.abs(bz - az) < 1e-6, L = alongX ? Math.abs(bx - ax) : Math.abs(bz - az), sx = alongX ? Math.sign(bx - ax) : 0, sz = alongX ? 0 : Math.sign(bz - az);
+  const pt = paint || { out: null, c: 0xc9ae86, band: null, in: 0xc9ae86 }, BAND = y0 + 0.9;
   const piece = (s0, s1, y1, y2) => { if (s1 - s0 < 0.02 || y2 - y1 < 0.02) return; const a = [ax + sx * s0, az + sz * s0], b = [ax + sx * s1, az + sz * s1], [wx0, wz0] = CW(Math.min(a[0], b[0]), Math.min(a[1], b[1])), [wx1, wz1] = CW(Math.max(a[0], b[0]), Math.max(a[1], b[1]));
     const x0 = alongX ? wx0 : wx0 - th / 2, x1 = alongX ? wx1 : wx0 + th / 2, z0 = alongX ? wz0 - th / 2 : wz0, z1 = alongX ? wz0 + th / 2 : wz1;
-    P.walls.push(boxUV(x0, x1, y1, y2, z0, z1, 2.6, 2.6)); addCollider((x0 + x1) / 2, (z0 + z1) / 2, (x1 - x0) / 2, (z1 - z0) / 2, 0, y2, y1); };
+    // below the band line the outer face takes the band's colour: a piece that crosses it is cut in two (one collider still covers both)
+    const cuts = pt.band != null && y1 < BAND && y2 > BAND ? [[y1, BAND, true], [BAND, y2, false]] : [[y1, y2, pt.band != null && y2 <= BAND + 1e-3]];
+    for (const [q1, q2, band] of cuts) P.walls.push([crPaint(boxUV(x0, x1, q1, q2, z0, z1, 2.6, 2.6), pt.out, band ? pt.band : pt.c, pt.in, y0, yt), null]);
+    addCollider((x0 + x1) / 2, (z0 + z1) / 2, (x1 - x0) / 2, (z1 - z0) / 2, 0, y2, y1); };
   let s = 0; for (const [g0, g1, kind] of [...gaps].sort((p, q) => p[0] - q[0])) { piece(s, g0, yb, yt); if (kind === 'door') piece(g0, g1, y0 + 2.4, yt); else { piece(g0, g1, yb, y0 + 1.05); piece(g0, g1, y0 + 2.05, yt); } s = g1; }
   piece(s, L, yb, yt);
+}
+// a wall box's colours: the outer face (and the jambs) in the house colour, the inner face whitewashed, darker toward the dust and under the roof
+function crPaint(g, out, cOut, cIn, y0, yt) {
+  const p = g.attributes.position, n = g.attributes.normal, a = new Float32Array(p.count * 3), co = new THREE.Color(cOut), ci = new THREE.Color(cIn), c = new THREE.Color();
+  for (let i = 0; i < p.count; i++) {
+    const d = out ? n.getX(i) * out[0] + n.getZ(i) * out[1] : 0, y = p.getY(i), inner = out ? d < -0.5 : true;
+    // indoors is in the shade of the roof: without shadows (the lighter settings) that shade lives in the paint
+    c.copy(inner ? (out ? ci : co) : co); const k = lerp(0.72, 1, smooth(y0 - 0.6, y0 + 1.5, y)) * lerp(1, 0.86, smooth(yt - 0.7, yt, y)) * (inner ? (LITE ? 0.62 : 0.8) : 1);
+    a[i * 3] = c.r * k; a[i * 3 + 1] = c.g * k; a[i * 3 + 2] = c.b * k;
+  }
+  g.setAttribute('color', new THREE.BufferAttribute(a, 3)); return g;
+}
+/* ---------- the village dressed: a plastered concrete frame, framed windows with their shutters, metal doors, roofs with what the villagers keep
+   on them, wires from the road, and the scars of the shelling. All of it is look only - every wall, doorway, window and place to fight from
+   stays exactly where it was ---------- */
+// the render: pale and neutral, so each house's paint (its vertex colour) is the colour; trowel sweeps, hairline cracks, chips to the grey under it
+function crPlasterTex() {
+  const W = 512, c = canvas(W, W), g = c.getContext('2d'), r = rng(9091);
+  g.fillStyle = '#e6e2da'; g.fillRect(0, 0, W, W);
+  tileBlotches(g, W, r, 26, 30, 110, 'rgba(120,110,95,0.11)', 'rgba(255,255,255,0.10)', 0.55);
+  g.lineCap = 'round';
+  for (let i = 0; i < 70; i++) { const x = r() * W, y = r() * W, rad = 20 + r() * 50, a0 = r() * 6.28; g.strokeStyle = `rgba(${r() < 0.5 ? '255,255,250' : '110,100,88'},${0.05 + r() * 0.07})`; g.lineWidth = 3 + r() * 8; g.beginPath(); g.arc(x, y, rad, a0, a0 + 0.6 + r() * 0.9); g.stroke(); }
+  const img = g.getImageData(0, 0, W, W), d = img.data; for (let i = 0; i < d.length; i += 4) { const n = (r() - 0.5) * 18; d[i] += n; d[i + 1] += n; d[i + 2] += n; } g.putImageData(img, 0, 0);
+  for (let k = 0; k < 7; k++) { let x = r() * W, y = r() * W; g.strokeStyle = `rgba(60,52,44,${0.25 + r() * 0.25})`; g.lineWidth = 0.7 + r() * 0.6; g.beginPath(); g.moveTo(x, y); for (let j = 0; j < 9; j++) { x += (r() - 0.5) * 22; y += (r() - 0.3) * 20; g.lineTo(x, y); } g.stroke(); }
+  for (let k = 0; k < 18; k++) { const x = r() * W, y = r() * W, w = 3 + r() * 10, h = 2 + r() * 7; g.fillStyle = 'rgba(150,145,135,0.7)'; g.beginPath(); for (let a = 0; a < 6.3; a += 0.9) g.lineTo(x + Math.cos(a) * w * (0.6 + r() * 0.5), y + Math.sin(a) * h * (0.6 + r() * 0.5)); g.closePath(); g.fill(); }
+  const t = tex(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; return t;
+}
+// poured concrete: the boards of the formwork, pores, stains
+function crConcTex() {
+  const W = 256, c = canvas(W, W), g = c.getContext('2d'), r = rng(9092);
+  g.fillStyle = '#d2cec6'; g.fillRect(0, 0, W, W);
+  tileBlotches(g, W, r, 18, 12, 60, 'rgba(80,74,66,0.16)', 'rgba(255,255,255,0.1)', 0.6);
+  for (let y = 0; y < W; y += 32) { g.fillStyle = 'rgba(70,64,56,0.2)'; g.fillRect(0, y, W, 1.5); for (let k = 0; k < 6; k++) { g.strokeStyle = 'rgba(90,84,76,0.08)'; g.lineWidth = 1; g.beginPath(); const yy = y + 4 + r() * 24; g.moveTo(0, yy); g.bezierCurveTo(W * 0.3, yy + (r() - 0.5) * 4, W * 0.7, yy + (r() - 0.5) * 4, W, yy); g.stroke(); } }
+  for (let i = 0; i < 900; i++) { g.fillStyle = r() < 0.6 ? 'rgba(60,56,50,0.35)' : 'rgba(255,255,255,0.2)'; g.fillRect(r() * W, r() * W, 1 + r() * 1.5, 1 + r()); }
+  const t = tex(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; return t;
+}
+// the scars, one per cell of a strip: bricks where the render has fallen, a shell's burst, a burst of bullet holes, a streak of soot or damp
+function crDecalTex() {
+  const S = 256, c = canvas(S * 4, S), g = c.getContext('2d'), r = rng(9093);
+  g.clearRect(0, 0, S * 4, S);
+  const cell = (k, fn) => { g.save(); g.translate(k * S, 0); g.beginPath(); g.rect(0, 0, S, S); g.clip(); fn(); g.restore(); };
+  const pock = (x, y, rad) => { g.fillStyle = 'rgba(214,208,196,0.95)'; g.beginPath(); for (let a = 0; a < 6.3; a += 0.7) g.lineTo(x + Math.cos(a) * rad * (0.7 + r() * 0.6), y + Math.sin(a) * rad * (0.7 + r() * 0.6)); g.closePath(); g.fill(); g.fillStyle = 'rgba(40,34,28,0.95)'; g.beginPath(); g.arc(x, y, rad * 0.42, 0, 6.283); g.fill(); };
+  cell(0, () => {
+    const pts = []; for (let a = 0; a < 6.283; a += 0.22) { const rr = 0.36 + 0.08 * Math.sin(a * 3 + 1) + (r() - 0.5) * 0.12; pts.push([S / 2 + Math.cos(a) * S * rr * 1.12, S / 2 + Math.sin(a) * S * rr * 0.92]); }
+    const path = () => { g.beginPath(); pts.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y))); g.closePath(); };
+    path(); g.fillStyle = 'rgba(196,188,174,1)'; g.fill();
+    g.save(); g.translate(S / 2, S / 2); g.scale(0.88, 0.85); g.translate(-S / 2, -S / 2); path(); g.clip();
+    g.fillStyle = '#7e786c'; g.fillRect(0, 0, S, S);
+    for (let row = 0; row * 15 < S; row++) for (let k = -1; k * 52 < S; k++) { const x = k * 52 + (row % 2) * 26 + 1, y = row * 15 + 1, t = 0.78 + r() * 0.36; g.fillStyle = `rgb(${(152 * t) | 0},${(94 * t) | 0},${(66 * t) | 0})`; g.fillRect(x, y, 49, 12); }
+    const sh = g.createRadialGradient(S / 2, S / 2, S * 0.15, S / 2, S / 2, S * 0.5); sh.addColorStop(0, 'rgba(0,0,0,0)'); sh.addColorStop(1, 'rgba(0,0,0,0.35)'); g.fillStyle = sh; g.fillRect(0, 0, S, S);
+    g.restore();
+  });
+  cell(1, () => {
+    const gr = g.createRadialGradient(S / 2, S / 2, 4, S / 2, S / 2, S * 0.48); gr.addColorStop(0, 'rgba(26,22,18,0.9)'); gr.addColorStop(0.45, 'rgba(40,34,28,0.5)'); gr.addColorStop(1, 'rgba(40,34,28,0)'); g.fillStyle = gr; g.fillRect(0, 0, S, S);
+    g.strokeStyle = 'rgba(30,26,22,0.35)'; g.lineCap = 'round'; for (let k = 0; k < 40; k++) { const a = r() * 6.283, r0 = 18 + r() * 20, r1 = r0 + 30 + r() * 70; g.lineWidth = 1 + r() * 2.5; g.beginPath(); g.moveTo(S / 2 + Math.cos(a) * r0, S / 2 + Math.sin(a) * r0); g.lineTo(S / 2 + Math.cos(a) * r1, S / 2 + Math.sin(a) * r1); g.stroke(); }
+    g.fillStyle = 'rgba(128,120,108,1)'; g.beginPath(); for (let a = 0; a < 6.3; a += 0.45) g.lineTo(S / 2 + Math.cos(a) * (24 + r() * 16), S / 2 + Math.sin(a) * (22 + r() * 14)); g.closePath(); g.fill();
+    g.fillStyle = 'rgba(30,26,22,1)'; g.beginPath(); for (let a = 0; a < 6.3; a += 0.6) g.lineTo(S / 2 + Math.cos(a) * (9 + r() * 7), S / 2 + Math.sin(a) * (8 + r() * 6)); g.closePath(); g.fill();
+    for (let k = 0; k < 34; k++) { const a = r() * 6.283, d = 40 + r() * 80; pock(S / 2 + Math.cos(a) * d, S / 2 + Math.sin(a) * d, 2.5 + r() * 4); }
+  });
+  cell(2, () => { for (let k = 0; k < 30; k++) { const x = S * (0.12 + r() * 0.76), y = S * (0.15 + r() * 0.7); pock(x, y, 2.5 + r() * 5); } });
+  cell(3, () => {
+    for (let k = 0; k < 9; k++) { const x = S * (0.3 + r() * 0.4), w = S * (0.12 + r() * 0.2), gr = g.createLinearGradient(0, S, 0, S * (0.05 + r() * 0.3)); gr.addColorStop(0, 'rgba(24,20,16,0.75)'); gr.addColorStop(1, 'rgba(24,20,16,0)'); g.fillStyle = gr; g.beginPath(); g.ellipse(x, S * 0.9, w, S * 0.85, 0, 0, 6.283); g.fill(); }
+  });
+  return tex(c);
+}
+// louvred shutters, painted over and chipped; metal doors with their two panels; corrugated iron; a dovecote's clay; bundles of dry stalks
+function crShutTex() {
+  const W = 128, H = 192, c = canvas(W, H), g = c.getContext('2d'), r = rng(9094);
+  g.fillStyle = '#ebe6dc'; g.fillRect(0, 0, W, H); g.fillStyle = 'rgba(60,50,40,0.5)'; g.fillRect(0, 0, W, 8); g.fillRect(0, H - 8, W, 8); g.fillRect(0, 0, 8, H); g.fillRect(W - 8, 0, 8, H);
+  for (let y = 12; y < H - 12; y += 11) { const gr = g.createLinearGradient(0, y, 0, y + 11); gr.addColorStop(0, 'rgba(255,255,255,0.35)'); gr.addColorStop(0.7, 'rgba(0,0,0,0)'); gr.addColorStop(1, 'rgba(40,30,20,0.55)'); g.fillStyle = gr; g.fillRect(10, y, W - 20, 11); }
+  for (let i = 0; i < 60; i++) { g.fillStyle = `rgba(110,82,56,${0.4 + r() * 0.4})`; g.fillRect(r() * W, r() * H, 1 + r() * 6, 1 + r() * 3); }
+  return tex(c);
+}
+function crDoorTex() {
+  const W = 128, H = 256, c = canvas(W, H), g = c.getContext('2d'), r = rng(9095);
+  g.fillStyle = '#e2e0da'; g.fillRect(0, 0, W, H);
+  const panel = (x, y, w, h) => { g.fillStyle = 'rgba(0,0,0,0.12)'; g.fillRect(x, y, w, h); g.fillStyle = 'rgba(255,255,255,0.35)'; g.fillRect(x, y + h - 3, w, 3); g.fillRect(x + w - 3, y, 3, h); g.fillStyle = 'rgba(0,0,0,0.3)'; g.fillRect(x, y, w, 3); g.fillRect(x, y, 3, h); };
+  panel(16, 16, W - 32, H * 0.42); panel(16, H * 0.52, W - 32, H * 0.42);
+  for (let k = 0; k < 14; k++) { const x = r() * W, gr = g.createLinearGradient(0, H * (0.4 + r() * 0.5), 0, H); gr.addColorStop(0, 'rgba(120,62,30,0)'); gr.addColorStop(1, `rgba(120,62,30,${0.25 + r() * 0.35})`); g.fillStyle = gr; g.fillRect(x, 0, 2 + r() * 6, H); }
+  for (let i = 0; i < 90; i++) { g.fillStyle = `rgba(${r() < 0.5 ? '130,70,36' : '60,52,44'},${0.3 + r() * 0.4})`; g.fillRect(r() * W, r() * H, 1 + r() * 4, 1 + r() * 3); }
+  g.fillStyle = 'rgba(40,36,30,0.9)'; g.fillRect(W - 24, H * 0.5, 8, 14);
+  return tex(c);
+}
+function crSheetTex() {
+  const W = 256, H = 64, c = canvas(W, H), g = c.getContext('2d'), r = rng(9096);
+  for (let x = 0; x < W; x++) { const v = 170 + 60 * Math.sin(x / W * Math.PI * 2 * 12); g.fillStyle = `rgb(${v | 0},${(v * 0.98) | 0},${(v * 0.94) | 0})`; g.fillRect(x, 0, 1, H); }
+  tileBlotches(g, W, r, 14, 6, 26, 'rgba(120,64,30,0.5)', 'rgba(255,255,255,0.08)', 0.8);
+  const t = tex(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; return t;
+}
+function crPigeonTex() {
+  const W = 256, c = canvas(W, W), g = c.getContext('2d'), r = rng(9097);
+  g.fillStyle = '#b39a76'; g.fillRect(0, 0, W, W); tileBlotches(g, W, r, 20, 10, 40, 'rgba(90,70,50,0.25)', 'rgba(255,245,225,0.15)', 0.6);
+  for (let row = 0; row < 9; row++) for (let k = 0; k < 10; k++) { const x = k * 25.6 + (row % 2) * 12.8 + 6, y = 18 + row * 26; g.fillStyle = 'rgba(205,190,165,0.9)'; g.beginPath(); g.arc(x, y, 7, 0, 6.283); g.fill(); g.fillStyle = 'rgba(28,22,16,0.95)'; g.beginPath(); g.arc(x, y, 4.2, 0, 6.283); g.fill(); }
+  const t = tex(c); t.wrapS = THREE.RepeatWrapping; return t;
+}
+function crStrawTex() {
+  const W = 128, c = canvas(W, W), g = c.getContext('2d'), r = rng(9098);
+  g.fillStyle = '#9a8158'; g.fillRect(0, 0, W, W);
+  for (let i = 0; i < 260; i++) { const y = r() * W, sh = 120 + r() * 90; g.strokeStyle = `rgba(${sh | 0},${(sh * 0.86) | 0},${(sh * 0.58) | 0},0.8)`; g.lineWidth = 0.8 + r() * 1.6; g.beginPath(); g.moveTo(0, y); g.lineTo(W, y + (r() - 0.5) * 10); g.stroke(); }
+  const t = tex(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; return t;
+}
+/* how each house looks: its paint and the band at its foot, the frame (plastered with the walls, or raw concrete), the height of its rooms,
+   its parapet, what stands on its roof, the shutters and the door, a concrete hood over the door or an iron awning, a burnt window */
+const CR_VSTYLE = [
+  { c: 0xdcd4c0, band: 0x8a98a2, raw: false, dh: 0.3, par: 'solid', roof: 'cols', sh: 0x4e6e5a, dr: 0x56666e, aw: true, shop: true },
+  { c: 0xcaa46c, band: 0x7d6a52, raw: false, dh: 0, par: 'rail', roof: 'tank', sh: 0x6a4a30, dr: 0x6b3f2a, hood: true },
+  { c: 0xa6bcc6, band: 0x6a7c86, raw: false, dh: 0.5, par: 'solid', roof: 'pigeon', sh: 0x3c5c70, dr: 0x4a5a64, burnt: true },
+  { c: 0xd2a088, band: 0x8a6a5a, raw: false, dh: -0.2, par: 'low', roof: 'straw', sh: 0x587860, dr: 0x6a5040, aw: true },
+  { c: 0xb6b0a4, band: null, raw: true, dh: 0.2, par: 'broken', roof: 'cols', sh: 0x7a5a3a, dr: 0x50585a, scar: true },
+  { c: 0xbac29e, band: 0x6a7860, raw: false, dh: 0, par: 'solid', roof: 'tank', sh: 0x6a4a30, dr: 0x3e4e44, line: true },
+  { c: 0xcfb994, band: null, raw: false, dh: -0.3, par: 'low', roof: 'straw', sh: 0x40607a, dr: 0x6a4a34, scar: true },
+  { c: 0xe2ddd0, band: 0x9a8a72, raw: false, dh: 0.4, par: 'rail', roof: 'cols', sh: 0x5a6e4a, dr: 0x5c5048, line: true, hood: true },
+];
+const CR_IN = 0xe6dfcf, CR_CONC = 0xb4b0a6, CR_RAWC = 0xa8a398;
+const crMix = (a, b, t) => new THREE.Color(a).lerp(new THREE.Color(b), t).getHex();
+// a box against a wall, in the wall's own measure: s0..s1 along it, d0..d1 out from its centre line (its outer face is at d = CR_WT / 2)
+function crBoxOn(wl, s0, s1, d0, d1, y1, y2, tw = 1, th = 1) {
+  const ax = wl.o[0] + wl.t[0] * s0 + wl.n[0] * d0, az = wl.o[1] + wl.t[1] * s0 + wl.n[1] * d0, bx = wl.o[0] + wl.t[0] * s1 + wl.n[0] * d1, bz = wl.o[1] + wl.t[1] * s1 + wl.n[1] * d1;
+  const [x0, z0] = CW(Math.min(ax, bx), Math.min(az, bz)), [x1, z1] = CW(Math.max(ax, bx), Math.max(az, bz)); return boxUV(x0, x1, y1, y2, z0, z1, tw, th);
+}
+// a flat card on a wall facing out of it, its picture one cell of the strip of scars
+function crQuad(wl, s, y, w, h, d, cell, list, flip = false) {
+  const g = new THREE.PlaneGeometry(w, h), uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, (cell + uv.getX(i)) / 4, flip ? 1 - uv.getY(i) : uv.getY(i));
+  g.rotateY(Math.atan2(wl.n[0], wl.n[1])); const [x, z] = CW(wl.o[0] + wl.t[0] * s + wl.n[0] * d, wl.o[1] + wl.t[1] * s + wl.n[1] * d); g.translate(x, y, z); list.push([g, 0xffffff]);
+}
+// a geometry built standing at the foot of a wall (x along it, z out of it), turned to face out of the wall and set down at s, d
+function crOnWall(wl, s, d, y, geo) { geo.rotateY(Math.atan2(wl.n[0], wl.n[1])); const [x, z] = CW(wl.o[0] + wl.t[0] * s + wl.n[0] * d, wl.o[1] + wl.t[1] * s + wl.n[1] * d); geo.translate(x, y, z); return geo; }
+function crVDress(H, st, WL, P, r, y0, yt, yb) {
+  const T = CR_WT, F = T / 2, fr = st.raw ? CR_RAWC : crMix(st.c, 0xffffff, 0.14), conc = CR_CONC, [x0, x1, z0, z1] = H.box;
+  // is this stretch of a wall clear of the corners and of every opening but the one named?
+  const free = (wl, s0, s1, pad = 0.25, own = null) => s0 >= wl.e0 + 0.5 && s1 <= wl.e1 - 0.5 && !wl.gaps.some(([g0, g1]) => g0 !== own && s1 > g0 - pad && s0 < g1 + pad);
+  const wpt = (wl, s, d) => [wl.o[0] + wl.t[0] * s + wl.n[0] * d, wl.o[1] + wl.t[1] * s + wl.n[1] * d];
+  const gl = (wl, s, d) => groundAt(...CW(...wpt(wl, s, d)));
+  const rubble = (wl, s, n, spread) => { for (let k = 0; k < n; k++) { const [lx, lz] = wpt(wl, s + (r() - 0.5) * spread, F + 0.2 + r() * 1.3), [wx, wz] = CW(lx, lz), q = 0.07 + r() * 0.17; P.conc.push([new THREE.DodecahedronGeometry(q, 0), [st.c, 0x9a5a40, conc, CR_RAWC][Math.floor(r() * 4)], M4(wx, groundAt(wx, wz) + q * 0.5, wz, r() * 3, r() * 3, r() * 3, 1, 0.7, 1.2)]); } };
+  for (const wl of WL) {
+    const L = wl.L, c0 = wl.e0, c1 = wl.e1;
+    // the frame shows through the render: a pilaster at each corner, a beam under the roof all round
+    P.conc.push([crBoxOn(wl, c0 - 0.05, c0 + 0.45, F - 0.02, F + 0.05, yb, yt), fr], [crBoxOn(wl, c1 - 0.45, c1 + 0.05, F - 0.02, F + 0.05, yb, yt), fr], [crBoxOn(wl, c0 + 0.45, c1 - 0.45, F - 0.02, F + 0.04, yt - 0.34, yt), fr]);
+    for (const [g0, g1, kind] of wl.gaps) {
+      if (kind === 'win') {
+        P.conc.push([crBoxOn(wl, g0 - 0.12, g0, F - 0.02, F + 0.05, y0 + 1.0, y0 + 2.18), fr], [crBoxOn(wl, g1, g1 + 0.12, F - 0.02, F + 0.05, y0 + 1.0, y0 + 2.18), fr], [crBoxOn(wl, g0 - 0.12, g1 + 0.12, F - 0.02, F + 0.06, y0 + 2.05, y0 + 2.2), fr], [crBoxOn(wl, g0 - 0.2, g1 + 0.2, F - 0.02, F + 0.11, y0 + 0.97, y0 + 1.05), conc]);
+        // the shutters, folded right back flat against the wall; now and then a leaf is gone
+        for (const sd of [-1, 1]) { const s0 = sd < 0 ? g0 - 0.84 : g1 + 0.14; if (!free(wl, s0, s0 + 0.7, 0.25, g0) || r() < 0.12) continue; P.shut.push([crBoxOn(wl, s0, s0 + 0.7, F + 0.03, F + 0.065, y0 + 1.02, y0 + 2.1, 0.7, 1.08), crMix(st.sh, 0x9a8a70, r() * 0.3)]); }
+      } else {
+        P.conc.push([crBoxOn(wl, g0 - 0.16, g0, F - 0.02, F + 0.06, y0 - 0.05, y0 + 2.58), fr], [crBoxOn(wl, g1, g1 + 0.16, F - 0.02, F + 0.06, y0 - 0.05, y0 + 2.58), fr], [crBoxOn(wl, g0 - 0.16, g1 + 0.16, F - 0.02, F + 0.07, y0 + 2.4, y0 + 2.6), fr]);
+        // the step at the door, a concrete hood over it on some houses
+        P.conc.push([crBoxOn(wl, g0 - 0.25, g1 + 0.25, F - 0.02, F + 0.55, Math.min(gl(wl, (g0 + g1) / 2, F + 0.4), y0) - 0.3, y0 - 0.03), conc]);
+        if (st.hood) P.conc.push([crBoxOn(wl, g0 - 0.45, g1 + 0.45, F - 0.02, F + 0.65, y0 + 2.8, y0 + 2.92), conc]);
+        // the iron doors: both leaves swung right back against the wall inside; where a window leaves no room, that leaf lies blown off in the dust outside
+        for (const sd of [-1, 1]) { const s0 = sd < 0 ? g0 - 1.12 : g1 + 0.02, s1 = s0 + 1.1;
+          if (s0 >= T + 0.05 && s1 <= L - T - 0.05 && !wl.gaps.some(([q0, q1]) => q0 !== g0 && s1 > q0 - 0.1 && s0 < q1 + 0.1)) P.door.push([crBoxOn(wl, s0, s1, -F - 0.06, -F - 0.012, y0 + 0.03, y0 + 2.36, 1.1, 2.33), st.dr]);
+          else { const [lx, lz] = wpt(wl, (g0 + g1) / 2 + sd * 0.7, F + 1.7 + r() * 0.8), [wx, wz] = CW(lx, lz); P.door.push([new THREE.BoxGeometry(1.1, 0.05, 2.33), st.dr, M4(wx, groundAt(wx, wz) + 0.05, wz, 0.04, r() * 3, 0.03)]); } }
+        // an iron awning on brackets over the door
+        if (st.aw) { const W = g1 - g0 + 1.6, D = 1.45, yi = y0 + 3.08, yo = y0 + 2.74, g = new THREE.BufferGeometry();
+          g.setAttribute('position', new THREE.Float32BufferAttribute([-W / 2, yi - y0, 0, W / 2, yi - y0, 0, -W / 2, yo - y0, D, W / 2, yo - y0, D], 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute([0, 1, W, 1, 0, 0, W, 0], 2)); g.setIndex([0, 2, 1, 1, 2, 3]); g.computeVertexNormals();
+          P.sheet.push([crOnWall(wl, (g0 + g1) / 2, F + 0.02, y0, g), crMix(0x9a948a, 0x8a5a3a, r() * 0.5)]);
+          for (const e of [-1, 1]) P.metal.push([crOnWall(wl, (g0 + g1) / 2 + e * (W / 2 - 0.2), F, y0, new THREE.BoxGeometry(0.04, 0.04, 1.5).rotateX(-0.42).translate(0, 2.55, 0.68)), 0x3a3834]); }
+        // the grocer's board over his door
+        if (st.shop) { const cv = canvas(512, 128), g = cv.getContext('2d'), rr = rng(9099); g.fillStyle = '#2d5a66'; g.fillRect(0, 0, 512, 128); tileBlotches(g, 512, rr, 18, 8, 40, 'rgba(120,70,40,0.35)', 'rgba(255,255,255,0.1)', 0.7);
+          g.strokeStyle = 'rgba(230,224,206,0.85)'; g.lineWidth = 5; g.strokeRect(10, 10, 492, 108); g.fillStyle = '#efe8d4'; g.font = 'bold 74px "DejaVu Sans", Tahoma, Arial, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.direction = 'rtl'; g.fillText('بقالة', 256, 66);
+          const m = new THREE.Mesh(crBoxOn(wl, (g0 + g1) / 2 - 1.3, (g0 + g1) / 2 + 1.3, F + 0.01, F + 0.05, y0 + 3.25, y0 + 3.9, 2.6, 0.65), new THREE.MeshStandardMaterial({ map: tex(cv), roughness: 0.8 })); scene.add(SH(onLayer1(m))); }
+      }
+    }
+  }
+  // the roof: a concrete slab with its lip all round, and on it the parapet of this house
+  const lb = (ax, az, bx, bz, ya, yb2, col, list = P.conc, tw = 1, th = 1) => { const [p, q] = CW(Math.min(ax, bx), Math.min(az, bz)), [u, v] = CW(Math.max(ax, bx), Math.max(az, bz)); list.push([boxUV(p, u, ya, yb2, q, v, tw, th), col]); };
+  const X0 = x0 - F, X1 = x1 + F, Z0 = z0 - F, Z1 = z1 + F, ys = yt + 0.22, pw = 0.22;
+  lb(X0 - 0.3, Z0 - 0.3, X1 + 0.3, Z1 + 0.3, yt, ys, crMix(conc, 0x8a8478, 0.15));
+  lb(x0 + F, z0 + F, x1 - F, z1 - F, yt - 0.03, yt - 0.004, LITE ? 0x5a564e : 0x87827a);
+  const edges = [[X0, Z0, X1, Z0 + pw, 'x'], [X0, Z1 - pw, X1, Z1, 'x'], [X0, Z0 + pw, X0 + pw, Z1 - pw, 'z'], [X1 - pw, Z0 + pw, X1, Z1 - pw, 'z']];
+  const ph = st.par === 'solid' || st.par === 'broken' ? 0.95 : st.par === 'low' ? 0.45 : 0.18;
+  for (const [ax, az, bx, bz, ax2] of edges) {
+    // a broken parapet has lost a stretch or two to the shelling: rebar sticks out of the broken ends, the pieces lie under the wall
+    let runs = [[0, 1]];
+    if (st.par === 'broken' && r() < 0.8) { const a = 0.15 + r() * 0.45, b = a + 0.15 + r() * 0.2; runs = [[0, a], [b, 1]]; }
+    for (const [u0, u1] of runs) {
+      const p0 = ax2 === 'x' ? [lerp(ax, bx, u0), az] : [ax, lerp(az, bz, u0)], p1 = ax2 === 'x' ? [lerp(ax, bx, u1), bz] : [bx, lerp(az, bz, u1)];
+      if (st.par === 'rail') lb(p0[0], p0[1], p1[0], p1[1], ys, ys + ph, conc);
+      else { lb(p0[0], p0[1], p1[0], p1[1], ys, ys + ph, st.par === 'low' ? crMix(st.c, 0x8a7a62, 0.25) : st.c, P.walls, 2.6, 2.6); lb(p0[0] - 0.04, p0[1] - 0.04, p1[0] + 0.04, p1[1] + 0.04, ys + ph, ys + ph + 0.06, conc); }
+    }
+    if (runs.length > 1) for (const u of [runs[0][1], runs[1][0]]) {
+      const [px, pz] = ax2 === 'x' ? [lerp(ax, bx, u), (az + bz) / 2] : [(ax + bx) / 2, lerp(az, bz, u)], [wx, wz] = CW(px, pz);
+      for (let k = 0; k < 3; k++) P.metal.push([G.cyl(0.011, 0.011, 0.5 + r() * 0.4, 4), 0x4a3426, M4(wx + (r() - 0.5) * 0.15, ys + 0.2 + k * 0.25, wz + (r() - 0.5) * 0.15, ax2 === 'x' ? 0 : Math.PI / 2 + (r() - 0.5) * 0.6, 0, ax2 === 'x' ? Math.PI / 2 + (r() - 0.5) * 0.6 : 0)]);
+      const wl = WL[ax2 === 'x' ? (az < (Z0 + Z1) / 2 ? 0 : 1) : (ax < (X0 + X1) / 2 ? 2 : 3)], s = ax2 === 'x' ? px - wl.o[0] : pz - wl.o[1]; rubble(wl, s, 7, 1.6);
+    }
+  }
+  if (st.par === 'rail') {
+    // an iron railing on a low curb
+    const posts = [], rails = [];
+    for (const [ax, az, bx, bz] of [[X0 + 0.11, Z0 + 0.11, X1 - 0.11, Z0 + 0.11], [X0 + 0.11, Z1 - 0.11, X1 - 0.11, Z1 - 0.11], [X0 + 0.11, Z0 + 0.11, X0 + 0.11, Z1 - 0.11], [X1 - 0.11, Z0 + 0.11, X1 - 0.11, Z1 - 0.11]]) {
+      const L = Math.hypot(bx - ax, bz - az), n = Math.max(2, Math.round(L / 1.4)); for (let k = 0; k <= n; k++) { const [wx, wz] = CW(lerp(ax, bx, k / n), lerp(az, bz, k / n)); posts.push([G.box(0.05, 0.85, 0.05), 0x3c3a34, M4(wx, ys + ph + 0.42, wz)]); }
+      const [mx, mz] = CW((ax + bx) / 2, (az + bz) / 2); for (const y of [0.42, 0.84]) rails.push([G.box(bx !== ax ? L : 0.04, 0.04, bz !== az ? L : 0.04), 0x3c3a34, M4(mx, ys + ph + y, mz)]);
+    }
+    P.metal.push(...posts, ...rails);
+  }
+  // rain spouts through the back parapet, the walls streaked under them
+  { const wl = WL[H.door === 's' ? 0 : 1]; for (const u of [0.22, 0.78]) { const s = lerp(wl.e0, wl.e1, u); P.conc.push([crBoxOn(wl, s - 0.07, s + 0.07, F - 0.1, F + 0.45, ys + 0.05, ys + 0.17), conc]); crQuad(wl, s, ys - 0.85, 0.34, 1.7, F + 0.013, 3, P.decal, true); } }
+  // what stands on the roof
+  const roofPt = (u, v) => CW(lerp(X0 + 0.4, X1 - 0.4, u), lerp(Z0 + 0.4, Z1 - 0.4, v));
+  if (st.roof === 'cols') {
+    // the next storey, begun and left: columns with their rebar standing out of them, and a few courses of block between two of them
+    const cols = [[X0 + 0.15, Z0 + 0.15], [X1 - 0.15, Z0 + 0.15], [X0 + 0.15, Z1 - 0.15], [X1 - 0.15, Z1 - 0.15]]; if (X1 - X0 > 10) cols.push([(X0 + X1) / 2, Z0 + 0.15], [(X0 + X1) / 2, Z1 - 0.15]);
+    for (const [lx, lz] of cols) { const [wx, wz] = CW(lx, lz), hc = r() < 0.25 ? 0.45 : 1.1 + r() * 1.2; P.conc.push([G.box(0.3, hc, 0.3), CR_RAWC, M4(wx, ys + hc / 2, wz)]);
+      for (const [ox, oz] of [[-0.09, -0.09], [0.09, -0.09], [-0.09, 0.09], [0.09, 0.09]]) { const len = 0.55 + r() * 0.5; P.metal.push([G.cyl(0.011, 0.011, len, 4), 0x4a3426, M4(wx + ox, ys + hc + len / 2 - 0.05, wz + oz, (r() - 0.5) * 0.3, 0, (r() - 0.5) * 0.3)]); } }
+    if (st.par === 'solid') { const zb = H.door === 's' ? [Z0, Z0 + 0.22] : [Z1 - 0.22, Z1]; lb(X0 + 0.3, zb[0], X0 + 0.3 + (X1 - X0) * 0.55, zb[1], ys, ys + ph + 0.46 + r() * 0.5, 0xa29d92, P.conc, 0.4, 0.2); }
+  }
+  if (st.roof === 'tank') {
+    // a water tank on an iron stand
+    const [wx, wz] = roofPt(r() < 0.5 ? 0.12 : 0.88, r() < 0.5 ? 0.15 : 0.85);
+    for (const [ox, oz] of [[-0.45, -0.45], [0.45, -0.45], [-0.45, 0.45], [0.45, 0.45]]) P.metal.push([G.box(0.06, 1.25, 0.06), 0x3e3c36, M4(wx + ox, ys + 0.62, wz + oz)]);
+    P.metal.push([G.box(1.05, 0.06, 1.05), 0x3e3c36, M4(wx, ys + 1.27, wz)], [G.cyl(0.58, 0.58, 1.15, 16), crMix(0x8a8a82, 0x8a5a3a, 0.35), M4(wx, ys + 1.88, wz)], [G.cyl(0.2, 0.2, 0.08, 10), 0x5a5850, M4(wx, ys + 2.49, wz)]);
+  }
+  if (st.roof === 'pigeon') {
+    // a clay dovecote, the pots of its nests set in its walls, perches through it
+    const [wx, wz] = roofPt(0.7, 0.5); P.pig.push([G.cyl(0.55, 0.92, 2.5, 16), 0xffffff, M4(wx, ys + 1.25, wz)]); P.conc.push([G.cone(0.6, 0.55, 16), 0xb59c78, M4(wx, ys + 2.78, wz)]);
+    for (let k = 0; k < 6; k++) { const a = r() * 6.283, y = ys + 0.6 + r() * 1.7, rad = lerp(0.92, 0.55, (y - ys) / 2.5); P.wood.push([G.cyl(0.02, 0.02, 0.6, 4), 0x6a5236, M4(wx + Math.cos(a) * rad, y, wz + Math.sin(a) * rad, 0, -a, Math.PI / 2)]); }
+  }
+  if (st.roof === 'straw') {
+    // bundles of dry cotton stalks stacked against the parapet, the fuel of the village ovens
+    for (let k = 0; k < 4; k++) { const along = r() < 0.5, [wx, wz] = roofPt(along ? 0.2 + r() * 0.6 : (r() < 0.5 ? 0.06 : 0.94), along ? (r() < 0.5 ? 0.08 : 0.92) : 0.2 + r() * 0.6), L = 1.4 + r() * 0.8; P.straw.push([G.box(along ? L : 0.6, 0.5 + r() * 0.2, along ? 0.6 : L), 0xffffff, M4(wx, ys + 0.3, wz, 0, (r() - 0.5) * 0.2, 0)]); }
+    // and the ladder up to them, against a side wall between its windows
+    const wl = WL[2 + Math.floor(r() * 2)], s = (wl.e0 + wl.e1) / 2, g0 = gl(wl, s, F + 1.4), Hh = ys + 0.7 - g0, len = Math.hypot(Hh, 1.35), th = Math.atan2(1.35, Hh);
+    const parts = [[G.box(0.05, len, 0.07), 0x7a5a3a, M4(-0.22, len / 2, 0)], [G.box(0.05, len, 0.07), 0x7a5a3a, M4(0.22, len / 2, 0)]]; for (let y = 0.3; y < len - 0.1; y += 0.32) parts.push([G.box(0.44, 0.04, 0.045), 0x6e5034, M4(0, y, 0)]);
+    P.wood.push([crOnWall(wl, s, F + 1.4, g0, build(parts).rotateX(-th)), null]);
+  }
+  if (st.line) {
+    // washing on a line across the roof
+    const [ax, az] = roofPt(0.15, 0.35), [bx, bz] = roofPt(0.85, 0.55), L = Math.hypot(bx - ax, bz - az), yaw = Math.atan2(-(bz - az), bx - ax);
+    for (const [px, pz] of [[ax, az], [bx, bz]]) P.metal.push([G.box(0.04, 1.75, 0.04), 0x4a4842, M4(px, ys + 0.87, pz)]);
+    P.metal.push([G.box(L, 0.012, 0.012), 0x2a2824, M4((ax + bx) / 2, ys + 1.7, (az + bz) / 2, 0, yaw, 0)]);
+    for (let k = 0; k < 5; k++) { const t = 0.12 + k * 0.18, w = 0.4 + r() * 0.25, h = 0.5 + r() * 0.35; P.cloth.push([new THREE.PlaneGeometry(w, h), [0xe0d8c8, 0x8a3a2a, 0x3a5a7a, 0xc9a24a, 0x6a7a4a, 0xd8d0e0][Math.floor(r() * 6)], M4(lerp(ax, bx, t), ys + 1.7 - h / 2, lerp(az, bz, t), (r() - 0.5) * 0.1, yaw, 0)]); }
+  }
+  // the scars: render fallen to the brick, bullet holes round the windows that face the fighting, a shell's burst, soot over a burnt window
+  const dec = (wl, s, y, w, h, cell, flip = false) => crQuad(wl, s, y, w, h, F + 0.012, cell, P.decal, flip);
+  for (let k = 0; k < 2; k++) { const wl = WL[Math.floor(r() * 4)], w = 0.8 + r() * 0.8, h = 0.55 + r() * 0.45; for (let n = 0; n < 10; n++) { const s = lerp(wl.e0 + 0.6 + w / 2, wl.e1 - 0.6 - w / 2, r()), y = y0 + 0.5 + r() * (yt - y0 - 1.3); if (free(wl, s - w / 2, s + w / 2, 0.2)) { dec(wl, s, y, w, h, 0); break; } } }
+  for (const wl of WL) for (const [g0, g1, kind] of wl.gaps) if (kind === 'win' && (wl.n[0] > 0.5 || wl.n[1] === (H.door === 's' ? 1 : -1)) && r() < 0.6) dec(wl, (g0 + g1) / 2 + (r() - 0.5) * 0.5, y0 + 2.75 + r() * 0.3, 1.5, 1.0, 2);
+  if (st.scar) { const wl = WL[Math.floor(r() * 4)]; for (let n = 0; n < 10; n++) { const s = lerp(wl.e0 + 1.4, wl.e1 - 1.4, r()); if (free(wl, s - 0.85, s + 0.85, 0.1)) { dec(wl, s, y0 + 2.6 + r() * 0.8, 1.7, 1.7, 1); rubble(wl, s, 8, 1.4); break; } } }
+  if (st.burnt) for (const wl of WL) for (const [g0, g1, kind] of wl.gaps) if (kind === 'win' && r() < 0.35) dec(wl, (g0 + g1) / 2, y0 + 2.2 + 0.8, 1.7, 1.6, 3);
 }
 function crVHouse(i, P, C, r) {
   const [x, z, w, d, door] = CR_VH[i], T = CR_WT, x0 = x - w / 2, x1 = x + w / 2, z0 = z - d / 2, z1 = z + d / 2;
   // the floor sits just above the highest ground under the house, the walls go down into it
   let g = -1e9; for (const [a, b] of [[x0, z0], [x1, z0], [x0, z1], [x1, z1], [x, z]]) g = Math.max(g, groundAt(...CW(a, b)));
-  const y0 = g + 0.12, yb = g - 0.7, yt = y0 + CR_HH, H = { i, x, z, w, d, door, y: y0, win: [], guard: null };
+  const st = CR_VSTYLE[i], y0 = g + 0.12, yb = g - 0.7, yt = y0 + CR_HH + st.dh, H = { i, x, z, w, d, door, y: y0, win: [], guard: null, box: [x0, x1, z0, z1] };
   const dx = crDoorX(CR_VH[i]);
   // windows: two in every outer wall (one where the door leaves no room), each 1.4 m wide, the sill at 1.05 m
   const wins = (L, avoid) => { const out = []; for (const c of [L * 0.25, L * 0.75]) { if (avoid !== undefined && Math.abs(c - avoid) < CR_DOOR / 2 + CR_WIN / 2 + 0.5) continue; out.push([c - CR_WIN / 2, c + CR_WIN / 2, 'win']); } return out; };
@@ -102,19 +345,22 @@ function crVHouse(i, P, C, r) {
   const nGaps = wins(LX, door === 'n' ? dx - (x0 - T / 2) : undefined), sGaps = wins(LX, door === 's' ? dx - (x0 - T / 2) : undefined);
   if (door === 'n') nGaps.push([dx - (x0 - T / 2) - CR_DOOR / 2, dx - (x0 - T / 2) + CR_DOOR / 2, 'door']); else sGaps.push([dx - (x0 - T / 2) - CR_DOOR / 2, dx - (x0 - T / 2) + CR_DOOR / 2, 'door']);
   const wGaps = wins(LZ), eGaps = wins(LZ);
-  crWall(x0 - T / 2, z0, x1 + T / 2, z0, yb, y0, yt, nGaps, P); crWall(x0 - T / 2, z1, x1 + T / 2, z1, yb, y0, yt, sGaps, P);
-  crWall(x0, z0 + T / 2, x0, z1 - T / 2, yb, y0, yt, wGaps, P); crWall(x1, z0 + T / 2, x1, z1 - T / 2, yb, y0, yt, eGaps, P);
+  const pt = (out) => ({ out, c: st.c, band: st.band, in: CR_IN });
+  crWall(x0 - T / 2, z0, x1 + T / 2, z0, yb, y0, yt, nGaps, P, T, pt([0, -1])); crWall(x0 - T / 2, z1, x1 + T / 2, z1, yb, y0, yt, sGaps, P, T, pt([0, 1]));
+  crWall(x0, z0 + T / 2, x0, z1 - T / 2, yb, y0, yt, wGaps, P, T, pt([-1, 0])); crWall(x1, z0 + T / 2, x1, z1 - T / 2, yb, y0, yt, eGaps, P, T, pt([1, 0]));
   const rec = (gaps, f) => { for (const [g0, g1, k] of gaps) if (k === 'win') H.win.push(f((g0 + g1) / 2)); };
   rec(nGaps, (s) => ({ x: x0 - T / 2 + s, z: z0, nx: 0, nz: -1 })); rec(sGaps, (s) => ({ x: x0 - T / 2 + s, z: z1, nx: 0, nz: 1 }));
   rec(wGaps, (s) => ({ x: x0, z: z0 + T / 2 + s, nx: -1, nz: 0 })); rec(eGaps, (s) => ({ x: x1, z: z0 + T / 2 + s, nx: 1, nz: 0 }));
   // inside: one partition with a 2.4 m opening in the middle, across the long side
-  if (w >= 10) crWall(x, z0 + T / 2, x, z1 - T / 2, yb, y0, yt - 0.02, [[LZ / 2 - 1.2, LZ / 2 + 1.2, 'door']], P, 0.45);
-  else crWall(x0 + T / 2, z, x1 - T / 2, z, yb, y0, yt - 0.02, [[(w - T) / 2 - 1.2, (w - T) / 2 + 1.2, 'door']], P, 0.45);
-  // the floor, the flat roof with its low parapet, a door leaf standing open against the wall
+  const wash = { out: null, c: CR_IN, band: null, in: CR_IN };
+  if (w >= 10) crWall(x, z0 + T / 2, x, z1 - T / 2, yb, y0, yt - 0.02, [[LZ / 2 - 1.2, LZ / 2 + 1.2, 'door']], P, 0.45, wash);
+  else crWall(x0 + T / 2, z, x1 - T / 2, z, yb, y0, yt - 0.02, [[(w - T) / 2 - 1.2, (w - T) / 2 + 1.2, 'door']], P, 0.45, wash);
+  // the floor; the roof slab keeps its old collider (its look, the parapet and everything on the roof come from crVDress)
   { const [a, b] = CW(x0 + T / 2, z0 + T / 2), [c, e] = CW(x1 - T / 2, z1 - T / 2); P.floor.push([boxUV(a, c, y0 - 0.14, y0, b, e, 2, 2), 0x6a5a44]); addFloor(a, c, b, e, y0); }
-  { const [a, b] = CW(x0 - T / 2 - 0.15, z0 - T / 2 - 0.15), [c, e] = CW(x1 + T / 2 + 0.15, z1 + T / 2 + 0.15); P.roof.push([boxUV(a, c, yt, yt + 0.32, b, e, 3, 1), 0xb9a88a]); addCollider((a + c) / 2, (b + e) / 2, (c - a) / 2, (e - b) / 2, 0, yt + 0.32, yt);
-    for (const [p0, p1, q0, q1] of [[a, c, b, b + 0.3], [a, c, e - 0.3, e], [a, a + 0.3, b, e], [c - 0.3, c, b, e]]) P.roof.push([boxUV(p0, p1, yt + 0.32, yt + 0.72, q0, q1, 3, 1), 0xc4b292]); }
-  { const dz = door === 's' ? z1 - T / 2 - 0.08 : z0 + T / 2 + 0.08, [lx, lz] = CW(dx + CR_DOOR / 2 + 0.55, dz + (door === 's' ? -0.5 : 0.5)); P.wood.push([new THREE.BoxGeometry(0.08, 2.2, 1.0).translate(lx, y0 + 1.1, lz), 0x6a4a2c]); }
+  { const [a, b] = CW(x0 - T / 2 - 0.15, z0 - T / 2 - 0.15), [c, e] = CW(x1 + T / 2 + 0.15, z1 + T / 2 + 0.15); addCollider((a + c) / 2, (b + e) / 2, (c - a) / 2, (e - b) / 2, 0, yt + 0.32, yt); }
+  const WL = [{ o: [x0 - T / 2, z0], t: [1, 0], n: [0, -1], L: LX, gaps: nGaps, e0: 0, e1: LX }, { o: [x0 - T / 2, z1], t: [1, 0], n: [0, 1], L: LX, gaps: sGaps, e0: 0, e1: LX },
+    { o: [x0, z0 + T / 2], t: [0, 1], n: [-1, 0], L: LZ, gaps: wGaps, e0: -T, e1: LZ + T }, { o: [x1, z0 + T / 2], t: [0, 1], n: [1, 0], L: LZ, gaps: eGaps, e0: -T, e1: LZ + T }];
+  crVDress(H, st, WL, P, r, y0, yt, yb);
   // a few things in the rooms, in the corners away from the doorways
   const [cx, cz] = CW(x, z), far = door === 's' ? z0 + T / 2 + 0.7 : z1 - T / 2 - 0.7;
   for (const [ox, kind] of [[x0 + T / 2 + 0.8, 0], [x1 - T / 2 - 0.9, 1]]) { const [px, pz] = CW(ox, far);
@@ -137,12 +383,18 @@ function crVHouse(i, P, C, r) {
 function crVillage(P, C, parts) {
   const r = rng(4417); C.vh = CR_VH.map((h, i) => crVHouse(i, P, C, r));
   // the low mud walls along the west edge: chest high, 60 cm thick, with wide gaps between them
-  for (const [lx, z0, z1] of CR_LOWW) { const [a, b] = CW(lx - 0.3, z0), [c, e] = CW(lx + 0.3, z1), g = Math.min(groundAt(a, b), groundAt(c, e)); P.walls.push(boxUV(a, c, g - 0.4, g + 1.25, b, e, 2.6, 2.6)); addCollider((a + c) / 2, (b + e) / 2, 0.3, (e - b) / 2, 0, g + 1.25, g - 0.4); coverBox((a + c) / 2, (b + e) / 2, 0.3, (e - b) / 2, 0, 1.2); }
+  for (const [lx, z0, z1] of CR_LOWW) { const [a, b] = CW(lx - 0.3, z0), [c, e] = CW(lx + 0.3, z1), g = Math.min(groundAt(a, b), groundAt(c, e)); P.walls.push([boxUV(a, c, g - 0.4, g + 1.25, b, e, 2.6, 2.6), 0xb9a27e]); addCollider((a + c) / 2, (b + e) / 2, 0.3, (e - b) / 2, 0, g + 1.25, g - 0.4); coverBox((a + c) / 2, (b + e) / 2, 0.3, (e - b) / 2, 0, 1.2); }
   // a well, drums, a cart, a few palms between the houses
   { const [wx, wz] = CW(-186, 0.0 + 10.5); parts.push([G.cyl(0.9, 0.95, 0.85, 14), 0xa89878, M4(wx, groundAt(wx, wz) + 0.42, wz)], [G.cyl(0.7, 0.7, 0.05, 12), 0x222a2a, M4(wx, groundAt(wx, wz) + 0.86, wz)]); addCollider(wx, wz, 0.9, 0.9, 0, groundAt(wx, wz) + 0.85); }
   for (const [x, z] of [[-210, -36], [-185, 36], [-232, -9]]) { const [wx, wz] = CW(x, z); fieldDrums(wx, wz, 3); }
   { const [wx, wz] = CW(-212, 10.5), g = groundAt(wx, wz); parts.push([G.box(2.6, 0.18, 1.4), 0x6e5236, M4(wx, g + 0.8, wz)], [G.cyl(0.55, 0.55, 0.1, 12), 0x3a2e22, M4(wx - 0.4, g + 0.55, wz - 0.75, Math.PI / 2, 0, 0)], [G.cyl(0.55, 0.55, 0.1, 12), 0x3a2e22, M4(wx - 0.4, g + 0.55, wz + 0.75, Math.PI / 2, 0, 0)], [G.box(1.6, 0.08, 0.08), 0x6e5236, M4(wx + 2.0, g + 0.7, wz)]); addCollider(wx, wz, 1.3, 0.8, 0, g + 1.0); coverBox(wx, wz, 1.3, 0.7, 0, 1.0); }
   { const pl = []; for (const [x, z] of [[-184, -36], [-210, 36], [-160, -12], [-238, 52], [-244, -52], [-186, 60], [-212, -62]]) { const [wx, wz] = CW(x, z); pl.push([wx, wz, 0.9 + r() * 0.3, r() * 6]); } palms(pl); }
+  // the houses on the road take their power from the line along it: a wire sagging from the nearest pole to a bracket on the parapet
+  { const segs = []; for (const h of C.vh) { if (Math.abs(h.z) > 30) continue; const [x0, x1, z0, z1] = h.box, fz = h.z < 0 ? z1 + CR_WT / 2 : z0 - CR_WT / 2, hx = Math.abs(x0 - (-150)) < Math.abs(x1 - (-150)) ? x0 + 0.5 : x1 - 0.5, px = -150 - 40 * Math.round((-150 - hx) / 40);
+      const [ax, az] = CW(px, 7), [bx, bz] = CW(hx, fz), ya = groundAt(ax, az) + 7 - 0.4, yb = h.y + CR_HH + CR_VSTYLE[h.i].dh + 0.9;
+      for (let k = 0; k < 10; k++) { const t0 = k / 10, t1 = (k + 1) / 10, sag = (t) => -Math.sin(t * Math.PI) * 0.55; segs.push(V3(lerp(ax, bx, t0), lerp(ya, yb, t0) + sag(t0), lerp(az, bz, t0)), V3(lerp(ax, bx, t1), lerp(ya, yb, t1) + sag(t1), lerp(az, bz, t1))); }
+      parts.push([G.box(0.06, 0.25, 0.06), 0x2e2c28, M4(bx, yb - 0.1, bz)]); }
+    scene.add(onLayer1(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(segs), new THREE.LineBasicMaterial({ color: 0x2a2724 })))); }
 }
 // the roller bridge: one segment = a big steel float (the "roller") under a deck with side rails
 const BR_SEG = build([[G.box(6.2, 0.35, 5.0), 0x5d604a, M4(0, 1.78, 0)], [G.cyl(1.25, 1.25, 4.6, 18), 0x4b4e3e, M4(0, 0.5, 0, Math.PI / 2, 0, 0)], [G.cyl(1.28, 1.28, 0.18, 18), 0x2f3229, M4(0, 0.5, 2.3, Math.PI / 2, 0, 0)], [G.cyl(1.28, 1.28, 0.18, 18), 0x2f3229, M4(0, 0.5, -2.3, Math.PI / 2, 0, 0)],
@@ -170,9 +422,13 @@ function crBuild() {
   // Egyptian positions at the landing, on the shoulders of the breach, facing the canal
   for (const [x, z] of [[-112, 386], [-110, 424], [-131, 391], [-131, 419], [-118, 404]]) { const [wx, wz] = CW(x, z); foxhole(wx, wz, 1, 0, C.slots).grp = 'L'; }
   // the village
-  const P = { walls: [], roof: [], floor: [], wood: [] }, parts = []; crVillage(P, C, parts);
-  { const m = new THREE.Mesh(mergeGeometries(P.walls, false), new THREE.MeshStandardMaterial({ map: plasterTex(77, '#c9ae86'), roughness: 0.95 })); scene.add(SH(onLayer1(m))); }
-  { const m = new THREE.Mesh(build(P.roof), new THREE.MeshStandardMaterial({ vertexColors: true, map: TX.grime, roughness: 0.95 })); scene.add(SH(onLayer1(m))); }
+  const P = { walls: [], roof: [], floor: [], wood: [], conc: [], shut: [], door: [], sheet: [], metal: [], pig: [], straw: [], cloth: [], decal: [] }, parts = []; crVillage(P, C, parts);
+  { const pt = crPlasterTex(), ct = crConcTex(), vm = (map, o = {}) => new THREE.MeshStandardMaterial(Object.assign({ vertexColors: true, map, roughness: 0.95 }, o)), put = (list, mat, cast = true) => { if (!list.length) return; const m = new THREE.Mesh(build(list), mat); scene.add(SH(onLayer1(m), cast, true)); };
+    put(P.walls, vm(pt, { bumpMap: bumpOf(pt), bumpScale: 0.5 })); put(P.conc, vm(ct, { bumpMap: bumpOf(ct), bumpScale: 0.4 }));
+    put(P.shut, vm(crShutTex(), { roughness: 0.85 })); put(P.door, vm(crDoorTex(), { roughness: 0.7, metalness: 0.25 })); put(P.sheet, vm(crSheetTex(), { roughness: 0.7, metalness: 0.3, side: THREE.DoubleSide }));
+    put(P.metal, vm(null, { roughness: 0.6, metalness: 0.45 })); put(P.pig, vm(crPigeonTex())); put(P.straw, vm(crStrawTex())); put(P.cloth, vm(null, { side: THREE.DoubleSide, roughness: 0.9 }), true);
+    put(P.decal, new THREE.MeshStandardMaterial({ map: crDecalTex(), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2, roughness: 0.95 }), false); }
+  if (P.roof.length) { const m = new THREE.Mesh(build(P.roof), new THREE.MeshStandardMaterial({ vertexColors: true, map: TX.grime, roughness: 0.95 })); scene.add(SH(onLayer1(m))); }
   { const m = new THREE.Mesh(build(P.floor), MAT.vc); m.receiveShadow = !LITE; scene.add(onLayer1(m)); }
   { const m = new THREE.Mesh(build(P.wood), new THREE.MeshStandardMaterial({ vertexColors: true, map: TX.wood, roughness: 0.92 })); scene.add(SH(onLayer1(m))); }
   { const pl = []; const r = rng(91); for (let i = 0; i < 46; i++) { const x = -190 - r() * 140, z = 76 + r() * 150; const [wx, wz] = CW(x, z); pl.push([wx, wz, 0.8 + r() * 0.35, r() * 6]); } for (let i = 0; i < 18; i++) { const [wx, wz] = CW(-345 - r() * 60, -150 + r() * 560); pl.push([wx, wz, 0.9, r() * 6]); } palms(pl); }

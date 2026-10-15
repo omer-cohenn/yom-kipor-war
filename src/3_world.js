@@ -226,6 +226,43 @@ function pillowGeo() {
 }
 const JERRY_GEO = build([[G.box(0.17, 0.46, 0.34), 0xffffff, M4(0, 0.23, 0)], [G.box(0.18, 0.03, 0.1), 0xdddddd, M4(0, 0.47, 0.09)], [G.cyl(0.025, 0.025, 0.05, 6), 0xbbbbbb, M4(0, 0.48, -0.1)]]);
 const CRATE_GEO = build([[G.box(1.0, 0.44, 0.52), 0xffffff, M4(0, 0.22, 0)], [G.box(1.02, 0.06, 0.54), 0xd8d8d8, M4(0, 0.36, 0)], [G.box(0.06, 0.46, 0.54), 0xd8d8d8, M4(0.4, 0.23, 0)], [G.box(0.06, 0.46, 0.54), 0xd8d8d8, M4(-0.4, 0.23, 0)], [G.box(0.12, 0.03, 0.04), 0x777777, M4(0, 0.1, 0.27)]]);
+/* ---------- the downloaded props (4f_data_props.js): jerrycans, crates, oil drums and Czech hedgehogs ----------
+   Each stands where the old box-built shape stood, with the same matrix (the models are packed in the old shapes' frames: on y = 0,
+   centred, the same size). A set of copies is a group of two instanced meshes: the full model for the copies near the camera and the
+   light one for the rest. They are sorted again whenever the camera has moved three metres or the lens has zoomed, just before the frame
+   is drawn, so the copies, their counts and their shadows always agree; nothing is drawn for a level with no copies. The chapters show
+   and hide the group (it is the scene's child), the meshes inside it are this code's. Without the model data the old shapes are drawn. */
+const PROPS_LOD = { sets: [], near: { high: 30, med: 22, low: 14 }[QUAL] || 22, c: new THREE.Color() };
+// a set: the model's name, a list of matrices, and (or null) a hex tint for each copy, multiplied into the model's own paint
+function propSet(name, mats4, tints = null, cast = true) {
+  if (!mdlHas(name) || !mats4.length) return null;
+  const n = mats4.length, ms = mdlMats(name), g = new THREE.Group(), c = PROPS_LOD.c;
+  const S = { M: mats4, P: mats4.map((M) => V3().setFromMatrixPosition(M)), T: tints, lv: [], at: V3(1e9, 0, 0), k: 0, g };
+  for (let L = 0; L < 2; L++) S.lv.push(mdlGeo(name, L).map((p) => {
+    const im = new THREE.InstancedMesh(p.g, ms[p.m], n); mats4.forEach((M, i) => { im.setMatrixAt(i, M); if (tints) im.setColorAt(i, c.setHex(tints[i])); });
+    im.computeBoundingSphere(); g.add(SH(im, cast, true)); return im;   // the sphere round every copy, kept as the counts change
+  }));
+  scene.add(onLayer1(g)); PROPS_LOD.sets.push(S); propSort(S); return S;
+}
+// the copies nearer than PROPS_LOD.near (by what the eye sees: closer through a sight) to the full model, the others to the light one
+function propSort(S) {
+  const cam = camera.position, k = Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2) / 0.7265, r = PROPS_LOD.near / Math.max(0.05, k), r2 = r * r, c = PROPS_LOD.c, [A, B] = S.lv;
+  let a = 0, b = 0;
+  for (let i = 0; i < S.M.length; i++) { const near = S.P[i].distanceToSquared(cam) < r2, j = near ? a++ : b++; for (const im of near ? A : B) { im.setMatrixAt(j, S.M[i]); if (S.T) im.setColorAt(j, c.setHex(S.T[i])); } }
+  for (const im of A) { im.count = a; im.visible = a > 0; im.instanceMatrix.needsUpdate = true; if (im.instanceColor) im.instanceColor.needsUpdate = true; }
+  for (const im of B) { im.count = b; im.visible = b > 0; im.instanceMatrix.needsUpdate = true; if (im.instanceColor) im.instanceColor.needsUpdate = true; }
+  S.at.copy(cam); S.k = k;
+}
+function propsLodTick() {
+  if (!PROPS_LOD.sets.length) return; const cam = camera.position, k = Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2) / 0.7265;
+  for (const S of PROPS_LOD.sets) if (S.g.visible && (S.at.distanceToSquared(cam) > 9 || Math.abs(S.k - k) > 0.08 * S.k)) propSort(S);
+}
+{ const prev = scene.onBeforeRender; scene.onBeforeRender = function (...a) { prev.apply(this, a); propsLodTick(); }; }   /* before the frame's buffers go to the graphics card */
+// a matrix from a position and a turn about the vertical, as the batches and the old single meshes placed their props
+const propM = (x, y, z, ry) => new THREE.Matrix4().compose(V3(x, y, z), new THREE.Quaternion().setFromAxisAngle(V3(0, 1, 0), ry), V3(1, 1, 1));
+// the old drums' paint (a vertex colour over the grime map) as a tint of the packed drum's neutral paint: a little lighter, so it reads the same
+const DRUM_TINT = { 0x2f4a3a: 0x5a6e4c, 0x6b3a26: 0x8a5a40, 0x3d4652: 0x5a6672, 0x7a6a3a: 0x8f8058, 0x46503f: 0x66705a };
+const drumTint = (h) => DRUM_TINT[h] ?? h;
 function propPile(kind, x, z, n, spread = 0.6, stack = 1) {
   const r = rng(Math.round(x * 31 + z * 17) >>> 0);
   for (let i = 0; i < n; i++) { const lvl = stack > 1 ? i % stack : 0, col = stack > 1 ? Math.floor(i / stack) : i; const px = x + (col % 3) * spread + (r() - 0.5) * 0.08, pz = z + Math.floor(col / 3) * spread * 0.9 + (r() - 0.5) * 0.08; BATCH[kind].push([px, groundAt(px, pz) + lvl * (kind === 'crate' ? 0.44 : 0.47), pz, (r() - 0.5) * 0.3 + (kind === 'crate' ? 0.1 : 0)]); }
@@ -241,12 +278,19 @@ function flushBatches() {
   const rg = new THREE.InstancedMesh(new THREE.BoxGeometry(0.1, 0.14, 0.5), MAT.rust, BATCH.rail.length);
   BATCH.rail.forEach(([x, y, z, r], i) => rg.setMatrixAt(i, mm.compose(V3(x, y, z), q.setFromAxisAngle(up, r), one)));
   scene.add(SH(onLayer1(rg)));
-  const jm = new THREE.InstancedMesh(JERRY_GEO, MAT.vc, Math.max(1, BATCH.jerry.length));
-  BATCH.jerry.forEach(([x, y, z, r], i) => { jm.setMatrixAt(i, mm.compose(V3(x, y, z), q.setFromAxisAngle(up, r), one)); col.set(rr() < 0.7 ? 0x55603f : 0x6b5a3a); jm.setColorAt(i, col); });
-  jm.count = BATCH.jerry.length; scene.add(SH(onLayer1(jm)));
-  const cm = new THREE.InstancedMesh(CRATE_GEO, MAT.vc, Math.max(1, BATCH.crate.length));
-  BATCH.crate.forEach(([x, y, z, r], i) => { cm.setMatrixAt(i, mm.compose(V3(x, y, z), q.setFromAxisAngle(up, r), one)); col.set(rr() < 0.6 ? 0x5b6440 : 0x7a6a4a); cm.setColorAt(i, col); });
-  cm.count = BATCH.crate.length; scene.add(SH(onLayer1(cm)));
+  // the jerrycans and the crates: the packed models where their data is there (most in their own paint, some dusty or faded), else the old shapes
+  if (mdlHas('jerry') && BATCH.jerry.length) propSet('jerry', BATCH.jerry.map(([x, y, z, r]) => propM(x, y, z, r)), BATCH.jerry.map(() => (rr() < 0.7 ? 0xffffff : 0xd9c9a8)));
+  else {
+    const jm = new THREE.InstancedMesh(JERRY_GEO, MAT.vc, Math.max(1, BATCH.jerry.length));
+    BATCH.jerry.forEach(([x, y, z, r], i) => { jm.setMatrixAt(i, mm.compose(V3(x, y, z), q.setFromAxisAngle(up, r), one)); col.set(rr() < 0.7 ? 0x55603f : 0x6b5a3a); jm.setColorAt(i, col); });
+    jm.count = BATCH.jerry.length; scene.add(SH(onLayer1(jm)));
+  }
+  if (mdlHas('crate') && BATCH.crate.length) propSet('crate', BATCH.crate.map(([x, y, z, r]) => propM(x, y, z, r)), BATCH.crate.map(() => (rr() < 0.6 ? 0xffffff : 0xe0d4b8)));
+  else {
+    const cm = new THREE.InstancedMesh(CRATE_GEO, MAT.vc, Math.max(1, BATCH.crate.length));
+    BATCH.crate.forEach(([x, y, z, r], i) => { cm.setMatrixAt(i, mm.compose(V3(x, y, z), q.setFromAxisAngle(up, r), one)); col.set(rr() < 0.6 ? 0x5b6440 : 0x7a6a4a); cm.setColorAt(i, col); });
+    cm.count = BATCH.crate.length; scene.add(SH(onLayer1(cm)));
+  }
 }
 
 /* ================= bunkers & structures ================= */
@@ -447,11 +491,24 @@ const FAL_W = build([
   [G.cyl(0.011, 0.011, 0.3, 6), 0x161616, M4(0, 0.01, 0.43, Math.PI / 2, 0, 0)], [G.cyl(0.016, 0.016, 0.06, 6), 0x161616, M4(0, 0.01, 0.6, Math.PI / 2, 0, 0)],
   [G.box(0.03, 0.14, 0.07), 0x1c1c1c, M4(0, -0.1, 0.02, 0.12, 0, 0)], [G.box(0.035, 0.09, 0.04), 0x2a1f18, M4(0, -0.07, -0.13, -0.35, 0, 0)], [G.box(0.012, 0.02, 0.1), 0x1c1c1c, M4(0.02, 0.05, 0.02)],
 ]);
-const AK_W = build([
+/* the enemy's rifle and launcher from the asset pipeline (4f_data_props.js): an AKMS with its stock swung out and an RPG-7 with a round in
+   it, packed in the frames of the box-built guns they replace - muzzle along +z, the pistol grip, the handguard and the launcher's grips
+   where theirs were, about the same length - so every pose, grip on the weapon and dropped gun holds. A soldier's gun is one mesh: the
+   model is one geometry for each level of detail, and its material rides on the geometry (userData.wmat), so whatever puts the geometry
+   on a gun mesh gives it its look as well (gunGeo); userData.lods holds both levels and is shared by them. Without the data: the old gun. */
+function wpnModel(name, old) {
+  if (!mdlHas(name)) return old;
+  const u = { wmat: mdlMats(name)[0], lods: [0, 1].map((L) => mdlGeo(name, L)[0].g) };
+  for (const g of u.lods) g.userData = u;
+  return u.lods[0];
+}
+// a gun's geometry onto a mesh, at the level of detail of its soldier's figure (0 near, 1 and 2 farther), with the model's own material
+function gunGeo(m, geo, lod = 0) { const u = geo.userData; m.geometry = u.lods ? u.lods[lod > 0 ? 1 : 0] : geo; m.material = u.wmat || MAT.vcMetal; }
+const AK_W = wpnModel('akms', build([
   [G.box(0.04, 0.09, 0.2), 0x6b4424, M4(0, -0.03, -0.29, 0.12, 0, 0)], [G.box(0.05, 0.07, 0.3), 0x1d1d1d, M4(0, 0, -0.03)], [G.box(0.05, 0.055, 0.18), 0x6b4424, M4(0, -0.005, 0.2)],
   [G.cyl(0.01, 0.01, 0.34, 6), 0x151515, M4(0, 0.008, 0.42, Math.PI / 2, 0, 0)], [G.cyl(0.012, 0.012, 0.2, 6), 0x1d1d1d, M4(0, 0.042, 0.2, Math.PI / 2, 0, 0)],
   [G.box(0.03, 0.1, 0.06), 0x2a2a2a, M4(0, -0.08, 0.04, 0.25, 0, 0)], [G.box(0.03, 0.08, 0.055), 0x2a2a2a, M4(0, -0.155, 0.075, 0.55, 0, 0)], [G.box(0.034, 0.085, 0.04), 0x3b2a1a, M4(0, -0.07, -0.12, -0.3, 0, 0)],
-]);
+]));
 const SMG_W = build([
   [G.box(0.045, 0.07, 0.24), 0x1d1d1d, M4(0, 0, -0.02)], [G.cyl(0.011, 0.011, 0.2, 6), 0x151515, M4(0, 0.01, 0.2, Math.PI / 2, 0, 0)], [G.cyl(0.02, 0.02, 0.14, 8, true), 0x2a2a2a, M4(0, 0.012, 0.16, Math.PI / 2, 0, 0)],
   [G.cyl(0.055, 0.055, 0.04, 14), 0x2a2a2a, M4(0, -0.08, 0.02, 0, 0, Math.PI / 2)], [G.box(0.03, 0.09, 0.05), 0x3b2a1a, M4(0, -0.07, -0.1, -0.3, 0, 0)],
@@ -469,10 +526,10 @@ const SVD_W = build([
   [G.cyl(0.02, 0.02, 0.22, 10), 0x1a1a1a, M4(0, 0.075, 0.02, Math.PI / 2, 0, 0)], [G.cyl(0.026, 0.02, 0.05, 10), 0x1a1a1a, M4(0, 0.075, 0.15, Math.PI / 2, 0, 0)], [G.box(0.03, 0.04, 0.05), 0x2a2a2a, M4(0, 0.045, 0.02)],
   [G.box(0.03, 0.09, 0.045), 0x2a2a2a, M4(0, -0.075, 0.05, 0.2, 0, 0)],
 ]);
-const RPG_W = build([
+const RPG_W = wpnModel('rpg7', build([
   [G.cyl(0.035, 0.035, 0.95, 10), 0x4d5040, M4(0, 0.02, 0.05, Math.PI / 2, 0, 0)], [G.cone(0.045, 0.28, 10), 0x5a5f4a, M4(0, 0.02, 0.72, Math.PI / 2, 0, 0)], [G.cyl(0.045, 0.03, 0.12, 10), 0x5a5f4a, M4(0, 0.02, 0.55, Math.PI / 2, 0, 0)],
   [G.box(0.03, 0.09, 0.04), 0x3a2a1a, M4(0, -0.06, -0.05, -0.2, 0, 0)], [G.box(0.03, 0.09, 0.04), 0x3a2a1a, M4(0, -0.06, 0.15, -0.2, 0, 0)],
-]);
+]));
 /* the 106 mm recoilless rifle of survival mode: a long tube with the spotting rifle on top, breech and venturi behind, sight and hand wheels on the left; on a tripod */
 const RCL_GEO = build([
   [G.cyl(0.085, 0.085, 3.4, 14), 0x4d5240, M4(0, 0.08, 0.7, Math.PI / 2, 0, 0)], [G.cyl(0.1, 0.1, 0.14, 14), 0x3a3d32, M4(0, 0.08, 2.35, Math.PI / 2, 0, 0)],
@@ -532,7 +589,8 @@ function gunPost(id, name, x, z, bearing) {
     const st = new THREE.Mesh(build(treads), MAT.vc); st.position.set(tp[0], g0, tp[1]); scene.add(SH(onLayer1(st))); }
   const pivot = new THREE.Group(); pivot.position.set(gx, g0 + H + 1.08, gz); pivot.rotation.order = 'YXZ'; pivot.rotation.y = Math.PI - b; pivot.add(new THREE.Mesh(RCL_GEO, MAT.vcMetal)); pivot.userData.dyn = true; pivot.visible = false; scene.add(SH(onLayer1(pivot)));
   const legs = new THREE.Mesh(RCL_LEGS, MAT.vcMetal); legs.position.set(gx, g0 + H, gz); legs.rotation.y = Math.PI - b; legs.userData.dyn = true; legs.visible = false; scene.add(SH(onLayer1(legs)));
-  for (const sd of [-1, 1]) { const c = new THREE.Mesh(CRATE_GEO, MAT.vc); c.position.set(x + lat[0] * sd * 1.95 + oo[0] * 0.3, g0, z + lat[1] * sd * 1.95 + oo[1] * 0.3); c.rotation.y = -b + sd * 0.25; scene.add(SH(onLayer1(c))); }
+  for (const sd of [-1, 1]) { const cx = x + lat[0] * sd * 1.95 + oo[0] * 0.3, cz = z + lat[1] * sd * 1.95 + oo[1] * 0.3; if (mdlHas('crate')) { BATCH.crate.push([cx, g0, cz, -b + sd * 0.25]); continue; }   // with the packed crates (flushBatches)
+    const c = new THREE.Mesh(CRATE_GEO, MAT.vc); c.position.set(cx, g0, cz); c.rotation.y = -b + sd * 0.25; scene.add(SH(onLayer1(c))); }
   for (let i = 0; i < 3; i++) { const sh = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.05, 0.9, 10).rotateZ(Math.PI / 2), MAT.rust); sh.position.set(gx + lat[0] * 0.9, g0 + H + 0.06, gz + lat[1] * 0.9 + (i - 1) * 0.14); sh.rotation.y = -b + (i - 1) * 0.06; scene.add(SH(onLayer1(sh))); }
   const P = { id, name, x, z, g: g0 + H, bearing, fx, fz, occupant: null, stand: [gx - oo[0] * 0.4, gz - oo[1] * 0.4], survOnly: true, legs, mag: { pivot, yaw0: Math.PI - b, yaw: Math.PI - b, pitch: 0, belt: 1, reload: 0, heat: 0, big: true } };
   POSTS.push(P); SURV.guns.push(P); return P;
@@ -1215,6 +1273,11 @@ const TRUCK_BURNT = build(truckParts({ B: 0x2c2926, D: 0x25221f, K: 0x151412, C:
 /* a vehicle standing in the scene. The tanks and trucks of the old set give way to the modelled ones: a Magach for our tank, a jeep for
    every truck and half-track (the burnt-out trucks become burnt-out jeeps: in their paint, broken, and on fire) */
 function vehicle(geo, x, z, rot, hx, hz, h) {
+  // about half the burnt-out trucks are the modelled wrecks of a lorry or a tanker, sooted over: their own size for the collider and the cover
+  if (geo === TRUCK_BURNT && mdlHas('w_truck') && Math.random() < 0.55) {
+    const nm = mdlHas('w_tanker') && Math.random() < 0.4 ? 'w_tanker' : 'w_truck', b = mdlBox(nm), g0 = groundAt(x, z), m = mdlLOD(nm, mdlMats(nm, { color: 0x8a7e74 }, 'burnt'), LITE ? [0, 22, 70] : [0, 40, 120]);
+    m.position.set(x, g0 - 0.04, z); m.rotation.y = rot; scene.add(SH(onLayer1(m))); addCollider(x, z, b[0] / 2, b[2] / 2, rot, g0 + b[1]); coverBox(x, z, b[0] / 2, b[2] / 2, rot, Math.min(2.2, b[1])); return m;
+  }
   const VD = typeof VEH_DATA !== 'undefined' ? VEH_DATA : {}, truck = geo === TRUCK_BURNT || geo === JEEP_GEO || geo === ETRUCK_GEO || geo === HT_GEO || (typeof OTRUCK_GEO !== 'undefined' && geo === OTRUCK_GEO);
   let rec = null; if (geo === TANK_GEO && VD.magach) rec = vehModel('magach', 'f'); else if (truck && VD.jeep) { rec = vehModel('jeep', geo === ETRUCK_GEO || (geo === TRUCK_BURNT && Math.random() < 0.6) ? 'e' : 'f'); if (geo === TRUCK_BURNT) { vehDamage(rec, true); rec.dead = true; } }
   const mdl = !!rec, m = rec ? rec.g : new THREE.Mesh(geo, MAT.vc); if (geo === TANK_GEO && !mdl) tankMarks(m, TANK_GEO);
@@ -1238,9 +1301,10 @@ function yardClutter() {
   { const mm = new THREE.Matrix4(), q = new THREE.Quaternion(); const rails = new THREE.InstancedMesh(new THREE.BoxGeometry(6, 0.14, 0.12), MAT.rust, 18); let k = 0; for (let l = 0; l < 3; l++) for (let i = 0; i < 6; i++) rails.setMatrixAt(k++, mm.compose(V3(40, groundAt(40, -10) + 0.08 + l * 0.15, -11.5 + i * 0.5 + (l % 2) * 0.2), q.setFromAxisAngle(V3(0, 1, 0), 0.05 * l), V3(1, 1, 1))); scene.add(SH(onLayer1(rails))); addCollider(40, -10, 3, 1.5, 0, groundAt(40, -10) + 0.5); }
   for (const [x, z, n] of [[-20, 12, 5], [22, 60, 4], [-50, 44, 6], [40, 51, 5], [-34, -30, 4], [30, -66, 5]]) propPile(Math.abs(x) % 2 ? 'jerry' : 'crate', x, z, n, 0.6, 2);
   const drums = freeSpots(14, inYard, 91, (r) => [-65 + r() * 115, -80 + r() * 160]);
-  const dm = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.29, 0.29, 0.88, 12).translate(0, 0.44, 0), MAT.drum, drums.length * 3); const mm = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(); let k = 0; const r = rng(93);
-  for (const [x, z] of drums) for (let j = 0; j < 3; j++) { const lie = r() < 0.3; const px = x + (j % 2) * 0.62, pz = z + (j > 1 ? 0.6 : 0); dm.setMatrixAt(k++, mm.compose(V3(px, groundAt(px, pz) + (lie ? 0.29 : 0), pz), q.setFromEuler(e.set(lie ? Math.PI / 2 : 0, r() * 3, 0)), V3(1, 1, 1))); }
-  scene.add(SH(onLayer1(dm)));
+  const q = new THREE.Quaternion(), e = new THREE.Euler(), r = rng(93), dl = [];
+  for (const [x, z] of drums) for (let j = 0; j < 3; j++) { const lie = r() < 0.3; const px = x + (j % 2) * 0.62, pz = z + (j > 1 ? 0.6 : 0); dl.push(new THREE.Matrix4().compose(V3(px, groundAt(px, pz) + (lie ? 0.29 : 0), pz), q.setFromEuler(e.set(lie ? Math.PI / 2 : 0, r() * 3, 0)), V3(1, 1, 1))); }
+  // the packed drum in the olive of the old ones (two shades), else the old cylinders
+  if (!propSet('drum', dl, dl.map((M, i) => (i % 3 ? drumTint(0x46503f) : drumTint(0x2f4a3a))))) { const dm = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.29, 0.29, 0.88, 12).translate(0, 0.44, 0), MAT.drum, dl.length); dl.forEach((M, i) => dm.setMatrixAt(i, M)); scene.add(SH(onLayer1(dm))); }
 }
 function outsideClutter() {
   // the beach in front of the western rampart is bare: no obstacles, no sandbags, no shell holes - nothing to hide behind between the water and the wall
@@ -1289,13 +1353,14 @@ function buildStronghold() {
     scene.add(SH(onLayer1(grp)));
   }
   // fuel drums outside the south gate
-  const drums = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.29, 0.29, 0.88, 14), MAT.drum, 30); const r = rng(14), mm = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler();
-  for (let i = 0; i < 30; i++) { const x = 10 + (i % 6) * 0.65 + (r() - .5) * .2, z = 103 + Math.floor(i / 6) * 0.65; const lie = i > 25; e.set(lie ? Math.PI / 2 : 0, r() * 3, 0); q.setFromEuler(e); drums.setMatrixAt(i, mm.compose(V3(x, groundAt(x, z) + (lie ? 1.2 : 0.44), z), q, V3(1, 1, 1))); }
-  scene.add(SH(onLayer1(drums)));
+  const r = rng(14), mm = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), gl = [], half = new THREE.Matrix4().makeTranslation(0, -0.44, 0);   // half: the packed drum stands on its base, the old cylinder was centred
+  for (let i = 0; i < 30; i++) { const x = 10 + (i % 6) * 0.65 + (r() - .5) * .2, z = 103 + Math.floor(i / 6) * 0.65; const lie = i > 25; e.set(lie ? Math.PI / 2 : 0, r() * 3, 0); q.setFromEuler(e); gl.push(mm.compose(V3(x, groundAt(x, z) + (lie ? 1.2 : 0.44), z), q, V3(1, 1, 1)).clone()); }
+  if (!propSet('drum', gl.map((M) => M.clone().multiply(half)), gl.map((M, i) => (i % 4 ? drumTint(0x46503f) : drumTint(0x7a6a3a))))) { const drums = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.29, 0.29, 0.88, 14), MAT.drum, 30); gl.forEach((M, i) => drums.setMatrixAt(i, M)); scene.add(SH(onLayer1(drums))); }
   // stretchers and crates by the aid station
   const dA = DOORS.aid;
   for (let i = 0; i < 2; i++) { const s = new THREE.Group(); const cloth = new THREE.Mesh(G.box(0.55, 0.03, 1.9), MAT.canvasOD); cloth.position.y = 0.2; s.add(cloth); for (const sx of [-0.3, 0.3]) { const pole = new THREE.Mesh(G.cyl(0.02, 0.02, 2.2, 5), MAT.wood); pole.rotation.x = Math.PI / 2; pole.position.set(sx, 0.2, 0); s.add(pole); } s.position.set(dA.x + 2.5 + i * 0.8, groundAt(dA.x + 2.5, dA.z + 3), dA.z + 3); scene.add(SH(onLayer1(s))); }
-  for (const [x, z] of [[18, -12], [19, -14], [-4, -30], [30, 20], [-22, 48]]) { const c = new THREE.Mesh(CRATE_GEO, MAT.vc); c.position.set(x, groundAt(x, z), z); c.rotation.y = Math.random(); scene.add(SH(onLayer1(c))); }
+  for (const [x, z] of [[18, -12], [19, -14], [-4, -30], [30, 20], [-22, 48]]) { const ry = Math.random(); if (mdlHas('crate')) { BATCH.crate.push([x, groundAt(x, z), z, ry]); continue; }   // with the packed crates (flushBatches)
+    const c = new THREE.Mesh(CRATE_GEO, MAT.vc); c.position.set(x, groundAt(x, z), z); c.rotation.y = ry; scene.add(SH(onLayer1(c))); }
   propPile('crate', 5, -15, 6, 1.05, 2); propPile('crate', 6.5, -11.5, 4, 1.05, 2); propPile('jerry', -12, -36, 6, 0.25); propPile('jerry', 1.5, 24.6, 5, 0.25); propPile('jerry', -10, -8, 4, 0.25); propPile('crate', 38, -40, 3, 1.05, 1);
   // posts on the ramparts
   const W = (z) => crestX(z) + 1.0;

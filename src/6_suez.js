@@ -169,6 +169,8 @@ const CAR_GEO = (burnt) => build([
 const BUS_GEO = build([[G.box(2.5, 2.4, 10.5), 0x3a332c, M4(0, 1.6, 0)], [G.box(2.45, 0.9, 10.3), 0x141210, M4(0, 2.15, 0)], ...[-3.8, 3.4].flatMap((z) => [-1.15, 1.15].map((x) => [G.cyl(0.5, 0.5, 0.3, 12), 0x111111, M4(x, 0.4, z, 0, 0, Math.PI / 2)]))]);
 const KIOSK_GEO = build([[G.box(2.2, 2.3, 1.8), 0x6f8a6a, M4(0, 1.15, 0)], [G.box(2.6, 0.15, 2.2), 0x4f5f4a, M4(0, 2.4, 0)], [G.box(1.6, 1.0, 0.06), 0x161412, M4(0, 1.35, 0.92)]]);
 function addProp(geo, x, z, rot, coll, h = 1.5, col = MAT.vc) {
+  // the burnt bus is the modelled wreck where its data is there: its own size for the collider
+  if (geo === BUS_GEO && mdlHas('w_bus')) { const b = mdlBox('w_bus'), m = mdlLOD('w_bus', mdlMats('w_bus', { color: 0x9a8a7a }, 'burnt'), LITE ? [0, 25, 80] : [0, 45, 130]); m.position.set(LX(x), CHH - 0.03, LZ(z)); m.rotation.y = rot; scene.add(SH(onLayer1(m))); SZ.objs.push(m); addCollider(LX(x), LZ(z), b[0] / 2, b[2] / 2, rot, CHH + b[1]); return m; }
   const m = new THREE.Mesh(geo, col); m.position.set(LX(x), CHH, LZ(z)); m.rotation.y = rot; scene.add(SH(onLayer1(m))); SZ.objs.push(m);
   if (coll) { addCollider(LX(x), LZ(z), coll[0], coll[1], rot, CHH + h); }
   return m;
@@ -183,9 +185,15 @@ function cityDressing(rr) {
   // chicanes of sandbags across the north lane; the tank lane (z 2..6) stays open
   bag([[143, -8.4], [138, -1.2]], 5); bag([[79, -0.8], [75, -8.4]], 4); bag([[12, -8.4], [10, -2.5], [6, -2.2]], 4); bag([[-30, 17], [-30, 21.5]], 5); bag([[-46, -27], [-42, -26]], 4);
   // oil-drum barricades
-  const drums = (x0, z0, x1, z1) => { const L = Math.hypot(x1 - x0, z1 - z0), n = Math.max(2, Math.round(L / 0.62)); for (let i = 0; i < n; i++) { const u = i / (n - 1), x = LX(lerp(x0, x1, u)), z = LZ(lerp(z0, z1, u)); const lie = rr() < 0.18; parts.push([G.cyl(0.29, 0.29, 0.88, 12), [0x2f4a3a, 0x6b3a26, 0x3d4652, 0x7a6a3a][Math.floor(rr() * 4)], lie ? M4(x, CHH + 0.29, z, Math.PI / 2, rr() * 3, 0) : M4(x, CHH + 0.44, z)]); if (rr() < 0.25 && !lie) parts.push([G.cyl(0.29, 0.29, 0.88, 12), 0x2f4a3a, M4(x, CHH + 1.32, z)]); }
+  // the packed drum where its data is there (3_world.js propSet: dl its matrices, standing on its base where the old cylinder was centred, dt its tints)
+  const dl = mdlHas('drum') ? [] : null, dt = [], half = new THREE.Matrix4().makeTranslation(0, -0.44, 0);
+  const drums = (x0, z0, x1, z1) => { const L = Math.hypot(x1 - x0, z1 - z0), n = Math.max(2, Math.round(L / 0.62)); for (let i = 0; i < n; i++) { const u = i / (n - 1), x = LX(lerp(x0, x1, u)), z = LZ(lerp(z0, z1, u));
+      const lie = rr() < 0.18, col = [0x2f4a3a, 0x6b3a26, 0x3d4652, 0x7a6a3a][Math.floor(rr() * 4)], M = lie ? M4(x, CHH + 0.29, z, Math.PI / 2, rr() * 3, 0) : M4(x, CHH + 0.44, z), top = rr() < 0.25 && !lie;
+      if (dl) { dl.push(M.multiply(half)); dt.push(drumTint(col)); if (top) { dl.push(M4(x, CHH + 1.32, z).multiply(half)); dt.push(drumTint(0x2f4a3a)); } }
+      else { parts.push([G.cyl(0.29, 0.29, 0.88, 12), col, M]); if (top) parts.push([G.cyl(0.29, 0.29, 0.88, 12), 0x2f4a3a, M4(x, CHH + 1.32, z)]); } }
     const mx = (x0 + x1) / 2, mz = (z0 + z1) / 2; addCollider(LX(mx), LZ(mz), L / 2 + 0.3, 0.35, Math.atan2(-(z1 - z0), x1 - x0), CHH + 0.9); coverBox(LX(mx), LZ(mz), L / 2 + 0.3, 0.35, Math.atan2(-(z1 - z0), x1 - x0), 0.9); };
   drums(96, -7.6, 92.5, -1.5); drums(-34, 11.5, -34, 16); drums(-84, -5.5, -84, 5.5); drums(160, 9.2, 165, 9.2); drums(-62, 48, -55, 47);
+  if (dl) propSet('drum', dl, dt);
   // concrete anti-tank blocks
   const blocks = (pts) => { for (const [x, z, r] of pts) { parts.push([G.box(1.15, 1.0, 1.15), 0xa39b8c, M4(LX(x), CHH + 0.5, LZ(z), 0, r, 0)], [G.box(0.85, 0.12, 0.85), 0x958e80, M4(LX(x), CHH + 1.06, LZ(z), 0, r, 0)]); addCollider(LX(x), LZ(z), 0.62, 0.62, r, CHH + 1.1); coverBox(LX(x), LZ(z), 0.62, 0.62, r, 1.05); } };
   blocks([[40, -7.4, 0.2], [42, -4.2, 0.5], [-64, -48, 0.3], [-59.5, -49, 0.7], [-53, -47.5, 0.1], [-63, 50, 0.4], [-56, 51.5, 0.8], [-52.5, 49, 0.2], [120, 9.2, 0.6]]);
@@ -456,44 +464,58 @@ function buildCornerBuilding() {
   };
   flight(TB.x0 + T / 2, TB.lane - 0.1, S, N, FY(0), FY(1)); flight(TB.lane + 0.1, TB.sx1 - T / 2, N, S, FY(1), FY(2)); flight(TB.x0 + T / 2, TB.lane - 0.1, S, N, FY(2), FY(3));
   wall(TB.lane - 0.06, TB.lane + 0.06, N, S, CHH, FY(3) + 1, 0x6e675c);
-  // furniture: an apartment block the Egyptians turned into a strongpoint. Every big piece blocks and gives cover
-  const furn = [], rr = rng(55), soft = [], pics = [];
-  const piece = (x, z, w, d, h, f, col, cover = true) => { const y = FY(f); furn.push([boxUV(X(x - w / 2), X(x + w / 2), y, y + h, Z(z - d / 2), Z(z + d / 2), 1, 1), col]); addCollider(X(x), Z(z), w / 2, d / 2, 0, y + h, y - 0.1); if (!cover) return; const k0 = COVER.length; coverBox(X(x), Z(z), w / 2, d / 2, 0, h); for (let i = k0; i < COVER.length; i++) { COVER[i].y = y; COVER[i].floor = f; SZ.covers.push(COVER[i]); } };
+  // furniture: an apartment block the Egyptians turned into a strongpoint. Every big piece blocks and gives cover. The pieces are the models of the
+  // furniture pack (src/4f_data_furn.js); the sandbags, the ceiling lamps, the mirrors, the curtains, the rugs and the pictures are drawn here
+  const furn = [], rr = rng(55), soft = [], pics = [], FM = {};
   const deco = (g, c) => furn.push([g, c]);
   const B = (x, y, z, w, h, d, c) => deco(new THREE.BoxGeometry(w, h, d).translate(X(x), y, Z(z)), c);
-  const chair = (x, z, f, rot = 0) => { const y = FY(f); B(x, y + 0.45, z, 0.45, 0.05, 0.45, 0x6b4a30); for (const [ox, oz] of [[-0.19, -0.19], [0.19, -0.19], [-0.19, 0.19], [0.19, 0.19]]) B(x + ox, y + 0.22, z + oz, 0.04, 0.45, 0.04, 0x5a3c26); B(x - Math.sin(rot) * 0.2, y + 0.75, z - Math.cos(rot) * 0.2, rot ? 0.05 : 0.45, 0.55, rot ? 0.45 : 0.05, 0x6b4a30); };
-  const sofa = (x, z, f, along, col) => { const y = FY(f), w = along ? 2.1 : 0.85, d = along ? 0.85 : 2.1; piece(x, z, w, d, 0.45, f, col); B(x + (along ? 0 : -0.33), y + 0.75, z + (along ? -0.33 : 0), along ? 2.1 : 0.2, 0.6, along ? 0.2 : 2.1, col); for (const s of [-1, 1]) B(x + (along ? s * 0.98 : 0), y + 0.6, z + (along ? 0 : s * 0.98), along ? 0.18 : 0.85, 0.32, along ? 0.85 : 0.18, col); for (let i = 0; i < 2; i++) B(x + (along ? -0.45 + i * 0.9 : 0.1), y + 0.52, z + (along ? 0.05 : -0.45 + i * 0.9), along ? 0.85 : 0.6, 0.12, along ? 0.6 : 0.85, 0xc8b89a); };
-  const bed = (x, z, f) => { const y = FY(f); piece(x, z, 1.5, 2.0, 0.5, f, 0x6b4a30); B(x, y + 0.56, z + 0.1, 1.4, 0.14, 1.75, 0xe8e0d0); B(x, y + 0.68, z - 0.75, 1.2, 0.12, 0.35, 0xf2ece0); B(x, y + 0.9, z - 0.98, 1.5, 0.8, 0.07, 0x5a3c26); B(x + 0.1, y + 0.66, z + 0.35, 1.35, 0.06, 1.1, [0x7a3a2a, 0x3a5a7a, 0x6b7a3a][f % 3]); };
-  const table = (x, z, f, w = 1.4, d = 0.9) => { const y = FY(f); piece(x, z, w, d, 0.76, f, 0x6b4a30, true); for (const sx of [-1, 1]) for (const sz of [-1, 1]) B(x + sx * (w / 2 - 0.08), y + 0.36, z + sz * (d / 2 - 0.08), 0.06, 0.72, 0.06, 0x4a3220); };
-  const wardrobe = (x, z, f, along) => { const y = FY(f); piece(x, z, along ? 1.6 : 0.6, along ? 0.6 : 1.6, 2.1, f, 0x5d4128); B(x, y + 1.05, z + (along ? 0.31 : 0), along ? 0.02 : 0.6, 1.9, along ? 0.6 : 0.02, 0x3a2818); };
+  // a solid piece: it blocks up to its top and, with cover, gives cover points round it that belong to its floor
+  const solid = (x, z, hx, hz, rot, y, h, f, cover) => { addCollider(X(x), Z(z), hx, hz, rot, y + h, y - 0.1); if (!cover) return; const k0 = COVER.length; coverBox(X(x), Z(z), hx, hz, rot, h); for (let i = k0; i < COVER.length; i++) { COVER[i].y = FY(f); COVER[i].floor = f; SZ.covers.push(COVER[i]); } };
+  // a model: x, z in the plan, on floor f (y0 over it), turned ry (0: its front to the street). block 1: it blocks, sized from the model's own box;
+  // 2: and gives cover. Each copy is an instance, all of a model drawn at once at the end. Returns the height of its top (0 when the build lacks it)
+  const fm = (name, x, z, f, ry = 0, block = 0, y0 = 0) => {
+    if (!mdlHas(name)) return 0; const b = mdlBox(name), y = FY(f) + y0;
+    (FM[name] = FM[name] || []).push(M4(X(x), y, Z(z), 0, ry, 0));
+    if (block) solid(x, z, b[0] / 2, b[2] / 2, ry, y, b[1], f, block > 1);
+    return y0 + b[1];
+  };
+  // a pile: layers of the long weapons crates two side by side, then ammunition boxes on top, each a little askew. It blocks; returns its height
+  const crates = (x, z, f, ry, layers, boxes, block = 1) => {
+    if (!mdlHas('f_crate_long') || !mdlHas('f_crate_wood')) return 0; const L = mdlBox('f_crate_long'), A = mdlBox('f_crate_wood'), s = Math.sin(ry), c = Math.cos(ry); let h = 0;
+    for (let l = 0; l < layers; l++, h += L[1]) for (const o of [-0.5, 0.5]) fm('f_crate_long', x + s * o * L[2], z + c * o * L[2], f, ry + (rr() - 0.5) * 0.05, 0, h);
+    for (let k = 0; k < boxes; k++, h += A[1]) fm('f_crate_wood', x, z, f, ry + (rr() - 0.5) * 0.16, 0, h);
+    if (block) solid(x, z, (layers ? L[0] : A[0]) / 2, (layers ? 2 * L[2] : A[2]) / 2, ry, FY(f), h, f, block > 1);
+    return h;
+  };
   const rug = (x, z, f, w, d, k) => soft.push([new THREE.PlaneGeometry(w, d).rotateX(-Math.PI / 2).translate(X(x), FY(f) + 0.015, Z(z)), k]);
   const pic = (x, z, f, ry, k) => pics.push([new THREE.PlaneGeometry(0.9, 0.68).rotateY(ry).translate(X(x), FY(f) + 1.65, Z(z)), k]);
   const curtain = (x, z, f, ry, c) => { for (const s of [-1, 1]) deco(new THREE.PlaneGeometry(0.5, 1.75).rotateY(ry).translate(X(x) + Math.cos(ry) * s * 0.8, FY(f) + 1.45, Z(z) - Math.sin(ry) * s * 0.8), c); };
   const bags = (x0, z0, x1, z1, f, layers) => { const y = FY(f), L = Math.hypot(x1 - x0, z1 - z0), n = Math.max(2, Math.round(L / 0.55)); for (let l = 0; l < layers; l++) for (let i = 0; i < n; i++) { const u = (i + (l % 2) * 0.5) / n; if (u > 1) continue; B(lerp(x0, x1, u), y + 0.1 + l * 0.19, lerp(z0, z1, u), Math.abs(x1 - x0) > Math.abs(z1 - z0) ? 0.56 : 0.34, 0.2, Math.abs(x1 - x0) > Math.abs(z1 - z0) ? 0.34 : 0.56, 0xb7a47c); } addCollider(X((x0 + x1) / 2), Z((z0 + z1) / 2), Math.abs(x1 - x0) / 2 + 0.2, Math.abs(z1 - z0) / 2 + 0.2, 0, y + layers * 0.19, y - 0.1); };
-  const crate = (x, z, f, n = 1) => { for (let i = 0; i < n; i++) B(x + (i % 2) * 0.05, FY(f) + 0.22 + i * 0.44, z, 1.0, 0.44, 0.52, 0x5a6038); };
+  const TS = 0, TN = Math.PI, TE = Math.PI / 2, TW = -Math.PI / 2;   // the turn that faces a model's front south (to the street), north, east or west
   // Furniture stands against the walls and leaves every door, every window and the middle of each room free: the squad has to move in here
-  // ground floor: the coffee house. The counter under its shelves on the north wall (east of the window), the stove in the corner, a bench and two tables by the east wall, one table by the street wall
-  piece(-73.1, -37.45, 2.2, 0.7, 1.0, 0, 0x8a6a4a); for (let i = 0; i < 4; i++) B(-73.1 + (i % 2) * 0.6 - 0.3, FY(0) + 1.2 + Math.floor(i / 2) * 0.35, -37.75, 0.5, 0.3, 0.4, 0xc8b080);
-  for (const yy of [1.5, 2.0]) B(-73.1, FY(0) + yy, -37.78, 2.2, 0.03, 0.3, 0x6b4a30);
-  piece(-76.7, -37.4, 0.7, 0.7, 0.9, 0, 0x4a4a46); B(-76.7, FY(0) + 0.92, -37.4, 0.6, 0.04, 0.6, 0x2a2a28);
-  piece(-68.6, -37.55, 1.2, 0.5, 0.45, 0, 0x8a6a4a); B(-68.6, FY(0) + 0.75, -37.8, 1.2, 0.6, 0.12, 0x8a6a4a);
-  table(-66.75, -36.6, 0, 0.9, 0.9); chair(-67.7, -36.6, 0, Math.PI / 2); table(-66.75, -31.2, 0, 0.9, 0.9); chair(-67.7, -31.2, 0, Math.PI / 2); chair(-66.75, -30.3, 0);
-  table(-73.3, -24.75, 0, 1.2, 0.8); chair(-73.7, -25.7, 0); chair(-72.9, -25.7, 0); piece(-81.7, -25.0, 0.5, 1.2, 0.45, 0, 0x8a6a4a); B(-81.85, FY(0) + 0.75, -25.0, 0.12, 0.6, 1.2, 0x8a6a4a);
-  piece(-66.7, -24.5, 1.2, 0.5, 1.1, 0, 0x5a3c26); B(-66.7, FY(0) + 1.0, -24.74, 1.1, 0.5, 0.03, 0xc8b89a);
-  // first floor: the family flat. The sofa against the stairwell wall, the bookcase on the north wall, the bed and the wardrobe in the east room, the dresser against the partition, the dining table by the street wall and the kitchen along the hall
-  sofa(-76.8, -34.4, 1, false, 0x7a4a3a); piece(-73.0, -37.65, 1.0, 0.35, 1.8, 1, 0x5d4128); for (const yy of [0.5, 0.95, 1.4]) B(-73.0, FY(1) + yy, -37.65, 0.9, 0.03, 0.3, 0x8a6a4a); rug(-74.6, -34.0, 1, 2.6, 2.2, 0);
+  // ground floor: the coffee house. The counter on the north wall (east of the window) and the shelf of bottles beside it on the partition, the stove in the corner, a bench and two tables by the east wall, a table by the street wall, a bench by the west wall and the shelf with the radio in the south-east corner
+  fm('f_desk', -73.3, -37.51, 0, TS, 2); fm('f_lamp_k', -72.85, -37.62, 0, TS, 0, 0.76); fm('f_shelf', -71.9, -36.95, 0, TW, 2); fm('f_oven', -76.85, -37.58, 0, TS, 2);
+  fm('f_bench_metal', -68.5, -37.71, 0, TS, 2);
+  for (const tz of [-36.6, -31.2]) { fm('f_table_metal', -66.49, tz, 0, TW, 2); fm('f_chair', -67.25, tz, 0, TE); } fm('f_chair', -66.6, -30.25, 0, TN);
+  fm('f_table_metal', -73.3, -24.49, 0, TS, 2); fm('f_chair', -73.75, -25.3, 0, TS); fm('f_chair', -72.85, -25.3, 0, TS); fm('f_bench_metal', -81.71, -25.0, 0, TE, 2);
+  fm('f_shelf', -66.3, -25.0, 0, TW, 2); fm('f_radio_set', -66.32, -25.15, 0, TW, 0, 1.13);
+  // first floor: the family flat. The sofa against the stairwell wall, the bookcase on the north wall, the bed and the wardrobe in the east room, the writing desk against the partition, the dining table and the dressing table in the hall, the stove, the worktop and the pantry shelf along the hall wall
+  fm('f_sofa', -76.83, -34.4, 1, TE, 2); fm('f_shelf', -72.9, -37.705, 1, TS, 2); rug(-74.6, -34.0, 1, 2.6, 2.2, 0);
   pic(-72.0, -37.83, 1, 0, 0); pic(-71.75, -32.0, 1, -Math.PI / 2, 1); curtain(-75.0, -37.82, 1, 0, 0x7a2a2a); curtain(-70.0, -37.82, 1, 0, 0x2a4a6a);
-  bed(-67.6, -36.85, 1); wardrobe(-66.45, -31.6, 1, false); piece(-71.2, -36.9, 0.5, 1.2, 0.9, 1, 0x6b4a30); B(-71.43, FY(1) + 1.35, -36.9, 0.02, 0.7, 1.0, 0xc8d0d8); rug(-68.8, -33.0, 1, 1.8, 1.4, 1); curtain(-66.2, -34.5, 1, -Math.PI / 2, 0x2a4a6a);
-  table(-73.3, -24.8, 1, 1.6, 0.9); chair(-73.9, -25.8, 1); chair(-72.7, -25.8, 1); piece(-81.7, -25.0, 0.5, 1.4, 0.9, 1, 0x6b4a30); B(-81.83, FY(1) + 1.45, -25.0, 0.02, 0.7, 1.1, 0xc8d0d8);
-  piece(-71.5, -28.85, 2.2, 0.6, 0.9, 1, 0xd8d0c0); B(-71.5, FY(1) + 1.6, -29.05, 2.0, 0.6, 0.3, 0xc8c0b0); piece(-66.55, -28.7, 0.7, 0.7, 1.6, 1, 0xe8e4dc);
+  fm('f_bed_wood', -67.6, -36.85, 1, TS, 2); fm('f_wardrobe', -66.46, -31.6, 1, TW, 2); rug(-68.8, -33.0, 1, 1.8, 1.4, 1); curtain(-66.2, -34.5, 1, -Math.PI / 2, 0x2a4a6a);
+  fm('f_desk', -71.41, -36.9, 1, TE, 2); fm('f_chair', -70.65, -36.9, 1, TW); fm('f_lamp_desk', -71.6, -37.3, 1, TE, 0, 0.76); fm('f_radio_set', -71.62, -36.55, 1, TE, 0, 0.76); B(-71.43, FY(1) + 1.35, -36.9, 0.02, 0.7, 1.0, 0xc8d0d8);
+  fm('f_table_wood', -73.3, -24.55, 1, TS, 2); fm('f_chair', -73.85, -25.4, 1, TS); fm('f_chair', -72.75, -25.4, 1, TS); fm('f_lamp_k', -72.7, -24.4, 1, TS, 0, 0.76);
+  fm('f_desk', -81.51, -25.0, 1, TE, 2); B(-81.83, FY(1) + 1.45, -25.0, 0.02, 0.7, 1.1, 0xc8d0d8);
+  fm('f_oven', -72.3, -28.89, 1, TS, 2); fm('f_table_metal', -71.25, -28.81, 1, TS, 2); fm('f_shelf', -66.9, -29.005, 1, TS, 2);
   pic(-72.0, -24.17, 1, Math.PI, 2); curtain(-71.0, -24.18, 1, Math.PI, 0xc8b070);
-  // second floor: the Egyptian command post. Sandbags under the fighting windows, the map table against the stairwell wall, the radios on the north wall, the mattresses along the partition
+  // second floor: the Egyptian command post. Sandbags under the fighting windows, the map table against the stairwell wall, the radio desk on the north wall, the clerk's desk and the filing cabinet by the east wall, the mattresses along the partition, the crates
   bags(-76.0, -37.2, -74.0, -37.2, 2, 3); bags(-71.0, -37.2, -69.0, -37.2, 2, 3); bags(-66.5, -35.5, -66.5, -33.5, 2, 3); bags(-81.5, -27.8, -81.5, -25.8, 2, 3); bags(-72.0, -24.5, -70.0, -24.5, 2, 3); bags(-81.5, -24.5, -79.5, -24.5, 2, 3);
-  table(-76.3, -33.5, 2, 1.8, 1.0); soft.push([new THREE.PlaneGeometry(1.5, 0.8).rotateX(-Math.PI / 2).translate(X(-76.3), FY(2) + 0.78, Z(-33.5)), 2]); B(-76.8, FY(2) + 0.92, -33.3, 0.4, 0.3, 0.3, 0x4a5236);
-  table(-72.8, -37.5, 2, 1.4, 0.7); chair(-72.8, -36.6, 2);
-  table(-66.6, -31.0, 2, 0.8, 1.4); chair(-67.5, -31.0, 2, Math.PI / 2); piece(-66.5, -37.5, 0.5, 0.6, 1.3, 2, 0x5a6a5a); B(-66.24, FY(2) + 0.9, -37.5, 0.02, 0.25, 0.4, 0x3a3a30);
-  for (let i = 0; i < 2; i++) B(-71.0, FY(2) + 0.08, -33.0 + i * 1.15, 0.85, 0.16, 1.0, [0x8a8070, 0x6a6a5a][i]);
-  crate(-76.75, -30.0, 2, 2); crate(-67.2, -28.7, 2, 1); piece(-81.4, -28.85, 0.5, 0.6, 1.3, 2, 0x5a6a5a); piece(-66.85, -24.5, 1.4, 0.4, 0.45, 2, 0x6b4a30); B(-76.0, FY(2) + 1.5, -29.17, 1.6, 1.0, 0.05, 0x1e2a22);
+  fm('f_table_wood', -76.3, -33.5, 2, TS, 2); soft.push([new THREE.PlaneGeometry(1.4, 0.7).rotateX(-Math.PI / 2).translate(X(-76.3), FY(2) + 0.77, Z(-33.5)), 2]); fm('f_chair_fold', -76.0, -34.25, 2, TS);
+  fm('f_desk', -72.8, -37.51, 2, TS, 2); fm('f_chair_fold', -72.8, -36.75, 2, TN);
+  fm('f_desk', -66.49, -31.0, 2, TW, 2); fm('f_chair_fold', -67.3, -31.0, 2, TE); fm('f_typewriter', -66.5, -31.2, 2, TW, 0, 0.76); fm('f_lamp_desk', -66.35, -30.55, 2, TW, 0, 0.76); fm('f_cabinet', -66.51, -37.5, 2, TW, 2);
+  for (const mx of [-71.05, -70.2]) fm('f_mattress', mx, -32.4, 2, TS);
+  crates(-76.75, -30.05, 2, TS, 0, 4); const cpB = crates(-67.2, -28.75, 2, TS, 2, 0); fm('f_typewriter', -67.2, -28.75, 2, TS, 0, cpB);
+  fm('f_cabinet', -81.49, -28.85, 2, TE, 2); fm('f_bench_metal', -66.85, -24.29, 2, TS, 2); B(-76.0, FY(2) + 1.5, -29.17, 1.6, 1.0, 0.05, 0x1e2a22);
   // the roof: a sandbag position and the water tanks
   bags(-74, -24.6, -70, -24.6, 3, 4); bags(-66.6, -30, -66.6, -27, 3, 4); B(-70.0, FY(3) + 0.9, -34.5, 1.6, 1.8, 1.6, 0x8b8a84);
   // ceiling lamps and a few dropped things
@@ -503,6 +525,8 @@ function buildCornerBuilding() {
   const mat = (() => { const t = plasterTex(71, '#efe8da'); return new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95, map: t, bumpMap: bumpOf(t), bumpScale: 0.6 }); })();
   const mk = (list, m2 = mat) => { const g = build(list.map(([gg, c]) => [gg, c])); const m = new THREE.Mesh(g, m2); scene.add(SH(onLayer1(m))); SZ.objs.push(m); };
   mk(parts); mk(furn, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85, map: TX.grime, side: THREE.DoubleSide })); { const m = new THREE.Mesh(build(slabParts.map((g) => [g, 0x9c9384])), mat); scene.add(SH(onLayer1(m))); SZ.objs.push(m); }
+  // the furniture models: all the copies of each in one draw (the lighter level of detail in the light setting); only the bigger pieces cast shadows
+  for (const n in FM) for (const m of mdlInst(n, LITE ? 1 : 0, FM[n], null, Math.max(...mdlBox(n)) > 0.6)) SZ.objs.push(m);
   const rugs = [rugTex(1, '#7a2a22', '#d8b878'), rugTex(2, '#2a3a5a', '#c8a868'), new THREE.CanvasTexture((() => { const c = canvas(128, 64), g = c.getContext('2d'); g.fillStyle = '#d8ccaa'; g.fillRect(0, 0, 128, 64); g.strokeStyle = '#6a4a2a'; for (let i = 0; i < 9; i++) { g.beginPath(); g.moveTo(10 + i * 12, 6); g.bezierCurveTo(30 + i * 9, 30, 4 + i * 13, 40, 20 + i * 11, 60); g.stroke(); } g.fillStyle = '#8a2a22'; g.fillRect(70, 20, 6, 6); g.fillRect(40, 38, 6, 6); return c; })())];
   for (const [g, k] of soft) { const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ map: rugs[k], roughness: 1 })); scene.add(onLayer1(m)); SZ.objs.push(m); m.receiveShadow = !LITE; }
   for (const [g, k] of pics) { const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ map: pictureTex(k), roughness: 0.7 })); scene.add(onLayer1(m)); SZ.objs.push(m); }
@@ -523,7 +547,8 @@ function szInAid(x, z) { const lx = x - CITY.cx, lz = z - CITY.cz; return lx > S
 function szAidBuild(FY) {
   const g = new THREE.Group(), y = FY(1), X = LX, Z = LZ, parts = [];
   const bx = (x, yy, z, w, h, d, c, ry = 0) => parts.push([new THREE.BoxGeometry(w, h, d).rotateY(ry).translate(X(x), yy, Z(z)), c]);
-  for (const [, x, z] of SZ_WOUNDED) { bx(x, y + 0.06, z, 1.95, 0.12, 0.75, 0x7d7f6a); bx(x + 0.78, y + 0.17, z, 0.36, 0.1, 0.42, 0xe6dfd0); bx(x - 0.75, y + 0.17, z, 0.42, 0.1, 0.62, [0x6b3a30, 0x4f5a3c, 0x6b3a30, 0x3d4a5a, 0x4f5a3c][Math.floor((z + 38) % 5)]); }
+  // the mattresses of the furniture pack, each with its pillow and blanket, the pillow to the east wall (none when the build lacks the model)
+  if (mdlHas('f_mattress')) for (const m of mdlInst('f_mattress', LITE ? 1 : 0, SZ_WOUNDED.map(([, x, z]) => M4(X(x), y, Z(z), 0, -Math.PI / 2, 0)), null, false)) g.add(m);
   for (const [x, z] of [[-71.9, -37.0], [-71.9, -36.1]]) { for (const dz of [-0.22, 0.22]) bx(x, y + 0.98, z + dz, 0.07, 1.96, 0.07, 0x6b4a30); bx(x, y + 0.98, z, 0.04, 1.88, 0.4, 0x4f5a3c); }
   for (const [x, z, r] of [[-76.7, -30.0, 0.2], [-76.2, -29.75, -0.3]]) { bx(x, y + 0.2, z, 0.62, 0.4, 0.42, 0x5d6a4a, r); bx(x, y + 0.405, z, 0.3, 0.012, 0.3, 0xefece4, r); bx(x, y + 0.414, z, 0.2, 0.012, 0.06, 0xb4231a, r); bx(x, y + 0.414, z, 0.06, 0.012, 0.2, 0xb4231a, r); }
   for (const [x, z] of [[-73.9, -37.2], [-74.1, -31.55]]) { bx(x, y + 0.9, z, 0.03, 1.8, 0.03, 0x8a8a84); bx(x, y + 0.03, z, 0.4, 0.06, 0.4, 0x6a6a64); bx(x, y + 1.62, z, 0.12, 0.22, 0.05, 0xdfe6e4); }
@@ -536,37 +561,39 @@ function szProps(FY) {
   const P = (kind, x, z, y, rot = 0, floor) => propAdd('suez', kind, LX(x), y, LZ(z), rot, floor), On = (kinds, x, z, y, w, d, seed, floor) => propsOn('suez', kinds, LX(x), LZ(z), y, w, d, 0, seed, floor);
   const W = (kind, x, y, z, ry, seed, side = 'e') => propWall('suez', kind, LX(x), y, LZ(z), ry, seed, side);
   const S = Math.PI / 2, N = -Math.PI / 2, E = 0, Wf = Math.PI;   // the way each wall faces into a room: from the west wall (+x), east wall (-x), south wall (+z), north wall (-z)
-  { const y = FY(0);   // the coffee house: finjans and glasses on the counter, bottles on the shelves over it, the pots on the stove, backgammon by the tables, sacks along the stairwell wall
-    On(['kettle', 'cups', 'glasses', 'teapot', 'ashtray', 'cigs', 'kettle'], -73.1, -37.4, y + 1.0, 2.0, 0.5, 41, y);
-    On(['bottles', 'cans', 'jug', 'books', 'bottle', 'tin'], -73.1, -37.78, y + 1.47, 2.0, 0.26, 55, y); On(['radio', 'bottles', 'cans', 'jug', 'vase'], -73.1, -37.78, y + 1.97, 2.0, 0.26, 56, y);
-    P('pot', -76.6, -37.3, y + 0.94, 0, y); P('kettle', -76.85, -37.55, y + 0.94, 0.3, y); P('bucket', -76.0, -37.5, y); P('primus', -76.9, -36.5, y, 0.4);
+  // the tops of the furniture models (src/4f_data_furn.js): tables, desks and metal tables 0.76, the stove 0.9, the boards of the shelf 0.21, 0.67 and 1.13,
+  // the metal bench 0.39, the filing cabinet 1.3, the bed 0.5, the sofa's seat 0.42, the mattress 0.12; a pile of crates as high as its crates
+  const pile = (n, k) => (mdlHas(n) ? mdlBox(n)[1] * k : 0);
+  { const y = FY(0);   // the coffee house: finjans and glasses on the counter, bottles on the shelf beside it, the pots on the stove, backgammon by the tables, sacks along the stairwell wall
+    On(['kettle', 'cups', 'glasses', 'teapot', 'ashtray', 'cigs'], -73.45, -37.5, y + 0.76, 0.9, 0.45, 41, y);
+    On(['bottles', 'cans', 'jug', 'books', 'bottle', 'tin'], -71.9, -36.95, y + 0.68, 0.2, 1.3, 55, y); On(['bottles', 'cans', 'jug', 'vase'], -71.9, -36.95, y + 1.14, 0.2, 1.3, 56, y);
+    P('pot', -76.75, -37.45, y + 0.9, 0, y); P('kettle', -76.95, -37.68, y + 0.9, 0.3, y); P('bucket', -76.0, -37.5, y); P('primus', -76.9, -36.5, y, 0.4);
     P('sack', -76.85, -35.4, y, 0.3); P('sack', -76.9, -34.75, y, 1.4); P('sack', -76.3, -35.1, y, 2.2); P('sack', -76.9, -33.6, y, 0.8); P('crateS', -76.85, -32.6, y, 0.1); P('cans', -76.85, -32.6, y + 0.33, 0, y); P('basket', -76.8, -31.6, y); P('jug', -76.6, -31.0, y, 0.2);
-    On(['glasses', 'backgammon', 'ashtray'], -66.75, -36.6, y + 0.76, 0.8, 0.8, 43, y); On(['cups', 'cards', 'cigs'], -66.75, -31.2, y + 0.76, 0.8, 0.8, 44, y); On(['teapot', 'cups', 'glasses', 'ashtray'], -73.3, -24.75, y + 0.76, 1.1, 0.7, 45, y);
-    P('nargila', -67.6, -35.9, y, 0.3); P('nargila', -67.5, -31.9, y, 1.2); P('nargila', -72.4, -25.4, y, 0.6); P('helmet', -68.6, -37.55, y + 0.45, 0.4, y); P('pack', -68.1, -37.5, y + 0.45, 1.5, y);
+    On(['glasses', 'backgammon', 'ashtray'], -66.49, -36.6, y + 0.76, 0.5, 1.0, 43, y); On(['cups', 'cards', 'cigs'], -66.49, -31.2, y + 0.76, 0.5, 1.0, 44, y); On(['teapot', 'cups', 'glasses', 'ashtray'], -73.3, -24.49, y + 0.76, 1.05, 0.5, 45, y);
+    P('nargila', -67.6, -35.9, y, 0.3); P('nargila', -67.5, -31.9, y, 1.2); P('nargila', -72.35, -25.5, y, 0.6); P('helmet', -68.75, -37.71, y + 0.39, 0.4, y); P('pack', -68.15, -37.7, y + 0.39, 1.5, y);
     P('crateS', -78.2, -28.85, y, 0.2); P('cans', -78.2, -28.85, y + 0.33, 0, y); P('basket', -78.9, -28.9, y); P('basket', -77.8, -28.75, y, 0.6); P('tin', -79.3, -28.8, y, 0.4); P('jerry', -67.4, -28.9, y, 0.2); P('bucket', -66.5, -28.9, y);
-    P('radio', -66.7, -24.5, y + 1.12, 0.1, y); P('vase', -66.35, -24.45, y + 1.12, 0, y); P('frame', -67.1, -24.55, y + 1.12, 0.2, y); P('nargila', -81.3, -25.9, y, 0.3); P('cups', -81.7, -25.0, y + 0.45, 0, y);
+    P('vase', -66.3, -24.55, y + 1.13, 0, y); P('frame', -66.3, -25.6, y + 1.13, 0.2, y); P('books', -66.3, -25.2, y + 0.68, 0.1, y); P('nargila', -81.3, -25.9, y, 0.3); P('cups', -81.7, -25.0, y + 0.39, 0, y);
     W('portrait', -78.8, y + 1.75, -24.19, Wf, 2, 'e'); W('clock', -72.0, y + 2.1, -37.83, E); W('calendar', -71.78, y + 1.6, -31.5, N, 1); W('mirror', -77.23, y + 1.6, -34.0, S); W('clock', -76.0, y + 2.1, -29.13, E); W('calendar', -66.42, y + 1.7, -30.5, N, 2);
   }
   { const y = FY(1);   // the flat: the salon with its books and its tray, the bedroom, the kitchen along the hall with its pots
-    P('books', -76.75, -35.38, y + 0.76, 0.2, y); P('cigs', -76.75, -33.42, y + 0.76, 0, y); P('tclock', -76.7, -33.45, y + 0.76, N, y);
-    for (const [yy, ks] of [[0.5, ['books', 'books', 'frame']], [0.95, ['radio', 'vase']], [1.4, ['books', 'tclock', 'frame']]]) On(ks, -73.0, -37.65, y + yy + 0.02, 0.85, 0.25, 60 + yy * 10, y);
-    P('blanketF', -67.6, -36.35, y + 0.66, 0.1, y); P('books', -67.1, -36.0, y + 0.66, 0.4, y); P('pillow', -67.3, -37.5, y + 0.66, 0.5, y); P('boots', -68.7, -35.6, y, 0.5);
-    On(['frame', 'vase', 'tclock', 'cups', 'cigs'], -71.2, -36.9, y + 0.9, 0.4, 1.1, 64, y);
-    On(['plates', 'pot', 'basket', 'cups', 'bottle', 'glasses', 'fruit'], -73.3, -24.8, y + 0.76, 1.5, 0.8, 52, y);
-    On(['pan', 'kettle', 'plates', 'cans', 'jug', 'cups', 'bottles', 'teapot'], -71.5, -28.85, y + 0.9, 2.0, 0.5, 53, y); P('primus', -70.7, -28.8, y + 0.9, 0, y); P('basket', -66.55, -28.7, y + 1.6, 0.3, y);
-    On(['plates', 'teapot', 'vase', 'glasses', 'basket'], -81.7, -25.0, y + 0.9, 0.4, 1.3, 65, y);
-    P('bucket', -70.3, -28.6, y); P('sack', -69.9, -28.5, y, 0.4); P('jerry', -67.2, -28.95, y, 0.3); P('tin', -67.5, -28.9, y, 0.2); P('bottles', -73.0, -25.2, y, 0, y);
+    P('books', -76.55, -35.0, y + 0.42, 0.2, y); P('cigs', -76.55, -33.8, y + 0.42, 0, y);
+    for (const [yy, ks, sd] of [[0.21, ['books', 'books', 'frame'], 65], [0.67, ['radio', 'vase', 'books'], 69.5], [1.13, ['books', 'tclock', 'frame'], 74]]) On(ks, -72.9, -37.705, y + yy + 0.01, 1.3, 0.2, sd, y);
+    P('books', -67.15, -36.2, y + 0.5, 0.4, y); P('boots', -68.7, -35.6, y, 0.5);
+    On(['frame', 'cups', 'cigs', 'vase'], -71.25, -36.95, y + 0.76, 0.25, 0.4, 64, y);
+    On(['plates', 'pot', 'basket', 'cups', 'bottle', 'glasses', 'fruit'], -73.45, -24.55, y + 0.76, 1.1, 0.6, 52, y);
+    P('pan', -72.25, -28.95, y + 0.9, 0.3, y); On(['kettle', 'plates', 'cans', 'jug', 'cups', 'bottles', 'teapot'], -71.4, -28.81, y + 0.76, 0.85, 0.5, 53, y); P('primus', -70.85, -28.8, y + 0.76, 0, y); P('basket', -66.9, -29.0, y + 1.13, 0.3, y); On(['cans', 'tin', 'bottles', 'jug'], -66.9, -29.0, y + 0.68, 1.3, 0.2, 54, y);
+    On(['plates', 'teapot', 'vase', 'glasses', 'basket'], -81.45, -25.0, y + 0.76, 0.45, 1.1, 65, y);
+    P('bucket', -70.3, -28.6, y); P('sack', -69.9, -28.5, y, 0.4); P('jerry', -67.2, -28.55, y, 0.3); P('tin', -67.55, -28.5, y, 0.2); P('bottles', -73.3, -25.25, y, 0, y);
     W('clock', -69.65, y + 2.05, -24.19, Wf); W('calendar', -66.42, y + 1.9, -25.6, N, 2); W('mirror', -76.5, y + 1.6, -37.83, E); W('calendar', -71.78, y + 1.5, -32.0, N, 1); W('portrait', -78.0, y + 1.8, -24.19, Wf, 6, 'e'); W('mirror', -77.23, y + 1.6, -32.5, S);
   }
   { const y = FY(2);   // the command post: the map table under its lamp, the big sets with their handsets, helmets and packs by the mattresses
-    On(['papers', 'maptube', 'phone', 'binocs', 'lamp', 'cups', 'ashtray', 'cigs', 'headset'], -76.3, -33.5, y + 0.78, 1.7, 0.9, 61, y); P('thermos', -76.9, -33.0, y + 0.78, 0, y); P('books', -75.6, -33.2, y + 0.78, 0.2, y);
-    On(['radioBig', 'headset', 'papers'], -72.8, -37.5, y + 0.76, 1.2, 0.5, 68, y); P('phone', -72.2, -37.3, y + 0.76, 0.8, y);
-    On(['typewriter', 'papers', 'phone', 'lamp', 'cups', 'cigs'], -66.6, -31.0, y + 0.76, 0.7, 1.3, 69, y); P('papers', -66.5, -37.5, y + 1.3, 0.3, y); P('books', -66.5, -37.25, y + 1.3, 0.1, y);
-    P('pillow', -71.0, -33.4, y + 0.16, 0.2, y); P('blanketF', -71.0, -32.7, y + 0.16, 0.3, y); P('pillow', -71.0, -32.25, y + 0.16, 0.4, y); P('blanket', -71.0, -31.55, y + 0.16, 0.1, y);
-    P('boots', -70.3, -33.3, y, 0.3); P('pack', -70.4, -32.0, y, 1.2); P('helmet', -70.35, -32.7, y, 0.5); P('canteen', -70.5, -31.4, y); P('cards', -70.7, -33.0, y + 0.16, 0.3, y); P('cigs', -70.6, -31.9, y, 0, y);
-    P('ammo', -76.75, -30.0, y + 0.88, 0.1, y); P('helmet', -76.4, -29.9, y + 0.88, 0.8, y); P('typewriter', -67.2, -28.7, y + 0.44, 0.1, y); P('lamp', -67.6, -28.8, y + 0.44, 0, y); P('papers', -66.9, -28.6, y + 0.44, 0.5, y);
-    P('jerry', -76.9, -35.8, y, 0.2); P('jerry', -76.85, -36.3, y, -0.3); P('ammo', -76.9, -31.6, y, 0.2); P('ammo', -76.9, -31.6, y + 0.22, 0.4, y); P('helmet', -66.6, -24.5, y + 0.45, 0.3, y); P('pack', -67.2, -24.5, y + 0.45, 1.1, y);
-    P('primus', -80.6, -28.8, y, 0); P('kettle', -80.6, -28.8, y + 0.27, 0.3, y); P('cups', -80.1, -28.7, y, 0, y); P('papers', -81.4, -28.85, y + 1.32, 0.5, y); P('canteen', -79.7, -28.8, y);
+    On(['papers', 'maptube', 'phone', 'binocs', 'lamp', 'cups', 'ashtray', 'cigs', 'headset'], -76.3, -33.5, y + 0.77, 1.4, 0.65, 61, y); P('thermos', -76.95, -33.25, y + 0.76, 0, y); P('books', -75.65, -33.25, y + 0.76, 0.2, y);
+    On(['radioBig', 'headset', 'papers'], -72.85, -37.55, y + 0.76, 1.0, 0.45, 68, y); P('phone', -72.35, -37.3, y + 0.76, 0.8, y);
+    On(['papers', 'phone', 'cups', 'cigs'], -66.72, -31.0, y + 0.76, 0.18, 1.1, 69, y); P('papers', -66.5, -37.55, y + 1.3, 0.3, y); P('books', -66.5, -37.35, y + 1.3, 0.1, y);
+    P('boots', -69.45, -33.3, y, 0.3); P('pack', -69.5, -32.0, y, 1.2); P('helmet', -69.45, -32.7, y, 0.5); P('canteen', -69.55, -31.4, y); P('cards', -70.95, -32.2, y + 0.12, 0.3, y); P('cigs', -69.6, -31.9, y, 0, y);
+    P('ammo', -76.75, -30.05, y + pile('f_crate_wood', 4), 0.1, y); P('helmet', -76.45, -29.95, y + pile('f_crate_wood', 4), 0.8, y); P('lamp', -67.65, -28.8, y + pile('f_crate_long', 2), 0, y); P('papers', -66.85, -28.6, y + pile('f_crate_long', 2), 0.5, y);
+    P('jerry', -76.9, -35.8, y, 0.2); P('jerry', -76.85, -36.3, y, -0.3); P('ammo', -76.9, -31.6, y, 0.2); P('ammo', -76.9, -31.6, y + 0.22, 0.4, y); P('helmet', -66.6, -24.3, y + 0.39, 0.3, y); P('pack', -67.2, -24.3, y + 0.39, 1.1, y);
+    P('primus', -80.6, -28.8, y, 0); P('kettle', -80.6, -28.8, y + 0.27, 0.3, y); P('cups', -80.1, -28.7, y, 0, y); P('papers', -81.45, -28.85, y + 1.3, 0.5, y); P('canteen', -79.7, -28.8, y);
     W('map', -71.42, y + 1.65, -32.0, S, 7, 'e'); W('portrait', -77.0, y + 1.8, -24.19, Wf, 4, 'e'); W('clock', -68.3, y + 2.1, -37.83, E); W('calendar', -66.42, y + 1.8, -25.3, N, 1); W('map', -80.6, y + 1.6, -29.13, E, 8, 'e');
   }
 }

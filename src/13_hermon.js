@@ -71,75 +71,124 @@ function hmBuildKit() {
   K.gabion = (lx, lz, w, d, h, y) => { const [wx, wz] = HW(lx, lz); K.gab.push(boxUV(wx - w / 2, wx + w / 2, y, y + h, wz - d / 2, wz + d / 2, 1, 1)); addCollider(wx, wz, w / 2, d / 2, 0, y + h, y - 0.2); };
   K.box = (lx, lz, y, w, h, d, col, list = K.prop, rot = 0) => { const [wx, wz] = HW(lx, lz); list.push([new THREE.BoxGeometry(w, h, d).rotateY(rot).translate(wx, y + h / 2, wz), col]); };
   K.solid = (lx, lz, y, w, h, d, col, list = K.prop, rot = 0) => { K.box(lx, lz, y, w, h, d, col, list, rot); const [wx, wz] = HW(lx, lz); addCollider(wx, wz, w / 2, d / 2, rot, y + h, y); };
+  // a model of the furniture pack (src/4f_data_furn.js): standing at y, turned ry (0: its front to +z), scaled sc (a number or [x, y, z]). solid: it
+  // blocks, sized from the model's own box. Each copy is an instance; all the copies of a model are drawn at once at the end. Returns its top (y without the model)
+  // set: K.mdl for the post's furniture, K.mdlC for the cable-car station's
+  K.mdl = {}; K.mdlC = {};
+  K.fm = (name, lx, lz, y, ry = 0, solid = false, sc = 1, set = K.mdl) => {
+    if (!mdlHas(name)) return y; const b = mdlBox(name), s = Array.isArray(sc) ? sc : [sc, sc, sc], [wx, wz] = HW(lx, lz);
+    (set[name] = set[name] || []).push(M4(wx, y, wz, 0, ry, 0, s[0], s[1], s[2]));
+    if (solid) addCollider(wx, wz, b[0] * s[0] / 2, b[2] * s[2] / 2, ry, y + b[1] * s[1], y);
+    return y + b[1] * s[1];
+  };
+  // a pile of crates: layers of the long weapons crates n side by side, then ammunition boxes, each a little askew; it blocks. Returns its top
+  const jr = rng(2311);
+  K.pile = (lx, lz, y, ry, layers, boxes, n = 2, solid = true) => {
+    if (!mdlHas('f_crate_long') || !mdlHas('f_crate_wood')) return y; const L = mdlBox('f_crate_long'), A = mdlBox('f_crate_wood'), s = Math.sin(ry), c = Math.cos(ry); let h = y;
+    for (let l = 0; l < layers; l++, h += L[1]) for (let i = 0; i < n; i++) { const o = (i - (n - 1) / 2) * L[2]; K.fm('f_crate_long', lx + s * o, lz + c * o, h, ry + (jr() - 0.5) * 0.05); }
+    for (let k = 0; k < boxes; k++, h += A[1]) K.fm('f_crate_wood', lx, lz, h, ry + (jr() - 0.5) * 0.16);
+    if (solid) { const [wx, wz] = HW(lx, lz); addCollider(wx, wz, (layers ? L[0] : A[0]) / 2, (layers ? n * L[2] : A[2]) / 2, ry, h, y); }
+    return h;
+  };
   return K;
 }
 // cover points inside the building belong to a floor, so the defenders stay on their own level
 function hmCover(lx, lz, nx, nz, f, h = 1) { const [wx, wz] = HW(lx, lz); const l = Math.hypot(nx, nz) || 1; COVER.push({ x: wx, z: wz, nx: nx / l, nz: nz / l, h, by: null, floor: f, y: hmY(f) }); }
 /* ---------- the furniture of the post: bunks, lockers, radio racks, map boards, the kitchen; and the mess the battle left ----------
-   door = { z, nz }: the wall the door is in and which way the room extends from it; the defenders get cover flanking the door */
+   door = { z, nz }: the wall the door is in and which way the room extends from it; the defenders get cover flanking the door.
+   The pieces are the models of the furniture pack; the walls a piece stands against are at most 0.3 thick on the room's side, so a piece's back is set 0.32 in */
+const HM_TE = Math.PI / 2, HM_TW = -Math.PI / 2, HM_TN = Math.PI;   // the turn that faces a model's front to +x, to -x, to -z (0: to +z)
+// a row of n lockers against the wall at x1, their fronts into the room, centred on lz: one collider for the row
+function hmLockers(K, x1, lz, y, n) {
+  if (!mdlHas('f_locker')) return; const b = mdlBox('f_locker'), lx = x1 - 0.18 - b[2] / 2;
+  for (let i = 0; i < n; i++) K.fm('f_locker', lx, lz + (i - (n - 1) / 2) * b[0], y, HM_TW);
+  const [wx, wz] = HW(lx, lz); addCollider(wx, wz, b[2] / 2, n * b[0] / 2, 0, y + b[1], y);
+}
+// the two bunks stand against the wall away from the door (the rooms south of the corridor have their door in the z1 wall): the first one's x, their z, and +1 / -1 for that wall
+const hmBunks = (x0, z0, z1, door) => (door && door.nz < 0 ? [x0 + 1.6, z0 + 1.3, -1] : [x0 + 1.2, z1 - 1.3, 1]);
 function hmRoom(K, x0, x1, z0, z1, f, kind, r, door = null) {
-  const y = hmY(f), cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
-  if (kind === 'bunks') { for (let i = 0; i < 2; i++) { const bx = x0 + 1.2 + i * 2.6, bz = z1 - 1.2; for (const yy of [0.45, 1.35]) K.box(bx, bz, y + yy, 0.95, 0.12, 2.0, 0x5c6248); for (const [ox, oz] of [[-0.45, -0.95], [0.45, -0.95], [-0.45, 0.95], [0.45, 0.95]]) K.box(bx + ox, bz + oz, y, 0.05, 1.6, 0.05, 0x3c3e36); K.box(bx, bz, y + 0.57, 0.85, 0.14, 1.8, 0x7c7f6c); } K.solid(x1 - 0.5, z0 + 1.2, y, 0.6, 1.9, 1.6, 0x55603f); hmCover(x1 - 1.2, z0 + 1.2, 1, 0, f); hmCover(x0 + 2.5, z1 - 2.6, 0, 1, f); }
-  else if (kind === 'radio') { for (let i = 0; i < 3; i++) { const bz = z0 + 1.0 + i * 1.5; K.solid(x1 - 0.45, bz, y, 0.7, 1.9, 1.3, 0x4c5444); for (let j = 0; j < 4; j++) K.box(x1 - 0.82, bz + (j % 2 ? 0.3 : -0.3), y + 0.5 + j * 0.32, 0.04, 0.12, 0.24, j % 3 ? 0x2a2a28 : 0xd8b64a); } K.solid(cx - 0.5, cz, y, 2.2, 0.78, 1.0, 0x6e5a40, K.wood); K.box(cx - 0.5, cz, y + 0.78, 0.5, 0.25, 0.4, 0x3a3e34); hmCover(cx - 0.5, cz - 1.1, 0, -1, f); hmCover(x1 - 1.4, z0 + 2.2, 1, 0, f); }
-  else if (kind === 'map') { K.box(x0 + 0.08, cz, y + 0.9, 0.06, 1.3, 2.4, 0xd8cfb4); K.box(x0 + 0.1, cz, y + 1.2, 0.02, 0.5, 1.6, 0x6b8a9a); K.solid(cx, cz, y, 2.6, 0.78, 1.2, 0x7a6448, K.wood); for (let i = 0; i < 4; i++) K.box(cx - 1 + i * 0.66, cz + (i % 2 ? 0.9 : -0.9), y, 0.45, 0.45, 0.45, 0x4a4436); hmCover(cx, cz + 1.0, 0, 1, f); hmCover(cx, cz - 1.0, 0, -1, f); }
-  else if (kind === 'kitchen') { K.solid(x0 + 0.45, cz, y, 0.8, 0.9, z1 - z0 - 1.2, 0x8a8a80); for (let i = 0; i < 3; i++) K.box(x0 + 0.45, z0 + 1.2 + i * 1.6, y + 0.9, 0.4, 0.28, 0.4, 0x9a9a92); K.solid(cx + 0.6, cz, y, 1.6, 0.76, 2.6, 0x7a6448, K.wood); hmCover(cx + 1.6, cz, 1, 0, f); }
-  else if (kind === 'store') { for (let i = 0; i < 6; i++) { const bx = x0 + 0.7 + (i % 3) * 1.4, bz = z1 - 0.6 - Math.floor(i / 3) * 1.1; K.solid(bx, bz, y, 0.9, 0.5 + (i % 2) * 0.35, 0.6, 0x4d5a34); } for (let i = 0; i < 4; i++) K.box(x1 - 0.6, z0 + 0.7 + i * 0.5, y, 0.36, 0.48, 0.18, 0x435033); hmCover(cx, z1 - 2.4, 0, 1, f); }
-  else if (kind === 'obs') { K.solid(cx, z1 - 1.0, y, 1.0, 1.1, 0.6, 0x55524a); K.box(cx, z1 - 1.0, y + 1.1, 0.3, 0.25, 0.9, 0x1a1a1a); K.solid(x0 + 1.2, cz, y, 1.8, 0.78, 1.0, 0x6e5a40, K.wood); hmCover(x0 + 1.2, cz - 1.0, 0, -1, f); hmCover(cx, z1 - 2.0, 0, 1, f); }
+  const y = hmY(f), cx = (x0 + x1) / 2, cz = (z0 + z1) / 2, E = HM_TE, W = HM_TW, N = HM_TN;
+  if (kind === 'bunks') { const [b0, bz, sg] = hmBunks(x0, z0, z1, door); for (let i = 0; i < 2; i++) K.fm('f_bunk', b0 + i * 2.6, bz, y, 0, true); hmLockers(K, x1, z0 + 1.2, y, 3); hmCover(x1 - 1.2, z0 + 1.2, 1, 0, f); hmCover(b0 + 1.3, bz - sg * 1.3, 0, sg, f); }
+  else if (kind === 'radio') {
+    // the racks: two steel cabinets side by side, the sets on top
+    const cb = mdlHas('f_cabinet') ? mdlBox('f_cabinet') : null;
+    if (cb) for (let i = 0; i < 3; i++) { const bz = z0 + 1.0 + i * 1.5, lx = x1 - 0.18 - cb[2] / 2; for (const o of [-0.5, 0.5]) K.fm('f_cabinet', lx, bz + o * cb[0], y, W); const [wx, wz] = HW(lx, bz); addCollider(wx, wz, cb[2] / 2, cb[0], 0, y + cb[1], y); }
+    K.fm('f_table_wood', cx - 0.5, cz, y, 0, true, [1.3, 1, 1.2]); hmCover(cx - 0.5, cz - 1.1, 0, -1, f); hmCover(x1 - 1.4, z0 + 2.2, 1, 0, f);
+  }
+  else if (kind === 'map') { K.box(x0 + 0.08, cz, y + 0.9, 0.06, 1.3, 2.4, 0xd8cfb4); K.box(x0 + 0.1, cz, y + 1.2, 0.02, 0.5, 1.6, 0x6b8a9a);
+    // the map table: two tables pushed together, the chairs round it
+    for (const o of [-0.4, 0.4]) K.fm('f_table_wood', cx, cz + o, y); if (mdlHas('f_table_wood')) { const [wx, wz] = HW(cx, cz); addCollider(wx, wz, 0.8, 0.8, 0, y + 0.76, y); }
+    for (const [o, sd] of [[-0.45, -1], [0.45, -1], [-0.45, 1], [0.45, 1]]) K.fm('f_chair_fold', cx + o, cz + sd * 1.15, y, sd < 0 ? 0 : N);
+    hmCover(cx, cz + 1.0, 0, 1, f); hmCover(cx, cz - 1.0, 0, -1, f); }
+  else if (kind === 'kitchen') {
+    // along the outer wall: the cooker, two worktops, then the shelves of tins and bottles; the mess table in the middle with its benches
+    K.fm('f_oven', x0 + 0.32 + 0.26, z0 + 1.0, y, E, true); for (const lz of [z0 + 2.0, z0 + 3.25]) K.fm('f_table_metal', x0 + 0.32 + 0.34, lz, y, E, true);
+    for (const lz of [z0 + 5.0, z0 + 6.6, z0 + 8.2]) K.fm('f_shelf', x0 + 0.32 + 0.15, lz, y, E, true);
+    for (const o of [-0.615, 0.615]) K.fm('f_table_metal', cx + 0.6, cz + o, y, E); if (mdlHas('f_table_metal')) { const [wx, wz] = HW(cx + 0.6, cz); addCollider(wx, wz, 0.34, 1.23, 0, y + 0.76, y); }
+    for (const sx of [-1, 1]) for (const o of [-0.66, 0.66]) K.fm('f_bench_metal', cx + 0.6 + sx * 0.55, cz + o, y, E);
+    hmCover(cx + 1.6, cz, 1, 0, f); }
+  else if (kind === 'store') { for (let i = 0; i < 6; i++) K.pile(x0 + 0.85 + (i % 3) * 1.4, z1 - 0.6 - Math.floor(i / 3) * 1.1, y, 0, 2 + (i % 2), 0); K.pile(x1 - 0.6, z0 + 2.9, y, E, 0, 3, 2, false); hmCover(cx, z1 - 2.4, 0, 1, f); }
+  else if (kind === 'obs') { K.solid(cx, z1 - 1.0, y, 1.0, 1.1, 0.6, 0x55524a); K.box(cx, z1 - 1.0, y + 1.1, 0.3, 0.25, 0.9, 0x1a1a1a); K.fm('f_table_wood', x0 + 1.2, cz, y, 0, true); hmCover(x0 + 1.2, cz - 1.0, 0, -1, f); hmCover(cx, z1 - 2.0, 0, 1, f); }
   // wide rooms get a second table with stools and a row of lockers on the far side, so the room is not half empty
-  if (x1 - x0 > 11) { K.solid(x1 - 3.2, cz + 0.5, y, 1.9, 0.78, 1.0, 0x6e5a40, K.wood); for (const [ox, oz] of [[-0.6, -1.0], [0.6, -1.0], [0, 1.0]]) K.box(x1 - 3.2 + ox, cz + 0.5 + oz, y, 0.36, 0.45, 0.36, 0x6e5a40, K.wood); for (let i = 0; i < 3; i++) K.solid(x1 - 0.45, cz + 2.8 + i * 0.95, y, 0.6, 1.9, 0.85, 0x55603f); hmCover(x1 - 3.2, cz - 0.6, 0, -1, f); K.solid(x0 + 2.2, cz - 0.5, y, 1.0, 0.9, 0.7, 0x4d5a34); hmCover(x0 + 2.2, cz - 1.3, 0, -1, f, 0.9); }
+  if (x1 - x0 > 11) { K.fm('f_table_wood', x1 - 3.2, cz + 0.5, y, 0, true); for (const [ox, oz] of [[-0.6, -1.0], [0.6, -1.0], [0, 1.0]]) K.fm('f_stool_metal', x1 - 3.2 + ox, cz + 0.5 + oz, y, oz < 0 ? 0 : N); hmLockers(K, x1, cz + 3.33, y, 4); hmCover(x1 - 3.2, cz - 0.6, 0, -1, f); K.pile(x0 + 2.2, cz - 0.5, y, 0, 0, 4); hmCover(x0 + 2.2, cz - 1.3, 0, -1, f, 0.9); }
   // and cover flanking the door, inside: the first men in through it are met from both sides
-  if (door) { for (const sd of [-1, 1]) { const px = cx + sd * 2.6, pz = door.z + door.nz * 1.1; K.solid(px, pz, y, 1.1, 0.95, 0.6, 0x4d5a34); hmCover(px, pz + door.nz * 0.6, cx - px, door.z - pz - door.nz * 0.6, f, 0.95); } }
+  if (door) { for (const sd of [-1, 1]) { const px = cx + sd * 2.6, pz = door.z + door.nz * 1.1; K.pile(px, pz, y, 0, 2, 2); hmCover(px, pz + door.nz * 0.6, cx - px, door.z - pz - door.nz * 0.6, f, 0.95); } }
   // the battle of the 6th: overturned crates, scorch marks, papers and spent cases on the floor
-  for (let i = 0; i < 5; i++) { const px = lerp(x0 + 0.8, x1 - 0.8, r()), pz = lerp(z0 + 0.8, z1 - 0.8, r()); if (r() < 0.5) K.box(px, pz, y, 0.5, 0.32, 0.4, 0x4d5a34, K.prop, r() * 3); else K.box(px, pz, y + 0.01, 0.6 + r() * 0.8, 0.005, 0.5 + r() * 0.6, 0x26221e, K.prop, r() * 3); }
+  for (let i = 0; i < 5; i++) { const px = lerp(x0 + 0.8, x1 - 0.8, r()), pz = lerp(z0 + 0.8, z1 - 0.8, r()); if (r() < 0.5) K.fm('f_crate_wood', px, pz, y, r() * 3); else K.box(px, pz, y + 0.01, 0.6 + r() * 0.8, 0.005, 0.5 + r() * 0.6, 0x26221e, K.prop, r() * 3); }
   K.box(cx, cz, y + 2.55, 0.12, 0.12, 0.12, 0xfff2c8); K.lamps.push([cx, cz, y + 2.4]);
-  hmRoomMore(K, x0, x1, z0, z1, f, kind); hmRoomProps(x0, x1, z0, z1, f, kind, r);
+  hmRoomMore(K, x0, x1, z0, z1, f, kind); hmRoomProps(x0, x1, z0, z1, f, kind, r, door);
 }
 /* the rest of the furniture: a post that men lived in for months is full - tables and stools, shelves, stoves with their pipes, a generator, barrels, boards */
 function hmRoomMore(K, x0, x1, z0, z1, f, kind) {
-  const y = hmY(f), cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
-  const shelf = (lx, lz, w, d, hs) => { for (const h of hs) K.box(lx, lz, y + h, w, 0.03, d, 0x8a7a5a, K.wood); };
-  const stove = (lx, lz) => { K.solid(lx, lz, y, 0.55, 0.6, 0.5, 0x3a3a36); K.box(lx, lz, y + 0.6, 0.12, 1.9, 0.12, 0x2a2a28); K.box(lx, lz - 0.2, y + 2.4, 0.12, 0.12, 0.5, 0x2a2a28); };
-  const stool = (lx, lz) => K.box(lx, lz, y, 0.36, 0.45, 0.36, 0x6e5a40, K.wood);
-  if (kind === 'bunks') { K.solid(cx, z0 + 1.6, y, 1.2, 0.76, 0.8, 0x6e5a40, K.wood); stool(cx - 0.9, z0 + 1.6); stool(cx + 0.9, z0 + 1.6); stove(x0 + 0.6, z0 + 0.6); shelf(cx + 1.5, z0 + 0.2, 2.4, 0.3, [1.4, 1.85]); for (let i = 0; i < 3; i++) K.box(x1 - 0.2, z0 + 2.4 + i * 0.5, y + 1.6, 0.06, 0.06, 0.06, 0x2a2a28); }
-  else if (kind === 'radio') { K.solid(cx + 1.6, z1 - 0.75, y, 1.9, 0.76, 0.8, 0x6e5a40, K.wood); stool(cx + 1.0, z1 - 1.5); stool(cx - 0.5, cz - 1.0); K.solid(x0 + 0.7, z1 - 0.7, y, 0.9, 0.7, 0.6, 0x3a3a30); K.box(x0 + 0.7, z1 - 0.7, y + 0.7, 0.3, 0.1, 0.3, 0x2a2a28); for (let i = 0; i < 4; i++) K.box(x0 + 1.2 + i * 1.2, z1 - 0.4, y + 0.01, 1.3, 0.02, 0.03, 0x1a1a1a); shelf(x0 + 1.6, z0 + 0.2, 2.6, 0.3, [1.3, 1.75]); }
-  else if (kind === 'map') { for (const [lx, lz] of [[cx - 0.9, cz - 1.0], [cx + 0.6, cz - 1.0], [cx, cz + 1.0]]) stool(lx, lz); K.solid(x1 - 0.4, z0 + 0.8, y, 0.5, 1.3, 0.6, 0x4a5a4a); K.box(x1 - 0.08, cz + 1.2, y + 0.9, 0.06, 1.1, 1.6, 0xd8cfb4); K.box(x1 - 0.1, cz + 1.2, y + 1.15, 0.02, 0.5, 1.2, 0x6b8a9a); shelf(cx, z1 - 0.2, 3.0, 0.3, [1.5, 1.9]); }
-  else if (kind === 'kitchen') { shelf(x0 + 0.45, cz, 0.3, z1 - z0 - 1.6, [1.5, 1.9]); K.solid(x1 - 0.6, z1 - 0.7, y, 0.9, 1.1, 0.9, 0x6a7a8a); K.box(x1 - 0.6, z1 - 0.7, y + 1.1, 0.9, 0.06, 0.9, 0x5a6a7a); stove(x1 - 0.6, z0 + 0.6); for (const [lx, lz] of [[cx + 1.6, cz - 0.9], [cx - 0.4, cz + 0.9], [cx + 1.6, cz + 0.9]]) stool(lx, lz); K.solid(x0 + 2.2, z1 - 0.6, y, 1.2, 0.9, 0.6, 0x9a9a92); K.box(x0 + 2.2, z1 - 0.6, y + 0.9, 1.0, 0.06, 0.5, 0x7a7a74); }
-  else if (kind === 'store') { for (let i = 0; i < 3; i++) K.solid(x0 + 0.6 + i * 0.75, z0 + 0.7, y, 0.6, 0.9, 0.6, 0x46503f); for (let i = 0; i < 3; i++) { const [wx, wz] = HW(x1 - 0.6, z0 + 0.6 + i * 0.75); K.prop.push([G.cyl(0.3, 0.3, 0.9, 12), i % 2 ? 0x46503f : 0x5a4a30, M4(wx, y + 0.45, wz)]); addCollider(wx, wz, 0.32, 0.32, 0, y + 0.9, y); } shelf(cx, z1 - 0.2, 3.2, 0.35, [1.2, 1.6, 2.0]); K.solid(cx, cz, y, 1.4, 0.5, 1.0, 0x4d5a34); }
-  else if (kind === 'obs') { K.solid(cx + 1.6, cz - 0.9, y, 1.6, 0.45, 0.4, 0x6e5a40, K.wood); K.box(x0 + 0.08, cz + 1.4, y + 0.9, 0.06, 1.0, 1.4, 0xd8cfb4); K.box(x0 + 0.1, cz + 1.4, y + 1.15, 0.02, 0.5, 1.0, 0x6b8a9a); stool(x0 + 1.2, cz - 0.9); stove(x1 - 0.6, z0 + 0.6); shelf(cx, z0 + 0.2, 2.0, 0.3, [1.5]); }
+  const y = hmY(f), cx = (x0 + x1) / 2, cz = (z0 + z1) / 2, E = HM_TE, W = HM_TW, N = HM_TN;
+  const shelf = (lx, lz, ry) => K.fm('f_shelf', lx, lz, y, ry, true);
+  // the cooker against the wall at z0, its pipe up from its back and into that wall
+  const stove = (lx, lz) => { K.fm('f_oven', lx, lz, y, 0, true); K.box(lx, lz - 0.2, y + 0.9, 0.12, 1.56, 0.12, 0x2a2a28); K.box(lx, lz - 0.4, y + 2.4, 0.12, 0.12, 0.5, 0x2a2a28); };
+  if (kind === 'bunks') { K.fm('f_table_metal', cx, z0 + 1.6, y, 0, true); K.fm('f_stool_metal', cx - 0.9, z0 + 1.6, y, E); K.fm('f_stool_metal', cx + 0.9, z0 + 1.6, y, W); stove(x0 + 0.6, z0 + 0.6); shelf(cx + 4.0, z0 + 0.47, 0); for (let i = 0; i < 3; i++) K.box(x1 - 0.2, z0 + 2.4 + i * 0.5, y + 1.6, 0.06, 0.06, 0.06, 0x2a2a28); }
+  else if (kind === 'radio') { K.fm('f_desk', cx + 1.6, z1 - 0.65, y, N, true); K.fm('f_lamp_desk', cx + 2.05, z1 - 0.5, y + 0.76, N); K.fm('f_chair_fold', cx + 1.4, z1 - 1.35, y, 0); K.fm('f_stool_metal', cx - 0.5, cz - 1.0, y); K.solid(x0 + 0.7, z1 - 0.7, y, 0.9, 0.7, 0.6, 0x3a3a30); K.box(x0 + 0.7, z1 - 0.7, y + 0.7, 0.3, 0.1, 0.3, 0x2a2a28); for (let i = 0; i < 4; i++) K.box(x0 + 1.2 + i * 1.2, z1 - 0.4, y + 0.01, 1.3, 0.02, 0.03, 0x1a1a1a); shelf(x0 + 2.0, z0 + 0.47, 0); }
+  else if (kind === 'map') { for (const sd of [-1, 1]) K.fm('f_stool_metal', cx + sd * 1.1, cz, y); K.fm('f_cabinet', x1 - 0.18 - 0.36, z0 + 0.8, y, W, true); K.box(x1 - 0.08, cz + 1.2, y + 0.9, 0.06, 1.1, 1.6, 0xd8cfb4); K.box(x1 - 0.1, cz + 1.2, y + 1.15, 0.02, 0.5, 1.2, 0x6b8a9a); shelf(cx + 4.0, z1 - 0.47, N); }
+  else if (kind === 'kitchen') { K.solid(x1 - 0.6, z1 - 0.7, y, 0.9, 1.1, 0.9, 0x6a7a8a); K.box(x1 - 0.6, z1 - 0.7, y + 1.1, 0.9, 0.06, 0.9, 0x5a6a7a); stove(x1 - 0.6, z0 + 0.6); K.fm('f_table_metal', x0 + 2.2, z1 - 0.51, y, N, true); }
+  else if (kind === 'store') { for (let i = 0; i < 3; i++) K.pile(x0 + 0.6 + i * 0.75, z0 + 0.7, y, E, 0, 4); for (let i = 0; i < 3; i++) { const [wx, wz] = HW(x1 - 0.6, z0 + 0.6 + i * 0.75); K.prop.push([G.cyl(0.3, 0.3, 0.9, 12), i % 2 ? 0x46503f : 0x5a4a30, M4(wx, y + 0.45, wz)]); addCollider(wx, wz, 0.32, 0.32, 0, y + 0.9, y); } shelf(x0 + 10.9, z0 + 0.47, 0); shelf(x0 + 0.47, z0 + 4.0, E); K.pile(cx, cz, y, 0, 2, 0, 3); }
+  else if (kind === 'obs') { K.fm('f_bench_metal', cx + 1.6, cz - 0.9, y, 0, true); K.box(x0 + 0.08, cz + 1.4, y + 0.9, 0.06, 1.0, 1.4, 0xd8cfb4); K.box(x0 + 0.1, cz + 1.4, y + 1.15, 0.02, 0.5, 1.0, 0x6b8a9a); K.fm('f_chair_fold', x0 + 1.2, cz - 0.75, y, 0); stove(x1 - 0.6, z0 + 0.6); shelf(cx + 4.0, z0 + 0.47, 0); }
 }
-/* the small things of the post, room by room: everything the Syrians found there and everything they brought */
-function hmRoomProps(x0, x1, z0, z1, f, kind, r) {
+/* the small things of the post, room by room: everything the Syrians found there and everything they brought. They stand on the furniture models:
+   tables, desks and metal tables 0.76 high, the cooker 0.9, the boards of a shelf 0.21, 0.67 and 1.13, the bunk's mattresses 0.54 and 1.32, the
+   steel cabinet 1.3, the lockers 1.9, the metal bench 0.39, a chair's seat 0.42, the crates 0.26 (long) and 0.23 (ammunition) a layer */
+function hmRoomProps(x0, x1, z0, z1, f, kind, r, door = null) {
   const y = hmY(f), cx = (x0 + x1) / 2, cz = (z0 + z1) / 2, seed = Math.round(x0 * 7 + z0 * 3 + f * 101);
   const P = (k, lx, lz, yy, rot = 0, floor = y) => { const [x, z] = HW(lx, lz); return propAdd('hermon', k, x, yy, z, rot, floor); };
   const On = (kinds, lx, lz, yy, w, d, sd) => { const [x, z] = HW(lx, lz); return propsOn('hermon', kinds, x, z, yy, w, d, 0, sd, y); };
   const W = (k, lx, yy, lz, ry, sd = 1) => { const [x, z] = HW(lx, lz); return propWall('hermon', k, x, yy, z, ry, sd, 'e'); };
   const E = Math.PI / 2, Wf = -Math.PI / 2, S = 0, N = Math.PI;   // facing +x, -x, +z, -z
+  const LC = mdlHas('f_crate_long') ? mdlBox('f_crate_long')[1] : 0.26, AC = mdlHas('f_crate_wood') ? mdlBox('f_crate_wood')[1] : 0.23;
   if (kind === 'bunks') {
-    for (let i = 0; i < 2; i++) { const bx = x0 + 1.2 + i * 2.6, bz = z1 - 1.2; P('pillow', bx, bz - 0.75, y + 0.64, 0.1 * i); P('blanketF', bx, bz + 0.2, y + 0.64, 0.2); P('books', bx + 0.3, bz + 0.75, y + 0.64, 0.4); P('blanket', bx, bz + 0.3, y + 1.41, 0.1); P('pack', bx, bz - 0.6, y + 1.41, 1.5 + i); P('boots', bx + 0.6, bz - 0.95, y, 0.3); P('helmet', bx - 0.5, bz - 1.15, y, 0.8); P('canteen', bx + 0.2, bz - 1.2, y); }
-    P('frame', x1 - 0.5, z0 + 1.0, y + 1.9, 0.2); P('lamp', x1 - 0.5, z0 + 1.5, y + 1.9); On(['cards', 'cups', 'ashtray', 'candle', 'backgammon'], cx, z0 + 1.6, y + 0.76, 1.1, 0.7, seed + 1); On(['books', 'canteen', 'frame', 'cigs', 'thermos'], cx + 1.5, z0 + 0.2, y + 1.42, 2.2, 0.26, seed + 2); On(['helmet', 'mess', 'books', 'lamp'], cx + 1.5, z0 + 0.2, y + 1.87, 2.2, 0.26, seed + 3); P('kettle', x0 + 0.6, z0 + 0.6, y + 0.62, 0.3); P('pot', x0 + 0.6, z0 + 0.35, y + 0.62, 0); for (let i = 0; i < 3; i++) P('helmet', x1 - 0.35, z0 + 2.4 + i * 0.5, y + 1.42, 0.5 + i, y); P('cigs', x0 + 2.9, z0 + 1.3, y); P('jerry', x0 + 0.6, z0 + 0.7, y, 0.2); P('bucket', x1 - 1.6, z0 + 0.6, y); P('radio', x0 + 3.0, z0 + 2.0, y, 2.6);
+    const [b0, bz, sg] = hmBunks(x0, z0, z1, door);   // the pillows lie at the bunks' -z end, the boots and the helmets on the floor in front of them
+    for (let i = 0; i < 2; i++) { const bx = b0 + i * 2.6; P('blanketF', bx, bz + 0.2, y + 0.54, 0.2); P('books', bx + 0.2, bz + 0.7, y + 0.54, 0.4); P('pack', bx, bz + 0.55, y + 1.32, 1.5 + i); P('boots', bx + 0.6, bz - sg * 0.95, y, 0.3); P('helmet', bx - 0.5, bz - sg * 1.15, y, 0.8); P('canteen', bx + 0.2, bz - sg * 1.2, y); }
+    P('frame', x1 - 0.4, z0 + 1.0, y + 1.9, 0.2); P('lamp', x1 - 0.4, z0 + 1.5, y + 1.9); On(['cards', 'cups', 'ashtray', 'candle', 'backgammon'], cx, z0 + 1.6, y + 0.76, 1.1, 0.6, seed + 1); On(['books', 'canteen', 'frame', 'cigs', 'thermos'], cx + 4.0, z0 + 0.47, y + 0.68, 1.3, 0.2, seed + 2); On(['helmet', 'mess', 'books', 'lamp'], cx + 4.0, z0 + 0.47, y + 1.14, 1.3, 0.2, seed + 3); P('kettle', x0 + 0.5, z0 + 0.7, y + 0.9, 0.3); P('pot', x0 + 0.72, z0 + 0.55, y + 0.9, 0); for (let i = 0; i < 3; i++) P('helmet', x1 - 0.35, z0 + 2.4 + i * 0.5, y + 1.42, 0.5 + i, y); P('cigs', x0 + 2.9, z0 + 1.3, y); P('jerry', x0 + 0.6, z0 + 1.2, y, 0.2); P('bucket', x1 - 1.6, z0 + 0.6, y); P('radio', x0 + 3.0, z0 + 2.0, y, 2.6);
     W('calendar', x0 + 0.03, y + 1.6, z0 + 2.0, E, 2); W('portrait', cx, y + 1.75, z0 + 0.03, S, 5); W('clock', x1 - 0.03, y + 2.0, z1 - 2.2, Wf);
   } else if (kind === 'radio') {
-    On(['radioBig', 'phone', 'papers', 'headset', 'cups', 'lamp', 'cigs', 'thermos'], cx - 0.5, cz, y + 0.78, 2.1, 1.0, seed);
-    for (let i = 0; i < 3; i++) P('headset', x1 - 0.82, z0 + 1.0 + i * 1.5 + 0.45, y + 0.5 + 0.34, 0.3 * i, y); On(['radioBig', 'phone', 'headset', 'papers', 'lamp', 'cups'], cx + 1.6, z1 - 0.75, y + 0.76, 1.8, 0.7, seed + 4); P('jerry', x0 + 0.4, z1 - 1.3, y, 0.3); P('oilcan', x0 + 1.3, z1 - 0.5, y); On(['books', 'papers', 'canteen', 'cans', 'tclock'], x0 + 1.6, z0 + 0.2, y + 1.32, 2.4, 0.26, seed + 5); On(['maptube', 'books', 'lamp', 'cigs'], x0 + 1.6, z0 + 0.2, y + 1.77, 2.4, 0.26, seed + 6); P('ammo', x0 + 0.6, z1 - 0.6, y, 0.2); P('jerry', x0 + 1.1, z1 - 0.6, y, 0.3); P('helmet', x0 + 0.5, z0 + 0.6, y, 1.0); P('pack', x0 + 1.0, z0 + 0.5, y, 2.0); P('crateS', cx + 1.5, z1 - 0.7, y, 0.1); P('radio', cx + 1.5, z1 - 0.7, y + 0.33, 0.4);
+    On(['radioBig', 'phone', 'papers', 'headset', 'cups', 'lamp', 'cigs', 'thermos'], cx - 0.5, cz, y + 0.76, 1.9, 0.8, seed);
+    for (let i = 0; i < 3; i++) { const bz = z0 + 1.0 + i * 1.5; P('radioBig', x1 - 0.54, bz - 0.25, y + 1.3, Wf, y); P('headset', x1 - 0.54, bz + 0.3, y + 1.3, 0.3 * i, y); }
+    On(['radioBig', 'phone', 'headset', 'papers', 'cups'], cx + 1.4, z1 - 0.65, y + 0.76, 0.8, 0.5, seed + 4); P('jerry', x0 + 0.4, z1 - 1.3, y, 0.3); P('oilcan', x0 + 1.3, z1 - 0.5, y); On(['books', 'papers', 'canteen', 'cans', 'tclock'], x0 + 2.0, z0 + 0.47, y + 0.68, 1.3, 0.2, seed + 5); On(['maptube', 'books', 'lamp', 'cigs'], x0 + 2.0, z0 + 0.47, y + 1.14, 1.3, 0.2, seed + 6); P('ammo', x0 + 0.6, z1 - 0.6, y, 0.2); P('jerry', x0 + 1.1, z1 - 0.6, y, 0.3); P('helmet', x0 + 0.5, z0 + 0.6, y, 1.0); P('pack', x0 + 1.0, z0 + 0.5, y, 2.0); P('crateS', cx + 0.5, z1 - 0.6, y, 0.1); P('radio', cx + 0.5, z1 - 0.6, y + 0.33, 0.4);
     W('map', cx, y + 1.65, z0 + 0.03, S, 3); W('clock', x0 + 1.0, y + 2.05, z0 + 0.03, S); W('portrait', x0 + 0.03, y + 1.75, cz, E, 6); W('calendar', x0 + 0.03, y + 1.5, cz + 1.4, E, 1);
   } else if (kind === 'map') {
-    On(['papers', 'maptube', 'maptube', 'phone', 'binocs', 'lamp', 'cups', 'ashtray', 'typewriter', 'books'], cx, cz, y + 0.78, 2.5, 1.1, seed);
-    P('helmet', cx - 1, cz - 0.9, y + 0.45, 0.4); P('radio', cx + 0.98, cz + 0.9, y + 0.45, 0.3); P('papers', x1 - 0.4, z0 + 0.8, y + 1.3, 0.3); P('phone', x1 - 0.5, z0 + 0.6, y + 1.3, 0.1); On(['books', 'maptube', 'binocs', 'cans', 'lamp', 'papers'], cx, z1 - 0.2, y + 1.52, 2.8, 0.26, seed + 7); On(['bottles', 'cups', 'tclock', 'books'], cx, z1 - 0.2, y + 1.92, 2.8, 0.26, seed + 8); P('jerry', x1 - 0.6, z1 - 0.6, y, 0.3); P('pack', x1 - 0.7, z0 + 0.7, y, 1.1); P('crateS', x0 + 0.9, z1 - 0.7, y, 0.3); P('papers', x0 + 0.9, z1 - 0.7, y + 0.33, 0.8); P('thermos', x0 + 1.2, z1 - 0.9, y + 0.33);
+    On(['papers', 'maptube', 'maptube', 'phone', 'binocs', 'lamp', 'cups', 'ashtray', 'books'], cx - 0.15, cz + 0.1, y + 0.76, 1.2, 1.3, seed);
+    P('helmet', cx - 0.45, cz - 1.2, y + 0.42, 0.4); P('radio', cx + 0.45, cz + 1.2, y + 0.42, 0.3); P('papers', x1 - 0.5, z0 + 0.8, y + 1.3, 0.3); P('phone', x1 - 0.55, z0 + 0.65, y + 1.3, 0.1); On(['books', 'maptube', 'binocs', 'cans', 'lamp', 'papers'], cx + 4.0, z1 - 0.47, y + 0.68, 1.3, 0.2, seed + 7); On(['bottles', 'cups', 'tclock', 'books'], cx + 4.0, z1 - 0.47, y + 1.14, 1.3, 0.2, seed + 8); P('jerry', x1 - 0.6, z1 - 0.6, y, 0.3); P('pack', x1 - 1.15, z0 + 0.7, y, 1.1); P('crateS', x0 + 0.9, z1 - 0.7, y, 0.3); P('papers', x0 + 0.9, z1 - 0.7, y + 0.33, 0.8); P('thermos', x0 + 1.2, z1 - 0.9, y + 0.33);
     W('portrait', cx + 2.0, y + 1.75, z1 - 0.03, N, 4); W('clock', x1 - 0.03, y + 2.0, cz, Wf); W('map', x1 - 0.03, y + 1.5, cz - 1.8, Wf, 9);
   } else if (kind === 'kitchen') {
-    for (let i = 0; i < 3; i++) P(['pot', 'pan', 'kettle'][i], x0 + 0.45, z0 + 1.2 + i * 1.6, y + 1.18, 0.3 * i); for (let i = 0; i < 2; i++) { const bz = z0 + 2.0 + i * 1.6; P(['plates', 'jug'][i], x0 + 0.35, bz, y + 0.9, 0); P(['cans', 'cups'][i], x0 + 0.6, bz + 0.4, y + 0.9, 0.3); P(['bottles', 'basket'][i], x0 + 0.45, bz - 0.4, y + 0.9, 0.1); }
-    On(['plates', 'glasses', 'teapot', 'backgammon', 'bottle', 'basket', 'fruit', 'cards', 'cups'], cx + 0.6, cz, y + 0.76, 1.5, 2.5, seed);
-    On(['cans', 'bottles', 'plates', 'jug', 'cans', 'basket', 'bottle'], x0 + 0.45, cz, y + 1.52, 0.26, z1 - z0 - 1.8, seed + 9); On(['bottles', 'cans', 'tin', 'cups', 'teapot', 'cans'], x0 + 0.45, cz, y + 1.92, 0.26, z1 - z0 - 1.8, seed + 10); P('bucket', x1 - 0.6, z1 - 1.5, y, 0.2); P('cups', x1 - 0.4, z1 - 0.7, y + 1.16, 0, y); P('pot', x1 - 0.6, z0 + 0.6, y + 0.62, 0.3); P('kettle', x1 - 0.4, z0 + 0.4, y + 0.62, 0); On(['plates', 'pan', 'bottles', 'mess'], x0 + 2.2, z1 - 0.6, y + 0.93, 1.0, 0.5, seed + 11);
-    P('bucket', x0 + 1.2, z0 + 0.6, y); P('sack', x1 - 0.8, z1 - 0.7, y, 0.3); P('sack', x1 - 0.9, z1 - 1.4, y, 1.4); P('jerry', x1 - 0.6, z0 + 0.8, y, 0.2); P('tin', x1 - 0.6, z0 + 1.3, y, 0.1); P('crateS', x0 + 1.6, z1 - 0.7, y, 0.4); P('cans', x0 + 1.6, z1 - 0.7, y + 0.33, 0.2); P('primus', x0 + 1.4, z1 - 1.5, y); P('oilcan', x0 + 1.9, z1 - 1.3, y);
+    P('pot', x0 + 0.58, z0 + 1.0, y + 0.9, 0); P('pan', x0 + 0.66, z0 + 1.85, y + 0.76, 0.3); P('kettle', x0 + 0.66, z0 + 3.5, y + 0.76, 0.6); for (let i = 0; i < 2; i++) { const bz = z0 + 2.0 + i * 1.25; P(['plates', 'jug'][i], x0 + 0.5, bz + 0.3, y + 0.76, 0); P(['cans', 'cups'][i], x0 + 0.78, bz - 0.15, y + 0.76, 0.3); P(['bottles', 'basket'][i], x0 + 0.5, bz - 0.4, y + 0.76, 0.1); }
+    On(['plates', 'glasses', 'teapot', 'backgammon', 'bottle', 'basket', 'fruit', 'cards', 'cups'], cx + 0.6, cz, y + 0.76, 0.55, 2.3, seed);
+    On(['cans', 'bottles', 'plates', 'jug', 'cans', 'basket', 'bottle'], x0 + 0.47, z0 + 6.6, y + 0.68, 0.2, 4.4, seed + 9); On(['bottles', 'cans', 'tin', 'cups', 'teapot', 'cans'], x0 + 0.47, z0 + 6.6, y + 1.14, 0.2, 4.4, seed + 10); P('bucket', x1 - 0.6, z1 - 1.5, y, 0.2); P('cups', x1 - 0.4, z1 - 0.7, y + 1.16, 0, y); P('pot', x1 - 0.68, z0 + 0.6, y + 0.9, 0.3); P('kettle', x1 - 0.48, z0 + 0.5, y + 0.9, 0); On(['plates', 'pan', 'bottles', 'mess'], x0 + 2.2, z1 - 0.51, y + 0.76, 1.0, 0.45, seed + 11);
+    P('bucket', x0 + 1.2, z0 + 0.6, y); P('sack', x1 - 0.8, z1 - 0.7, y, 0.3); P('sack', x1 - 0.9, z1 - 1.4, y, 1.4); P('jerry', x1 - 0.6, z0 + 1.3, y, 0.2); P('tin', x1 - 0.6, z0 + 1.75, y, 0.1); P('crateS', x0 + 1.0, z1 - 0.7, y, 0.4); P('cans', x0 + 1.0, z1 - 0.7, y + 0.33, 0.2); P('primus', x0 + 1.4, z1 - 1.5, y); P('oilcan', x0 + 1.9, z1 - 1.3, y);
     W('calendar', x1 - 0.03, y + 1.6, cz, Wf, 1); W('clock', cx, y + 2.05, z1 - 0.03, N);
   } else if (kind === 'store') {
-    for (let i = 0; i < 6; i++) { const bx = x0 + 0.7 + (i % 3) * 1.4, bz = z1 - 0.6 - Math.floor(i / 3) * 1.1, top = y + 0.5 + (i % 2) * 0.35; P(['ammo', 'jerry', 'cans', 'blanket', 'helmet', 'sack'][i], bx, bz, top, 0.4 * i); }
-    for (let i = 0; i < 3; i++) P(['ammo', 'jerry', 'cans'][i], x0 + 0.6 + i * 0.75, z0 + 0.7, y + 0.9, 0.3 * i); for (const [h, ks] of [[1.2, ['ammo', 'ammo', 'cans', 'jerry', 'tin']], [1.6, ['bottles', 'cans', 'blanket', 'mess', 'cans']], [2.0, ['helmet', 'helmet', 'pack', 'blanket']]]) On(ks, cx, z1 - 0.2, y + h + 0.02, 3.0, 0.3, seed + h * 10); P('blanketF', cx - 0.3, cz, y + 0.5, 0.2); P('helmet', cx + 0.4, cz + 0.2, y + 0.5, 0.6);
-    P('jerry', x0 + 0.5, z0 + 0.6, y, 0.2); P('jerry', x0 + 0.95, z0 + 0.6, y, -0.1); P('sack', cx, z0 + 0.8, y, 0.7); P('sack', cx + 0.6, z0 + 1.2, y, 1.9); P('tin', x1 - 1.2, z0 + 0.6, y, 0.2); P('oilcan', x1 - 1.5, z0 + 1.0, y); P('crateS', cx - 1.5, z0 + 1.1, y, 0.3); P('bottles', cx - 1.5, z0 + 1.1, y + 0.33, 0.2); P('lamp', cx - 1.2, z0 + 0.9, y + 0.33);
+    for (let i = 0; i < 6; i++) { const bx = x0 + 0.85 + (i % 3) * 1.4, bz = z1 - 0.6 - Math.floor(i / 3) * 1.1, top = y + (2 + (i % 2)) * LC; P(['ammo', 'jerry', 'cans', 'blanket', 'helmet', 'sack'][i], bx, bz, top, 0.4 * i); }
+    for (let i = 0; i < 3; i++) P(['ammo', 'jerry', 'cans'][i], x0 + 0.6 + i * 0.75, z0 + 0.7, y + 4 * AC, 0.3 * i); for (const [lx, lz, h, ks, w, d] of [[x0 + 10.9, z0 + 0.47, 0.68, ['ammo', 'ammo', 'cans', 'jerry', 'tin'], 1.3, 0.2], [x0 + 10.9, z0 + 0.47, 1.14, ['bottles', 'cans', 'blanket', 'mess', 'cans'], 1.3, 0.2], [x0 + 0.47, z0 + 4.0, 0.68, ['helmet', 'helmet', 'pack', 'blanket'], 0.2, 1.3]]) On(ks, lx, lz, y + h, w, d, seed + h * 10 + lx); P('blanketF', cx - 0.3, cz, y + 2 * LC, 0.2); P('helmet', cx + 0.4, cz + 0.2, y + 2 * LC, 0.6);
+    P('jerry', x0 + 0.5, z0 + 1.4, y, 0.2); P('jerry', x0 + 0.95, z0 + 1.4, y, -0.1); P('sack', cx, z0 + 0.8, y, 0.7); P('sack', cx + 0.6, z0 + 1.2, y, 1.9); P('tin', x1 - 1.2, z0 + 0.6, y, 0.2); P('oilcan', x1 - 1.5, z0 + 1.0, y); P('crateS', cx - 1.5, z0 + 1.1, y, 0.3); P('bottles', cx - 1.5, z0 + 1.1, y + 0.33, 0.2); P('lamp', cx - 1.2, z0 + 0.9, y + 0.33);
     W('calendar', x0 + 0.03, y + 1.6, cz, E, 2);
   } else if (kind === 'obs') {
-    On(['binocs', 'papers', 'phone', 'lamp', 'cups', 'maptube', 'headset', 'cigs'], x0 + 1.2, cz, y + 0.78, 1.7, 0.9, seed);
-    P('helmet', x1 - 0.8, z0 + 0.6, y, 0.4); P('ammo', x1 - 0.7, z0 + 1.1, y, 0.1); P('jerry', x0 + 0.5, z0 + 0.5, y, 0.3); On(['pack', 'helmet', 'canteen', 'blanket'], cx + 1.6, cz - 0.9, y + 0.45, 1.4, 0.3, seed + 12); On(['books', 'binocs', 'cans', 'lamp'], cx, z0 + 0.2, y + 1.52, 1.8, 0.26, seed + 13); P('kettle', x1 - 0.6, z0 + 0.6, y + 0.62, 0.2); P('cups', x1 - 0.3, z0 + 0.9, y + 0.62, 0, y); P('thermos', x0 + 0.4, cz + 0.6, y + 0.78); P('radio', x1 - 0.8, cz + 0.6, y, 1.9);
+    On(['binocs', 'papers', 'phone', 'lamp', 'cups', 'maptube', 'headset', 'cigs'], x0 + 1.2, cz, y + 0.76, 1.5, 0.7, seed);
+    P('helmet', x1 - 1.3, z0 + 0.6, y, 0.4); P('ammo', x1 - 0.7, z0 + 1.25, y, 0.1); P('jerry', x0 + 0.5, z0 + 0.5, y, 0.3); On(['pack', 'helmet', 'canteen', 'blanket'], cx + 1.6, cz - 0.9, y + 0.39, 1.2, 0.25, seed + 12); On(['books', 'binocs', 'cans', 'lamp'], cx + 4.0, z0 + 0.47, y + 1.14, 1.3, 0.2, seed + 13); P('kettle', x1 - 0.6, z0 + 0.6, y + 0.9, 0.2); P('cups', x1 - 0.42, z0 + 0.72, y + 0.9, 0, y); P('thermos', x0 + 0.55, cz + 0.25, y + 0.76); P('radio', x1 - 0.8, cz + 0.6, y, 1.9);
     W('map', x0 + 0.03, y + 1.6, cz, E, 10); W('clock', cx, y + 2.05, z0 + 0.03, S);
   }
 }
@@ -178,8 +227,8 @@ function hmBuild() {
   const RK_N = ['bunks', 'store', 'radio', 'bunks'], RK_S = ['kitchen', 'map', null, 'bunks'];
   HM_RX.forEach(([a, b], i) => { hmRoom(K, a, b, c1, z1, 0, RK_N[i], r, { z: c1, nz: 1 }); if (RK_S[i]) hmRoom(K, a, b, z0, c0, 0, RK_S[i], r, { z: c0, nz: -1 }); });
   // the entrance hall: crates to fight from, a sign for the stair
-  for (const [lx, lz] of [[1.4, 279.4], [11.6, 279.4]]) K.solid(lx, lz, y0, 1.1, 0.95, 0.7, 0x4d5a34); hmCover(1.4, 280.1, 5.1, -7.1, 0, 0.95); hmCover(11.6, 280.1, -5.1, -7.1, 0, 0.95); hmCover(1.0, 274.5, 5.5, 8, 0, 0.6);
-  for (const [lx, lz] of [[12.2, 274.5], [12.2, 275.6], [1.2, 286.2]]) K.solid(lx, lz, y0, 0.9, 0.5, 0.6, 0x4d5a34);
+  for (const [lx, lz] of [[1.4, 279.4], [11.6, 279.4]]) K.pile(lx, lz, y0, 0, 2, 2); hmCover(1.4, 280.1, 5.1, -7.1, 0, 0.95); hmCover(11.6, 280.1, -5.1, -7.1, 0, 0.95); hmCover(1.0, 274.5, 5.5, 8, 0, 0.6);
+  for (const [lx, lz] of [[12.2, 274.5], [12.2, 275.6], [1.2, 286.2]]) K.pile(lx, lz, y0, 0, 2, 0);
   { const [sx, sz] = HW(12.6, 284); sign('↑ לגג', 'plain', sx, y0 + 2.0, sz, -Math.PI / 2, 1.3); const [tx, tz] = HW(6.5, 292.85); sign('← המסדרון →', 'plain', tx, y0 + 2.2, tz, Math.PI, 1.6); }
   for (const x of [-20, -7, 7, 20]) { K.box(x, (c0 + c1) / 2, y0 + 2.6, 0.12, 0.12, 0.12, 0xfff2c8); } K.lamps.push([-14, 290, y0 + 2.5], [14, 290, y0 + 2.5]);
   // the Syrians' barricades in the corridor: sandbags across half its width, a man behind each
@@ -255,7 +304,7 @@ function hmBuild() {
   { const [cx, cz] = HM_CABLE, gy = groundAt(...HW(cx, cz)) - 0.2, wl = (ax, az, bx, bz, g = []) => K.wall(ax, az, bx, bz, gy, gy + 3.2, g, 0.3);
     wl(cx - 6, cz - 4, cx + 6, cz - 4, [[2.6, 3.8], [8.4, 9.6]]); wl(cx - 6, cz + 4, cx + 6, cz + 4, [[5, 7]]); wl(cx - 6, cz - 4, cx - 6, cz + 4, [[3.4, 4.6]]); wl(cx + 6, cz - 4, cx + 6, cz + 4); wl(cx, cz - 4, cx, cz + 4, [[3.4, 4.6]]);
     K.slab(cx - 6.3, cx + 6.3, cz - 4.3, cz + 4.3, gy + 3.5, 0.3); const [wx, wz] = HW(cx, cz); K.con.push([boxUV(wx - 6, wx + 6, gy - 0.02, gy + 0.02, wz - 4, wz + 4, 2, 2), 0x8e8a82]);
-    for (const [lx, lz, f] of [[cx - 3, cz + 1.5, 'store'], [cx + 3, cz - 1.5, 'radio']]) { K.solid(lx, lz, gy, 1.6, 0.9, 0.8, 0x6e5a40, K.wood); const [ax, az] = HW(lx, lz - 0.8); COVER.push({ x: ax, z: az, nx: 0, nz: -1, h: 0.9, by: null }); const [tx, tz] = HW(lx, lz); propsOn('hermon', f === 'store' ? ['jerry', 'cans', 'ammo', 'lamp'] : ['radioBig', 'phone', 'cups', 'papers'], tx, tz, gy + 0.9, 1.5, 0.7, 0, 77, gy); }
+    for (const [lx, lz, f] of [[cx - 3, cz + 1.5, 'store'], [cx + 3, cz - 1.5, 'radio']]) { const top = K.fm('f_table_wood', lx, lz, gy, 0, true, 1, K.mdlC); const [ax, az] = HW(lx, lz - 0.8); COVER.push({ x: ax, z: az, nx: 0, nz: -1, h: 0.9, by: null }); const [tx, tz] = HW(lx, lz); propsOn('hermon', f === 'store' ? ['jerry', 'cans', 'ammo', 'lamp'] : ['radioBig', 'phone', 'cups', 'papers'], tx, tz, top, 1.5, 0.7, 0, 77, gy); }
     { const [tx, tz] = HW(cx - 4.5, cz - 2.5); propAdd('hermon', 'crateS', tx, gy, tz, 0.3, gy); propAdd('hermon', 'bottles', tx, gy + 0.33, tz, 0, gy); const [ux, uz] = HW(cx + 4.8, cz + 2.8); propAdd('hermon', 'sack', ux, gy, uz, 0.5, gy); propAdd('hermon', 'jerry', ux + 0.6, gy, uz - 0.4, 0.2, gy); propAdd('hermon', 'helmet', ux - 0.5, gy, uz + 0.5, 0.9, gy); }
     const [px, pz] = HW(cx + 9, cz + 12), py = groundAt(px, pz); for (const [ox, oz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) K.prop.push([G.cyl(0.1, 0.14, 14, 5), 0x7e7e78, M4(px + ox * 0.8, py + 7, pz + oz * 0.8)]); K.prop.push([G.box(4.5, 0.4, 0.6), 0x6e6e68, M4(px, py + 14, pz)], [G.cyl(0.9, 0.9, 0.3, 16), 0x3a3a36, M4(px - 2, py + 14.3, pz, Math.PI / 2, 0, 0)]);
     const [tx, tz] = HW(28, 304), ty = HM_PY + 12, cab = new THREE.CatmullRomCurve3([V3(px - 2, py + 14.2, pz), V3((px + tx) / 2, (py + ty) / 2 + 2, (pz + tz) / 2), V3(tx, ty, tz)]); K.prop.push([new THREE.TubeGeometry(cab, 40, 0.04, 4, false), 0x1a1a1a]); const gp = cab.getPoint(0.3); K.prop.push([G.box(1.6, 1.8, 1.4), 0xb8402a, M4(gp.x, gp.y - 2.2, gp.z)], [G.cyl(0.03, 0.03, 1.2, 4), 0x1a1a1a, M4(gp.x, gp.y - 0.7, gp.z)]); }
@@ -275,6 +324,10 @@ function hmBuild() {
   { const pt = plasterTex(2214, '#b4b0a6'); scene.add(SH(onLayer1(new THREE.Mesh(build(K.con), new THREE.MeshStandardMaterial({ vertexColors: true, map: pt, bumpMap: bumpOf(pt), bumpScale: 0.8, roughness: 0.95 }))))); }
   scene.add(SH(onLayer1(new THREE.Mesh(build(K.prop), MAT.vc))));
   scene.add(SH(onLayer1(new THREE.Mesh(build(K.wood), new THREE.MeshStandardMaterial({ vertexColors: true, map: TX.wood, roughness: 0.92 })))));
+  // the furniture models: all the copies of each in one draw; indoors under concrete, none casts a shadow. The post's can only be seen from close by:
+  // both levels of detail are built and hmUpd shows the full models inside the post, the lighter ones from the yard and none from further out
+  C.furn = [[], []]; for (const n in K.mdl) for (let l = 0; l < 2; l++) for (const m of mdlInst(n, l, K.mdl[n], null, false)) { m.visible = false; m.userData.dyn = true; C.furn[l].push(m); }
+  for (const n in K.mdlC) mdlInst(n, LITE ? 1 : 0, K.mdlC[n], null, false);
   if (K.gab.length) scene.add(SH(onLayer1(new THREE.Mesh(mergeGeometries(K.gab, false), MAT.gabion))));
   // warm bulbs in the rooms: only a few real lights, the rest are glowing bulbs
   for (const [lx, lz, y] of K.lamps.filter((_, i) => i % 4 === 0).slice(0, 3)) { const lt = new THREE.PointLight(0xffd9a0, 70, 14, 2); const [wx, wz] = HW(lx, lz); lt.position.set(wx, y, wz); scene.add(lt); }
@@ -455,6 +508,8 @@ function hmUpd(dt) {
   const C = CHAP.hermon; C.t += dt; if (Math.floor(C.t * 2) !== Math.floor((C.t - dt) * 2)) szEnemyCleanup();
   for (let i = DIRQ.length - 1; i >= 0; i--) if (DIRQ[i] && GAME.t >= DIRQ[i].at) { const q = DIRQ.splice(i, 1)[0]; q.fn(); }
   updTrail(dt); gateUpd(dt);
+  // the post's furniture: the full models inside the post (the lighter ones in the light setting), the lighter ones within 40 m of it, none further out
+  if (C.furn) { const d = hmDist(camera.position.x - HM.o.x, camera.position.z - HM.o.z), l = d < 4 && !LITE ? 0 : d < 40 ? 1 : -1; C.furn.forEach((list, k) => { for (const m of list) m.visible = k === l; }); }
   if (!CINE.on && HM.stage === 0) { C.airT = (C.airT ?? 14) - dt; if (C.airT <= 0) { C.airT = rand(30, 44); const g = HM_GATES0[Math.min(GATE.i + 3, HM_GATES0.length - 1)], [tx, tz] = HW(g[0] + rand(-30, 30), g[1] + rand(10, 40)); sndJet(1.8); radio('קשר', pick(['סקייהוקים בדרך, מכים בעמדות מעליכם!', 'סיוע אווירי על הפסגה!']), 2.4); for (let k = 0; k < 3; k++) DIRQ.push({ at: GAME.t + 2.2 + k * 0.3, fn: () => { const p = V3(tx + rand(-12, 12), 0, tz + rand(-10, 10)); p.y = groundAt(p.x, p.z); fxExplosion(p, 2.4); sndBoom(p, 2.2); } }); } }
   if (C.lower && C.syCloth) { C.lower += dt; C.syCloth.position.y = lerp(8.2, 1.1, smooth(0, 3.4, C.lower)); }
   if (C.raise && C.ilCloth) { C.raise += dt; C.ilCloth.position.y = lerp(1.1, 8.2, smooth(0, 4.4, C.raise)); }

@@ -48,7 +48,8 @@ function rgRclPost(lx, lz) {
   const arc = []; for (let a = -100; a <= 100.1; a += 12.5) { const r = THREE.MathUtils.degToRad(a); arc.push([x + Math.sin(r) * 2.3, z - Math.cos(r) * 2.3]); } bagWall(arc, 4, g0 - 0.05);
   const pivot = new THREE.Group(); pivot.position.set(gx, g0 + 1.08, gz); pivot.rotation.order = 'YXZ'; pivot.rotation.y = Math.PI - b; pivot.add(new THREE.Mesh(RCL_GEO, MAT.vcMetal)); scene.add(SH(onLayer1(pivot)));
   const legs = new THREE.Mesh(RCL_LEGS, MAT.vcMetal); legs.position.set(gx, g0, gz); legs.rotation.y = Math.PI - b; scene.add(SH(onLayer1(legs)));
-  for (const sd of [-1, 1]) { const c = new THREE.Mesh(CRATE_GEO, RG_WOOD); c.position.set(x + sd * 1.7, g0, z + 0.9); c.rotation.y = sd * 0.25; scene.add(SH(onLayer1(c))); }
+  // the shell crates: the packed crate, a little warmer than the army's olive (3_world.js propSet), else the old box in plain wood
+  if (!propSet('crate', [-1, 1].map((sd) => propM(x + sd * 1.7, g0, z + 0.9, sd * 0.25)), [0xe6d2b0, 0xe6d2b0])) for (const sd of [-1, 1]) { const c = new THREE.Mesh(CRATE_GEO, RG_WOOD); c.position.set(x + sd * 1.7, g0, z + 0.9); c.rotation.y = sd * 0.25; scene.add(SH(onLayer1(c))); }
   const P0 = { id: 'RGR', name: 'תותח ללא רתע', x, z, g: g0, bearing: 0, fx: 0, fz: -1, occupant: null, stand: [gx, gz + 0.4], legs, mag: { pivot, yaw0: Math.PI, yaw: Math.PI, pitch: 0, belt: 1, reload: 0, heat: 0, big: true } };
   POSTS.push(P0); return P0;
 }
@@ -73,7 +74,9 @@ function rgBuild() {
   for (const pts of [[[-18, 13], [-13, 12.5]], [[2, 11], [7, 10.5], [8, 7.5]], [[19, 14], [23.5, 13]], [[-4, -1], [1, -1.5]], [[26, 2], [29, 0], [29, -3]]]) bagWall(pts.map(([x, z]) => RGW(x, z)), 5);
   { const r = rgJeep(-27, 3, 0.4, 'f'); vehDamage(r, true); wreckFire(r.g, VEH_FIRE.jeep, 1); }   /* knocked out: in its paint, a little broken, burning */ { const [x, z] = RGW(23, -12); placeTank(x, z, 200, TANK_BURNT); }
   for (const [lx, lz] of [[12, 3], [-9, 7], [-31, 30]]) { const [x, z] = RGW(lx, lz); fieldDrums(x, z, 5); }
-  for (const [lx, lz, r] of [[-36, 8, 0.3], [-34, 12, 1.2], [34, 8, 2.1], [36, 12, 0.6], [-38, -4, 0.9], [38, -7, 1.7]]) { const [x, z] = RGW(lx, lz), m = new THREE.Mesh(HEDGEHOG_GEO, MAT.vc); m.position.set(x, groundAt(x, z), z); m.rotation.y = r; scene.add(SH(onLayer1(m))); addCollider(x, z, 0.6, 0.6, 0, groundAt(x, z) + 1.2); }
+  { const hh = [], hm = mdlHas('hedgehog');   // the Czech hedgehogs: the packed rusty steel ones (3_world.js propSet), else the old beams; the same colliders
+    for (const [lx, lz, r] of [[-36, 8, 0.3], [-34, 12, 1.2], [34, 8, 2.1], [36, 12, 0.6], [-38, -4, 0.9], [38, -7, 1.7]]) { const [x, z] = RGW(lx, lz); if (hm) hh.push(propM(x, groundAt(x, z), z, r)); else { const m = new THREE.Mesh(HEDGEHOG_GEO, MAT.vc); m.position.set(x, groundAt(x, z), z); m.rotation.y = r; scene.add(SH(onLayer1(m))); } addCollider(x, z, 0.6, 0.6, 0, groundAt(x, z) + 1.2); }
+    propSet('hedgehog', hh); }
   { const [x, z] = RGW(-33, -14); smallHut(x, z, 5, 4, 2.6, '#c8b896', 0x857660, true); }
   // the gallery: a sign at the feet of each man
   RG_GALLERY.forEach(([, , label], i) => rgSign(label, -21 + i * 6, -17, 0, 1.25, 0.7));

@@ -61,11 +61,13 @@ function propKind(name, parts, r, h) { PROP_LIB[name] = { geo: build(parts), r, 
   propKind('mess', [[G.box(0.18, 0.06, 0.13), 0x7a7a74, M4(0, 0.03, 0)], [G.box(0.16, 0.01, 0.11), 0x5a5a54, M4(0, 0.06, 0)], [G.box(0.12, 0.008, 0.015), 0x9a9a92, M4(0.05, 0.07, 0.02, 0, 0.5, 0)]], 0.12, 0.08);
   propKind('oilcan', [[G.cyl(0.05, 0.05, 0.14, 10), 0x8a3a2a, M4(0, 0.07, 0)], [G.cyl(0.006, 0.01, 0.16, 6), 0x8a3a2a, M4(0.06, 0.17, 0, 0, 0, -0.9)], [G.box(0.02, 0.06, 0.015), 0x3a3a3a, M4(-0.05, 0.1, 0)]], 0.08, 0.22);
 })();
+// the jerrycan of the rooms: the packed model (4f_data_props.js) where its data is there, turned to stand broadside along x like the old one, in its own material
+if (mdlHas('jerry')) { PROP_LIB.jerry.geo = mdlGeo('jerry', 0)[0].g.clone().rotateY(Math.PI / 2); PROP_LIB.jerry.mat = mdlMats('jerry')[0]; }
 const PROPS = { items: [], meshes: {}, reg: {}, cur: null, CAP: 220 };
 const _prM = new THREE.Matrix4(), _prQ = new THREE.Quaternion(), _prE = new THREE.Euler(), _prV = V3(), _prS = V3(1, 1, 1);
 function propMesh(mode, kind) {
   const key = mode + ':' + kind; let m = PROPS.meshes[key];
-  if (!m) { const L = PROP_LIB[kind]; m = new THREE.InstancedMesh(L.geo, MAT.vc, PROPS.CAP); m.count = 0; m.instanceMatrix.setUsage(THREE.DynamicDrawUsage); m.frustumCulled = false; scene.add(SH(onLayer1(m))); if (PROPS.reg[mode]) PROPS.reg[mode](m); PROPS.meshes[key] = m; }
+  if (!m) { const L = PROP_LIB[kind]; m = new THREE.InstancedMesh(L.geo, L.mat || MAT.vc, PROPS.CAP); m.count = 0; m.instanceMatrix.setUsage(THREE.DynamicDrawUsage); m.frustumCulled = false; scene.add(SH(onLayer1(m))); if (PROPS.reg[mode]) PROPS.reg[mode](m); PROPS.meshes[key] = m; }
   return m;
 }
 function propWrite(it) { _prE.set(it.ax, it.rot, it.az); _prQ.setFromEuler(_prE); _prV.set(it.x, it.y + it.lift, it.z); it.m.setMatrixAt(it.i, _prM.compose(_prV, _prQ, _prS)); it.m.instanceMatrix.needsUpdate = true; }

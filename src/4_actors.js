@@ -533,7 +533,7 @@ class Rig {
     // the uniform: bones on the joints, bound in this rest pose (before the soldier is scaled or posed)
     const bones = UNI_BONES.map((k) => { const b = new THREE.Bone(); this[k].add(b); return b; });
     this.uni = new THREE.SkinnedMesh(g.lod[0].uni, [MAT.uni[side], MAT.skin[side]]); this.hips.add(this.uni); this.root.updateMatrixWorld(true); this.uni.bind(new THREE.Skeleton(bones)); this.uni.boundingSphere = new THREE.Sphere(V3(0, -0.15, 0), 1.45);   // fixed: three.js would measure it once, in whatever pose the man was in then, and later cull the uniform off a man still on screen
-    this.gun = new THREE.Mesh(wgeo, MAT.vcMetal); this.torso.add(this.gun);
+    this.gun = new THREE.Mesh(wgeo, MAT.vcMetal); gunGeo(this.gun, wgeo, 0); this.torso.add(this.gun);   // gunGeo: a packed weapon brings its own material (3_world.js)
     SH(this.root, true, false); onLayer1(this.root); this.root.scale.setScalar(US); this.root.visible = false; scene.add(this.root);
     // the eased state and the target it chases: numbers for the hinges, quaternions for the shoulders
     this.T = { rootX: 0, hipsY: 0.93, hipsX: 0, hipsZ: 0, hipsYaw: 0, torsoX: 0, torsoY: 0, torsoZ: 0, legs: [0, 0, 0, 0], gun: [0, 0, 0, 0, 0, 0], arms: null, ik: true };
@@ -545,7 +545,7 @@ class Rig {
     _gq.copy(gr).applyQuaternion(g.quaternion).add(g.position); ikArm(this.sR, this.eR, _gq, POLE_R);
     _gl.copy(hg).applyQuaternion(g.quaternion).add(g.position); ikArm(this.sL, this.eL, _gl, POLE_L);
   }
-  setLOD(l) { if (l === this.lod) return; this.lod = l; const L = RIGGEO[this.side].lod[l]; this.mBody.geometry = L.body; this.uni.geometry = L.uni; for (const m of this.mBoot) m.geometry = L.boot; this.helmet.geometry = L.helmet; this.head.geometry = HEADS[this.side][this.faceV][l]; }
+  setLOD(l) { if (l === this.lod) return; this.lod = l; const L = RIGGEO[this.side].lod[l]; this.mBody.geometry = L.body; this.uni.geometry = L.uni; for (const m of this.mBoot) m.geometry = L.boot; this.helmet.geometry = L.helmet; this.head.geometry = HEADS[this.side][this.faceV][l]; gunGeo(this.gun, this.gun.geometry, l); }
   legs(a, b, c, d) { const L = this.T.legs; L[0] = a; L[1] = b; L[2] = c; L[3] = d; }
   arms(sr, er, sl, el, srz = 0.3, slz = -0.5) { this.T.arms = [sr, er, sl, el, srz, slz]; this.T.ik = false; }
   gunAt(px, py, pz, rx, ry, rz) { const G = this.T.gun; G[0] = px; G[1] = py; G[2] = pz; G[3] = rx; G[4] = ry; G[5] = rz; }
@@ -660,7 +660,7 @@ const DROPS = { pool: [], i: 0 };
 function dropGun(u) {
   const R = u.rig; if (!R.gun.visible) return; R.gun.visible = false;
   let m = DROPS.pool[DROPS.i]; if (!m) { m = new THREE.Mesh(R.gun.geometry, MAT.vcMetal); SH(m, true, false); onLayer1(m); scene.add(m); DROPS.pool[DROPS.i] = m; } DROPS.i = (DROPS.i + 1) % 28;
-  m.geometry = R.gun.geometry; m.visible = true; m.scale.setScalar(US * 1.1);
+  gunGeo(m, R.gun.geometry, 0); m.visible = true; m.scale.setScalar(US * 1.1);
   const a = u.heading + rand(-1, 1), dd = rand(0.3, 0.7), x = u.pos.x + Math.sin(a) * dd, z = u.pos.z + Math.cos(a) * dd;
   m.position.set(x, u.pos.y + 0.05, z); m.rotation.set(0, rand(0, 6.28), (Math.random() < 0.5 ? 1 : -1) * rand(1.3, 1.7));
 }
@@ -670,7 +670,7 @@ function dropsClear() { for (const m of DROPS.pool) m.visible = false; }
 const UNITS = { enemies: [], friends: [] };
 class Unit {
   constructor(side, kind) { this.side = side; this.kind = kind; this.rig = new Rig(side, side === 'f' ? FAL_W : WGEO[WKIND(kind)]); this.rig.wkind = side === 'f' ? 'rifle' : WKIND(kind); this.tag = new THREE.Sprite(TAGM[side]); this.tag.center.set(0.5, 0); this.tag.scale.setScalar(side === 'f' ? 0.028 : 0.032); this.tag.visible = false; this.tag.renderOrder = 5; onLayer1(this.tag); scene.add(this.tag); this.pos = V3(); this.vs = 1; this.heading = 0; this.alive = false; this.stance = 'stand'; this.anim = Math.random() * 6; this.fall = -1; this.fallDir = 1; }
-  setKind(kind) { this.kind = kind; this.rig.wkind = this.side === 'f' ? 'rifle' : WKIND(kind); this.rig.gun.geometry = this.side === 'f' ? FAL_W : WGEO[WKIND(kind)]; }
+  setKind(kind) { this.kind = kind; this.rig.wkind = this.side === 'f' ? 'rifle' : WKIND(kind); gunGeo(this.rig.gun, this.side === 'f' ? FAL_W : WGEO[WKIND(kind)], this.rig.lod); }
   place(x, z, y) { this.pos.set(x, y === undefined ? groundAt(x, z) : hAt(x, z, y), z); this.snapHd = true; this.rig.snapNext = true; }
   sync() {
     this.rig.root.position.copy(this.pos); if (this.fall >= 0) this.rig.root.position.y += 0.12 * clamp(this.fall / 0.55, 0, 1);
