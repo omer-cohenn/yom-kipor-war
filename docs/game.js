@@ -3556,12 +3556,12 @@ const SOLDIER_DATA = {"hdr":{"bones":["hips","torso","sR","eR","sL","eL","hR","k
 /* ---------- the new soldiers (a test, beside the old ones) ----------
    The figure from chars.html - a real head, hands and eyes, the airborne soldier's uniform, belt and boots - skinned to the game rig's own
    joints (4e_soldier_data.js, made by tools build_game.py), so every pose and animation of the old figure moves it: the stride, the aim,
-   the crouch, the grip on the rifle, the falls. It is the near soldier only: a man close enough to see (the rig's finest level of detail)
-   wears it, further off he is the old figure - far too small there to tell, and a hundred of these would be too much for the machine.
+   the crouch, the grip on the rifle, the falls. It is the near soldier only: a man close enough to see (NS_D, by the quality) wears it,
+   further off he is the old figure - far too small there to tell, and a hundred of these would be too much for the machine.
    The Israelis in olive with the M1, the Egyptians in khaki camouflage and the Syrians in forest camouflage under a Soviet-pattern helmet,
    moustached and dark-haired. Off in the Chinese Farm (its men in pits wear our uniforms - the old figure does that) and by the setting. */
 const NEWSOL = {
-  on: (() => { let v = null; try { v = localStorage.getItem('yk73.sol'); } catch (e) {} return v ? v === 'new' : QUAL === 'high' && !LITE; })(),
+  on: (() => { let v = null; try { v = localStorage.getItem('yk73.sol'); } catch (e) {} return v !== 'old'; })(),   /* on unless the player chose the old ones */
   geo: null, mats: null, camo: {},
 };
 const NS_BONES = ['hips', 'torso', 'sR', 'eR', 'sL', 'eL', 'hR', 'kR', 'hL', 'kL', 'headP'];
@@ -3662,10 +3662,22 @@ function nsShow(R, on) {
   R.mBody.visible = R.uni.visible = R.head.visible = R.helmet.visible = !on; for (const m of R.mBoot) m.visible = !on;
   for (const c of R.headP.children) if (c.isMesh && c !== R.head && c !== R.helmet) c.visible = !on;   // the old head's skin
 }
-const nsWant = (R, l) => NEWSOL.on && l === 0 && MODE !== 'farm';
-{ const _set = Rig.prototype.setLOD; Rig.prototype.setLOD = function (l) { const w = nsWant(this, l); if (w !== !!this.nsOn) nsShow(this, w); _set.call(this, l); }; }
+/* who wears it: a man nearer than NS_D (by what the eye sees: closer through a sight, and the far enemies drawn larger count as far),
+   its own distance - not the old figure's levels of detail, which on medium and low quality never reach the finest */
+const NS_D = { high: 26, med: 19, low: 12 }[QUAL], NS_MAX = { high: 14, med: 9, low: 6 }[QUAL];   // and never more than NS_MAX at once: the nearest
+const NSB = { t: -1, allow: new Set(), cand: [] };
+function nsDecide(u) {
+  const R = u.rig; if (!R) return; const far = camera.position.distanceTo(u.pos), eff = far * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2) / 0.7265 / (u.vs || 1);
+  if (NSB.t !== GAME.t) {   // a new frame: last frame's near men ranked, those wearing it already a little ahead (no flicker), the dead behind the living
+    NSB.cand.sort((a, b) => a.nsRank - b.nsRank); NSB.allow = new Set(NSB.cand.slice(0, NS_MAX)); NSB.cand.length = 0; NSB.t = GAME.t;
+  }
+  const near = NEWSOL.on && MODE !== 'farm' && eff < (R.nsOn ? NS_D * 1.12 : NS_D);
+  if (near) { u.nsRank = eff * (R.nsOn ? 0.85 : 1) * (u.alive ? 1 : 1.6); NSB.cand.push(u); }
+  const w = near && NSB.allow.has(u); if (w !== !!R.nsOn) nsShow(R, w);
+}
+{ const _sync = Unit.prototype.sync; Unit.prototype.sync = function () { _sync.call(this); nsDecide(this); }; }
 /* the setting changed (or the chapter): every soldier dresses again at once */
-function nsRefresh() { let fr = []; try { fr = FRIENDS.map((f) => f.unit); } catch (e) {} const all = [...UNITS.enemies, ...UNITS.friends, ...fr]; for (const u of all) if (u && u.rig) { const w = nsWant(u.rig, u.rig.lod); if (w !== !!u.rig.nsOn) nsShow(u.rig, w); } }
+function nsRefresh() { let fr = []; try { fr = FRIENDS.map((f) => f.unit); } catch (e) {} const all = [...UNITS.enemies, ...UNITS.friends, ...fr]; NSB.t = -1; NSB.cand.length = 0; for (let k = 0; k < 2; k++) { NSB.t = -2 - k; for (const u of all) if (u && u.rig && u.rig.root.visible) nsDecide(u); } }   /* twice: the first pass ranks, the second dresses */
 /* the setting: new soldiers (a test) or the old ones; kept in the browser */
 function setSoldiers(v, live) {
   NEWSOL.on = v === 'new'; for (const x of document.querySelectorAll('#sol button')) x.setAttribute('aria-pressed', String(x.dataset.sol === v));
