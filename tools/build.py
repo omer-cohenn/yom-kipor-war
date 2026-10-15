@@ -9,9 +9,9 @@ Between the source files the module pauses for a frame (a top-level await) so th
 EST is roughly how long each file takes to run on a fast computer, in ms, and sets the steps of the bar."""
 import argparse, hashlib, os, shutil, sys
 
-ORDER = ['2_core.js', '3_world.js', '16_props.js', '4b_assets.js', '4d_vehicles.js', '4_actors.js', '4c_vm.js', '5_game.js', '6_suez.js', '7_field.js',
+ORDER = ['2_core.js', '3_world.js', '16_props.js', '4b_assets.js', '4d_vehicles.js', '4_actors.js', '4c_vm.js', '4e_soldier_data.js', '4e_soldier.js', '5_game.js', '6_suez.js', '7_field.js',
          '8_rescue.js', '9_cross.js', '10_army.js', '11_air.js', '12_armor.js', '13_hermon.js', '15_surv.js', '18_farm.js', '19_range.js', '17_snap.js', '14_menu.js']
-EST = {'2_core.js': 320, '3_world.js': 230, '16_props.js': 80, '4_actors.js': 800, '4c_vm.js': 140, '7_field.js': 180, '18_farm.js': 25, '14_menu.js': 190}
+EST = {'2_core.js': 320, '3_world.js': 230, '16_props.js': 80, '4_actors.js': 800, '4c_vm.js': 140, '4e_soldier_data.js': 40, '7_field.js': 180, '18_farm.js': 25, '14_menu.js': 190}
 PAUSE_AFTER = ['2_core.js', '16_props.js', '4_actors.js', '7_field.js']   # the long ones end a piece
 TOTAL = 2000   # LD_BOOT in 5_game.js: the last report, from main(), is TOTAL of TOTAL
 

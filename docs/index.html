@@ -847,6 +847,13 @@ button:focus-visible{outline:2px solid var(--sand);outline-offset:2px}
         <p class="note" id="qualNote" hidden>נשמר. החיילים והחדות מתעדכנים מיד; הים, הצמחייה ושאר הפרטים יתעדכנו בטעינה הבאה. <button class="ghost" type="button" id="qualReload">לטעון עכשיו</button></p>
       </div>
       <div>
+        <h3>חיילים</h3>
+        <div class="diff" id="sol">
+          <button type="button" data-sol="new" aria-pressed="false">חדשים (ניסוי)<span>פנים, מדים וציוד מפורטים מקרוב</span></button>
+          <button type="button" data-sol="old" aria-pressed="false">קלאסיים<span>הדמויות הקודמות, הכי קל למחשב</span></button>
+        </div>
+      </div>
+      <div>
         <h3>שליטה</h3>
         <div class="keys" id="keysDesk">
           <span><kbd>W A S D</kbd> תנועה</span><span><kbd>Shift</kbd> ריצה</span>
@@ -1017,7 +1024,7 @@ window.LD = (function () {
 <script>
 /* the game's code is one big file: fetched here so the loading screen can show how much of it has arrived, then run as a module */
 (function () {
-  var SRC = 'game.js?v=c34805e6cc', SIZE = 5439530, mb = function (n) { return (n / 1048576).toFixed(1); };
+  var SRC = 'game.js?v=24a4c34b36', SIZE = 6847802, mb = function (n) { return (n / 1048576).toFixed(1); };
   LD.plan([['dl', 'מוריד את המשחק', 5], ['code', 'מכין את המשחק', 4]], { img: 'img/mezach.jpg', clip: 'mezach' }); LD.step('dl'); LD.note('0.0 מתוך ' + mb(SIZE) + ' מ״ב');
   function fail() { LD.error('ההורדה נכשלה. בדקו את החיבור לאינטרנט ורעננו את הדף.'); }
   function start(s) { LD.step('code'); LD.frac(0.15, 2500); s.type = 'module'; document.body.appendChild(s); }
