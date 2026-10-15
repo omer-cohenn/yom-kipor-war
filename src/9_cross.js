@@ -399,7 +399,7 @@ function crSetup(stage) {
   const lead = C.jeeps[0];
   lead.crew[0].visible = stage > 1;
   const put = (lx, lz, yaw, y) => { const [x, z] = CW(lx, lz); P.pos.set(x, y === undefined ? groundAt(x, z) : hAt(x, z, y + 0.4), z); P.yaw = yaw; P.pitch = 0; };
-  if (stage <= 1) { P.ride = { pos: () => lead.g.localToWorld(V3(-1.2, 1.3, 0)), eye: 1.62, mg: true, muzzle: () => C.mg.localToWorld(V3(0, 0.012, -1.5)) }; lead.g.updateMatrixWorld(true); P.pos.copy(P.ride.pos()); P.yaw = Math.PI / 2; P.pitch = -0.04; vm.visible = false; }
+  if (stage <= 1) { P.ride = { pos: () => lead.g.localToWorld(V3(-1.2, 1.3, 0)), eye: 1.62, mg: true, gun: C.mg, muzzle: () => C.mg.localToWorld(V3(0, 0.012, -1.5)) }; lead.g.updateMatrixWorld(true); P.pos.copy(P.ride.pos()); P.yaw = Math.PI / 2; P.pitch = -0.04; vm.visible = false; }
   else if (stage === 2) put(-149, 34, 0.98);
   else { const pw = C.vh[2].win.filter((wn) => wn.nx < -0.5)[1].slot; P.pos.set(pw.x, hAt(pw.x, pw.z, pw.y + 0.4), pw.z); P.yaw = Math.PI / 2; P.pitch = 0; }   // the other west window of the house at the corner is the player's
   const seats = [crSeat(lead, -1.5, -0.55), crSeat(lead, -1.5, 0.55), crSeat(C.jeeps[1], -1.45, -0.5), crSeat(C.jeeps[1], -1.45, 0.5), crSeat(C.jeeps[1], -0.35, 0.3), crSeat(C.jeeps[2], -1.45, -0.5), crSeat(C.jeeps[2], -1.45, 0.5), crSeat(C.jeeps[2], -0.35, 0.3)];

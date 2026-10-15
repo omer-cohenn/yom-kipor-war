@@ -3491,6 +3491,41 @@ function vmAnimate(dt, firing, reloadU) {
   mag.visible = !(u > 0.36 && u < 0.55); mag.position.copy(VM_MAG0); mag.position.y -= 0.16 * out; mag.position.x += 0.05 * away;
 }
 
+/* ---------- the machine gun's sights, for aiming: the MAG on the rampart and on the jeeps ----------
+   Seen as the gunner sees it with his cheek on the stock: the top of the receiver and the feed cover close below, the side plates either
+   side of it and a few brass rounds of the belt at the right, the rear sight - a thick ring on its post between two guards - and through it,
+   far down the ribbed barrel, the front sight blade between its ears. The line of sight is the camera's own axis, so the ring and the blade
+   sit dead centre whatever the screen. It rises into view as the gun comes up to the eye, and kicks with every round */
+const MAGSIGHT = (() => {
+  const K = 0x2a2927, D = 0x1f1e1c, W = 0x3a3733, B = 0xb48c4c, z0 = -0.16, zf = -0.58;
+  const G = { tor: (r, t, a, b) => new THREE.TorusGeometry(r, t, a, b), box: (x, y, z) => new THREE.BoxGeometry(x, y, z), cyl: (a, b, h, n) => new THREE.CylinderGeometry(a, b, h, n) };
+  const parts = [
+    [G.tor(0.0175, 0.0056, 10, 44), K, M4(0, 0, z0)],                                                                 // the ring of the rear sight
+    [G.box(0.014, 0.03, 0.008), K, M4(0, -0.037, z0)], [G.box(0.034, 0.008, 0.03), D, M4(0, -0.054, z0 + 0.004)],       // its post, and the base it stands on
+    ...[-1, 1].map((sd) => [G.box(0.008, 0.022, 0.022), W, M4(sd * 0.02, -0.045, z0 + 0.002)]),                         // the guards either side
+    [G.box(0.08, 0.06, 0.26), D, M4(0, -0.09, -0.18)],                                                                  // the receiver
+    [G.box(0.052, 0.012, 0.09), W, M4(0, -0.053, -0.1)], [G.cyl(0.0045, 0.0045, 0.003, 10), K, M4(0, -0.0465, -0.085)],  // the feed cover and its catch
+    ...[-1, 1].map((sd) => [G.box(0.012, 0.07, 0.13), W, M4(sd * 0.054, -0.077, -0.12)]),                               // the side plates
+    ...[-1, 1].map((sd) => [G.cyl(0.006, 0.006, 0.13, 8), W, M4(sd * 0.054, -0.042, -0.12, Math.PI / 2, 0, 0)]),         // their rounded tops
+    ...[0, 1, 2, 3].map((k) => [G.cyl(0.0042, 0.0042, 0.026, 8), B, M4(0.074, -0.058 - k * 0.0105, -0.135 + k * 0.004, 0, 0, Math.PI / 2)]),   // the belt: brass rounds
+    [G.cyl(0.0105, 0.0105, -0.3 - zf, 12), D, M4(0, -0.028, (zf - 0.3) / 2 - 0.005, Math.PI / 2, 0, 0)],                  // the barrel and its jacket
+    ...[0, 1, 2, 3, 4, 5, 6, 7].map((k) => [G.cyl(0.0128, 0.0128, 0.007, 12), K, M4(0, -0.028, -0.32 - k * 0.032, Math.PI / 2, 0, 0)]),   // its cooling ribs
+    [G.box(0.013, 0.014, 0.012), K, M4(0, -0.016, zf)], [G.box(0.0022, 0.011, 0.003), D, M4(0, -0.0055, zf)],            // the front sight: its block and blade, the tip on the line
+    ...[-1, 1].map((sd) => [G.box(0.0022, 0.012, 0.004), K, M4(sd * 0.0058, -0.008, zf)]),                              // and its ears
+  ];
+  const g = new THREE.Group(), m = new THREE.Mesh(build(parts), VMAT.metal); g.add(m); g.visible = false; vmScene.add(g); return g;
+})();
+/* how far the gunner has the sights up (0..1), and the sights placed for it; the world's gun is hidden while they are up */
+function magSightUpd(dt, off) {
+  const mag = !off && P.mode === 'mag' && P.post && P.post.mag && !P.post.mag.big && !P.post.mag.heavy, jeep = !off && !!(P.ride && P.ride.mg), k = mag || jeep ? P.ads : 0;
+  const gun = mag ? P.post.mag.pivot : jeep ? P.ride.gun : null, hide = gun && k > 0.5 ? gun : null;
+  if (P.adsHid && P.adsHid !== hide) { P.adsHid.visible = true; P.adsHid = null; } if (hide && hide.visible) { hide.visible = false; P.adsHid = hide; }
+  MAGSIGHT.visible = k > 0.02; if (!MAGSIGHT.visible) return 0;
+  const e = k * k * (3 - 2 * k), kick = P.vmKick || 0; P.vmKick = Math.max(0, kick - dt * 14);
+  MAGSIGHT.position.set(rand(-1, 1) * 0.0006 * kick, -0.14 * (1 - e) + 0.0018 * kick, 0.008 * kick); MAGSIGHT.rotation.set(0.008 * kick, 0, 0);
+  return k;
+}
+
 /* ================= settings ================= */
 /* three levels, one route and one story: what changes is how forgiving the war is. The higher the level, the more Egyptians, the sooner they
    react and the more of them storm; the more each hit costs and the less you heal; the weaker the men beside you; the fewer the saves.
@@ -4112,19 +4147,18 @@ function trenchStep(e, dt, shoot, aimPitch) {
 }
 /* ================= boats & waves ================= */
 /* a wave of boats: n of them (more on the hard level, fewer on a phone), their landing points spread along the front and their starts a couple of
-   seconds apart, so the canal fills with boats; rpg / flame: how many boats carry an RPG man or a flamethrower. budget: how many men the wave
-   puts ashore at most, by level ([easy, normal, hard]) - the canal can be full of boats without a hundred men coming over the rampart at once;
-   the rowers stay at their oars either way. near [d0, step]: the wave is already on the water when the stage opens, the first boat d0 metres
-   from the beach and each next one step metres further out */
-function boatWave(z0, z1, n, t0, gap, seats, rpg = 0, flame = 0, hp, budget, near) {
-  const N = Math.max(2, Math.round(n * diff.boats * (LITE ? 0.8 : 1))), r = rng(4400 + Math.round(z0 * 7 + z1 * 3) + Math.max(0, D.scene) * 131), B = budget ? budget[Math.max(0, DIFF.indexOf(diff))] : 0;
-  for (let i = 0; i < N; i++) { const z = lerp(z0, z1, (i * 0.618034) % 1) + (r() - 0.5) * 2.5, men = B ? Math.floor(B / N) + (i < B % N ? 1 : 0) : undefined, b = launchBoat(z, t0 + i * gap + r() * gap * 0.6, seats, i < rpg ? 1 : 0, i === Math.floor(N / 2) && flame ? 1 : 0, men); if (hp) b.hp = hp;
+   seconds apart, so the canal fills with boats; rpg / flame: how many boats carry an RPG man or a flamethrower. Every boat is full - eight
+   soldiers and the rowers - and all of them come ashore. near [d0, step]: the wave is already on the water, the first boat d0 metres from
+   the beach and each next one step metres further out */
+function boatWave(z0, z1, n, t0, gap, seats, rpg = 0, flame = 0, hp, near) {
+  const N = Math.max(2, Math.round(n * diff.boats * (LITE ? 0.8 : 1))), r = rng(4400 + Math.round(z0 * 7 + z1 * 3) + Math.max(0, D.scene) * 131);
+  for (let i = 0; i < N; i++) { const z = lerp(z0, z1, (i * 0.618034) % 1) + (r() - 0.5) * 2.5, b = launchBoat(z, t0 + i * gap + r() * gap * 0.6, seats, i < rpg ? 1 : 0, i === Math.floor(N / 2) && flame ? 1 : 0); if (hp) b.hp = hp;
     if (near) { const left = Math.min(b.len * 0.95, near[0] + i * near[1] + r() * near[1] * 0.4); b.t = (b.len - left) / b.speed; } }
 }
 function launchBoat(zLand, delay, n, rpg = 0, flame = 0, men) {
   const seed = 9001 + Math.round(zLand * 13) + Math.max(0, D.scene) * 7919, r = rng(seed);
   const to = [tongueWestX(zLand) - 4.5, zLand]; const from = [nearX(-400), clamp(zLand + (r() - 0.5) * 90, -380, 380)];   // from just off the Port Tewfik quays
-  const bt = new Boat(from, to, men ?? Math.max(2, Math.ceil(n * 0.55)), diff.boat * 0.34, delay); /* a heavy rowboat: about three metres a second, a minute and a half across */ bt.zLand = zLand; bt.state = 'wait'; bt.seed = seed;
+  const bt = new Boat(from, to, men ?? (SURV.on ? Math.max(2, Math.ceil(n * 0.55)) : 8), diff.boat * 0.34, delay); /* a full boat (survival keeps its own count); a heavy rowboat: about three metres a second, a minute and a half across */ bt.zLand = zLand; bt.state = 'wait'; bt.seed = seed;
   const ns = bt.seats.length;   // the boat carries fewer men than the wave counts: never index past its seats (that froze the game)
   for (let i = 0; i < rpg && i < ns; i++) bt.seats[i].kind = 'rpg';
   for (let i = 0; i < flame && ns - 1 - i > rpg - 1 && i < ns; i++) bt.seats[ns - 1 - i].kind = 'flame';
@@ -4154,11 +4188,20 @@ function boatFire(bt, dt, x, z) {
   fxTracer(from, end, true);
   if (!hit && Math.random() < 0.55) { const gy = groundAt(end.x, end.z); fxDust(V3(end.x, Math.max(gy, 0) + 0.2, end.z), gy < 0); }
 }
+/* while the beach already has its fill - the men ashore and still alive, and those still in the boats that have gone past the line - the
+   boats behind wait on the water some twenty-five metres out, rowing against the current, until there is room. LANDCAP.n is in boatloads,
+   set by the stage and the level; one boat always comes in when the beach is empty */
+const LANDCAP = { n: 999 };
+const aboard = (bt) => { let n = 0; for (const s of bt.seats) if (s.alive && !s.gone) n++; return n; };
 function updBoats(dt) {
+  let men = 0; if (LANDCAP.n < 999 && !CINE.on) { for (const e of UNITS.enemies) if (e.alive) men++; for (const bt of BOATS) if (!bt.dead && (bt.state === 'landed' || (bt.state === 'cross' && bt.t * bt.speed > bt.len - 25 + 0.01))) men += aboard(bt); }
+  const load = 8 + (LITE ? 4 : 6), room = (LANDCAP.n + 0.3) * load;
   for (const bt of BOATS) {
     if (bt.dead) continue; bt.t += dt;
     if (bt.state === 'wait') { if (bt.t >= 0) { bt.state = 'cross'; bt.g.visible = true; } else continue; }
     if (bt.state === 'cross') {
+      { const tHold = (bt.len - 25) / bt.speed; bt.holding = false;
+        if (LANDCAP.n < 999 && !CINE.on && bt.t > tHold && bt.t - dt <= tHold + 1e-3) { const a = aboard(bt); if (men > 0 && men + a > room) { bt.holding = true; bt.t = tHold; } else men += a; } }
       const u = Math.min(1, bt.t * bt.speed / bt.len); const x = lerp(bt.from[0], bt.to[0], u), z = lerp(bt.from[1], bt.to[1], u);
       // the boat rides bow-up under power and climbs the waves it is drawn on: lifted by their height, pitched and heeled by their slope, plus its own slap over the chop
       const wt = waveTilt(x, z, bt.heading, 3.2, 1.2, _wtB);
@@ -4173,23 +4216,34 @@ function updBoats(dt) {
     else if (bt.state === 'landed') {
       bt.landT += dt; bt.g.position.y = 0.03 + waveH(bt.g.position.x, bt.g.position.z) * 0.5; bt.g.updateMatrixWorld();
       bt.seats.forEach((s, i) => {
-        if (s.rower && !s.gone) { s.gone = true; return; }   // the rowers stay at their oars
-        if (!s.alive || s.gone || bt.landT < i * 0.25) return;
+        if (!s.alive || s.gone || bt.landT < i * 0.25) return;   // the soldiers first, then the rowers ship their oars and follow them
         const sp = bt.seatWorld(i), r = rng(bt.seed + i * 97), z = bt.zLand + (i % 2 ? 1 : -1) * (0.5 + r() * 3.5);
         const e = spawnEnemy(tongueWestX(z) + 1.6, z, varyKind(s.kind, z * 3.1, i * 7.7), null, null, { jump: sp });
-        if (!e) return; e.plan = westPlan(e, z, i, r); s.gone = true; s.m.visible = false;
+        if (!e) return; e.plan = westPlan(e, z, i, r); s.gone = true; s.m.visible = false; if (s.oar) s.oar.visible = false;
       });
-      // the soldiers are out: the rowers push off, turn the boat round and row back for the next load (they do not come ashore)
-      if (bt.seats.every((s) => !s.alive || s.gone) && bt.landT > 2.5) { const p = bt.g.position; bt.state = 'back'; bt.backT = 0; bt.hd0 = bt.heading; bt.b0 = [p.x, p.z]; const qx = nearX(-400) + rand(0, 10), qz = p.z + rand(-25, 25); bt.b1 = [qx, qz]; bt.blen = Math.hypot(qx - p.x, qz - p.z); bt.hd1 = Math.atan2(qx - p.x, qz - p.z); bt.bs = 0; }
-    } else if (bt.state === 'back') {
-      bt.backT += dt; const turn = smooth(0.3, 3.2, bt.backT); bt.heading = bt.hd0 + wrapPi(bt.hd1 - bt.hd0) * turn;
-      bt.bs = Math.min(bt.speed, bt.bs + dt * bt.speed * 0.35 * turn); const u = Math.min(1, (bt.bd = (bt.bd || 0) + bt.bs * dt) / bt.blen), x = lerp(bt.b0[0], bt.b1[0], u), z = lerp(bt.b0[1], bt.b1[1], u);
-      const wt = waveTilt(x, z, bt.heading, 3.2, 1.2, _wtB);
-      bt.g.position.set(x, 0.03 + wt.h + Math.sin(bt.t * 2.2) * 0.02, z); bt.g.rotation.set(wt.roll * 0.9, bt.heading - Math.PI / 2, 0.02 + wt.pitch * 0.9); bt.g.updateMatrixWorld(); bt.row(dt, 2.5 * Math.max(0.3, turn));
-      if (bt.hp <= 0) { bt.seats.forEach((s, i) => { if (s.alive) killSeat(bt, i); }); bt.state = 'sinking'; bt.sinkT = 0; }
-      else if (u >= 1 || bt.backT > 90) bt.dispose();
+      if (bt.seats.every((s) => !s.alive || s.gone) && bt.landT > 30) bt.dispose();
     }
   }
+}
+/* the great wave: rows of boats one behind another - the first of two, then threes - each row on the beach some eight seconds after the one
+   in front of it (later, while the boats ahead are held off the beach). A row is put on the water only when it is due to leave the quays,
+   and never while a dozen boats are already out, so the canal is always full and the scene never holds more than it can draw */
+const ROWS = { on: false, left: 0 };
+function rowsStart(o) { Object.assign(ROWS, { on: true, k: 0, left: o.boats, z0: o.z0, z1: o.z1, every: o.every, first: o.first, base: GAME.t + o.t0, seed: 7300 + Math.round(GAME.t * 7) }); }
+function rowsPending() { return ROWS.on ? ROWS.left * (8 + (LITE ? 4 : 6)) : 0; }
+function rowsUpd(dt) {
+  if (!ROWS.on || MODE !== 'mezach' || SURV.on) return;
+  let out = 0, holding = false; for (const b of BOATS) if (!b.dead && (b.state === 'wait' || b.state === 'cross')) { out++; if (b.holding) holding = true; }
+  if (out >= 15 || holding) { ROWS.base += dt; return; }   // the canal is full, or the boats ahead are held off the beach: the rows behind wait at the quays
+  const sp = diff.boat * 0.34, cross = (tongueWestX(20) - 4.5 - nearX(-400)) / sp;
+  while (ROWS.left > 0) {
+    const land = ROWS.base + ROWS.k * ROWS.every; if (land - cross > GAME.t + 1.5) break;   // this row is not due to push off yet
+    const n = Math.min(ROWS.left, ROWS.k === 0 ? ROWS.first : 3), r = rng(ROWS.seed + ROWS.k * 31), zs = [];
+    for (let i = 0; i < n; i++) { let z, tries = 0; do { z = lerp(ROWS.z0, ROWS.z1, r()); tries++; } while (tries < 20 && zs.some((q) => Math.abs(q - z) < 11)); zs.push(z); }
+    zs.forEach((z, i) => { const b = launchBoat(z, 0, 8, r() < 0.3 ? 1 : 0, ROWS.k > 2 && i === 0 && r() < 0.25 ? 1 : 0); b.wave = ROWS.k; b.t = (b.len - (land - GAME.t) * b.speed + rand(-2, 2)) / b.speed; if (CINE.on && CINE.def && CINE.def.boatFilm) filmRow(b, true); });
+    ROWS.left -= n; ROWS.k++;
+  }
+  if (ROWS.left <= 0) ROWS.on = false;
 }
 function northGroup(n, delay, kinds = []) {
   for (let i = 0; i < n; i++) {
@@ -4221,16 +4275,16 @@ function corridorHas(C, x, z) {
 /* the mission is one trench: each stage opens the next stretch, sandbag barricades close everything else */
 const SCENES = [
   { title: 'סירות על המים', sub: 'שתיים אחרי הצהריים. מעבר לתעלה, מתוך העשן, יוצאות סירות עץ בשורה — עשרות חיילים בכל אחת, חותרים ישר אלינו. המא״ג המערבי הוא כל מה שעומד בינם לבין הסוללה.', goal: 'ירו בסירות מהמא״ג המערבי. מי שעלה לתעלה — הרגו אותו בתוכה', open: [136, 176], spawn: () => trenchAt(-1.0), face: 345, focus: w2Focus,
-    entries: [-20, -14, -8, -2, 3, 8.5], radio: ['מ״פ', 'סירות במים ממערב! המא״ג המערבי שלך!'], start() { boatWave(-21, 10, 28, 3, 1.8, diff.seats, 0, 0, 150, [20, 30, 42]); } },
+    entries: [-20, -14, -8, -2, 3, 8.5], radio: ['מ״פ', 'סירות במים ממערב! המא״ג המערבי שלך!'], cap: [1, 2, 2], start() { boatWave(-21, 10, 18, 3, 1.8, diff.seats, 0, 0, 150); } },
   { title: 'הפרצה בצפון', sub: 'המחסום הצפוני נפתח, ובקצה הסוללה, ליד עמדה 1, כבר מטפסים הראשונים שצלחו. בתעלה הצרה פוגשים אותם פנים אל פנים, שק חול אחרי שק חול.', goal: 'התקדמו צפונה בתעלה ונקו אותה מהצולחים', open: [96, 176], spawn: () => TR.pts[140], face: 0, focus: trFocus(-38, 'עמדה מערבית 1'),
-    entries: [-55, -50, -39.5, -27], radio: ['יוסי', 'הם עולים עליי מצפון! תביאו תגבורת לתעלה!'], start() { boatWave(-57, -33, 9, 2, 6.5, Math.max(3, diff.seats - 1), 3, 0, undefined, undefined, [22, 13]); } },   // the boats are almost at the beach when the stage opens
+    entries: [-55, -50, -39.5, -27], radio: ['יוסי', 'הם עולים עליי מצפון! תביאו תגבורת לתעלה!'], cap: [1, 1, 2], pre(len) { boatWave(-57, -33, 5, 0, 0, diff.seats, 2, 0, undefined, [22 + diff.boat * 0.34 * len, 14]); }, start() {} },   // the boats are on the water from the moment the stage is called: when the player gets there they are landing
   { title: 'קומנדו בשער', sub: 'מכביש לכסיקון, מצפון, רץ כוח קומנדו ישר אל השער. הם מכירים את המוצב מתצלומי האוויר, ויודעים שהתעלה הצפונית היא הדרך פנימה.', goal: 'עצרו את הקומנדו בתעלה הצפונית, עד הפינה — והחזיקו אותה', open: [0, 176], spawn: () => TR.pts[100], face: 0, focus: postFocus('N1', 'עמדה צפונית'),
     radio: ['תצפית', 'כוח קומנדו בכביש מצפון! הם רצים לתעלה הצפונית!'], start() { northGroup(Math.round(9 * diff.extra), 5, ['rpg', 'rifle', 'rifle', 'rpg']); } },
   { title: 'חובש!', sub: 'ההרעשה חזרה. פגז נכנס ישר לעמדה הדרומית, ובתעלה שוכבים חברים שצועקים לחובש. התאג״ד חפור בדופן התעלה, ומי שנחבש בזמן חוזר לעמדה.', goal: 'עזרה ראשונה לפצועים בתעלה הדרומית (להחזיק F) — הם חוזרים להילחם', medevac: true, open: [136, 222], spawn: () => trenchAt(-6), face: 180,
     focus: () => { const w = nearestWounded(); return w ? [w.unit.pos.x, w.unit.pos.y, w.unit.pos.z, `פצוע · ${w.name}`] : null; },
     entries: [12, 24, 35, 46], radio: ['דודו', 'פגיעה ישירה בעמדה! יש פצועים בתעלה הדרומית!'], start: medevacStart },
   { title: 'הגל הגדול', sub: 'לפנות ערב הם זורקים את הכול: סירות לכל אורך הסוללה המערבית, מקצה לקצה, והשמש השוקעת מאחוריהם. המוצב הקטן הזה הוא כל מה שנשאר מהקו.', goal: 'החזיקו את התעלה המערבית כולה, עד המצרי האחרון', open: [96, 250], spawn: () => trenchAt(-2), face: 338, focus: w2Focus,
-    entries: [-50, -27, -14, 8.5, 24, 46, 56, 68], radio: ['מ״פ', 'גל גדול של סירות! כולם לסוללה המערבית!'], start() { boatWave(-25, 63, 18, 3, 2.0, diff.seats, 4, 1, undefined, [30, 42, 56]); mzBoatsFilm(); } },
+    entries: [-50, -27, -14, 8.5, 24, 46, 56, 68], radio: ['מ״פ', 'גל גדול של סירות! כולם לסוללה המערבית!'], cap: [2, 3, 3], pre(len) { const men = 8 + (LITE ? 4 : 6), total = [400, 600, 800][Math.max(0, DIFF.indexOf(diff))]; rowsStart({ z0: -25, z1: 63, boats: Math.ceil(total / men), first: 2, every: 8.5, t0: len + (D.boatsFilm ? 0 : 20.6) - 6 }); }, start() { mzBoatsFilm(); } },   // the great wave: some six hundred men, row after row
 ];
 function scCorr(i) {
   const S = SCENES[i]; if (S._c) return S._c; const [a, b] = S.open;
@@ -4260,11 +4314,11 @@ function medevacStart() {
     if (f.state !== 'post') return; const [x, z] = i === 0 ? (f.postId === 'W3' ? f.post.stand : trenchAt(28)) : trenchAt(44);
     f.unit.place(x, z); const b = V3(x - 1.5, groundAt(x - 1.5, z + 1), z + 1); fxExplosion(b, 1.1); sndBoom(b, 1.1); FX.shake = Math.max(FX.shake, 0.4); woundFriend(f, false, true);
   } }));
-  boatWave(30, 50, 4, 8, 6, diff.seats, 1, 0);
+  boatWave(30, 50, 3, 8, 6, diff.seats, 1, 0);
   D.artT = 6;
 }
 function pendingSpawns() { let n = 0; for (const q of DIRQ) if (q.spawn) n++; return n; }
-function enemiesLeft() { let n = pendingSpawns(); for (const e of UNITS.enemies) if (e.alive) n++; for (const b of BOATS) if (!b.dead && b.state !== 'sinking') n += b.seats.filter((s) => s.alive && !s.gone).length; return n; }
+function enemiesLeft() { let n = pendingSpawns() + rowsPending(); for (const e of UNITS.enemies) if (e.alive) n++; for (const b of BOATS) if (!b.dead && b.state !== 'sinking') n += b.seats.filter((s) => s.alive && !s.gone).length; return n; }
 function sceneClear() {
   if (D.phaseT < 6 || enemiesLeft() > 0) return false;
   if (SCENES[D.scene].medevac && FRIENDS.some((f) => f.state === 'wounded' || f.state === 'stable' || f.state === 'carried')) return false;
@@ -4276,7 +4330,8 @@ function introScene(i, len) {
   CP.scene = i; CP.friends = FRIENDS.map((f) => (f.state === 'kia' ? 'kia' : f.state === 'saved' ? 'saved' : 'post')); CP.stats = { ...STATS };
   applyBarricades(i);
   for (const f of FRIENDS) if ((f.state === 'wounded' || f.state === 'stable') && !corridorHas(scCorr(i), f.unit.pos.x, f.unit.pos.z)) { f.state = 'saved'; f.marker.visible = false; feed(`חובשים פינו את ${f.name} לתאג״ד`, 'good'); }
-  const S = SCENES[i]; toast(`שלב ${i + 1} מתוך ${SCENES.length} · ${S.title}`, S.sub); feed(`שלב ${i + 1}: ${S.title}`); radio(S.radio[0], S.radio[1], 4.5); snapRequest('stage');
+  const S = SCENES[i]; LANDCAP.n = S.cap ? S.cap[Math.max(0, DIFF.indexOf(diff))] : 999; if (S.pre) S.pre(len);
+  toast(`שלב ${i + 1} מתוך ${SCENES.length} · ${S.title}`, S.sub); feed(`שלב ${i + 1}: ${S.title}`); radio(S.radio[0], S.radio[1], 4.5); snapRequest('stage');
   if (i > 0) { P.reserve = 160; P.gren = diff.gren0; for (const p of POSTS) if (p.mag) { p.mag.belt = p.mag.cap || 200; p.mag.reload = 0; } if (!corridorHas(scCorr(i), P.pos.x, P.pos.z)) moveToScene(i); }
 }
 function airStrike() {
@@ -4338,7 +4393,7 @@ function updStrafe(dt) {
   }
 }
 function updDirector(dt) {
-  updStrafe(dt); airDirector(dt);
+  updStrafe(dt); airDirector(dt); rowsUpd(dt);
   if (!CINE.on) D.phaseT += dt; { const [k, d] = trK(P.pos.x, P.pos.z); TR.pK = k; TR.pD = d; }
   for (let i = DIRQ.length - 1; i >= 0; i--) if (DIRQ[i] && GAME.t >= DIRQ[i].at) { const q = DIRQ.splice(i, 1)[0]; q.fn(); }
   for (const g of GROUPS) if (!g.go && g.goAt && GAME.t >= g.goAt) { g.go = true; if (GAME.t - (D.chargeMsg || -99) > 20) { D.chargeMsg = GAME.t; radio('תצפית', g.side === 'north' ? 'הם מסתערים על השער הצפוני!' : g.side === 'south' ? 'הם מסתערים מדרום!' : 'הם עולים על הסוללה! מסתערים על המוצב!'); } }
@@ -4451,13 +4506,13 @@ function rideMG() {
   if (P.fireCd > 0) return; P.fireCd = 0.095; STATS.shots = (STATS.shots || 0) + 1;
   let d = aimAssist(camera.position, camForward(V3()), 0.1, false); const sp = 0.007; d.x += rand(-sp, sp); d.y += rand(-sp, sp); d.z += rand(-sp, sp); d.normalize();
   const hit = castShot(camera.position.clone(), d, 700, 'f'), from = P.ride.muzzle ? P.ride.muzzle() : camera.position.clone().addScaledVector(d, 1.2).add(V3(0, -0.3, 0));
-  fxMuzzle(from, true); sndShot('mag'); if (Math.random() < 0.45) fxTracer(from, hit.p, false); FX.shake = Math.max(FX.shake, 0.08); P.pitch += 0.0025; P.yaw += rand(-0.002, 0.002);
+  fxMuzzle(from, true); sndShot('mag'); if (Math.random() < 0.45) fxTracer(from, hit.p, false); FX.shake = Math.max(FX.shake, 0.08); P.pitch += 0.0025; P.yaw += rand(-0.002, 0.002); P.vmKick = 1;
   applyHit(hit, 140);
 }
 function applyHit(hit, dmg) {
   if (hit.kind === 'enemy') { const e = hit.u; const dd = hit.head ? dmg * 2.5 : dmg; e.hp -= dd; const kill = e.hp <= 0; if (kill) killEnemy(e, hit.head); hitmark(kill); fxDust(hit.p.clone(), false); if (e.dormant || kill) wakeNear(e.pos, 9); }
   else if (hit.kind === 'seat') { killSeat(hit.boat, hit.seat); hitmark(true); }
-  else if (hit.kind === 'boat') { hit.boat.hp -= dmg * 0.25; fxDust(hit.p.clone(), true); hitmark(false); }
+  else if (hit.kind === 'boat') { hit.boat.hp -= dmg * 0.2; fxDust(hit.p.clone(), true); hitmark(false); }
   else if (hit.kind === 'friend') { toast('זהירות', 'אש על כוחותינו'); }
   else if (hit.kind === 'veh') { if (hit.v.alive && hit.v.armor > 0) { vehHit(hit.v, dmg * hit.v.armor, hit.p); hitmark(!hit.v.alive); } fxDust(hit.p.clone(), false); }
   else if (hit.kind === 'prop') { propKick(hit.prop, hit.dir || V3(0, 0, 1), 1); fxDust(hit.p.clone(), false); }
@@ -4468,12 +4523,14 @@ function magShoot() {
   const hv = !!m.heavy;
   if (m.belt <= 0 && !SURV.on) { m.reload = hv ? 5.5 : 4.5; feed(hv ? 'מחליף ארגז' : 'מחליף שרשרת'); return; }
   if (!SURV.on) m.belt--; P.fireCd = hv ? 0.118 : 0.085; m.feedT = 1;   /* the belt jumps one link toward the gun */
-  let d = V3(0, 0, 1).applyEuler(new THREE.Euler(m.pivot.rotation.x, m.pivot.rotation.y, 0, 'YXZ')), lock = null; { lock = aimPick(camera.position, d, 0.08, false); if (lock) d = lock.clone().sub(camera.position).normalize(); } const sp = (hv ? 0.013 : 0.01) * (lock ? 0.5 : 1);   /* locked on a man (or a boat's crew), the burst groups tighter */ d.x += rand(-sp, sp); d.y += rand(-sp, sp); d.z += rand(-sp, sp); d.normalize();
+  // the rounds go where the gunner looks - over the gun, or along its sights when he aims - with the spread of a machine gun on a bipod and
+  // its climb: hits come from keeping the bursts short and walking them on, not from the gun finding the target for him
+  let d = camForward(V3()); const sp = (hv ? 0.019 : 0.015) * (1 - 0.35 * P.ads); P.vmKick = 1; d.x += rand(-sp, sp); d.y += rand(-sp, sp); d.z += rand(-sp, sp); d.normalize();
   const from = m.pivot.localToWorld(V3(0, 0.012, hv ? 1.3 : 0.9));
   const hit = castShot(camera.position.clone(), d, hv ? 1100 : 800, 'f');
   if (m.belt % (hv ? 2 : 3) === 0) fxTracer(from, hit.p, false);
   fxMuzzle(from, true); LIGHTS.muzzle.position.copy(from); LIGHTS.muzzle.intensity = hv ? 1800 : 900; sndShot('mag'); if (hv) sndBoom(from, 0.14); FX.shake = Math.max(FX.shake, hv ? 0.24 : 0.12);
-  P.pitch += hv ? 0.007 : 0.004; P.yaw += rand(-0.003, 0.003) * (hv ? 1.6 : 1);
+  P.pitch += hv ? 0.01 : 0.0065; P.yaw += rand(-0.005, 0.005) * (hv ? 1.6 : 1);
   applyHit(hit, hv ? 240 : 80);
   // a .50 round goes through the first man and on into the next, and tears up the sand where it lands
   if (hv) { if (hit.kind === 'enemy') { const h2 = castShot(hit.p.clone().addScaledVector(d, 0.7), d, 14, 'f'); if (h2.kind === 'enemy') applyHit(h2, 160); } if (hit.kind === 'ground' || hit.kind === 'enemy' || !hit.kind) { const q = hit.p.clone(); fxDust(q); fxDust(q.clone().add(V3(rand(-0.4, 0.4), 0.3, rand(-0.4, 0.4)))); } }
@@ -4606,9 +4663,9 @@ function updPlayer(dt) {
   const crNod = P.mode === 'rifle' || P.mode === 'carry' ? -(P.crV || 0) * 0.012 : 0;
   camera.rotation.set(P.pitch + crNod + (sh ? rand(-sh, sh) * 0.03 : 0), P.yaw + (sh ? rand(-sh, sh) * 0.02 : 0), P.mode === 'rifle' || P.mode === 'carry' ? (P.roll || 0) : 0, 'YXZ');
   // ads & fov
-  const wantAds = (INPUT.ads || k.KeyQ || INPUT.tAds) && ((P.mode === 'rifle' && P.reloadT <= 0 && !P.sprint) || P.mode === 'mag');
+  const wantAds = (INPUT.ads || k.KeyQ || INPUT.tAds) && ((P.mode === 'rifle' && P.reloadT <= 0 && !P.sprint) || P.mode === 'mag' || !!(P.ride && P.ride.mg));
   P.ads = clamp(P.ads + (wantAds ? 1 : -1) * dt * 7, 0, 1);
-  const fov = P.mode === 'mag' ? lerp(62, P.post && P.post.mag && P.post.mag.big ? 24 : 30, P.ads) : lerp(P.ride ? rideFov() : 72, FIELDM() ? 32 : 40, P.ads);   /* the guns on the rampart have their sight too: twice as close, the men in the boats plain to see */ if (Math.abs(camera.fov - fov) > 0.05) { camera.fov = fov; camera.updateProjectionMatrix(); }
+  const fov = P.mode === 'mag' ? lerp(62, P.post && P.post.mag && P.post.mag.big ? 24 : 30, P.ads) : lerp(P.ride ? rideFov() : 72, P.ride && P.ride.mg ? 30 : FIELDM() ? 32 : 40, P.ads);   /* the guns on the rampart have their sight too: twice as close, the men in the boats plain to see */ if (Math.abs(camera.fov - fov) > 0.05) { camera.fov = fov; camera.updateProjectionMatrix(); }
   // viewmodel
   // the rifle has inertia: it lags a little behind a turn of the head, swings with the stride and settles into the sprint carry over a few frames
   { const dy = wrapPi(P.yaw - (P.pyaw ?? P.yaw)), dp = P.pitch - (P.ppitch ?? P.pitch); P.pyaw = P.yaw; P.ppitch = P.pitch; const kq = 1 - Math.exp(-dt * 9);
@@ -4827,7 +4884,7 @@ function drawMinimap() {
 function clearBattle() {
   SLOW.left = 0; SLOW.k = 1; SLOW.look = null;
   for (const e of UNITS.enemies) { e.alive = false; e.rig.root.visible = false; e.deadAt = undefined; e.tag.visible = false; e.cover = null; e.state = 'dead'; e.sz = null; e.slot = null; e.cov = null; }
-  for (const b of [...BOATS]) b.dispose(); BOATS.length = 0; GROUPS.length = 0; DIRQ.length = 0; dropsClear(); flotReset();
+  for (const b of [...BOATS]) b.dispose(); BOATS.length = 0; GROUPS.length = 0; DIRQ.length = 0; dropsClear(); flotReset(); ROWS.on = false; LANDCAP.n = 999;
   for (const q of PROJ) { scene.remove(q.m); if (q.marker) scene.remove(q.marker); } PROJ.length = 0;
   FX.flashes.clear(); FX.glows.clear(); FX.smoke.clear(); FX.dust.clear(); FX.fire.clear(); FX.trail.clear(); FX.exh.clear(); for (const t of FX.tracers) { t.on = false; t.m.visible = false; }
   DRUMFIRE.on = false; LIGHTS.fire.intensity = 0; LIGHTS.boom.intensity = 0; LIGHTS.wreck.intensity = 0; for (const p of POSTS) if (p.occupant === 'player') p.occupant = null;
@@ -5047,9 +5104,10 @@ function frameInner() {
   sky.position.copy(camera.position); if (NSKY.g.visible) NSKY.g.position.copy(camera.position); camera.getWorldDirection(_fwd); followSun(camera.position.x + _fwd.x * 40, camera.position.z + _fwd.z * 40); updateVmLight();
   if (GAME.state === 'play') updHUD(dt);
   if (CVID.on) { if (GAME.state !== 'play' && !CVID.el.paused) CVID.el.pause(); return; }   // a film on video: its picture covers the view, nothing to draw under it (paused with the game)
-  const showVm = GAME.state === 'play' && P.mode === 'rifle' && !CINE.on;
+  const ms = magSightUpd(real, CINE.on || GAME.state !== 'play'), showVm = GAME.state === 'play' && !CINE.on && (P.mode === 'rifle' || ms > 0.02), vmWas = vm.visible; if (ms > 0.02) vm.visible = false;   // aiming a machine gun: its sights in the viewmodel pass instead of the rifle
   if (composer) { vmPass.enabled = showVm; composer.render(dt); }
   else { renderer.setRenderTarget(null); renderer.clear(); renderer.render(scene, camera); if (showVm) { renderer.clearDepth(); renderer.render(vmScene, vmCamera); } }
+  vm.visible = vmWas;
   labelRenderer.render(scene, camera);
 }
 /* ---------- starting up: the menu comes first, and each battlefield is built only when its mission is chosen ---------- */
@@ -7160,11 +7218,12 @@ const camOrbit = (c, r, a0, a1, h, fov) => (u) => { const C = typeof c === 'func
 
 /* ---------- film, chapter 1, the big wave: the canal full of boats rowing at the rampart, the first of them grounding on the beach ---------- */
 function mzBoatsFilm() {
-  if (D.boatsFilm || CINE.on) return; const W = BOATS.filter((b) => !b.dead && b.state === 'wait'); if (W.length < 4) return; D.boatsFilm = true;
-  // the fleet is brought out to mid-canal (the leading boats a little nearer): the film opens on the crossing at its height. One boat, the
-  // nearest the middle of the wave, is close in: it grounds while the film runs, and its men are the first up the beach
-  const T_LAND = 14.6, zc = 20; W.sort((a, b) => Math.abs(a.zLand - zc) - Math.abs(b.zLand - zc)); const lead = W[0], mid = W.find((b, i) => i > 0 && Math.abs(b.zLand - zc) > 6) || W[1];
-  W.forEach((b, i) => { const u = b === lead ? 1 - (T_LAND * b.speed) / b.len : b === mid ? 0.55 : 0.34 + 0.28 * ((i * 0.618034) % 1); b.t = (u * b.len) / b.speed; });
+  if (D.boatsFilm || CINE.on) return; const W = BOATS.filter((b) => !b.dead && (b.state === 'wait' || b.state === 'cross')); if (W.length < 2) return; D.boatsFilm = true;
+  // the rows are already timed (rowsStart) so that the first of them, two boats, grounds while the film runs - its men the first up the beach -
+  // and the next row lands a moment after the player has the gun again. The lead boat is the first row's nearest the middle of the wave
+  const T_LAND = 14.6, zc = 20, byZ = (a, b) => Math.abs(a.zLand - zc) - Math.abs(b.zLand - zc), rowA = W.filter((b) => b.wave === 0), rowB = W.filter((b) => b.wave === 1);
+  const lead = (rowA.length ? rowA : W).slice().sort(byZ)[0], mid = (rowB.length ? rowB : W.filter((b) => b !== lead)).slice().sort(byZ)[0] || lead;
+  if (!rowA.length) W.forEach((b, i) => { const u = b === lead ? 1 - (T_LAND * b.speed) / b.len : b === mid ? 0.55 : 0.34 + 0.28 * ((i * 0.618034) % 1); b.t = (u * b.len) / b.speed; });
   for (const b of W) filmRow(b, true);   // the oars shipped for the film, as in the drone's (up close the rowing does not look right)
   const zl = lead.zLand, bx = () => lead.g.position.clone(), cx = crestX(zc), cy = groundAt(cx, zc), fwd = (b) => V3(Math.sin(b.heading), 0, Math.cos(b.heading)), rgt = (b) => V3(Math.cos(b.heading), 0, -Math.sin(b.heading));
   const mp = () => mid.g.position.clone(), beachX = tongueWestX(zl), pe = playerEye();
@@ -7186,7 +7245,7 @@ function mzBoatsFilm() {
     ev,
     caps: [[0.3, '<b>לפנות ערב.</b> הם זורקים את הכול: סירות לכל אורך הסוללה המערבית, מקצה לקצה.', 4.8], [5.8, 'בכל סירה חיילים צפופים. החותרים לא עוצרים, גם כשהמים מסביבם רותחים מאש.', 4.2],
       [10.4, '<b>תצפית:</b> הראשונים כבר ליד החוף! עוד רגע הם על הסוללה!', 3.6], [14.8, '<b>מ״פ:</b> הם נוחתים! כולם לסוללה המערבית!', 3.6], [19.8, '<b>מ״פ:</b> לא נותנים להם לעלות. אש על הסירות, עכשיו!', 3.0]],
-    end: () => { for (const b of W) filmRow(b, false); },
+    boatFilm: true, end: () => { for (const b of BOATS) if (b.filmHide) filmRow(b, false); },
   });
 }
 /* ---------- film, chapter 1, the boats up close: the moment the player takes a gun on the western rampart, a drone's pass along the line of
@@ -7200,7 +7259,7 @@ function bcrewUnit(i) {
 }
 function filmRow(b, on) {
   b.filmHide = on;
-  for (const s of b.seats) if (s.rower) { s.m.visible = !on && s.alive; s.oar.visible = !on; }
+  for (const s of b.seats) if (s.rower) { s.m.visible = !on && s.alive && !s.gone; s.oar.visible = !on && !s.gone; }
   if (on && !b.filmExtra) { b.filmExtra = []; const have = b.seats.filter((s) => !s.rower).length; for (let i = have; i < 8; i++) { const m = new THREE.Mesh(SEATED, MAT.clothE); m.position.set(SEATS[i][0], 0.02, SEATS[i][1]); m.rotation.y = Math.PI / 2; m.scale.setScalar(US / BOAT_S); b.g.add(m); b.filmExtra.push(m); } }
   if (!on && b.filmExtra) { for (const m of b.filmExtra) b.g.remove(m); b.filmExtra = null; }
 }
@@ -7262,7 +7321,7 @@ function mzDroneFilm() {
     ],
     tick,
     caps: [[0.4, '<b>תצפית:</b> הם כבר באמצע התעלה! עשרות סירות, שורה אחרי שורה!', 4.6], [8.0, 'בכל סירה חיילים צפופים. הם יורים עלינו תוך כדי חתירה.', 5.0], [19.6, '<b>מ״פ:</b> אש על הסירות! לא נותנים להם להגיע לחוף!', 4.6]],
-    end: () => { for (const b of [...F.used.keys()]) crewOff(b); for (const b of W) filmRow(b, false); },
+    boatFilm: true, end: () => { for (const b of [...F.used.keys()]) crewOff(b); for (const b of BOATS) if (b.filmHide) filmRow(b, false); },
   });
 }
 
@@ -8294,7 +8353,7 @@ function crSetup(stage) {
   const lead = C.jeeps[0];
   lead.crew[0].visible = stage > 1;
   const put = (lx, lz, yaw, y) => { const [x, z] = CW(lx, lz); P.pos.set(x, y === undefined ? groundAt(x, z) : hAt(x, z, y + 0.4), z); P.yaw = yaw; P.pitch = 0; };
-  if (stage <= 1) { P.ride = { pos: () => lead.g.localToWorld(V3(-1.2, 1.3, 0)), eye: 1.62, mg: true, muzzle: () => C.mg.localToWorld(V3(0, 0.012, -1.5)) }; lead.g.updateMatrixWorld(true); P.pos.copy(P.ride.pos()); P.yaw = Math.PI / 2; P.pitch = -0.04; vm.visible = false; }
+  if (stage <= 1) { P.ride = { pos: () => lead.g.localToWorld(V3(-1.2, 1.3, 0)), eye: 1.62, mg: true, gun: C.mg, muzzle: () => C.mg.localToWorld(V3(0, 0.012, -1.5)) }; lead.g.updateMatrixWorld(true); P.pos.copy(P.ride.pos()); P.yaw = Math.PI / 2; P.pitch = -0.04; vm.visible = false; }
   else if (stage === 2) put(-149, 34, 0.98);
   else { const pw = C.vh[2].win.filter((wn) => wn.nx < -0.5)[1].slot; P.pos.set(pw.x, hAt(pw.x, pw.z, pw.y + 0.4), pw.z); P.yaw = Math.PI / 2; P.pitch = 0; }   // the other west window of the house at the corner is the player's
   const seats = [crSeat(lead, -1.5, -0.55), crSeat(lead, -1.5, 0.55), crSeat(C.jeeps[1], -1.45, -0.5), crSeat(C.jeeps[1], -1.45, 0.5), crSeat(C.jeeps[1], -0.35, 0.3), crSeat(C.jeeps[2], -1.45, -0.5), crSeat(C.jeeps[2], -1.45, 0.5), crSeat(C.jeeps[2], -0.35, 0.3)];
@@ -10952,7 +11011,7 @@ function rgOutOfTank() {
   P.mode = 'rifle'; P.ads = 0; P.crouch = false; INPUT.tAds = false; $('#tads').classList.remove('on'); $('#tsight').classList.remove('on'); TANK.thr = 0; TANK.turn = 0;
   P.pos.set(px, hAt(px, pz), pz); P.vy = 0; vm.visible = true; sndClick(500, 0.2);
 }
-function rgOnJeep() { const C = CHAP.range, j = C.jeep, mg = C.jeepRec.mg, pv = vehPivot('jeep'); j.updateMatrixWorld(true); P.ride = { pos: () => { const b = mg.rotation.y, D = 1.08, S = 0.24; return j.localToWorld(V3(pv[0] - D * Math.cos(b) - S * Math.sin(b), 0.98, pv[2] + D * Math.sin(b) - S * Math.cos(b))); }, eye: 1.78, mg: true, novm: true, muzzle: () => mg.localToWorld(V3(mg.userData.tip, 0.1, 0)) }; P.pos.copy(P.ride.pos()); P.yaw = -0.5; P.pitch = -0.03; vm.visible = false; sndClick(600, 0.2); }
+function rgOnJeep() { const C = CHAP.range, j = C.jeep, mg = C.jeepRec.mg, pv = vehPivot('jeep'); j.updateMatrixWorld(true); P.ride = { pos: () => { const b = mg.rotation.y, D = 1.08, S = 0.24; return j.localToWorld(V3(pv[0] - D * Math.cos(b) - S * Math.sin(b), 0.98, pv[2] + D * Math.sin(b) - S * Math.cos(b))); }, eye: 1.78, mg: true, novm: true, gun: mg, muzzle: () => mg.localToWorld(V3(mg.userData.tip, 0.1, 0)) }; P.pos.copy(P.ride.pos()); P.yaw = -0.5; P.pitch = -0.03; vm.visible = false; sndClick(600, 0.2); }
 function rgOffJeep() { const C = CHAP.range, j = C.jeep.position, px = j.x + 1.5, pz = j.z + 2.6; P.ride = null; P.crouch = false; P.pos.set(px, hAt(px, pz), pz); P.vy = 0; vm.visible = true; sndClick(600, 0.2); }
 function rgPrompt() {
   const C = CHAP.range;

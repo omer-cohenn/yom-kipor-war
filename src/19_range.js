@@ -154,7 +154,7 @@ function rgOutOfTank() {
   P.mode = 'rifle'; P.ads = 0; P.crouch = false; INPUT.tAds = false; $('#tads').classList.remove('on'); $('#tsight').classList.remove('on'); TANK.thr = 0; TANK.turn = 0;
   P.pos.set(px, hAt(px, pz), pz); P.vy = 0; vm.visible = true; sndClick(500, 0.2);
 }
-function rgOnJeep() { const C = CHAP.range, j = C.jeep, mg = C.jeepRec.mg, pv = vehPivot('jeep'); j.updateMatrixWorld(true); P.ride = { pos: () => { const b = mg.rotation.y, D = 1.08, S = 0.24; return j.localToWorld(V3(pv[0] - D * Math.cos(b) - S * Math.sin(b), 0.98, pv[2] + D * Math.sin(b) - S * Math.cos(b))); }, eye: 1.78, mg: true, novm: true, muzzle: () => mg.localToWorld(V3(mg.userData.tip, 0.1, 0)) }; P.pos.copy(P.ride.pos()); P.yaw = -0.5; P.pitch = -0.03; vm.visible = false; sndClick(600, 0.2); }
+function rgOnJeep() { const C = CHAP.range, j = C.jeep, mg = C.jeepRec.mg, pv = vehPivot('jeep'); j.updateMatrixWorld(true); P.ride = { pos: () => { const b = mg.rotation.y, D = 1.08, S = 0.24; return j.localToWorld(V3(pv[0] - D * Math.cos(b) - S * Math.sin(b), 0.98, pv[2] + D * Math.sin(b) - S * Math.cos(b))); }, eye: 1.78, mg: true, novm: true, gun: mg, muzzle: () => mg.localToWorld(V3(mg.userData.tip, 0.1, 0)) }; P.pos.copy(P.ride.pos()); P.yaw = -0.5; P.pitch = -0.03; vm.visible = false; sndClick(600, 0.2); }
 function rgOffJeep() { const C = CHAP.range, j = C.jeep.position, px = j.x + 1.5, pz = j.z + 2.6; P.ride = null; P.crouch = false; P.pos.set(px, hAt(px, pz), pz); P.vy = 0; vm.visible = true; sndClick(600, 0.2); }
 function rgPrompt() {
   const C = CHAP.range;

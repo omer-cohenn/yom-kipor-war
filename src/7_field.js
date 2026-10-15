@@ -761,11 +761,12 @@ const camOrbit = (c, r, a0, a1, h, fov) => (u) => { const C = typeof c === 'func
 
 /* ---------- film, chapter 1, the big wave: the canal full of boats rowing at the rampart, the first of them grounding on the beach ---------- */
 function mzBoatsFilm() {
-  if (D.boatsFilm || CINE.on) return; const W = BOATS.filter((b) => !b.dead && b.state === 'wait'); if (W.length < 4) return; D.boatsFilm = true;
-  // the fleet is brought out to mid-canal (the leading boats a little nearer): the film opens on the crossing at its height. One boat, the
-  // nearest the middle of the wave, is close in: it grounds while the film runs, and its men are the first up the beach
-  const T_LAND = 14.6, zc = 20; W.sort((a, b) => Math.abs(a.zLand - zc) - Math.abs(b.zLand - zc)); const lead = W[0], mid = W.find((b, i) => i > 0 && Math.abs(b.zLand - zc) > 6) || W[1];
-  W.forEach((b, i) => { const u = b === lead ? 1 - (T_LAND * b.speed) / b.len : b === mid ? 0.55 : 0.34 + 0.28 * ((i * 0.618034) % 1); b.t = (u * b.len) / b.speed; });
+  if (D.boatsFilm || CINE.on) return; const W = BOATS.filter((b) => !b.dead && (b.state === 'wait' || b.state === 'cross')); if (W.length < 2) return; D.boatsFilm = true;
+  // the rows are already timed (rowsStart) so that the first of them, two boats, grounds while the film runs - its men the first up the beach -
+  // and the next row lands a moment after the player has the gun again. The lead boat is the first row's nearest the middle of the wave
+  const T_LAND = 14.6, zc = 20, byZ = (a, b) => Math.abs(a.zLand - zc) - Math.abs(b.zLand - zc), rowA = W.filter((b) => b.wave === 0), rowB = W.filter((b) => b.wave === 1);
+  const lead = (rowA.length ? rowA : W).slice().sort(byZ)[0], mid = (rowB.length ? rowB : W.filter((b) => b !== lead)).slice().sort(byZ)[0] || lead;
+  if (!rowA.length) W.forEach((b, i) => { const u = b === lead ? 1 - (T_LAND * b.speed) / b.len : b === mid ? 0.55 : 0.34 + 0.28 * ((i * 0.618034) % 1); b.t = (u * b.len) / b.speed; });
   for (const b of W) filmRow(b, true);   // the oars shipped for the film, as in the drone's (up close the rowing does not look right)
   const zl = lead.zLand, bx = () => lead.g.position.clone(), cx = crestX(zc), cy = groundAt(cx, zc), fwd = (b) => V3(Math.sin(b.heading), 0, Math.cos(b.heading)), rgt = (b) => V3(Math.cos(b.heading), 0, -Math.sin(b.heading));
   const mp = () => mid.g.position.clone(), beachX = tongueWestX(zl), pe = playerEye();
@@ -787,7 +788,7 @@ function mzBoatsFilm() {
     ev,
     caps: [[0.3, '<b>לפנות ערב.</b> הם זורקים את הכול: סירות לכל אורך הסוללה המערבית, מקצה לקצה.', 4.8], [5.8, 'בכל סירה חיילים צפופים. החותרים לא עוצרים, גם כשהמים מסביבם רותחים מאש.', 4.2],
       [10.4, '<b>תצפית:</b> הראשונים כבר ליד החוף! עוד רגע הם על הסוללה!', 3.6], [14.8, '<b>מ״פ:</b> הם נוחתים! כולם לסוללה המערבית!', 3.6], [19.8, '<b>מ״פ:</b> לא נותנים להם לעלות. אש על הסירות, עכשיו!', 3.0]],
-    end: () => { for (const b of W) filmRow(b, false); },
+    boatFilm: true, end: () => { for (const b of BOATS) if (b.filmHide) filmRow(b, false); },
   });
 }
 /* ---------- film, chapter 1, the boats up close: the moment the player takes a gun on the western rampart, a drone's pass along the line of
@@ -801,7 +802,7 @@ function bcrewUnit(i) {
 }
 function filmRow(b, on) {
   b.filmHide = on;
-  for (const s of b.seats) if (s.rower) { s.m.visible = !on && s.alive; s.oar.visible = !on; }
+  for (const s of b.seats) if (s.rower) { s.m.visible = !on && s.alive && !s.gone; s.oar.visible = !on && !s.gone; }
   if (on && !b.filmExtra) { b.filmExtra = []; const have = b.seats.filter((s) => !s.rower).length; for (let i = have; i < 8; i++) { const m = new THREE.Mesh(SEATED, MAT.clothE); m.position.set(SEATS[i][0], 0.02, SEATS[i][1]); m.rotation.y = Math.PI / 2; m.scale.setScalar(US / BOAT_S); b.g.add(m); b.filmExtra.push(m); } }
   if (!on && b.filmExtra) { for (const m of b.filmExtra) b.g.remove(m); b.filmExtra = null; }
 }
@@ -863,7 +864,7 @@ function mzDroneFilm() {
     ],
     tick,
     caps: [[0.4, '<b>תצפית:</b> הם כבר באמצע התעלה! עשרות סירות, שורה אחרי שורה!', 4.6], [8.0, 'בכל סירה חיילים צפופים. הם יורים עלינו תוך כדי חתירה.', 5.0], [19.6, '<b>מ״פ:</b> אש על הסירות! לא נותנים להם להגיע לחוף!', 4.6]],
-    end: () => { for (const b of [...F.used.keys()]) crewOff(b); for (const b of W) filmRow(b, false); },
+    boatFilm: true, end: () => { for (const b of [...F.used.keys()]) crewOff(b); for (const b of BOATS) if (b.filmHide) filmRow(b, false); },
   });
 }
 

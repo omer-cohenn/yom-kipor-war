@@ -319,3 +319,39 @@ function vmAnimate(dt, firing, reloadU) {
   L.position.copy(VM_LHG).lerp(VM_LMAG, toMag); L.position.y -= 0.16 * out + 0.12 * away; L.position.x += 0.05 * away;
   mag.visible = !(u > 0.36 && u < 0.55); mag.position.copy(VM_MAG0); mag.position.y -= 0.16 * out; mag.position.x += 0.05 * away;
 }
+
+/* ---------- the machine gun's sights, for aiming: the MAG on the rampart and on the jeeps ----------
+   Seen as the gunner sees it with his cheek on the stock: the top of the receiver and the feed cover close below, the side plates either
+   side of it and a few brass rounds of the belt at the right, the rear sight - a thick ring on its post between two guards - and through it,
+   far down the ribbed barrel, the front sight blade between its ears. The line of sight is the camera's own axis, so the ring and the blade
+   sit dead centre whatever the screen. It rises into view as the gun comes up to the eye, and kicks with every round */
+const MAGSIGHT = (() => {
+  const K = 0x2a2927, D = 0x1f1e1c, W = 0x3a3733, B = 0xb48c4c, z0 = -0.16, zf = -0.58;
+  const G = { tor: (r, t, a, b) => new THREE.TorusGeometry(r, t, a, b), box: (x, y, z) => new THREE.BoxGeometry(x, y, z), cyl: (a, b, h, n) => new THREE.CylinderGeometry(a, b, h, n) };
+  const parts = [
+    [G.tor(0.0175, 0.0056, 10, 44), K, M4(0, 0, z0)],                                                                 // the ring of the rear sight
+    [G.box(0.014, 0.03, 0.008), K, M4(0, -0.037, z0)], [G.box(0.034, 0.008, 0.03), D, M4(0, -0.054, z0 + 0.004)],       // its post, and the base it stands on
+    ...[-1, 1].map((sd) => [G.box(0.008, 0.022, 0.022), W, M4(sd * 0.02, -0.045, z0 + 0.002)]),                         // the guards either side
+    [G.box(0.08, 0.06, 0.26), D, M4(0, -0.09, -0.18)],                                                                  // the receiver
+    [G.box(0.052, 0.012, 0.09), W, M4(0, -0.053, -0.1)], [G.cyl(0.0045, 0.0045, 0.003, 10), K, M4(0, -0.0465, -0.085)],  // the feed cover and its catch
+    ...[-1, 1].map((sd) => [G.box(0.012, 0.07, 0.13), W, M4(sd * 0.054, -0.077, -0.12)]),                               // the side plates
+    ...[-1, 1].map((sd) => [G.cyl(0.006, 0.006, 0.13, 8), W, M4(sd * 0.054, -0.042, -0.12, Math.PI / 2, 0, 0)]),         // their rounded tops
+    ...[0, 1, 2, 3].map((k) => [G.cyl(0.0042, 0.0042, 0.026, 8), B, M4(0.074, -0.058 - k * 0.0105, -0.135 + k * 0.004, 0, 0, Math.PI / 2)]),   // the belt: brass rounds
+    [G.cyl(0.0105, 0.0105, -0.3 - zf, 12), D, M4(0, -0.028, (zf - 0.3) / 2 - 0.005, Math.PI / 2, 0, 0)],                  // the barrel and its jacket
+    ...[0, 1, 2, 3, 4, 5, 6, 7].map((k) => [G.cyl(0.0128, 0.0128, 0.007, 12), K, M4(0, -0.028, -0.32 - k * 0.032, Math.PI / 2, 0, 0)]),   // its cooling ribs
+    [G.box(0.013, 0.014, 0.012), K, M4(0, -0.016, zf)], [G.box(0.0022, 0.011, 0.003), D, M4(0, -0.0055, zf)],            // the front sight: its block and blade, the tip on the line
+    ...[-1, 1].map((sd) => [G.box(0.0022, 0.012, 0.004), K, M4(sd * 0.0058, -0.008, zf)]),                              // and its ears
+  ];
+  const g = new THREE.Group(), m = new THREE.Mesh(build(parts), VMAT.metal); g.add(m); g.visible = false; vmScene.add(g); return g;
+})();
+/* how far the gunner has the sights up (0..1), and the sights placed for it; the world's gun is hidden while they are up */
+function magSightUpd(dt, off) {
+  const mag = !off && P.mode === 'mag' && P.post && P.post.mag && !P.post.mag.big && !P.post.mag.heavy, jeep = !off && !!(P.ride && P.ride.mg), k = mag || jeep ? P.ads : 0;
+  const gun = mag ? P.post.mag.pivot : jeep ? P.ride.gun : null, hide = gun && k > 0.5 ? gun : null;
+  if (P.adsHid && P.adsHid !== hide) { P.adsHid.visible = true; P.adsHid = null; } if (hide && hide.visible) { hide.visible = false; P.adsHid = hide; }
+  MAGSIGHT.visible = k > 0.02; if (!MAGSIGHT.visible) return 0;
+  const e = k * k * (3 - 2 * k), kick = P.vmKick || 0; P.vmKick = Math.max(0, kick - dt * 14);
+  MAGSIGHT.position.set(rand(-1, 1) * 0.0006 * kick, -0.14 * (1 - e) + 0.0018 * kick, 0.008 * kick); MAGSIGHT.rotation.set(0.008 * kick, 0, 0);
+  return k;
+}
+
