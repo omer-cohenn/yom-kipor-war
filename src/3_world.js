@@ -1281,9 +1281,9 @@ const TRUCK_GEO = build(truckParts({ B: 0x68674a, D: 0x5d5c42, K: 0x1f1e1b, C: 0
 const TRUCK_BURNT = build(truckParts({ B: 0x2c2926, D: 0x25221f, K: 0x151412, C: 0x2a2724 }).filter((p, i) => i !== 5));
 /* a vehicle standing in the scene. The tanks and trucks of the old set give way to the modelled ones: a Magach for our tank, a jeep for
    every truck and half-track (the burnt-out trucks become burnt-out jeeps: in their paint, broken, and on fire) */
-function vehicle(geo, x, z, rot, hx, hz, h) {
+function vehicle(geo, x, z, rot, hx, hz, h, jeepOnly = false) {   // jeepOnly: a burnt-out truck is always a burnt-out jeep (no lorry wrecks)
   // about half the burnt-out trucks are the modelled wrecks of a lorry or a tanker, sooted over: their own size for the collider and the cover
-  if (geo === TRUCK_BURNT && mdlHas('w_truck') && Math.random() < 0.55) {
+  if (geo === TRUCK_BURNT && !jeepOnly && mdlHas('w_truck') && Math.random() < 0.55) {
     const nm = mdlHas('w_tanker') && Math.random() < 0.4 ? 'w_tanker' : 'w_truck', b = mdlBox(nm), g0 = groundAt(x, z), m = mdlLOD(nm, mdlMats(nm, { color: 0x8a7e74 }, 'burnt'), LITE ? [0, 22, 70] : [0, 40, 120]);
     m.position.set(x, g0 - 0.04, z); m.rotation.y = rot; scene.add(SH(onLayer1(m))); addCollider(x, z, b[0] / 2, b[2] / 2, rot, g0 + b[1]); coverBox(x, z, b[0] / 2, b[2] / 2, rot, Math.min(2.2, b[1])); return m;
   }
@@ -1305,7 +1305,7 @@ function freeSpots(n, test, seed, gen) { const r = rng(seed), out = []; for (let
 function yardClutter() {
   const inYard = (x, z) => inPoly(x, z, YARD) && !blocked(x, z, 1.8, groundAt(x, z)) && onTrench(x, z) > 3.5 && nearRoad(x, z) > 1.5 && Math.hypot(x - DOORS.aid.x, z - DOORS.aid.z) > 5;
   scatterInst(CRATER_GEO, MAT.vc, freeSpots(26, inYard, 71, (r) => [-70 + r() * 125, -85 + r() * 170]), 0.7, 1.5, 72);
-  vehicle(TRUCK_GEO, 29, -32, 0.35, 3.3, 1.2, 3.0);
+  vehicle(JEEP_GEO, 29, -32, 0.35, 3.3, 1.2, 3.0);   // a jeep, not the old box-built lorry: no vehicle in the game but the tank and the jeep
   mortarPit(20, 31); mortarPit(-28, -71);
   { const mm = new THREE.Matrix4(), q = new THREE.Quaternion(); const rails = new THREE.InstancedMesh(new THREE.BoxGeometry(6, 0.14, 0.12), MAT.rust, 18); let k = 0; for (let l = 0; l < 3; l++) for (let i = 0; i < 6; i++) rails.setMatrixAt(k++, mm.compose(V3(40, groundAt(40, -10) + 0.08 + l * 0.15, -11.5 + i * 0.5 + (l % 2) * 0.2), q.setFromAxisAngle(V3(0, 1, 0), 0.05 * l), V3(1, 1, 1))); scene.add(SH(onLayer1(rails))); addCollider(40, -10, 3, 1.5, 0, groundAt(40, -10) + 0.5); }
   for (const [x, z, n] of [[-20, 12, 5], [22, 60, 4], [-50, 44, 6], [40, 51, 5], [-34, -30, 4], [30, -66, 5]]) propPile(Math.abs(x) % 2 ? 'jerry' : 'crate', x, z, n, 0.6, 2);
@@ -1321,7 +1321,7 @@ function outsideClutter() {
   for (const [x, z, rot] of [[-8, -118, 0.1], [14, -124, -0.3], [-2, -136, 0.2], [22, -150, 0.1], [2, 118, 0.2], [-12, 126, -0.2], [10, 140, 0.1], [-6, 156, 0.3], [16, 170, -0.1]]) pile(x, z, rot, 2.2);
   const approach = (x, z) => groundAt(x, z) > 0.5 && !inPoly(x, z, MAOZ) && !blocked(x, z, 1.5, groundAt(x, z));
   scatterInst(CRATER_GEO, MAT.vc, [...freeSpots(30, approach, 84, (r) => [-40 + r() * 110, -300 + r() * 180]), ...freeSpots(30, approach, 85, (r) => [-40 + r() * 100, 110 + r() * 200])], 0.8, 1.8, 86);
-  vehicle(TRUCK_BURNT, 24, -186, 0.5, 3.3, 1.2, 2.6); vehicle(TRUCK_BURNT, 30, 250, -0.3, 3.3, 1.2, 2.6);
+  vehicle(TRUCK_BURNT, 24, -186, 0.5, 3.3, 1.2, 2.6, true); vehicle(TRUCK_BURNT, 30, 250, -0.3, 3.3, 1.2, 2.6, true);   // burnt-out jeeps, never a lorry's wreck
   const poles = [...densify([[6, -110], [30, -150], [48, -250], [52, -330]], 24).map(([x, z]) => [x + 7, z]), ...densify([[4, 110], [12, 200], [20, 320]], 24).map(([x, z]) => [x + 8, z])];
   const pm = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.1, 0.13, 7, 7).translate(0, 3.5, 0), MAT.wood, poles.length), cm = new THREE.InstancedMesh(new THREE.BoxGeometry(1.4, 0.1, 0.1), MAT.wood, poles.length), mm = new THREE.Matrix4(), q = new THREE.Quaternion();
   poles.forEach(([x, z], i) => { const g = groundAt(x, z); pm.setMatrixAt(i, mm.compose(V3(x, g, z), q.identity(), V3(1, 1, 1))); cm.setMatrixAt(i, mm.compose(V3(x, g + 6.6, z), q.identity(), V3(1, 1, 1))); });
@@ -1344,7 +1344,7 @@ function buildStronghold() {
   waterTower(46, -24);
   mast(-17, -52, 15); mast(-2, -54, 11);
   flag(-4, -68, 'il', 9, 0.4);
-  halftrack(-40, -58, 30); camoNet(-40, -58, 7.4, 5, 2.7, -THREE.MathUtils.degToRad(30) + Math.PI / 2);
+  vehicle(HT_GEO, -40, -58, -THREE.MathUtils.degToRad(30) + Math.PI / 2, 3.0, 1.2, 2.0); camoNet(-40, -58, 7.4, 5, 2.7, -THREE.MathUtils.degToRad(30) + Math.PI / 2);   // under the net a jeep, where the box-built half-track stood
   jeep(-25, -32, 0.7);
   const gen = new THREE.Mesh(GEO.boxUp, MAT.concrete); gen.scale.set(4, 2.3, 3); gen.position.set(48, groundAt(48, 32) - 0.1, 32); scene.add(SH(onLayer1(gen))); addCollider(48, 32, 2.1, 1.6, 0, groundAt(48, 32) + 2.2);
   placeTank(4, 20, 270); placeTank(-14, -12, 350); placeTank(8, -82, 0); placeTank(9, 76, 180);

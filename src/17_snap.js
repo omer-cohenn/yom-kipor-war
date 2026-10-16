@@ -104,9 +104,9 @@ function snapRestore(s = SNAP.list[SNAP.list.length - 1]) {
   DIRQ.length = 0; for (const q of s.dirq) DIRQ.push({ ...q });
   if (MODE === 'mezach') { BARRS.forEach((B, i) => { const on = s.barrs[i]; B.on = on; B.g.visible = on; B.col.top = on ? B.top : -1e4; }); }
   if (typeof SMOKES !== 'undefined') smokesRestore(s.smokes || []);
-  // the player: as he was, but with full ammunition
-  snapPut(P, s.P, 2); P.alive = true; P.hp = Math.max(P.hp, 40); P.lastHit = GAME.t - 9; P.vy = 0; P.reloadT = 0; P.throwT = 0; P.fireCd = 0; P.hold = 0; P.ads = 0; P.recoil = 0; P.kick = 0;
-  P.mag = 20; P.reserve = Math.max(P.reserve, 160); P.gren = Math.max(P.gren, diff.gren0); if (P.smokeMax) P.smoke = P.smokeMax;
+  // the player: as he was, but with full health and ammunition
+  snapPut(P, s.P, 2); P.alive = true; P.hp = 100; P.lastHit = GAME.t - 9; P.vy = 0; P.reloadT = 0; P.throwT = 0; P.fireCd = 0; P.hold = 0; P.ads = 0; P.recoil = 0; P.kick = 0;
+  P.mag = 20; cpRefill();
   if (P.mode === 'carry' && P.carrying) { P.carrying.state = 'carried'; P.carrying.unit.rig.root.visible = false; }
   vm.visible = P.mode === 'rifle' && !(P.ride && P.ride.mg); INPUT.fire = INPUT.mFire = INPUT.kFire = false; INPUT.keys = {};
   if (CH() && CH().snapAfter) CH().snapAfter(s); else if (MODE === 'suez') szShow(true);
@@ -128,7 +128,7 @@ function snapOnDeath() {
    the hill, the hold in the ditch, the landing). Every bound and every small event saves only on the easiest level; there is no save on a timer */
 /* the checkpoints are fixed: one at the start of every stage of every chapter. Coming back puts the stage back exactly as it begins - the same
    place, the same time of day, the same enemies - whatever the player had done in it. Nothing is saved mid-stage */
-function snapRequest(why = 'stage') { if (why === 'stage' && GAME.t > 1) snapMark(); }
+function snapRequest(why = 'stage') { if (why !== 'stage') return; cpRefill(); if (GAME.t > 1) snapMark(); }   // a stage's start is the checkpoint: it gives back full health and ammunition (cpRefill)
 // the moment is calm enough to keep: alive, not in a film, not just hit, no enemy on top of him, nothing in the air at him
 function snapCalm(strict) {
   if (GAME.state !== 'play' || !P.alive || CINE.on || SLOW.left > 0 || SURV.on || P.mode === 'carry') return false;

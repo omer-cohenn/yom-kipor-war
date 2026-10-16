@@ -767,12 +767,13 @@ function filmWalk(dt) { for (const w of FILMW) { const u = w.u; u.pos.x += w.dx 
 const camLerp = (a, b, l0, l1, fov) => (u) => { const e = u * u * (3 - 2 * u); const A = typeof a === 'function' ? a() : a, B = typeof b === 'function' ? b() : b, L0 = typeof l0 === 'function' ? l0() : l0, L1 = typeof l1 === 'function' ? l1() : l1; return { p: A.clone().lerp(B, e), l: L0.clone().lerp(L1, e), fov }; };
 const camOrbit = (c, r, a0, a1, h, fov) => (u) => { const C = typeof c === 'function' ? c() : c, a = lerp(a0, a1, u); return { p: V3(C.x + Math.sin(a) * r, C.y + h, C.z + Math.cos(a) * r), l: C, fov }; };
 
-/* ---------- film, chapter 1, the big wave: the canal full of boats rowing at the rampart, the first of them grounding on the beach ---------- */
+/* ---------- film, chapter 1, the big wave: the canal full of boats rowing at the rampart, the first of them blown up on the mines short of the beach ---------- */
 function mzBoatsFilm() {
   if (D.boatsFilm || CINE.on) return; const W = BOATS.filter((b) => !b.dead && (b.state === 'wait' || b.state === 'cross')); if (W.length < 2) return; D.boatsFilm = true;
-  // the waves are already timed (rowsStart) so that the first of them, one boat, grounds while the film runs - its men the first up the beach;
-  // the film stops the battle (boatsFreeze), so the rest are back where they were when it ends. The lead boat is the first wave's
-  const T_LAND = 14.6, zc = 20, byZ = (a, b) => Math.abs(a.zLand - zc) - Math.abs(b.zLand - zc), rowA = W.filter((b) => b.wave === 0), rowB = W.filter((b) => b.wave === 1);
+  // the waves are already timed (rowsStart) so that the first of them, one boat, comes in while the film runs - and a second short of the
+  // beach goes up on the mines along the waterline (mzMineBoat), in the fourth shot. The film stops the battle (boatsFreeze), so the rest are
+  // back where they were when it ends. The lead boat is the first wave's
+  const T_LAND = 14.9 + MZ_MINE_T, zc = 20, byZ = (a, b) => Math.abs(a.zLand - zc) - Math.abs(b.zLand - zc), rowA = W.filter((b) => b.wave === 0), rowB = W.filter((b) => b.wave === 1);
   const lead = (rowA.length ? rowA : W).slice().sort(byZ)[0], mid = (rowB.length ? rowB : W.filter((b) => b !== lead)).slice().sort(byZ)[0] || lead; lead.filmLand = true;
   if (!rowA.length) W.forEach((b, i) => { const u = b === lead ? 1 - (T_LAND * b.speed) / b.len : b === mid ? 0.55 : 0.34 + 0.28 * ((i * 0.618034) % 1); b.t = (u * b.len) / b.speed; });
   for (const b of W) filmRow(b, true);   // the oars shipped for the film, as in the drone's (up close the rowing does not look right)
@@ -790,12 +791,12 @@ function mzBoatsFilm() {
       { d: 5.6, cam: camLerp(V3(beachX + 3, 2.6, zc + 26), V3(beachX + 1, 2.2, zc + 20), V3(nearX(-236), 1.2, zc - 8), V3(nearX(-222), 1.0, zc - 2), 24) },
       { d: 4.6, cam: (u) => { const b = mp(), f = fwd(mid), r = rgt(mid), sd = r.x * SUN.dir.x + r.z * SUN.dir.z > 0 ? 1 : -1; return { p: b.clone().addScaledVector(f, -2.5 + u * 3).addScaledVector(r, sd * 9).add(V3(0, 3.4, 0)), l: b.clone().addScaledVector(f, 0.5 + u * 1.5).add(V3(0, 0.6, 0)), fov: 46 }; } },
       { d: 4.0, cam: (u) => { const b = mp(), f = fwd(mid), r = rgt(mid); return { p: b.clone().addScaledVector(f, -6.5 + u * 1.2).addScaledVector(r, 1.4).add(V3(0, 2.5, 0)), l: V3(crestX(mid.zLand) - 4, groundAt(crestX(mid.zLand), mid.zLand) + 2.5, mid.zLand), fov: 48 }; } },
-      { d: 5.4, slow: 0.55, cam: (u) => ({ p: V3(beachX + 10 - u * 1.5, groundAt(beachX + 10, zl + 11) + 2.3, zl + 11), l: V3(lerp(beachX - 3, beachX + 9, u * u), lerp(0.9, groundAt(beachX + 9, zl) + 1.4, u), zl), fov: 44 }) },
+      { d: 5.4, slow: 0.55, cam: (u) => ({ p: V3(beachX + 10 - u * 1.5, groundAt(beachX + 10, zl + 11) + 2.3, zl + 11), l: V3(beachX - 5.5 - u * 1.5, 1.0 + u * 2.2, zl), fov: 44 }) },   /* from the beach: the boat a few metres out, and the mine under it */
       { d: 3.4, cam: (u) => { const x = crestX(zl) - 1 - u * 1.5; return { p: V3(x, groundAt(x, zl + 9) + 2.4, zl + 9), l: V3(beachX + 3 - u * 2, 1.0, zl - 3), fov: 50 }; } },
     ],
     ev,
     caps: [[0.3, '<b>לפנות ערב.</b> הם זורקים את הכול: סירות לכל אורך הסוללה המערבית, מקצה לקצה.', 4.8], [5.8, 'בכל סירה חיילים צפופים. החותרים לא עוצרים, גם כשהמים מסביבם רותחים מאש.', 4.2],
-      [10.4, '<b>תצפית:</b> הראשונים כבר ליד החוף! עוד רגע הם על הסוללה!', 3.6], [14.8, '<b>מ״פ:</b> הם נוחתים! כולם לסוללה המערבית!', 3.6], [19.8, '<b>מ״פ:</b> לא נותנים להם לעלות. אש על הסירות, עכשיו!', 3.0]],
+      [10.4, '<b>תצפית:</b> הראשונים כבר ליד החוף! עוד רגע הם על הסוללה!', 3.6], [15.6, '<b>פיצוץ!</b> הסירה עלתה על מוקש בקו המים. אף אחד מהם לא הגיע לחוף.', 4.0], [19.8, '<b>מ״פ:</b> עוד עשרות סירות בדרך. אש על הסירות, עכשיו!', 3.0]],
     boatFilm: true, boatRate: 0.4, end: () => { for (const b of BOATS) if (b.filmHide) filmRow(b, false); },   /* the rest row on at less than half pace in it: none of them lands */
   });
 }
