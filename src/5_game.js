@@ -753,7 +753,7 @@ function mzMineBoat(bt) {
   const u = Math.max(0, 1 - bt.speed * MZ_MINE_T / bt.len); bt.t = Math.min(bt.t, u * bt.len / bt.speed); bt.g.position.x = lerp(bt.from[0], bt.to[0], u); bt.g.position.z = lerp(bt.from[1], bt.to[1], u); bt.g.updateMatrixWorld();
   const p = bt.g.position.clone(); p.y = 0.1; bt.mined = true; bt.intact = false; bt.setLod(false); bt.hp = 0;
   for (const s of bt.seats) { if (s.alive && !s.gone) { s.alive = false; s.m.visible = false; } if (s.oar) s.oar.visible = false; } for (const m of bt.filmExtra || []) m.visible = false;
-  fxExplosion(p, 1.7); sndBoom(p, 1.5); LIGHTS.boom.intensity = 70000; FX.shake = Math.max(FX.shake, clamp(1.3 - camera.position.distanceTo(p) / 40, 0, 0.8));
+  fxExplosion(p, 1.7); sndBoom(p, 1.5); FX.shake = Math.max(FX.shake, clamp(1.3 - camera.position.distanceTo(p) / 40, 0, 0.8));
   // a column of white water and, in it, the boat's planks thrown up and falling back
   for (let i = 0; i < 12; i++) fxDust(p.clone().add(V3(rand(-1.8, 1.8), 0.3 + i * 0.9, rand(-1.8, 1.8))), true);
   for (let i = 0; i < 9; i++) { const q = FX.dust.get(); q.life = 1.8; const vx = rand(-6, 6), vz = rand(-6, 6); let vy = rand(9, 17); q.s.position.copy(p); q.s.material.color.set(0x4a3a28);
