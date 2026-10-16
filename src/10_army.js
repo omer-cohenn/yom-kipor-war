@@ -88,7 +88,7 @@ function arBuild() {
   const C = CHAP.army; AR.base = mapH('army', arNat);
   const fineX = AR_PITL.map((p) => [AR.o.x + p[0] - 10, AR.o.x + p[0] + 10, 1.1]), fineZ = AR_PITL.map((p) => [AR.o.z + p[1] - 10, AR.o.z + p[1] + 10, 1.1]);
   const nearWork = (lx, lz) => AR_PITL.some((p) => Math.hypot(lx - p[0], lz - p[1]) < 13);
-  C.ground = makeGround({ x0: AR.o.x - 520, x1: AR.o.x + 980, z0: AR.o.z - 1180, z1: AR.o.z + 620, step: 3.6, fineX, fineZ, h: mapH('army', arNat, arCarve), map: 'army', vegOk: (x, z) => { const lx = x - AR.o.x, lz = z - AR.o.z; return Math.abs(lz - AR_ROAD) > 7 && lz < coastZ(lx) - 6 && Math.min(distPolyline(lx, lz, AR_ROUTE0_S), distPolyline(lx, lz, AR_ROUTE2_S)) > 5 && !nearWork(lx, lz); } }); GROUND = C.ground;
+  C.ground = makeGround({ x0: AR.o.x - 520, x1: AR.o.x + 980, z0: AR.o.z - 1180, z1: AR.o.z + 620, step: 3.6, fineX, fineZ, h: mapH('army', arNat, arCarve), map: 'army', vegOk: (x, z) => { const lx = x - AR.o.x, lz = z - AR.o.z; return Math.abs(lz - AR_ROAD) > 7 && lz < coastZ(lx) - 6 && Math.min(distPolyline(lx, lz, AR_ROUTE0_S), distPolyline(lx, lz, AR_ROUTE2_S)) > 5 && !nearWork(lx, lz); }, grass: 'dry' }); GROUND = C.ground;
   const BAGS = [], sv = BATCH.bag; BATCH.bag = BAGS; const k0 = COVER.length; C.slots = []; C.walls = [];
   const face = (x, z, tx, tz) => { const dx = tx - x, dz = tz - z, l = Math.hypot(dx, dz) || 1; return [dx / l, dz / l]; };
   // the lines: a foxhole for each man, facing the firing position the column halts at; parapets of sandbags (cover for the reserve too)

@@ -449,7 +449,7 @@ for (const ev of ['pointerdown', 'pointermove', 'wheel', 'keydown', 'touchmove',
 function facesIdle() { if (!FACEQ.length) return; if (!LD.busy && !document.hidden && performance.now() - FACEIDLE.last > 800) facePaint(FACEQ.shift()); setTimeout(facesIdle, 250); }
 { const F = { f: FACES.f.map((_, v) => faceSlot('f', v)), e: FACES.e.map((_, v) => faceSlot('e', v)) }; MAT.faces = { f: F.f.map((x) => x[0]), e: F.e.map((x) => x[0]) }; MAT.facesShut = { f: F.f.map((x) => x[1]), e: F.e.map((x) => x[1]) }; }
 /* soldiers stand out: slightly larger, with a coloured rim light (red enemies, blue friends) and a marker over the head */
-const US = 1.14;
+const US = 1.18;
 function rimMat(hex, k) {
   const m = MAT.cloth.clone(); const col = new THREE.Color(hex).multiplyScalar(k);
   m.onBeforeCompile = (sh) => { sh.uniforms.uRim = { value: col }; sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform vec3 uRim;').replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n  { float rr = 1.0 - clamp(abs(dot(normalize(vNormal), normalize(vViewPosition))), 0.0, 1.0); totalEmissiveRadiance += uRim * rr * rr * rr * rr; }'); };

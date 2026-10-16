@@ -88,6 +88,8 @@ function resetPlayer() {
 function camForward(out = V3()) { return out.set(-Math.sin(P.yaw) * Math.cos(P.pitch), Math.sin(P.pitch), -Math.cos(P.yaw) * Math.cos(P.pitch)); }
 function playerEye() { return V3(P.pos.x, P.pos.y + (P.ride && P.ride.eye ? P.ride.eye : P.mode === 'carry' ? 1.45 : P.crouch ? 1.05 : 1.65), P.pos.z); }
 /* riding (the jeep's gun, a rubber boat): a wide view, wide enough on a phone held upright to see the road or the far bank on both sides */
+/* on foot: a lens of about 92 degrees across, as in the shooters of the kind (it was 72 tall, 104 across on a wide screen - the enemy small and far, the edges stretched); never wider than 72 tall on a narrow screen */
+function footFov() { const a = camera.aspect || 1.6; return clamp(2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(46)) / a) * 180 / Math.PI, 55, 72); }
 function rideFov() { const a = camera.aspect || 1.6, v = 2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(35)) / a) * 180 / Math.PI; return clamp(v, 80, 104); }
 
 /* ================= raycasting ================= */
@@ -1224,7 +1226,7 @@ function updPlayer(dt) {
   // ads & fov
   const wantAds = (INPUT.ads || k.KeyQ || INPUT.tAds) && ((P.mode === 'rifle' && P.reloadT <= 0 && !P.sprint) || P.mode === 'mag' || !!(P.ride && P.ride.mg));
   P.ads = clamp(P.ads + (wantAds ? 1 : -1) * dt * 7, 0, 1);
-  const fov = P.mode === 'mag' ? lerp(62, P.post && P.post.mag && P.post.mag.big ? 24 : 30, P.ads) : lerp(P.ride ? rideFov() : 72, P.ride && P.ride.mg ? 30 : FIELDM() ? 32 : 40, P.ads);   /* the guns on the rampart have their sight too: twice as close, the men in the boats plain to see */ if (Math.abs(camera.fov - fov) > 0.05) { camera.fov = fov; camera.updateProjectionMatrix(); }
+  const fov = P.mode === 'mag' ? lerp(62, P.post && P.post.mag && P.post.mag.big ? 24 : 30, P.ads) : lerp(P.ride ? rideFov() : footFov(), P.ride && P.ride.mg ? 30 : FIELDM() ? 32 : 40, P.ads);   /* the guns on the rampart have their sight too: twice as close, the men in the boats plain to see */ if (Math.abs(camera.fov - fov) > 0.05) { camera.fov = fov; camera.updateProjectionMatrix(); }
   // viewmodel
   // the rifle has inertia: it lags a little behind a turn of the head, swings with the stride and settles into the sprint carry over a few frames
   { const dy = wrapPi(P.yaw - (P.pyaw ?? P.yaw)), dp = P.pitch - (P.ppitch ?? P.pitch); P.pyaw = P.yaw; P.ppitch = P.pitch; const kq = 1 - Math.exp(-dt * 9);

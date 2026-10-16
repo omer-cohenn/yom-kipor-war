@@ -49,7 +49,7 @@ function makeGround(d) {
   const XS = ax(d.x0, d.x1, d.fineX), ZS = ax(d.z0, d.z1, d.fineZ), NX = XS.length, NZ = ZS.length, HG = new Float32Array(NX * NZ);
   const pos = new Float32Array(NX * NZ * 3), col = new Float32Array(NX * NZ * 3), uv = new Float32Array(NX * NZ * 2), K = 1 / 0.787;
   for (let j = 0; j < NZ; j++) for (let i = 0; i < NX; i++) {
-    const x = XS[i], z = ZS[j], k = j * NX + i; const h = d.h(x, z); HG[k] = h;
+    const x = XS[i], z = ZS[j], k = j * NX + i; const h = d.h(x, z); HG[k] = h; if (d.tint && (d.grassOk || d.vegOk || (() => 1))(x, z)) mixIn(d.tint[0], d.tint[1]);   // the ground under the grass
     pos[k * 3] = x; pos[k * 3 + 1] = h; pos[k * 3 + 2] = z; col[k * 3] = lin(COL[0]) * K; col[k * 3 + 1] = lin(COL[1]) * K; col[k * 3 + 2] = lin(COL[2]) * K; uv[k * 2] = x / 3.3; uv[k * 2 + 1] = z / 3.3;
   }
   const idx = new Uint32Array((NX - 1) * (NZ - 1) * 6); let p = 0;
@@ -58,6 +58,7 @@ function makeGround(d) {
   const Mp = d.map ? MAPS[d.map] : null, mesh = new THREE.Mesh(geo, Mp ? mapTerrainMat(Mp) : terrainMat()); mesh.receiveShadow = !LITE; scene.add(mesh);
   const G = { mesh, at(x, z) { const i = findIdx(XS, x), j = findIdx(ZS, z); const tx = clamp((x - XS[i]) / (XS[i + 1] - XS[i]), 0, 1), tz = clamp((z - ZS[j]) / (ZS[j + 1] - ZS[j]), 0, 1); const k = j * NX + i; return lerp(lerp(HG[k], HG[k + 1], tx), lerp(HG[k + NX], HG[k + NX + 1], tx), tz); } };
   if (Mp) G.veg = mapVeg(Mp, G.at, d.vegOk);   // the map's own plants, standing on this ground
+  if (d.grass && d.map) grassCarpet(d.map, d.grassOk || d.vegOk || (() => 1), d.grass);   // the short grass round the camera (4g_maps.js)
   return G;
 }
 function showWorld(mode) {

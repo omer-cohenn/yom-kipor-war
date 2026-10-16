@@ -386,7 +386,7 @@ function hmTrenchProp(K, x, z, y, a, kind) {
   else K.ft('akms', ...at(0, 0), y, ry, 0, Math.PI / 2, false, T);
 }
 function hmBuild() {
-  grassCarpet('hermon', hmGrassOk); const C = CHAP.hermon; C.ground = makeGround({ x0: HM.o.x - 230, x1: HM.o.x + 230, z0: HM.o.z - 210, z1: HM.o.z + 345, step: 1.6, ext: 1500, h: mapH('hermon', hmOuter, hmCarve), map: 'hermon', vegOk: (x, z) => { const lx = x - HM.o.x, lz = z - HM.o.z; return distPolyline(lx, lz, HM_ROAD_S) > 5 && hmDist(lx, lz) > 70; } }); GROUND = C.ground;
+  grassCarpet('hermon', hmGrassOk, 'green'); const C = CHAP.hermon; C.ground = makeGround({ x0: HM.o.x - 230, x1: HM.o.x + 230, z0: HM.o.z - 210, z1: HM.o.z + 345, step: 1.6, ext: 1500, h: mapH('hermon', hmOuter, hmCarve), map: 'hermon', vegOk: (x, z) => { const lx = x - HM.o.x, lz = z - HM.o.z; return distPolyline(lx, lz, HM_ROAD_S) > 5 && hmDist(lx, lz) > 70; } }); GROUND = C.ground;
   const BAGS = [], sv = BATCH.bag; BATCH.bag = BAGS; const k0 = COVER.length; C.slots = [];
   const K = hmBuildKit(), r = rng(2210), stone = [], L = (x, z) => [x - HM.o.x, z - HM.o.z], y0 = HM_L0, y1 = HM_PY, yR = HM_RY;
   const { x0, x1, z0, z1 } = HM_F, [dx] = HM_DOOR, U = HM_U, ST = HM_STAIR, RS = HM_RSTAIR;

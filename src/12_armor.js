@@ -45,7 +45,7 @@ function amWreck(name, x, z, rot, seed) {
   addCollider(x, z, hx, hz, rot, g0 + h); coverBox(x, z, hx, hz, rot, Math.min(2.2, h)); wreckFire(m, VEH_FIRE[name], name === 'jeep' ? 0.85 : 1.4); return m;
 }
 function amBuild() {
-  const C = CHAP.armor; C.ground = makeGround({ x0: AM.o.x - 1150, x1: AM.o.x + 260, z0: AM.o.z - 220, z1: AM.o.z + 920, step: 3.2, h: mapH('armor', amNat, amCarve), map: 'armor', vegOk: (x, z) => { const lx = x - AM.o.x, lz = z - AM.o.z; return !AM_Z.some((Z) => Math.hypot(lx - Z.x, lz - Z.z) < 36) && Math.abs(lz - 366) > 6; } }); GROUND = C.ground;
+  const C = CHAP.armor; C.ground = makeGround({ x0: AM.o.x - 1150, x1: AM.o.x + 260, z0: AM.o.z - 220, z1: AM.o.z + 920, step: 3.2, h: mapH('armor', amNat, amCarve), map: 'armor', vegOk: (x, z) => { const lx = x - AM.o.x, lz = z - AM.o.z; return !AM_Z.some((Z) => Math.hypot(lx - Z.x, lz - Z.z) < 36) && Math.abs(lz - 366) > 6; }, grass: 'dry', grassOk: (x, z) => Math.abs(z - AM.o.z - 366) > 6 }); GROUND = C.ground;
   const BAGS = [], sv = BATCH.bag; BATCH.bag = BAGS; const k0 = COVER.length; C.slots = [];
   const L = (x, z) => [x - AM.o.x, z - AM.o.z], inZone = (lx, lz) => AM_Z.some((Z) => Math.hypot(lx - Z.x, lz - Z.z) < 22), ok = (x, z) => { const [lx, lz] = L(x, z); return !inZone(lx, lz) && !C.slots.some((s) => Math.hypot(s.x - x, s.z - z) < 5); };
   // Sagger and bazooka nests in front of the northern positions

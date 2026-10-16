@@ -559,7 +559,7 @@ function crWreckT55(lx, lz, hd, r) {
   scene.add(SH(onLayer1(m))); wreckTilt(m, r); wreckFire(m, VEH_FIRE.t55, 1.4); addCollider(x, z, 3.4, 1.8, m.rotation.y, groundAt(x, z) + 2.3); coverBox(x, z, 3.4, 1.8, m.rotation.y, 2.1); return m;
 }
 function crBuild() {
-  const C = CHAP.cross; C.ground = makeGround({ x0: CR.o.x - 440, x1: CR.o.x + 345, z0: CR.o.z - 160, z1: CR.o.z + 450, step: 1.9, h: mapH('cross', crNat, crCarve), map: 'cross', vegOk: (x, z) => { const lx = x - CR.o.x, lz = z - CR.o.z; return Math.abs(lx) > 106 && Math.abs(lz) > 5 && Math.abs(lz - CR_PB_Z) > 6 && Math.abs(lx - CR_BRIDGE) > 12 && !crInVillage(lx, lz, 6) && !(lx > -158 && lx < -94 && Math.abs(lz) < 27); } }); GROUND = C.ground;
+  const C = CHAP.cross; C.ground = makeGround({ x0: CR.o.x - 440, x1: CR.o.x + 345, z0: CR.o.z - 160, z1: CR.o.z + 450, step: 1.9, h: mapH('cross', crNat, crCarve), map: 'cross', vegOk: (x, z) => { const lx = x - CR.o.x, lz = z - CR.o.z; return Math.abs(lx) > 106 && Math.abs(lz) > 5 && Math.abs(lz - CR_PB_Z) > 6 && Math.abs(lx - CR_BRIDGE) > 12 && !crInVillage(lx, lz, 6) && !(lx > -158 && lx < -94 && Math.abs(lz) < 27); }, grass: 'farm', grassOk: (x, z) => { const lx = x - CR.o.x, lz = z - CR.o.z; return Math.abs(lx) > 106 && Math.abs(lz - CR_PB_Z) > 6 && Math.abs(lx - CR_BRIDGE) > 12 && !crInVillage(lx, lz, 1.5); }, tint: [[0.36, 0.43, 0.22], 0.4] }); GROUND = C.ground;
   const BAGS = [], sv = BATCH.bag; BATCH.bag = BAGS; const k0 = COVER.length; C.slots = [];
   // the trench on the rampart between the bridges: sandbag lips, traverses, bunkers, the Egyptian flag
   { const line = []; for (let lz = CR_TZ0; lz <= CR_TZ1; lz += 2.5) line.push([crTX(lz), lz]); const W = (dx) => line.map(([x, z]) => CW(x + dx, z));

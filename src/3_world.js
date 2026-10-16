@@ -206,21 +206,22 @@ function gabionRow(x, z, rot, n, rows, y0) {
   const c = Math.cos(rot), s = Math.sin(rot);
   for (let r = 0; r < rows; r++) for (let i = 0; i < n; i++) { const o = i - (n - 1) / 2; const px = x + c * o, pz = z - s * o; BATCH.gab.push([px, (y0 ?? groundAt(px, pz) - 0.35) + r + 0.5, pz, rot]); }
 }
+const BAG_LH = 0.21;   // a layer of sandbags (the bags a size larger than they were, the walls a little higher)
 function bagWall(pts, layers, baseY = null, collide = true) {
   if (collide && layers >= 3) for (let i = 0; i < pts.length - 1; i++) {
     const a = pts[i], b = pts[i + 1], dx = b[0] - a[0], dz = b[1] - a[1], L = Math.hypot(dx, dz); if (L < 0.2) continue; const mx = (a[0] + b[0]) / 2, mz = (a[1] + b[1]) / 2;
-    const top = (baseY ?? groundAt(mx, mz) - 0.05) + layers * 0.19 + 0.05; addCollider(mx, mz, L / 2 + 0.12, 0.22, Math.atan2(-dz, dx), top);
-    if (layers >= 4 && L > 1.1) { const nx = -dz / L, nz = dx / L, ns = Math.max(1, Math.round(L / 2.6)); for (let k = 0; k < ns; k++) { const t = (k + 0.5) / ns, px = a[0] + dx * t, pz = a[1] + dz * t; addCover(px + nx * 0.75, pz + nz * 0.75, -nx, -nz, layers * 0.19); addCover(px - nx * 0.75, pz - nz * 0.75, nx, nz, layers * 0.19); } }
+    const top = (baseY ?? groundAt(mx, mz) - 0.05) + layers * BAG_LH + 0.05; addCollider(mx, mz, L / 2 + 0.12, 0.22, Math.atan2(-dz, dx), top);
+    if (layers >= 4 && L > 1.1) { const nx = -dz / L, nz = dx / L, ns = Math.max(1, Math.round(L / 2.6)); for (let k = 0; k < ns; k++) { const t = (k + 0.5) / ns, px = a[0] + dx * t, pz = a[1] + dz * t; addCover(px + nx * 0.75, pz + nz * 0.75, -nx, -nz, layers * BAG_LH); addCover(px - nx * 0.75, pz - nz * 0.75, nx, nz, layers * BAG_LH); } }
   }
   const d = densify(pts, 0.56);
   for (let i = 0; i < d.length - 1; i++) {
     const a = d[i], b = d[i + 1]; const dx = b[0] - a[0], dz = b[1] - a[1], L = Math.hypot(dx, dz) || 1; const mx = (a[0] + b[0]) / 2, mz = (a[1] + b[1]) / 2; const rot = Math.atan2(-dz, dx);
     const y0 = baseY ?? groundAt(mx, mz) - 0.05;
-    for (let l = 0; l < layers; l++) { const off = l % 2 ? 0.14 : -0.14; BATCH.bag.push([mx + dx / L * off, y0 + 0.1 + l * 0.19, mz + dz / L * off, rot]); }
+    for (let l = 0; l < layers; l++) { const off = l % 2 ? 0.14 : -0.14; BATCH.bag.push([mx + dx / L * off, y0 + 0.11 + l * BAG_LH, mz + dz / L * off, rot]); }
   }
 }
 function pillowGeo() {
-  const g = new THREE.SphereGeometry(0.5, LITE ? 10 : 16, LITE ? 6 : 10); const p = g.attributes.position; const f = (v, e) => Math.sign(v) * Math.pow(Math.abs(v), e);
+  const g = new THREE.SphereGeometry(0.5, LITE ? 10 : 16, LITE ? 6 : 10).scale(1.1, 1.1, 1.1); const p = g.attributes.position; const f = (v, e) => Math.sign(v) * Math.pow(Math.abs(v), e);
   for (let i = 0; i < p.count; i++) { let x = p.getX(i) * 2, y = p.getY(i) * 2, z = p.getZ(i) * 2; const px = f(x, 0.32), pz = f(z, 0.5); const py = f(y, 0.62) * (1 - 0.22 * px * px); p.setXYZ(i, px * 0.5, py * 0.5, pz * 0.5); }
   g.computeVertexNormals(); return g;
 }

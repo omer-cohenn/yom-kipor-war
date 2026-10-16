@@ -210,44 +210,53 @@ function mapGrassTick() {
    stacked shells, each keeping only the spots where a blade reaches that high - close up a field of separate blades thinning to their tips,
    further off a soft even pile, fading out at the patch's edge. ok(x, z) is 0 where there is none (roads, trenches, floors). It takes the
    scene's light and shadows like the ground under it */
-const GRASS = { mode: null, ok: null, mesh: null, cx: 1e9, cz: 1e9, N: LITE ? 37 : 57, S: LITE ? 0.8 : 0.65, L: LITE ? 8 : 14, H: 0.21, uT: { value: 0 } };
-function grassCarpet(mode, ok) { GRASS.mode = mode; GRASS.ok = ok; GRASS.cx = 1e9; if (!GRASS.mesh) grassBuild(); }
+const GRASS = { by: {}, cur: null, mesh: null, cx: 1e9, cz: 1e9, N: LITE ? 37 : 57, S: LITE ? 0.8 : 0.65, L: LITE ? 8 : 14, uT: { value: 0 }, uH: { value: 0.21 }, uDen: { value: 0.62 },
+  uBase: { value: new THREE.Color() }, uTipA: { value: new THREE.Color() }, uTipB: { value: new THREE.Color() } };
+/* the grass of each chapter's map: where (ok) and what (height in m, how sparse - the share of empty blade cells - and its colours, linear) */
+const GRASS_KIND = {
+  green: { h: 0.21, den: 0.62, base: [0.07, 0.12, 0.035], a: [0.3, 0.5, 0.1], b: [0.55, 0.53, 0.18] },   // a watered field, the mountain in the rains
+  farm: { h: 0.2, den: 0.6, base: [0.07, 0.11, 0.035], a: [0.27, 0.44, 0.09], b: [0.5, 0.48, 0.17] },
+  dry: { h: 0.2, den: 0.8, base: [0.12, 0.1, 0.05], a: [0.5, 0.47, 0.18], b: [0.7, 0.6, 0.27] },      // the desert's dry grass, straw and olive, in tufts with sand between
+};
+function grassCarpet(map, ok, kind = 'green') { GRASS.by[map] = { ok, k: GRASS_KIND[kind] || GRASS_KIND.green }; GRASS.cur = null; if (!GRASS.mesh) grassBuild(); }
 function grassBuild() {
   const N = GRASS.N, base = new THREE.PlaneGeometry(1, 1, N - 1, N - 1); base.rotateX(-Math.PI / 2);
   const g = new THREE.InstancedBufferGeometry(); g.index = base.index; g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(N * N * 3), 3)); g.setAttribute('normal', base.attributes.normal);
   g.setAttribute('aMask', new THREE.BufferAttribute(new Float32Array(N * N), 1));
   const sh = new Float32Array(GRASS.L); for (let i = 0; i < GRASS.L; i++) sh[i] = (i + 1) / GRASS.L; g.setAttribute('aShell', new THREE.InstancedBufferAttribute(sh, 1)); g.instanceCount = GRASS.L;
   const mat = new THREE.MeshLambertMaterial({ color: 0xffffff });
-  mat.onBeforeCompile = (sh2) => { sh2.uniforms.uT = GRASS.uT; sh2.uniforms.uH = { value: GRASS.H };
+  mat.onBeforeCompile = (sh2) => { Object.assign(sh2.uniforms, { uT: GRASS.uT, uH: GRASS.uH, uDen: GRASS.uDen, uBase: GRASS.uBase, uTipA: GRASS.uTipA, uTipB: GRASS.uTipB });
     sh2.vertexShader = 'attribute float aShell;\nattribute float aMask;\nuniform float uH;\nuniform float uT;\nvarying float vS;\nvarying float vM;\nvarying vec3 vGW;\n' + sh2.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
       transformed.y += aShell * uH;
       transformed.xz += vec2(sin(uT * 1.7 + position.x * 0.37 + position.z * 0.23), cos(uT * 1.3 + position.z * 0.31 + position.x * 0.11)) * 0.028 * aShell * aShell;
       vS = aShell; vM = aMask; vGW = transformed;`);
-    sh2.fragmentShader = 'varying float vS;\nvarying float vM;\nvarying vec3 vGW;\nfloat gH(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }\n' + sh2.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+    sh2.fragmentShader = 'uniform float uDen;\nuniform vec3 uBase;\nuniform vec3 uTipA;\nuniform vec3 uTipB;\nvarying float vS;\nvarying float vM;\nvarying vec3 vGW;\nfloat gH(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }\n' + sh2.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
       if (vM < 0.03) discard;
       float dC = length(vGW - cameraPosition), th = 0.0, r2 = 0.5; bool hit = false;
       vec2 gq = vGW.xz / 3.5, gi = floor(gq), gf = fract(gq); gf = gf * gf * (3.0 - 2.0 * gf);
       float pat = mix(mix(gH(gi), gH(gi + vec2(1.0, 0.0)), gf.x), mix(gH(gi + vec2(0.0, 1.0)), gH(gi + vec2(1.0, 1.0)), gf.x), gf.y);
-      if (gH(floor(gl_FragCoord.xy) + 0.37) < smoothstep(9.0, 16.0, dC)) discard;   // past ~12 m the blades are finer than a pixel: the green ground under them stands for them
+      if (gH(floor(gl_FragCoord.xy) + 0.37) < smoothstep(6.5, 12.0, dC)) discard;   // past ~12 m the blades are finer than a pixel: the green ground under them stands for them
       for (int L = 0; L < 2; L++) {
-        vec2 qq = L == 0 ? vGW.xz * 24.0 : mat2(0.8, -0.6, 0.6, 0.8) * vGW.xz * 28.0 + 13.7, c = floor(qq) + float(L) * 57.0, f = fract(qq) - 0.5;
-        if (gH(c) < 0.62 - 0.4 * pat) continue;   // clumps: denser where the patch noise is high
+        vec2 qq = L == 0 ? mat2(0.92, -0.39, 0.39, 0.92) * vGW.xz * 21.0 : mat2(0.39, -0.92, 0.92, 0.39) * vGW.xz * 25.0 + 13.7, c = floor(qq) + float(L) * 57.0, f = fract(qq) - 0.5;   // two grids at odd angles: no lattice, no moire along the axes
+        if (gH(c) < uDen - 0.4 * pat) continue;   // clumps: denser where the patch noise is high
         float hb = (0.3 + 0.7 * gH(c + 11.3)) * (0.55 + 0.55 * pat) * vM; if (vS > hb) continue;
         vec2 o = (vec2(gH(c + 3.1), gH(c + 7.7)) - 0.5) * 0.75;
         if (length(f - o) < (0.12 + 0.16 * gH(c + 5.5)) * (1.0 - vS / hb) + 0.035) { hit = true; th = vS / hb; r2 = gH(c + 17.31) * 0.45 + pat * 0.55; }
       }
       if (!hit) discard;
-      diffuseColor.rgb = mix(vec3(0.07, 0.12, 0.035), mix(vec3(0.3, 0.5, 0.1), vec3(0.55, 0.53, 0.18), smoothstep(0.4, 0.95, r2)), 0.25 + 0.75 * th);`); };
+      diffuseColor.rgb = mix(uBase, mix(uTipA, uTipB, smoothstep(0.4, 0.95, r2)), 0.25 + 0.75 * th);`); };
   mat.customProgramCacheKey = () => 'grasscarpet';
   const m = GRASS.mesh = new THREE.Mesh(g, mat); m.frustumCulled = false; m.castShadow = false; m.receiveShadow = true; m.userData.dyn = true; m.visible = false; scene.add(m);
 }
 function grassTick() {
-  const m = GRASS.mesh; if (!m) return; const on = GROUND && MODE === GRASS.mode && GRASS.ok; m.visible = !!on; if (!on) return;
+  const m = GRASS.mesh; if (!m) return; const map = MAP_OF[MODE], g = GROUND && GRASS.by[map]; m.visible = !!g; if (!g) return;
+  if (GRASS.cur !== map) { GRASS.cur = map; GRASS.cx = 1e9; const k = g.k; GRASS.uH.value = k.h; GRASS.uDen.value = k.den; GRASS.uBase.value.setRGB(...k.base); GRASS.uTipA.value.setRGB(...k.a); GRASS.uTipB.value.setRGB(...k.b); }
   GRASS.uT.value = performance.now() / 1000;
   const S = GRASS.S, N = GRASS.N, cam = camera.position, cx = Math.round(cam.x / S), cz = Math.round(cam.z / S); if (Math.abs(cx - GRASS.cx) + Math.abs(cz - GRASS.cz) < 2) return; GRASS.cx = cx; GRASS.cz = cz;
   const P = m.geometry.attributes.position.array, Mk = m.geometry.attributes.aMask.array, h = (N - 1) / 2, R = h * S;
   for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) { const k = j * N + i, x = (cx + i - h) * S, z = (cz + j - h) * S, d = Math.hypot(i - h, j - h) * S;
-    P[k * 3] = x; P[k * 3 + 1] = groundAt(x, z); P[k * 3 + 2] = z; Mk[k] = d > R ? 0 : GRASS.ok(x, z) * (1 - smooth(R * 0.6, R, d)); }
+    const y = groundAt(x, z); P[k * 3] = x; P[k * 3 + 1] = y; P[k * 3 + 2] = z;
+    Mk[k] = d > R || !g.ok(x, z) || (groundAt(x + 1.4, z) + groundAt(x - 1.4, z) + groundAt(x, z + 1.4) + groundAt(x, z - 1.4)) / 4 - y > 0.35 ? 0 : 1 - smooth(R * 0.6, R, d); }   // none in a cut: a trench, a ditch, a pit
   m.geometry.attributes.position.needsUpdate = true; m.geometry.attributes.aMask.needsUpdate = true;
 }
 { const prev = scene.onBeforeRender; scene.onBeforeRender = function (...a) { prev.apply(this, a); mapGrassTick(); grassTick(); }; }

@@ -66,7 +66,7 @@ function rgJeep(lx, lz, rot, paint, parent = null) {
   addCollider(x, z, 2.05, 0.95, rot, y + 1.5); coverBox(x, z, 2.05, 0.95, rot, 1.3); return r;
 }
 function rgBuild() {
-  const C = CHAP.range, O = RG.o; C.ground = makeGround({ x0: O.x - 240, x1: O.x + 240, z0: O.z - 260, z1: O.z + 200, step: 3, h: mapH('range', rgNat, rgCarve), map: 'range', vegOk: (x, z) => { const lx = x - RG.o.x, lz = z - RG.o.z; return !(Math.abs(lx) < 46 && Math.abs(lz - 44) < 14) && rgPondD(lx, lz) > 1.3 && !(Math.abs(lx + 58) < 14 && Math.abs(lz - 18) < 44); } }); GROUND = C.ground;
+  const C = CHAP.range, O = RG.o; C.ground = makeGround({ x0: O.x - 240, x1: O.x + 240, z0: O.z - 260, z1: O.z + 200, step: 3, h: mapH('range', rgNat, rgCarve), map: 'range', vegOk: (x, z) => { const lx = x - RG.o.x, lz = z - RG.o.z; return !(Math.abs(lx) < 46 && Math.abs(lz - 44) < 14) && rgPondD(lx, lz) > 1.3 && !(Math.abs(lx + 58) < 14 && Math.abs(lz - 18) < 44); }, grass: 'dry' }); GROUND = C.ground;
   const BAGS = [], sv = BATCH.bag; BATCH.bag = BAGS; const k0 = COVER.length; C.slots = [];
   // the firing line: a sandbag wall with gaps, the three guns in it, a flag
   for (const [a, b] of [[-38, -25.5], [-18.5, -3.4], [3.4, 18.5], [25.5, 38]]) bagWall([RGW(a, 40), RGW(b, 40)], 4);
