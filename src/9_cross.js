@@ -606,8 +606,10 @@ function crBuild() {
   C.segs = []; for (let k = 0; k < CR_SEGN; k++) { const m = new THREE.Mesh(BR_SEG, MAT.vc); m.userData.dyn = true; SH(m, true, true); onLayer1(m); scene.add(m); C.segs.push(m); }
   // work lamps along the rails and on the bow, lit on the night it is pushed out
   { C.lamps = []; const lm = new THREE.SpriteMaterial({ map: FXT.flare, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, color: 0xffd8a0 });
-    for (let k = 0; k < CR_SEGN; k += 4) for (const sd of [-1, 1]) { const q = new THREE.Sprite(lm); q.position.set(0, 3.1, sd * 2.5); q.scale.setScalar(1.7); q.visible = false; C.segs[k].add(q); C.lamps.push(q); }
-    for (const sd of [-1, 1]) { const q = new THREE.Sprite(lm); q.position.set(0, 4.7, sd * 2.3); q.scale.setScalar(2.6); q.visible = false; C.front.add(q); C.lamps.push(q); } }
+    // (big glows: from the house at the head of the street, 250 m off, they are how the bridge is seen going out across the dark water)
+    for (let k = 0; k < CR_SEGN; k += 2) for (const sd of [-1, 1]) { const q = new THREE.Sprite(lm); q.position.set(0, 3.1, sd * 2.5); q.scale.setScalar(2.6); q.visible = false; C.segs[k].add(q); C.lamps.push(q); }
+    for (const sd of [-1, 1]) { const q = new THREE.Sprite(lm); q.position.set(0, 4.7, sd * 2.3); q.scale.setScalar(6); q.visible = false; C.front.add(q); C.lamps.push(q); }
+    for (const t of C.towT) { const q = new THREE.Sprite(lm); q.position.set(1.5, 2.9, 0); q.scale.setScalar(3.2); q.visible = false; t.add(q); C.lamps.push(q); } }
   // the repair of the opening film: a tank shoves the new roller in from the side over the sand, the engineers round it
   { const r = VEH_DATA.magach ? vehModel('magach', 'f') : null, m = r ? r.g : new THREE.Mesh(TANK_GEO, MAT.vc); if (r) r.crew = true; m.userData.dyn = true; m.visible = false; scene.add(SH(onLayer1(m))); C.repT = m;
     C.eng = [0, 1, 2, 3, 4].map(() => { const u = new Unit('f', 'rifle'); scene.remove(u.tag); u.alive = true; u.rig.root.visible = false; u.rig.root.userData.dyn = true; u.rig.gun.visible = false; return u; }); }
@@ -911,11 +913,11 @@ function crStormer(f, k, j, kind) {
   const F = CR_FRONT[f], r = rng(9000 + CR.wave * 131 + k * 17 + j), lat = (r() - 0.5) * (f === 'w' ? 5 : 8), [x, z] = CW(F.from[0] + (f === 'w' ? r() * 6 : lat), F.from[1] + (f === 'w' ? lat : (r() - 0.5) * 6));
   const rpg = kind === 'rpg', mouth = CW(F.mouth[0] + (f === 'w' ? 0 : lat * 0.6), F.mouth[1] + (f === 'w' ? lat * 0.6 : 0)), t = F.tgt[(k + j) % F.tgt.length], end = rpg ? CW(F.rpg[0] + lat * 0.3, F.rpg[1]) : CW(t[0] - r() * 0.5, t[1] + (r() - 0.5) * 1.6);
   const path = f === 'w' ? [CW(-318, lat * 0.4), mouth, end] : [mouth, end], e = fSpawnStreet0(x, z, path, kind); if (!e) return null;
-  e.sq = 'h'; e.crFront = f; e.tac = rpg ? 'hold' : 'storm'; e.wild = !rpg; e.crSt = !rpg; e.crG = r() < [0.25, 0.45, 0.6][crDi()] ? 1 : 0; e.crAt = null; e.crK = r(); e.rpgCd = rpg ? 4 + r() * 4 : 99;
+  e.sq = 'h'; e.crFront = f; e.tac = rpg ? 'hold' : 'storm'; e.wild = !rpg; e.crSt = !rpg; e.crG = r() < [0.25, 0.45, 0.5][crDi()] ? 1 : 0; e.crAt = null; e.crK = r(); e.rpgCd = rpg ? 4 + r() * 4 : 99;
   return e;
 }
 function crWave(n) {
-  const [fronts, base] = CR_WAVES[Math.min(n, CR_WAVES.length - 1)], k = [0.7, 1, 1.05][crDi()], m = Math.max(2, Math.round(base * k));
+  const [fronts, base] = CR_WAVES[Math.min(n, CR_WAVES.length - 1)], k = [0.7, 1, 0.85][crDi()], m = Math.max(2, Math.round(base * k));
   fronts.forEach((f, fi) => { for (let j = 0; j < m; j++) DIRQ.push({ at: GAME.t + fi * 1.6 + j * 0.85, spawn: true, fn: () => crStormer(f, fi, j, j === 2 && n % 2 === 1 ? 'rpg' : j % 4 === 3 ? 'smg' : 'rifle') }); });
   if (n === 2) for (const s of CHAP.cross.nests.h) { const e = fSlotSpawn(s.kind, (q) => q === s, 'h'); if (e) { e.crSt = false; e.crFront = 'w'; } }
   const where = fronts.map((f) => CR_FRONT[f].name).join(fronts.length > 2 ? ', ' : ' ו');
