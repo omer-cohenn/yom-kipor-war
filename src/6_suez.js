@@ -13,6 +13,7 @@ const SZ_MIN = 10 * 60 + 40;
 /* ---------- textures ---------- */
 function facadeTile(seed, plaster, shut, ground, plain = false) {
   const W = 256, H = 128, c = canvas(W * 2, H * 2), g = c.getContext('2d'), r = rng(seed); g.scale(2, 2);
+  if (plain === 'res') return szFacadeRes(g, c, W, H, r, plaster, shut);
   if (plain) return szFacadePlain(g, c, W, H, r, plaster);
   g.fillStyle = plaster; g.fillRect(0, 0, W, H);
   for (let i = 0; i < 900; i++) { g.fillStyle = r() < 0.5 ? 'rgba(80,66,48,0.10)' : 'rgba(255,250,235,0.10)'; g.fillRect(r() * W, r() * H, 2 + r() * 6, 1 + r() * 4); }
@@ -55,6 +56,16 @@ function szFacadePlain(g, c, W, H, r, plaster) {
     const st = g.createLinearGradient(0, y0 + h, 0, H); st.addColorStop(0, 'rgba(70,60,46,0.3)'); st.addColorStop(1, 'rgba(70,60,46,0)'); g.fillStyle = st; g.fillRect(x0 + 8, y0 + h + 4, w - 16, H - y0 - h);
   }
   facadeWeather(g, W, H, r, false, plaster);
+  const t = tex(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; return t;
+}
+// the ground floor of a house on an alley: no shops - a stone plinth, two small windows behind iron bars, a plank door
+function szFacadeRes(g, c, W, H, r, plaster, shut) {
+  g.fillStyle = plaster; g.fillRect(0, 0, W, H);
+  for (let i = 0; i < 900; i++) { g.fillStyle = r() < 0.5 ? 'rgba(80,66,48,0.10)' : 'rgba(255,250,235,0.10)'; g.fillRect(r() * W, r() * H, 2 + r() * 6, 1 + r() * 4); }
+  g.fillStyle = 'rgba(120,108,90,0.75)'; g.fillRect(0, H - 22, W, 22); g.fillStyle = 'rgba(60,52,42,0.4)'; for (let x = 0; x < W; x += 18) g.fillRect(x, H - 22, 1.5, 22); g.fillRect(0, H - 22, W, 1.5);
+  for (const x0 of [26, 96]) { g.fillStyle = 'rgba(70,58,44,0.35)'; g.fillRect(x0 - 4, 48, 48, 50); g.fillStyle = '#14110e'; g.fillRect(x0, 52, 40, 42); g.fillStyle = '#2c2a26'; for (let x = x0 + 4; x < x0 + 40; x += 6) g.fillRect(x, 52, 1.6, 42); g.fillRect(x0, 64, 40, 1.6); g.fillRect(x0, 80, 40, 1.6); g.fillStyle = 'rgba(30,26,20,0.5)'; g.fillRect(x0 - 5, 94, 50, 4); }
+  { const x0 = 170, w = 50; g.fillStyle = 'rgba(70,58,44,0.4)'; g.fillRect(x0 - 6, 50, w + 12, H - 50); g.fillStyle = shut; g.fillRect(x0, 56, w, H - 56); g.fillStyle = 'rgba(0,0,0,0.28)'; for (let x = x0 + 5; x < x0 + w; x += 8) g.fillRect(x, 56, 1.5, H - 56); g.fillRect(x0 + w / 2 - 0.8, 56, 1.6, H - 56); g.fillStyle = '#c8b070'; g.fillRect(x0 + w / 2 + 4, 92, 3, 3); }
+  facadeWeather(g, W, H, r, true, plaster);
   const t = tex(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; return t;
 }
 // louvred wooden shutters: slats in light and shade inside a stile frame (white: tinted per copy)
@@ -161,7 +172,7 @@ function szRoofLife(X0, X1, Z0, Z1, top, rr, R2, full) {
   if (X1 - X0 < 4 || Z1 - Z0 < 4) return;
   const rx = () => lerp(X0 + 1.4, X1 - 1.4, rr()), rz = () => lerp(Z0 + 1.4, Z1 - 1.4, rr()), nT = (full ? 1 : 0) + Math.floor(rr() * (full ? 3 : 2));
   for (let i = 0; i < nT; i++) { const x = rx(), z = rz(), r = 0.5 + rr() * 0.3, h = 1.0 + rr() * 0.5, c = [0x8b8a84, 0x6e6a60, 0x9c9a92, 0x5e5044][Math.floor(rr() * 4)], y0 = top + 0.9;
-    R2.push([G.cyl(r, r, h, 12), c, M4(x, y0 + h / 2, z)], [G.cyl(r * 0.3, r * 0.3, 0.12, 8), c, M4(x, y0 + h + 0.06, z)], [G.box(r * 2 + 0.12, 0.07, r * 2 + 0.12), 0x3e3a34, M4(x, y0 - 0.02, z)], [G.cyl(0.03, 0.03, 0.9 + h * 0.5, 5), 0x4a4640, M4(x + r + 0.05, top + 0.45 + h * 0.25, z)]);
+    R2.push([G.cyl(r, r, h, full && !LITE ? 12 : 8), c, M4(x, y0 + h / 2, z)], [G.cyl(r * 0.3, r * 0.3, 0.12, 8), c, M4(x, y0 + h + 0.06, z)], [G.box(r * 2 + 0.12, 0.07, r * 2 + 0.12), 0x3e3a34, M4(x, y0 - 0.02, z)], [G.cyl(0.03, 0.03, 0.9 + h * 0.5, 5), 0x4a4640, M4(x + r + 0.05, top + 0.45 + h * 0.25, z)]);
     for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) R2.push([G.box(0.06, 0.9, 0.06), 0x3e3a34, M4(x + sx * r * 0.8, top + 0.45, z + sz * r * 0.8)]); }
   if (X1 - X0 > 6 && Z1 - Z0 > 6 && rr() < (full ? 0.7 : 0.45)) { const hx = lerp(X0 + 2.2, X1 - 2.2, rr()), hz = lerp(Z0 + 2.2, Z1 - 2.2, rr()); R2.push([boxUV(hx - 1.3, hx + 1.3, top, top + 2.4, hz - 1.4, hz + 1.4, 3, 2.4), 0xd2c6ac], [G.box(2.9, 0.12, 3.1), 0xb8ac94, M4(hx, top + 2.46, hz)], [G.box(0.9, 1.95, 0.06), 0x4a3a2a, M4(hx, top + 0.98, hz + 1.42)]); }
   if (rr() < (full ? 0.75 : 0.4)) { const ax = rx(), az = rz(); R2.push([G.cyl(0.025, 0.025, 3.2, 5), 0x2a2a28, M4(ax, top + 1.6, az)]); for (let j = 0; j < 3; j++) R2.push([G.box(1.3 - j * 0.3, 0.025, 0.025), 0x2a2a28, M4(ax, top + 2.4 + j * 0.35, az, 0, rr() * 3, 0)]); }
@@ -169,7 +180,9 @@ function szRoofLife(X0, X1, Z0, Z1, top, rr, R2, full) {
 function cityBuilding(b, lists) {
   // b: {x0, x1, z0, z1, fl (floors), v (plaster), face, f2 (a second dressed face), solid}
   const X0 = LX(b.x0), X1 = LX(b.x1), Z0 = LZ(b.z0), Z1 = LZ(b.z1), top = CHH + b.fl * FLH, v = b.v % 6, dec = szFaces(b).map(SZ_FACE_IX), pl = [0, 1, 4, 5].filter((f) => !dec.includes(f));
-  lists.ground[v].push(aoBox(szWallBox(X0, X1, CHH - 0.3, CHH + FLH, Z0, Z1, 7, FLH + 0.3), CHH - 0.3, CHH + FLH, 0.62, 0.88));
+  // the faces on an alley have houses' ground floors, the others shops
+  const al = (b.alley || []).map((fi) => SZ_FACE_IX(szFaces(b)[fi])), sh = [0, 1, 4, 5].filter((f) => !al.includes(f));
+  lists.ground[v].push(aoBox(szWallBox(X0, X1, CHH - 0.3, CHH + FLH, Z0, Z1, 7, FLH + 0.3, sh), CHH - 0.3, CHH + FLH, 0.62, 0.88)); if (al.length) lists.groundR[v].push(aoBox(szWallBox(X0, X1, CHH - 0.3, CHH + FLH, Z0, Z1, 7, FLH + 0.3, al), CHH - 0.3, CHH + FLH, 0.62, 0.88));
   if (b.fl > 1) { if (pl.length) lists.upper[v].push(aoBox(szWallBox(X0, X1, CHH + FLH, top, Z0, Z1, 7, FLH, pl), CHH + FLH, top, 0.9, 0.84)); lists.upperD[v].push(aoBox(szWallBox(X0, X1, CHH + FLH, top, Z0, Z1, 7, FLH, dec), CHH + FLH, top, 0.9, 0.84)); }
   szShell(X0, X1, Z0, Z1, top, b.fl, SZ_PL[v], SZ_TRIM[b.v % 4], lists, true, !b.ruin);
   if (!b.ruin) szRoofLife(X0, X1, Z0, Z1, top, rng(Math.round(b.x0 * 13 + b.z0 * 7) >>> 0), lists.roof, true);
@@ -246,7 +259,8 @@ function decorate(b, D, rr, lists) {
     if (b.style === 1 && !b.ruin) for (let a = F.lo + 0.7; a < F.hi - 0.6; a += 0.9) { const [x, z] = F.P(a, 0.1); D.trim.push([G.box(0.13, 0.24, 0.2), trimC, M4(x, top - 0.55, z, 0, F.rot, 0)]); }
     if (b.style === 2) { for (let f = 1; f < b.fl; f++) balconyRun(F, F.mid, F.span - 0.7, CHH + f * FLH, D, rr, rr() < 0.5); }
     else for (let f = 1; f < b.fl; f++) for (let i = 0; i < F.wins.length; i += 2) if (rr() < 0.3 && !(b.fortSet && b.fortSet.has(fi + ':' + f + ':' + F.wins[i].toFixed(2)))) balconyRun(F, (F.wins[i] + (F.wins[i + 1] ?? F.wins[i])) / 2, F.wins[i + 1] ? 5.0 : 2.4, CHH + f * FLH, D, rr, false);
-    // the shop fronts: pilasters between them and a cornice over their signs, the doorway of the house in the middle, canvas awnings over the rest
+    // the shop fronts: pilasters between them and a cornice over their signs, the doorway of the house in the middle, canvas awnings over the rest (none on an alley: houses there)
+    if (!(b.alley && b.alley.includes(fi))) {
     for (let k = 0; k < 40; k++) { const a = F.org + F.dir * 3.5 * k; if (a < F.lo - 0.1 || a > F.hi + 0.1) break; if (a < F.lo + 0.2 || a > F.hi - 0.2) continue; const [x, z] = F.P(a, 0.05); D.trim.push([G.box(0.42, FLH - 0.15, 0.1), trimC, M4(x, CHH - 0.3 + (FLH - 0.15) / 2, z, 0, F.rot, 0)]); }
     { const [x, z] = F.P(F.mid, 0.09); D.trim.push([G.box(F.span + 0.1, 0.16, 0.18), trimC, M4(x, CHH + 3.86, z, 0, F.rot, 0)]); }
     const ent = F.shops.length && fi === 0 ? F.shops.reduce((p, q) => (Math.abs(q - F.mid) < Math.abs(p - F.mid) ? q : p)) : null;
@@ -256,7 +270,7 @@ function decorate(b, D, rr, lists) {
       if (fi === 0 && !(b.alley && b.alley.includes(fi)) && rr() < 0.22) { const [x, z] = F.P(a - F.dir * 1.2, 0.62), k = Math.floor(rr() * D.blade.length); D.blade[k].push(new THREE.BoxGeometry(0.07, 0.62, 1.0).rotateY(F.face).translate(x, CHH + 3.45, z)); const [bx, bz] = F.P(a - F.dir * 1.2, 0.5); D.trim.push([G.box(0.04, 0.04, 1.0), 0x2a2a28, M4(bx, CHH + 3.8, bz, 0, F.face, 0)]); }
       if (rr() < (b.alley && b.alley.includes(fi) ? 0.12 : 0.55)) { const k = Math.floor(rr() * D.awn.length), [x, z] = F.P(a, 0.72); const g = new THREE.BoxGeometry(2.9, 0.03, 1.5); const uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * 3, uv.getY(i));
         g.rotateX(-0.36); g.rotateY(F.face + Math.PI); g.translate(x, CHH + 2.86, z); D.awn[k].push(g); const [vx, vz] = F.P(a, 1.43); D.awn[k].push(planeAt(2.9, 0.28, vx, CHH + 2.5, vz, F.face, 0, 0.35, 1)); }
-    }
+    } }
     // a shell hole or two between the windows, the plaster and brick of it on the pavement below
     if (b.fl > 1 && rr() < 0.32) { const n = 1 + (rr() < 0.3 ? 1 : 0); for (let j = 0; j < n; j++) { const f = 1 + Math.floor(rr() * (b.fl - 1)), k = Math.floor(rr() * Math.max(1, F.span / 7)), a = F.org + F.dir * (7 * k + 3.5);
       if (a > F.lo + 1.4 && a < F.hi - 1.4) { const s = 1.3 + rr() * 1.3, [x, z] = F.P(a, 0.025); D.holes.push(planeAt(s, s, x, CHH + f * FLH + 2.15, z, F.face)); const [rx, rz] = F.P(a, 1.1); D.rub.push([rx, rz, s]); } } }
@@ -359,7 +373,7 @@ function cityDressing(rr) {
     addProp(gun, SZ_GUN[0], SZ_GUN[1], SZ_GUN[2], [0.8, 1.3], 1.4); const arc = []; for (let t = 1.3; t <= 4.25; t += 0.25) arc.push([SZ_GUN[0] + Math.sin(t) * 2.1, SZ_GUN[1] - Math.cos(t) * 2.1]); bag(arc, 5); }
   /* ---- the barricades that make the route one: nobody walks past any of them ---- */
   // across the mouth of the square, where the avenue ends: concrete blocks, a burnt jeep, hedgehogs and wire. The tank halts at it, and from here on the square is a killing ground
-  { const x = -36.4; blocks([[x, -10.3, 0.1], [x, -8.9, 0.6], [x, 1.8, 0.3], [x, 3.3, 0.8], [x, 9.6, 0.2]]); szWreck(x - 0.4, -2.6, Math.PI / 2 + 0.25); szWire(ws, x + 0.9, -11, x + 0.9, 11); szBar(x + 0.2, -11.2, x + 0.2, 11.2, 0.95);
+  { const x = -36.4; blocks([[x, -10.3, 0.1], [x, -8.9, 0.6], [x, 1.8, 0.3], [x, 3.3, 0.8], [x, 9.6, 0.2]]); szWreck(x - 0.4, -2.6, Math.PI / 2 + 0.25, false); smokeColumn(LX(x - 0.4), LZ(-2.6), 2.5, false); szWire(ws, x + 0.9, -11, x + 0.9, 11); szBar(x + 0.2, -11.2, x + 0.2, 11.2, 0.95);
     if (mdlHas('hedgehog')) { const hm = []; for (const z of [5.3, 7.4, -6.6]) hm.push(M4(LX(x), CHH, LZ(z), 0, rr() * 3, 0)); for (const m of mdlInst('hedgehog', LITE ? 1 : 0, hm)) SZ.objs.push(m); } bag([[x - 0.4, 6.0], [x - 0.4, 8.6]], 5); }
   // across the north street at the mouth of the square: their sandbag line facing the square (the gun pit is in it); the men behind it have their backs to the alley we come out of
   bag([[-65.8, -26.3], [-60.4, -26.3]], 6); bag([[-55.6, -26.3], [-50.2, -26.3]], 6); szWire(ws, -66, -26.3, -50, -26.3, 1.55); szBar(-66, -26.3, -50, -26.3, 0.5);
@@ -394,13 +408,15 @@ function cityDressing(rr) {
    of it: from the moment the crew bails out the way back is shut. Not there while the tank still drives (stages 0-1) */
 function szBuildAve() {
   const g = new THREE.Group(), cols = [], rr = rng(77), rubP = [];
-  if (typeof VEH_DATA !== 'undefined' && VEH_DATA.magach) { const r = vehModel('magach', 'f'); r.g.position.set(LX(-19.5), CHH, LZ(1.2)); r.g.rotation.y = 0.85 - Math.PI / 2; r.g.userData.vl.dead = true; wreckTilt(r.g, rr); g.add(r.g); SZ.aveW = wreckFire(r.g, VEH_FIRE.magach, 1.6); }
+  if (typeof VEH_DATA !== 'undefined' && VEH_DATA.magach) { const r = vehModel('magach', 'f'); r.g.position.set(LX(-19.5), CHH, LZ(1.2)); r.g.rotation.y = 0.85 - Math.PI / 2; r.g.userData.vl.dead = true; wreckTilt(r.g, rr); g.add(r.g); }
   else { const m = new THREE.Mesh(TANK_GEO, MAT_BURNT); m.position.set(LX(-19.5), CHH, LZ(1.2)); m.rotation.y = 0.85 - Math.PI / 2; g.add(m); }
   cols.push(addCollider(LX(-19.5), LZ(1.2), 1.9, 3.5, 0.85, CHH + 2.4), szBar(-19.3, -11.2, -19.3, -1.0, 1.6, 1.6), szBar(-19.6, 4.0, -19.6, 11.2, 0.6));
   szRubble(rubP, -19.3, -8.5, 34, 1.15, rr); szRubble(rubP, -19.5, -3.5, 14, 0.8, rr);
   const ws = []; szWire(ws, -19.6, 4.2, -19.6, 11.0); if (ws.length) g.add(new THREE.Mesh(mergeGeometries(ws, false), MAT.wire));
   g.add(new THREE.Mesh(build(rubP), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, flatShading: true, map: TX.grime })));
   if (mdlHas('hedgehog')) for (const z of [6.2, 9.0]) { const h = mdlMesh('hedgehog', LITE ? 1 : 0); h.position.set(LX(-20.4), CHH, LZ(z)); h.rotation.y = z; g.add(h); }
+  // it burnt out at the junction: smoke, no flames - a fire's light this close would outshine the afternoon
+  smokeColumn(LX(-19.5), LZ(1.2), 3, false);
   SH(onLayer1(g)); g.visible = false; g.userData.dyn = true; scene.add(g); SZ.objs.push(g);
   SZ.ave = { g, cols, tops: cols.map((k) => k.top) }; szAveOn(false);
 }
@@ -513,7 +529,7 @@ function updTank(dt) {
   }
   if (TANK.burning) { TANK.fireT += dt; TANK.fireS.forEach((f, i) => { f.visible = true; f.position.set(rand(-0.6, 0.6), 1.9 + i * 0.5 + Math.sin(GAME.t * 7 + i) * 0.2, -2.2 + rand(-0.3, 0.3)); f.scale.setScalar(1.6 + i * 0.6 + Math.sin(GAME.t * 11 + i) * 0.3); });
     if (Math.random() < dt * 5) { const s = FX.smoke.get(); s.life = 6; s.s.position.set(TANK.g.position.x + rand(-1, 1), gy + 3, TANK.g.position.z + rand(-1, 1)); s.s.material.color.set(0x1a1816); s.upd = (q, u, dt2) => { q.s.position.y += 3 * dt2; q.s.scale.setScalar(2 + u * 9); q.s.material.opacity = 0.75 * (1 - u); }; }
-    LIGHTS.fire.position.set(TANK.g.position.x, gy + 3, TANK.g.position.z); LIGHTS.fire.intensity = 22000 * (0.8 + 0.2 * Math.sin(GAME.t * 13)); }
+    LIGHTS.fire.position.set(TANK.g.position.x, gy + 3, TANK.g.position.z); LIGHTS.fire.intensity = (MODE === 'suez' && SZ.stage >= 2 ? 90 : 22000) * (0.8 + 0.2 * Math.sin(GAME.t * 13)); }   // on foot in daylight, beside it: a glow, not a second sun
 }
 function tankHit(p, big = false, dmg = null) {
   fxExplosion(p, big ? 1.4 : camera.position.distanceTo(p) < 4.5 ? 0.4 : 0.9); sndBoom(p, big ? 1.4 : 0.9); FX.shake = Math.max(FX.shake, big ? 1.1 : 0.6);
@@ -890,9 +906,9 @@ function szFortPlan(B, nAve) {
 function buildSuez() {
   if (SZ.built) return; SZ.built = true; const k0 = scene.children.length;
   const PL = ['#e8dcc0', '#d8bf8c', '#e6c9b8', '#cdd2c6', '#ece4d2', '#c9b27e'], SH_ = ['#3f6b4e', '#5b4630', '#3d5b6b', '#6d6248', '#2f4f3a', '#6b3a2a'];
-  const lists = { ground: [], upper: [], upperD: [], roof: [], roofTop: [], trim: [] }, gMats = [], uMats = [], dMats = [];
+  const lists = { ground: [], groundR: [], upper: [], upperD: [], roof: [], roofTop: [], trim: [] }, gMats = [], uMats = [], dMats = [], rMats = [];
   const wallMat = (t) => new THREE.MeshStandardMaterial({ map: t, bumpMap: bumpOf(t), bumpScale: LITE ? 0.8 : 1.4, roughness: 0.93, vertexColors: true });
-  for (let i = 0; i < 6; i++) { gMats.push(wallMat(facadeTile(300 + i, PL[(i + 3) % 6], SH_[i], true))); uMats.push(wallMat(facadeTile(400 + i, PL[i], SH_[(i + 1) % 6], false))); dMats.push(wallMat(facadeTile(500 + i, PL[i], SH_[i], false, true))); lists.ground.push([]); lists.upper.push([]); lists.upperD.push([]); }
+  for (let i = 0; i < 6; i++) { gMats.push(wallMat(facadeTile(300 + i, PL[(i + 3) % 6], SH_[i], true))); uMats.push(wallMat(facadeTile(400 + i, PL[i], SH_[(i + 1) % 6], false))); dMats.push(wallMat(facadeTile(500 + i, PL[i], SH_[i], false, true))); rMats.push(wallMat(facadeTile(600 + i, PL[(i + 3) % 6], SH_[(i + 2) % 6], true, 'res'))); lists.groundR.push([]); lists.ground.push([]); lists.upper.push([]); lists.upperD.push([]); }
   const B = [], rr = rng(1973);
   const lotRow = (xA, xB, zIn, zOut, side, gaps) => { let x = xA; while (x < xB - 6) { const w = Math.min(xB - x, 12 + rr() * 9); if (gaps.some(([g0, g1]) => x < g1 && x + w > g0)) { x += 4; continue; } const d = 12 + rr() * 5; B.push({ x0: x, x1: x + w, z0: side < 0 ? zIn - d : zIn, z1: side < 0 ? zIn : zIn + d, fl: 2 + Math.floor(rr() * 5), v: Math.floor(rr() * 6), face: side < 0 ? [0, 1] : [0, -1] }); x += w + (rr() < 0.25 ? 5 : 0.2); } };
   // the avenue (Sharia el-Arbaeen) from the east entrance to the square; three of its houses lost their top floor to the shelling
@@ -909,16 +925,23 @@ function buildSuez() {
      then a taller one), a third of them with a floor or two set back on the roof, each with its parapet and cornice, its water tanks and aerials.
      A block out of sight of the streets keeps only the parapet and the cornice */
   { const occ = (x0, x1, z0, z1) => B.some((b) => x0 < b.x1 + 2.5 && x1 > b.x0 - 2.5 && z0 < b.z1 + 2.5 && z1 > b.z0 - 2.5) || (x1 > -112 && x0 < 252 && z0 < 12 && z1 > -12) || (x1 > -100 && x0 < -30 && z0 < 42 && z1 > -42) || (x1 > -70 && x0 < -46 && z0 < 120 && z1 > -120) || (x1 > -88 && x0 < -60 && z0 < -18 && z1 > -44);
-    for (let x = -262; x < 262; x += 24) for (let z = -262; z < 262; z += 24) {
-      const w = 14 + rr() * 8, d = 14 + rr() * 8, x0 = x + rr() * 3, z0 = z + rr() * 3; if (occ(x0, x0 + w, z0, z0 + d)) continue;
-      const fl = 2 + Math.floor(rr() * 4) + (rr() < 0.1 ? 2 : 0), v = Math.floor(rr() * 6), top = CHH + fl * FLH, X0 = LX(x0), X1 = LX(x0 + w), Z0 = LZ(z0), Z1 = LZ(z0 + d), near = szNearRoute(x0 + w / 2, z0 + d / 2) < 60;
+    // one house of the fill: its walls, its shell, a floor or two set back on its roof now and then, its roof clutter, its collider
+    const house = (x0, x1, z0, z1, fl, v, near) => { const w = x1 - x0, d = z1 - z0, top = CHH + fl * FLH, X0 = LX(x0), X1 = LX(x1), Z0 = LZ(z0), Z1 = LZ(z1);
       lists.upper[v].push(aoBox(szWallBox(X0, X1, CHH - 0.3, top, Z0, Z1, 7, FLH), CHH - 0.3, top, 0.66, 0.86)); szShell(X0, X1, Z0, Z1, top, fl, SZ_PL[v], SZ_TRIM[v % 4], lists, near && !LITE);
       let tt = top + 0.9;
-      if (rr() < 0.33 && fl < 7) { const k = 1 + Math.floor(rr() * 2), sx = w * (0.45 + rr() * 0.25), sd = d * (0.45 + rr() * 0.25), ax = x0 + 1 + rr() * (w - sx - 2), az = z0 + 1 + rr() * (d - sd - 2), t2 = top + k * FLH, v2 = (v + 2) % 6, A0 = LX(ax), A1 = LX(ax + sx), C0 = LZ(az), C1 = LZ(az + sd);
+      if (w > 9 && d > 9 && rr() < 0.33 && fl < 7) { const k = 1 + Math.floor(rr() * 2), sx = w * (0.45 + rr() * 0.25), sd = d * (0.45 + rr() * 0.25), ax = x0 + 1 + rr() * (w - sx - 2), az = z0 + 1 + rr() * (d - sd - 2), t2 = top + k * FLH, v2 = (v + 2) % 6, A0 = LX(ax), A1 = LX(ax + sx), C0 = LZ(az), C1 = LZ(az + sd);
         lists.upper[v2].push(aoBox(szWallBox(A0, A1, top, t2, C0, C1, 7, FLH), top, t2, 0.8, 0.86)); szShell(A0, A1, C0, C1, t2, 0, SZ_PL[v2], SZ_TRIM[v % 4], lists, false); if (near || rr() < 0.4) szRoofLife(A0, A1, C0, C1, t2, rr, lists.roof, false); tt = t2 + 0.9; }
       if (near || rr() < 0.35) szRoofLife(X0, X1, Z0, Z1, top, rr, lists.roof, false);
-      addCollider((X0 + X1) / 2, (Z0 + Z1) / 2, w / 2, d / 2, 0, tt); SZ.blocks.push([X0, X1, Z0, Z1, top]); } }
-  for (let i = 0; i < 6; i++) for (const [L, M] of [[lists.ground[i], gMats[i]], [lists.upper[i], uMats[i]], [lists.upperD[i], dMats[i]]]) if (L.length) { const m = new THREE.Mesh(mergeGeometries(L, false), M); scene.add(SH(onLayer1(m))); }
+      addCollider((X0 + X1) / 2, (Z0 + Z1) / 2, w / 2, d / 2, 0, tt); SZ.blocks.push([X0, X1, Z0, Z1, top]); };
+    for (let x = -262; x < 262; x += 24) for (let z = -262; z < 262; z += 24) {
+      const w = 14 + rr() * 8, d = 14 + rr() * 8, x0 = x + rr() * 3, z0 = z + rr() * 3; if (occ(x0, x0 + w, z0, z0 + d)) continue;
+      const fl = 2 + Math.floor(rr() * 4) + (rr() < 0.1 ? 2 : 0), v = Math.floor(rr() * 6), near = szNearRoute(x0 + w / 2, z0 + d / 2) < 60;
+      // two out of five blocks are two houses back to back, of different heights and plasters, so the skyline steps
+      if (rr() < 0.4) { const u = 0.4 + rr() * 0.2, fl2 = clamp(fl + (rr() < 0.5 ? -1 : 2), 2, 7), v2 = (v + 1 + Math.floor(rr() * 4)) % 6;
+        if (w >= d) { const xm = x0 + w * u; house(x0, xm, z0, z0 + d, fl, v, near); house(xm, x0 + w, z0, z0 + d, fl2, v2, near); }
+        else { const zm = z0 + d * u; house(x0, x0 + w, z0, zm, fl, v, near); house(x0, x0 + w, zm, z0 + d, fl2, v2, near); } }
+      else house(x0, x0 + w, z0, z0 + d, fl, v, near); } }
+  for (let i = 0; i < 6; i++) for (const [L, M] of [[lists.ground[i], gMats[i]], [lists.groundR[i], rMats[i]], [lists.upper[i], uMats[i]], [lists.upperD[i], dMats[i]]]) if (L.length) { const m = new THREE.Mesh(mergeGeometries(L, false), M); scene.add(SH(onLayer1(m))); }
   { const m = new THREE.Mesh(mergeGeometries(lists.roofTop, false), new THREE.MeshStandardMaterial({ map: szRoofTex(), roughness: 0.96 })); m.receiveShadow = !LITE; scene.add(onLayer1(m)); }
   { const m = new THREE.Mesh(build(lists.roof), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, map: TX.grime })); scene.add(SH(onLayer1(m))); }
   // the windows: frames and their shutters as instances, one draw for each kind over the whole city; the shell holes and the soot as decals on the walls
@@ -1023,7 +1046,7 @@ const SZ_ROOMS = [
   [[-72.4, -30.2, 'rifle', 0], [-75.2, -30.0, 'smg', 1], [-72.4, -35.6, 'rifle', 2]],
   [[-68.6, -30.2, 'rifle', 0], [-67.0, -34.4, 'smg', 1]],
   [[-80.0, -26.6, 'rifle', 0], [-76.2, -25.2, 'rifle', 0], [-67.4, -25.2, 'smg', 1]],
-  [[-70.6, -25.3, 'rifle', 0], [-75.6, -25.4, 'smg', 0], [-67.6, -27.6, 'rpg', 2]],
+  [[-70.6, -25.3, 'rifle', 0], [-75.6, -25.4, 'smg', 0], [-68.4, -26.8, 'rpg', 2]],
   [[-75.4, -36.2, 'rifle', 0], [-72.4, -33.0, 'smg', 1], [-76.6, -31.8, 'rifle', 2]],
   [[-67.6, -35.6, 'rifle', 0], [-68.6, -30.4, 'smg', 1]],
   [[-72.0, -25.35, 'rifle', 0, 0, 1], [-67.35, -28.5, 'lmg', 1, 1, 0], [-68.9, -34.5, 'rifle', 0, -1, 0]],
