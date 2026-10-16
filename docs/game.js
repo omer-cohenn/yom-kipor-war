@@ -12310,6 +12310,21 @@ function plankTex() {
 /* the planks: the board wall of the Plank Fence pack (4f_data_props.js, a texture only - thirteen weathered boards standing side by side,
    one repeat 2.4 m across and 1.28 m high, the trench wall from floor to lip) with its normal map, else the painted boards of plankTex */
 const FM_PLANK = { has: () => !!MDL_TEX['props/plank/map'], H: 1.28 };
+/* the small things lying in a trench: ammunition boxes, packs, a helmet and a rifle, a radio, a stretcher, crates, wire, grenades, spent cases */
+function fmProps(parts, wood, x, z, y, a, r, kind) {
+  const R = (dx, dz) => [x + Math.cos(a) * dx - Math.sin(a) * dz, z + Math.sin(a) * dx + Math.cos(a) * dz];
+  const P = (geo, col, dx, dy, dz, rx = 0, ry = 0, rz = 0, list = parts) => { const [px, pz] = R(dx, dz); list.push([geo, col, M4(px, y + dy, pz, rx, -a + ry, rz)]); };
+  if (kind === 0) { for (let k = 0; k < 3; k++) P(G.box(0.62, 0.3, 0.32), 0x4d5a34, 0, 0.15 + k * 0.31, (k % 2) * 0.05, 0, (k - 1) * 0.12); P(G.box(0.63, 0.04, 0.12), 0xd8c84a, 0, 0.32, 0.17); }
+  else if (kind === 1) { for (let k = 0; k < 2; k++) P(G.box(0.36, 0.48, 0.17), 0x435033, k * 0.4, 0.24, 0, 0, r() * 0.4); }
+  else if (kind === 2) { P(G.sph(0.15, 10, 6, 0, Math.PI * 2, 0, Math.PI * 0.55), 0x4f5638, 0, 0.02, 0, Math.PI, 0, 0); P(G.box(0.08, 0.06, 1.05), 0x2b2a26, 0.4, 0.5, 0, 0.6, 0, 0.1); }
+  else if (kind === 3) { P(G.box(0.48, 0.34, 0.32), 0x56603c, 0, 0.2, 0); P(G.cyl(0.006, 0.006, 1.6, 4), 0x1a1a1a, 0.18, 1.1, 0.1); }
+  else if (kind === 4) { P(G.cyl(0.03, 0.03, 2.1, 6), 0x6b5a3e, 0, 0.12, -0.25, 0, 0, Math.PI / 2); P(G.cyl(0.03, 0.03, 2.1, 6), 0x6b5a3e, 0, 0.12, 0.25, 0, 0, Math.PI / 2); P(G.box(1.8, 0.02, 0.5), 0x6a6a52, 0, 0.13, 0); }
+  else if (kind === 5) { P(G.box(0.7, 0.42, 0.5), 0x8a6e48, 0, 0.21, 0, 0, 0, 0, wood); P(G.box(0.55, 0.32, 0.42), 0x7d6442, 0.1, 0.58, 0.02, 0, 0.3, 0, wood); }
+  else if (kind === 6) { for (let k = 0; k < 3; k++) P(G.tor(0.42, 0.02, 4, 18), 0x5a5a56, k * 0.3, 0.42, 0, 0, Math.PI / 2, 0); }
+  else if (kind === 7) { P(G.cap(0.16, 0.45, 4, 8), 0x55603c, 0, 0.18, 0, 0, 0, Math.PI / 2); P(G.cap(0.12, 0.6, 4, 8), 0x6a6248, 0.05, 0.42, 0.06, 0, 0.4, Math.PI / 2); }
+  else if (kind === 8) { for (let k = 0; k < 9; k++) P(G.cyl(0.012, 0.012, 0.06, 6), 0xc8a24a, (r() - 0.5) * 0.7, 0.02, (r() - 0.5) * 0.5, Math.PI / 2, r() * 3, 0); P(G.box(0.3, 0.18, 0.22), 0x6e5a3a, 0.2, 0.09, 0.1, 0, 0, 0, wood); }
+  else { P(G.cyl(0.18, 0.18, 0.12, 12), 0x3a3a34, 0, 0.06, 0, Math.PI / 2, 0, 0); P(G.box(0.2, 0.22, 0.12), 0x3f4a2f, 0.3, 0.11, 0); }
+}
 function fmRevet() {
   const pos = [], uv = [], col = [], posts = [], caps = [], lips = [], H0 = DY - 0.06, H1 = FY - 0.03, step = LITE ? 3.2 : 1.6, r = rng(4472), pk = FM_PLANK.has();
   // one revetment face from (a) to (b), pushed out along its normal so it sits on the earth wall: panel by panel, each its own shade of old timber
@@ -12336,7 +12351,7 @@ function fmRevet() {
   boards.forEach(([x0, z0, a], i) => { const [x, z] = FW(x0, z0); bm.setMatrixAt(i, mm.compose(V3(x, DY + 0.03, z), q.setFromAxisAngle(up, a + (r() - 0.5) * 0.04), one)); }); bm.receiveShadow = !LITE; scene.add(onLayer1(bm));
   fmLipBags(lips);
   // what lies about in the trenches: ammunition boxes, jerrycans, sacks, a stretcher, spent shells
-  const parts = [], wood = []; for (const z of [FM_DZ[0], FM_ET]) for (let x = F.x0 + 6; x < F.x1 - 6; x += 7 + r() * 9) { if (FM_DX.some((dx) => Math.abs(dx - x) < 3)) continue; const sd = r() < 0.5 ? 1 : -1, [wx, wz] = FW(x, z + sd * (FM_HW - 0.38)); hmProps(parts, wood, wx, wz, DY + 0.06, sd > 0 ? 0 : Math.PI, r, Math.floor(r() * 10)); }
+  const parts = [], wood = []; for (const z of [FM_DZ[0], FM_ET]) for (let x = F.x0 + 6; x < F.x1 - 6; x += 7 + r() * 9) { if (FM_DX.some((dx) => Math.abs(dx - x) < 3)) continue; const sd = r() < 0.5 ? 1 : -1, [wx, wz] = FW(x, z + sd * (FM_HW - 0.38)); fmProps(parts, wood, wx, wz, DY + 0.06, sd > 0 ? 0 : Math.PI, r, Math.floor(r() * 10)); }
   if (parts.length) scene.add(SH(onLayer1(new THREE.Mesh(build(parts), MAT.vc)))); if (wood.length) scene.add(SH(onLayer1(new THREE.Mesh(build(wood), new THREE.MeshStandardMaterial({ vertexColors: true, map: TX.wood, roughness: 0.92 })))));
 }
 /* a layer of sandbags on top of the planks, along every lip (lips: the revetment faces, [ax, az, bx, bz, nx, nz] with n into the trench).
