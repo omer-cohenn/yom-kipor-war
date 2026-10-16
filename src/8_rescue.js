@@ -13,10 +13,25 @@ const RS_BACK = [[-515, -14], [-505, -44], [-470, -46], [-430, -14], [-400, 6], 
 const RS_MEET = [-575, -78], RS_WEST = [[-560, -66], [-860, -62]];
 const RS_MEET2 = [-572, -42], RS_HILL = [-440, 112], RS_SOUTH = [[-520, -150], [-660, -175]];
 const RS_WAIT = [-600, -110];   // where the garrison lies up behind the big dune, out of sight of the track
+/* the drives are short and never quiet: the column starts just past our line and moves fast (8-9 m/s), and every leg runs through a chain of
+   ambushes - fixed points along the track, one every 50-70 m, each a pattern of up to four shooters on both sides and at different ranges
+   (a Sagger crew far out on a dune, an RPG team close in, a machine gun, riflemen running up to a sandbag position). At any moment two or
+   three of them are firing. They are triggered by where the column is, never by chance; the level decides how many of each pattern show */
+const RS_S0 = 175, RS_V = [8.6, 5.2, 9.0, 0, 7.8], RS_HOME_END = 770;   // (the second entry's ambushes end before the hill: its thirty men must come down in a lull)
+const RS_AMBX = { 0: [480, 438, 396, 352, 308, 264, 220, 176, 132, 90, 50, -2, -46, -90, -134, -178, -220, -250, -300, -340, -382, -424, -466, -500], 2: [70, 28, -14, -56, -98, -140, -182, -224, -296], 4: [-436, -398, -360, -322, -284, -246, -208, -170, -132, -94, -56, -18, 20, 58, 96, 134] };
+const RS_KINDS = [['rpg', 'rifle', 'atgm', 'lmg'], ['rifle', 'rpg', 'lmg', 'rpg'], ['lmg', 'rpg', 'rifle', 'atgm'], ['rpg', 'lmg', 'rifle', 'rifle']];
+const rsD = () => Math.max(0, DIFF.indexOf(diff));
+function rsTrackZ(x) { const T = RS_TRACK; if (x >= T[0][0]) return T[0][1]; for (let i = 0; i < T.length - 1; i++) if (x <= T[i][0] && x >= T[i + 1][0]) return lerp(T[i][1], T[i + 1][1], (T[i][0] - x) / (T[i][0] - T[i + 1][0])); return T[T.length - 1][1]; }
+// the ambushes of one leg: their places are fixed (seeded), the same in every game
+function rsAmbDefs(stage) {
+  return RS_AMBX[stage].map((x, i) => { const r = rng(7100 + stage * 100 + i), sd = i % 2 ? 1 : -1, kinds = RS_KINDS[(i + stage) % 4];
+    return { x, id: `a${stage}_${i}`, sh: kinds.map((k0, k) => { const kind = stage === 4 && k0 === 'atgm' && i % 2 ? 'rpg' : k0, side = k % 2 ? -sd : sd, off = [34, 58, 96, 74][k] + r() * 16, dx = (r() - 0.5) * 46;
+      return { dx, side, off, kind, how: kind === 'rifle' ? 'run' : 'pit' }; }) }; });
+}
 const RS_STAGES = [
   { title: 'כניסה ראשונה', sub: 'שלוש וארבעים לפנות בוקר. הטור יוצא מערבה בציר, בין דיונות שהירח צובע בכחול. פצצות תאורה נתלות מעל הדרך, ובשוחות משני צדיה כבר יושבים צוותי הסאגר עם האצבע על הידית. לוחמי פורקן אמורים לחכות בקצה.', goal: 'מערבה בציר עד נקודת המפגש. חסלו את צוותי הסאגר בשוחות לפני שהם יורים' },
   { title: 'הזיקוק הירוק', sub: 'נקודת המפגש הייתה ריקה, והטור חזר לקו תחת אש. בקשר, המח״ט מנסה להבין איפה הם, ובסוף מבקש דבר אחד: זיקוק ירוק. כולם יורים נותבים אדומים — ירוק יבלוט.', goal: 'סרקו את השמיים מערבה, מצאו את הזיקוק הירוק והחזיקו עליו את המבט' },
-  { title: 'כניסה שנייה — אש תופת', sub: 'עכשיו יודעים איפה הם. הטור שועט שוב מערבה, המח״ט בטנק השמאלי. טילי סאגר שטים מעל הצריחים, הנגמ״שים חוטפים. ואז, מגבעה משמאל, קבוצה של כשלושים חיילים יורדת לקראת הטור. מדים לא רואים בחושך.', goal: 'מערבה בציר. קבוצת החיילים שיורדת מהגבעה — מי הם? תנו להם להתקרב, ואצבע על ההדק' },
+  { title: 'כניסה שנייה — אש תופת', sub: 'עכשיו יודעים איפה הם. הטור שועט שוב מערבה, המח״ט בטנק השמאלי. טילי סאגר שטים מעל הצריחים, הג׳יפים חוטפים. ואז, מגבעה משמאל, קבוצה של כשלושים חיילים יורדת לקראת הטור. מדים לא רואים בחושך.', goal: 'מערבה בציר. קבוצת החיילים שיורדת מהגבעה — מי הם? תנו להם להתקרב, ואצבע על ההדק' },
   { title: 'המפלצת', sub: 'שאול הגיע לנקודת המפגש, ולוחמי פורקן רצים אליו מאחורי הדיונה. שלושים ושלושה איש מטפסים על טנק אחד. כל סאגר וכל פגז בגזרה מכוונים אליו עכשיו — ואתם היחידים שיכולים להרחיק אותם.', goal: 'חפו על הטנק של שאול עד שכל 33 הלוחמים עליו: הרגו מפעילי סאגר (סימון צהוב) ואת הטנקים המצריים' },
   { title: 'מזרחה', sub: 'מתוך האבק מגיח טנק שנראה כמו מפלצת: עשרות חיילים צמודים אליו מכל צד. הוא פונה מזרחה, ואתם צמודים אליו. כל טנק מצרי בגזרה כבר יודע עליו, ואף סאגר לא יכול לפגוע בו.', goal: 'ליווי צמוד מזרחה: אף סאגר לא מגיע לטנק עם הפצועים. הרגו את המפעילים לפני הפגיעה' },
 ];
@@ -53,12 +68,17 @@ function rsBuild() {
   const BAGS = [], sv = BATCH.bag; BATCH.bag = BAGS; const k0 = COVER.length; C.slots = []; C.nestBush = []; C.fires = [];
   { const r = rng(4242); for (const id of ['A', 'B', 'C', 'D']) { const g = RS_GROUPS[id], cx = g.at ?? g.pts[0][0]; if (g.extra) continue; g.extra = true; for (let k = 0; k < 5; k++) { const sd = k % 2 ? 1 : -1; g.pts.push([cx + (r() - 0.5) * 200, sd * (70 + r() * 120)]); g.kinds.push(['rifle', 'rpg', 'rifle', 'rifle', 'atgm'][k]); } } }
   for (const [id, g] of Object.entries(RS_GROUPS)) g.pts.forEach(([x0, z0], i) => { const lane = id === 'W' ? RS_WEST : id === 'S' ? RS_SOUTH : RS_TRACK, [x, z] = corr(lane, x0, z0, 23, id === 'W' || id === 'S' ? 4 : 12); const [wx, wz] = RW(x, z); let tx = x, tz = 0; { let bd = 1e9; for (const p of id === 'W' || id === 'S' ? [RS_MEET2, [-560, -66]] : densify(RS_TRACK, 10)) { const d = Math.hypot(p[0] - x, p[1] - z); if (d < bd) { bd = d; tx = p[0]; tz = p[1]; } } } const dx = tx - x, dz = tz - z, l = Math.hypot(dx, dz) || 1; const s = foxhole(wx, wz, dx / l, dz / l, C.slots); s.grp = id; s.kind = g.kinds[i]; if (g.bush) for (let k = 0; k < 6; k++) { const a = Math.atan2(dx, dz) + rand(-2.4, 2.4), d = rand(1.6, 3.4); C.nestBush.push([wx + Math.sin(a) * d, wz + Math.cos(a) * d, rand(0.9, 1.6), rand(0, 6), greenBush(Math.random)]); } });
+  // the ambush positions of the three drives: a hole in the sand for each man who pops up, a short sandbag wall for each who runs up to fire
+  C.amb = {}; C.ambW = []; for (const st of [0, 2, 4]) C.amb[st] = rsAmbDefs(st).map((a, i) => { const r = rng(7700 + st * 100 + i);
+    a.sh.forEach((q) => { const lx = a.x + q.dx, tz = rsTrackZ(lx), lz = tz + q.side * q.off, fz = Math.sign(tz - lz) || 1, [wx, wz] = RW(lx, lz);
+      if (q.how === 'pit') { const sl = foxhole(wx, wz, 0, fz, C.slots); sl.grp = a.id; sl.kind = q.kind; q.slot = sl; for (let k = 0; k < 4; k++) { const an = (r() - 0.5) * 4.6 + (fz > 0 ? Math.PI : 0), d = 1.7 + r() * 1.6; C.nestBush.push([wx + Math.sin(an) * d, wz - Math.cos(an) * d, 0.8 + r() * 0.6, r() * 6, dryBush(r)]); } }
+      else { bagWall([[wx - 1.5, wz + fz * 0.9], [wx + 1.5, wz + fz * 0.9]], 4); q.dest = [wx, wz]; q.from = RW(lx + (r() - 0.5) * 12, lz - fz * 44); C.ambW.push([wx, wz]); } });
+    return a; });
   // the battlefield of the day before: burnt tanks and trucks along the track. At night three of them still burn, and light the road
   for (const [x, z, b, fire] of [[120, -44, 70, true], [-330, 58, 110, true], [-610, 30, 200, false], [505, -40, 20, false]]) { const [wx, wz] = RW(x, z); placeTank(wx, wz, b, TANK_BURNT); if (fire) rsFire(wx, wz, 2.2); }
-  for (const [x, z, r, fire] of [[430, 62, 0.4, false], [-640, -50, 1.2, false], [-20, 70, 2.2, true]]) { const [wx, wz] = RW(x, z); vehicle(TRUCK_BURNT, wx, wz, r, 3.3, 1.2, 2.6); if (fire) rsFire(wx, wz, 1.6); }
-  { const [wx, wz] = RW(-600, 80); vehicle(TRUCK_BURNT, wx, wz, 2.6, 3.3, 1.2, 2.6); }
+  for (const [x, z, r, fire] of [[430, 62, 0.4, false], [-640, -50, 1.2, false], [-20, 70, 2.2, true], [-600, 80, 2.6, false]]) { const [wx, wz] = RW(x, z); rsJeepWreck(wx, wz, r, x > 0 ? 'f' : 'e'); if (fire) rsFire(wx, wz, 1.6); }
   for (const [x, z, s] of [[-1300, -400, 40], [-1500, 300, 60], [-900, 900, 30], [200, -1200, 26]]) { const [wx, wz] = RW(x, z); smokeColumn(wx, wz, s, s > 35); }
-  { const L = (x, z) => [x - RS.o.x, z - RS.o.z], okW = (x, z) => { const [lx, lz] = L(x, z); return distPolyline(lx, lz, RS_TRACK) > 9 && Math.hypot(lx - RS_MEET[0], lz - RS_MEET[1]) > 22 && Math.hypot(lx - RS_MEET2[0], lz - RS_MEET2[1]) > 16 && Math.hypot(lx - RS_HILL[0], lz - RS_HILL[1]) > 30 && !C.slots.some((s) => Math.hypot(s.x - x, s.z - z) < 4); };
+  { const L = (x, z) => [x - RS.o.x, z - RS.o.z], okW = (x, z) => { const [lx, lz] = L(x, z); return distPolyline(lx, lz, RS_TRACK) > 9 && Math.hypot(lx - RS_MEET[0], lz - RS_MEET[1]) > 22 && Math.hypot(lx - RS_MEET2[0], lz - RS_MEET2[1]) > 16 && Math.hypot(lx - RS_HILL[0], lz - RS_HILL[1]) > 30 && !C.slots.some((s) => Math.hypot(s.x - x, s.z - z) < 4) && !C.ambW.some((w) => Math.hypot(w[0] - x, w[1] - z) < 4); };
     const X0 = RS.o.x - 770, X1 = RS.o.x + 750, Z0 = RS.o.z - 320, Z1 = RS.o.z + 320;
     const TW = RS_TRACK.map(([x, z]) => RW(x, z));
     concealPatches([...patchesNear(TW, 60, 12, 120, 990, okW, 4, 9), ...patchesIn(70, X0, RS.o.x - 330, Z0, Z1, 991, okW, 5, 12)], C, 992, 0.5);
@@ -73,7 +93,7 @@ function rsBuild() {
     for (let i = 0; i < 70; i++) { const r = rng(400 + i); const [x, z] = [X0 + r() * 420, Z0 + r() * 640]; if (okW(x, z)) addCover(x + 1.2, z, -1, 0, 1.1); }
     palms(scatterIn(26, X0, RS.o.x - 520, Z0, Z1, 307, okW, (x, z, r) => [x, z, 0.8 + r() * 0.3, r() * 6]));
     powerLine(densify(RS_TRACK, 40).filter(([x]) => x > -420).map(([x, z]) => RW(x, z - 30)), 46);
-    roadRibbon(RS_TRACK.map(([x, z]) => RW(x, z)), 6.5, 'dirt'); roadRibbon(RS_BACK.slice(0, 5).map(([x, z]) => RW(x, z)), 5.5, 'dirt'); roadWrecks(RS_TRACK.map(([x, z]) => RW(x, z)), 5, 8113, 7);
+    roadRibbon(RS_TRACK.map(([x, z]) => RW(x, z)), 6.5, 'dirt'); roadRibbon(RS_BACK.slice(0, 5).map(([x, z]) => RW(x, z)), 5.5, 'dirt'); rsRoadWrecks(RS_TRACK.map(([x, z]) => RW(x, z)), 5, 8113, 7);
     roadPoles(RS_TRACK.filter(([x]) => x > -480).map(([x, z]) => RW(x, z)), 30, 5.5);
     { const [a, b] = RW(626, 16); fieldSign(a, b, 'ציר טליסמן', -Math.PI / 2, 1.2); const [c, d] = RW(612, -14); fieldSign(c, d, 'אזור אש · נוסעים בטור', -Math.PI / 2, 1.6); }
     for (const [x, z, w, d, h, ru] of [[660, -40, 6, 4, 2.6, 0], [672, 46, 5, 4, 2.4, 0], [262, 48, 5, 4, 2.4, 1], [-150, -44, 6, 5, 2.6, 1], [-36, 58, 4, 4, 2.2, 1]]) { const [wx, wz] = RW(x, z); smallHut(wx, wz, w, d, h, '#cbb68e', 0x7d6e58, !!ru); }
@@ -81,10 +101,10 @@ function rsBuild() {
     for (const [x, z] of [[640, 28], [-470, 60]]) { const [wx, wz] = RW(x, z); fieldDrums(wx, wz, 5); }
   }
   BATCH.bag = sv; if (BAGS.length) scene.add(bagMesh(BAGS)); C.covers = COVER.slice(k0); for (const c of C.covers) c.y = groundAt(c.x, c.z);
-  // the rescue force: Shaul's tank (the battalion commander), the artillery liaison officer's tank, and the four half-tracks of company Yod behind
+  // the rescue force: Shaul's tank (the battalion commander), the artillery liaison officer's tank, and the four light vehicles of company Yod behind (jeeps: the only light vehicle model in the game)
   C.shaul = addVeh({ mode: 'rescue', side: 'f', kind: 'tank', geo: TANK_GEO, half: [3.4, 2.6, 1.9], guns: true, follow: { gap: 26 }, sturdy: true, hitP: 0.14, shellDmg: 22, name: 'הטנק של שאול' });
   C.ksha = addVeh({ mode: 'rescue', side: 'f', kind: 'tank', geo: TANK_GEO, half: [3.4, 2.6, 1.9], guns: true, follow: { gap: 50 }, sturdy: true, hitP: 0.14, shellDmg: 22, name: 'טנק הקש״א' });
-  C.apc = [74, 90, 106, 122].map((gap, i) => addVeh({ mode: 'rescue', side: 'f', kind: 'jeep', geo: HT_GEO, half: [3.0, 2.2, 1.2], guns: i < 2, follow: { gap }, name: `נגמ״ש ${i + 1}` }));
+  C.apc = [74, 90, 106, 122].map((gap, i) => addVeh({ mode: 'rescue', side: 'f', kind: 'jeep', geo: HT_GEO, half: [3.0, 2.2, 1.2], guns: i < 2, follow: { gap }, name: `ג׳יפ ${i + 1}` }));
   C.t55 = [[-1100, 60], [-1050, -180], [-950, -430], [-760, -60], [-740, 40]].map(() => addVeh({ mode: 'rescue', kind: 't55', geo: T55_HULL, turGeo: T55_TUR, turAt: [0.3, 1.42, 0], half: [3.2, 2.3, 1.75], armor: 0, hp: 100, shoots: true, vmax: 5 }));
   // the rest of the garrison: twenty-one more men, so that thirty-three climb onto one tank
   C.riders = Array.from({ length: 21 }, (_, i) => { const u = new Unit('f', 'rifle'); scene.remove(u.tag); u.alive = true; u.rig.root.visible = false; u.rig.root.userData.dyn = true; u.stance = 'stand'; u.rig.pose('idle', i); return { u, state: 'hide', seat: null }; });
@@ -97,6 +117,16 @@ function rsFire(x, z, size) {
   for (let i = 0; i < 5; i++) { const glow = i === 4; const f = new THREE.Sprite(new THREE.SpriteMaterial({ map: glow ? FXT.glow : FXT.fire, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, fog: false, color: glow ? new THREE.Color(0.9, 0.45, 0.15) : new THREE.Color(1.8, 1.1, 0.5), opacity: glow ? 0.55 : 1 })); f.position.set(x + rand(-1.2, 1.2), g + (glow ? 3 : 1.6 + i * 0.8), z + rand(-1.2, 1.2)); f.scale.setScalar(size * (glow ? 7 : 2.6 + i * 0.9)); scene.add(onLayer1(f)); fires.push(f); }
   const light = LITE ? null : new THREE.PointLight(0xff9a4a, 0, 110, 2); if (light) { light.position.set(x, g + 2.6, z); scene.add(light); }
   C.fires.push({ x, z, g, size, fires, light, ph: rand(0, 6) });
+}
+/* a burnt-out jeep, and wrecks along a road: only the real jeep and tank models stand in the field (no lorries) */
+function rsJeepWreck(x, z, rot, side = 'e', fire = true) {
+  const rec = vehModel('jeep', side); vehPaint(rec, 'x' + side); vehDamage(rec, true); rec.dead = true; const m = rec.g, g0 = groundAt(x, z);
+  m.position.set(x, g0, z); m.rotation.y = rot; scene.add(SH(onLayer1(m))); addCollider(x, z, 2.05, 0.95, rot, g0 + 2.0); coverBox(x, z, 2.05, 0.95, rot, 2.0); if (fire) wreckFire(m, VEH_FIRE.jeep, 0.85); return m;
+}
+function rsRoadWrecks(pts, n, seed, side = 6.5) {
+  const r = rng(seed), d = densify(smoothPath(pts, 3), 6);
+  for (let k = 0; k < n; k++) { const i = 2 + Math.floor(r() * Math.max(1, d.length - 4)), a = d[i - 1], b = d[i + 1], hd = Math.atan2(b[0] - a[0], b[1] - a[1]), sd = r() < 0.5 ? -1 : 1, nx = Math.cos(hd), nz = -Math.sin(hd), x = d[i][0] + nx * side * sd * (0.9 + r() * 0.4), z = d[i][1] + nz * side * sd * (0.9 + r() * 0.4), tank = r() < 0.3, rot = hd + (r() - 0.5) * 0.9;
+    if (tank) placeTank(x, z, hd * 180 / Math.PI + (r() - 0.5) * 60, TANK_BURNT); else rsJeepWreck(x, z, rot + Math.PI / 2, r() < 0.6 ? 'e' : 'f'); }
 }
 function rsSeats() {
   // thirty-three places on one tank: the rear deck, the glacis, the fenders, the turret rear, and two men hanging on at the turret sides
@@ -135,9 +165,10 @@ function rsRidersUpd(dt) {
 function rsNightUpd(dt) {
   const C = CHAP.rescue;
   // illumination rounds from our guns hang over the ground the column fights on
-  if (RS.stage !== 1 && !CINE.on) { RS.illumT -= dt; if (RS.illumT <= 0) { RS.illumT = rand(22, 34); const [tx, tz] = TANK.g ? [TANK.g.position.x, TANK.g.position.z] : RW(0, 0); const ahead = RS.stage === 4 ? 1 : -1; spawnFlare(tx + ahead * rand(80, 170) + rand(-40, 40), tz + rand(-90, 90), rand(170, 210), 30, 26, 0.4); if (Math.random() < 0.5) radio('תצפית', pick(['תאורה מעל הציר!', 'פצצת תאורה באוויר, עיניים לדיונות!']), 2); } }
+  // a round every 14-19 s, over the ground the column is about to drive into: each one comes down on its parachute to the sand and dies there
+  if (RS.stage !== 1 && !CINE.on) { RS.illumT -= dt; if (RS.illumT <= 0) { const n = RS.illumN = (RS.illumN || 0) + 1; RS.illumT = 14 + (n % 3) * 2.5; const [tx, tz] = TANK.g ? [TANK.g.position.x, TANK.g.position.z] : RW(0, 0), ahead = RS.stage === 4 ? 1 : -1; spawnFlare(tx + ahead * (95 + (n % 3) * 40), tz + [-55, 35, 75][n % 3], 205 + (n % 2) * 15, 30, 28, 0.45); if (n % 2) radio('תצפית', n % 4 === 1 ? 'תאורה מעל הציר!' : 'פצצת תאורה באוויר, עיניים לדיונות!', 2); } }
   // how much an illumination round overhead lights the ground round the player (the global brightening in setTimeOfDay)
-  { let fl = 0; for (const f of FLARES) { const k = f.t < 1.5 ? f.t / 1.5 : f.t > f.life - 4 ? Math.max(0, (f.life - f.t) / 4) : 1, d = Math.hypot(f.x - P.pos.x, f.z - P.pos.z); fl = Math.max(fl, k * clamp(1 - d / 520, 0, 1)); } FLARE_LIGHT = fl; }
+  FLARE_LIGHT = flareAmb(P.pos.x, P.pos.z);
   // the burning wrecks flicker
   for (const f of C.fires) { const k = 0.75 + 0.25 * Math.sin(GAME.t * 11 + f.ph) * Math.sin(GAME.t * 4.3 + f.ph * 2); f.fires.forEach((s, i) => { const glow = i === 4; s.scale.setScalar(f.size * (glow ? 7 : 2.6 + i * 0.9) * (0.85 + 0.3 * Math.abs(Math.sin(GAME.t * 7 + i + f.ph)))); if (!glow) s.position.y = f.g + 1.6 + i * 0.8 + Math.sin(GAME.t * 5 + i) * 0.15; }); if (f.light) f.light.intensity = 40000 * k; if (Math.random() < dt * 2.5) { const s = FX.smoke.get(); s.life = 5; s.s.position.set(f.x + rand(-1, 1), f.g + 3, f.z + rand(-1, 1)); s.s.material.color.set(0x1a1816); s.upd = (q, u, dt2) => { q.s.position.y += 2.4 * dt2; q.s.scale.setScalar(2 + u * 8); q.s.material.opacity = 0.6 * (1 - u); }; } }
   // the three hull-down T-55s far to the west fire at our line all night: flashes and tracers over the dunes, nothing that can hit
@@ -163,7 +194,7 @@ function rsGreenFlare() {
 }
 /* ---------- set-up for a stage (also from a checkpoint) ---------- */
 function rsSetup(stage) {
-  const C = CHAP.rescue; fieldSetupCommon(C, stage); RS.stopT = 0; RS.flareLook = 0; RS.flareN = 0; RS.illumT = 6; RS.boardT = 0; RS.walk = null; RS.hillOn = false; RS.ided = false;
+  const C = CHAP.rescue; fieldSetupCommon(C, stage); RS.stopT = 0; RS.flareLook = 0; RS.flareN = 0; RS.illumT = 3; RS.illumN = 0; RS.boardT = 0; RS.walk = null; RS.hillOn = false; RS.ided = false; RS.ambI = 0; RS.ambN = 0; RS.ambCk = 0; RS.ambT = 0;
   if (RS.flare) { scene.remove(RS.flare.s); scene.remove(RS.flare.h); scene.remove(RS.flare.light); RS.flare = null; }
   for (const v of VEH) if (v.mode === 'rescue') { vehRevive(v); v.shown = true; v.g.visible = true; v.ended = false; v.path = null; v.stop = undefined; v.onEnd = null; v.tgtV = null; v.hpSeen = 100; }
   const sA = rsArc(RS_GROUPS.A.at), sB = rsArc(RS_GROUPS.B.at), sC = rsArc(RS_GROUPS.C.at), sE = pathLen(RS_TRACK) - 0.5, sH = rsArc(RS_HILL[0] + 10); RS.stops = [sA, sB, sC, sE]; RS.sH = sH;
@@ -172,8 +203,9 @@ function rsSetup(stage) {
   if (!TANK.g) tankModel(); if (TANK.spot) TANK.spot.intensity = 0;   // no searchlight: the moon, the illumination rounds and the fires light the night
   if (stage !== 2) RS.hillCp = false;
   if (stage === 0 || stage === 2) {
-    const atHill = stage === 2 && RS.hillCp, s0 = stage === 0 ? 0 : atHill ? sH - 2 : sA + 30, stops = stage === 0 ? [sA, sB, sC, sE] : atHill ? [sH] : [sC, sH];
-    tankStart(RS_TRACK, RW, s0, stops); TANK.vmax = stage === 0 ? 5.2 : 6.2;
+    // the first entry starts just past our line and halts at B, C and the meeting point (A is fought on the move); the second starts short of B
+    const atHill = stage === 2 && RS.hillCp, s0 = stage === 0 ? RS_S0 : atHill ? sH - 2 : sB - 60, stops = stage === 0 ? [sB, sC, sE] : atHill ? [sH] : [sC, sH];
+    tankStart(RS_TRACK, RW, s0, stops); TANK.vmax = RS_V[stage]; if (atHill) RS.ambI = 99;
     C.shaul.follow = { gap: 26 }; C.ksha.follow = { gap: 50 }; C.apc.forEach((v, i) => { v.follow = { gap: [74, 90, 106, 122][i] }; });
     rsGarrison('hide');
   } else if (stage === 1) {
@@ -189,8 +221,8 @@ function rsSetup(stage) {
   } else {
     // the way home: Shaul leads on his own path with the garrison on his deck, the player's tank joins behind him, the liaison tank and the last half-track follow
     const home = [[RS_MEET2[0], RS_MEET2[1]], ...RS_BACK].map(([x, z]) => RW(x, z)), mine = [[RS_HILL[0], RS_HILL[1]], [-480, 40], ...RS_BACK].map(([x, z]) => RW(x, z));
-    C.shaul.follow = null; C.shaul.path = home; C.shaul.s = pathLen(home.slice(0, 2)) + 60; C.shaul.vmax = 5.8; C.shaul.hdV = null; C.shaul.onEnd = () => { RS.msgs.home = true; };
-    tankStart([[RS_HILL[0], RS_HILL[1]], [-480, 40], ...RS_BACK], RW, 95, [pathLen(mine) - 0.5]); TANK.vmax = 6.3;
+    C.shaul.follow = null; C.shaul.path = home; C.shaul.s = pathLen(home.slice(0, 2)) + 60; C.shaul.vmax = RS_V[4] - 0.2; C.shaul.hdV = null; C.shaul.onEnd = () => { RS.msgs.home = true; };
+    tankStart([[RS_HILL[0], RS_HILL[1]], [-480, 40], ...RS_BACK], RW, 95, [pathLen(mine) - 0.5]); TANK.vmax = RS_V[4];
     C.ksha.follow = { gap: 22 }; C.apc[2].follow = { gap: 44 }; for (const i of [0, 1, 3]) { vehDestroy(C.apc[i], true); C.apc[i].follow = null; const [x, z] = RW(RS_HILL[0] + 70 + i * 30, RS_HILL[1] - 60 + i * 15); vehPose(C.apc[i], x, z, -Math.PI / 2); }
     rsGarrison('ride');
   }
@@ -213,9 +245,33 @@ function rsStage(i) {
   if (i === 2 && RS.hillCp) { RS.msgs.h1 = RS.msgs.h2 = RS.msgs.h3 = RS.msgs.c2 = true; for (const k of [0, 1, 3]) vehDestroy(C.apc[k], true); radio('מח״ט', 'שאול, עצור. קבוצת חיילים יורדת מהגבעה אליכם — אל תירו עד שמזהים.', 4); }
   else if (i === 2) { radio('מח״ט', 'אני נכנס איתכם, הטנק שלי משמאל. חטיבה 421 מגבירה אש. כולם — גז, לא עוצרים!', 4.5); rsGroupSpawn('C'); rsGroupSpawn('N'); rsSquad('C', 10); }
   if (i === 3) { radio('שאול', 'אני בנקודת המפגש! הם רצים אליי מאחורי הדיונה. תחפה עליי מהגבעה — הסאגרים יחפשו אותי עכשיו.', 5); const nW = rsGroupSpawn('W', 10, 9); rsGroupSpawn('S', 10 + nW * 9 - 4, 9); for (const v of C.t55.slice(3)) { v.shown = true; v.g.visible = true; v.shoots = true; } rsBoardStart(); hint('rs-cover', 'הטנק של שאול עומד במקום עד ש־33 איש עולים עליו. סימון צהוב מהבהב = מפעיל סאגר מכוון אליו: הרגו אותו לפני שהטיל מגיע. טנק מצרי — פגז (G).', 10); }
-  if (i === 4) { radio('שאול', 'כולם עליי! שלושים ושלושה. אני זז מזרחה — תישאר צמוד אליי.', 4); rsGroupSpawn('D', 8, 7); rsSquad('D', 12); DIRQ.push({ at: GAME.t + 18, spawn: true, fn: () => rsSquad('D', 10) }); }
+  if (i === 4) { radio('שאול', 'כולם עליי! שלושים ושלושה. אני זז מזרחה — תישאר צמוד אליי.', 4); DIRQ.push({ at: GAME.t + 6, fn: () => radio('מח״ט', 'כל הדרך הביתה הם יחכו לכם בשוחות. מי שמרים ראש — מקבל.', 3.5) }); }
 }
-function rsSquad(id, n) { const C = CHAP.rescue, sl = C.slots.filter((q) => q.grp === id); for (let k = 0; k < n && sl.length; k++) { const s = sl[k % sl.length], [lx, lz] = corr(RS_TRACK, s.x - RS.o.x + rand(-25, 25), s.z - RS.o.z + rand(-6, 6), 24, 10), [mx, mz] = corr(RS_TRACK, lx + rand(-10, 10), lz * 0.5, 14, 4), [x, z] = RW(lx, lz), [tx, tz] = RW(mx, mz); const e = fSpawnStreet(x, z, [[tx, tz]], k % 4 === 3 ? 'rpg' : 'rifle'); if (e) e.sq = id; } }
+function rsSquad(id, n) { const C = CHAP.rescue, sl = C.slots.filter((q) => q.grp === id), r = rng(5300 + id.charCodeAt(0) * 31 + n); n = Math.round(n * [0.6, 1, 1.25][rsD()]); for (let k = 0; k < n && sl.length; k++) { const s = sl[k % sl.length], [lx, lz] = corr(RS_TRACK, s.x - RS.o.x + (r() - 0.5) * 50, s.z - RS.o.z + (r() - 0.5) * 12, 24, 10), [mx, mz] = corr(RS_TRACK, lx + (r() - 0.5) * 20, lz * 0.5, 14, 4), [x, z] = RW(lx, lz), [tx, tz] = RW(mx, mz); const e = fSpawnStreet0(x, z, [[tx, tz]], k % 4 === 3 ? 'rpg' : 'rifle'); if (e) { e.sq = id; e.tac = k % 4 < [1, 2, 3][rsD()] ? 'storm' : 'hold'; } } }
+/* an ambush of the drive comes up: the men in the holes rise and open fire at once - a spray at a column moving fast in the dark, inaccurate
+   below the hard level (wild) - and the riflemen come running in to their sandbag wall. Most RPGs land short and shake the tank: all of them
+   on the easy level, all but one in three ambushes' first rocket on the middle one, every other one on the hard one, whose ambushes also
+   bring Sagger crews (eight seconds or more to lay the missile - time to find the yellow mark) */
+function rsAmbSpawn(a) {
+  const n = [2, 3, 4][rsD()], easy = rsD() === 0, dir = RS.stage === 4 ? 1 : -1; let right = 0, left = 0;
+  a.sh.slice(0, n).forEach((q, k) => { let e = null;
+    // the Sagger crews of the ambushes are the hard level's (the positions astride the track keep theirs on every level); below it an RPG team holds the hole
+    if (q.how === 'pit') { e = fSlotSpawn(q.kind === 'atgm' && rsD() < 2 ? 'rpg' : q.kind, (sl) => sl === q.slot, 'am'); if (e) { e.peek = true; e.cyc = 1.3 + k * 0.4; e.rpgCd = e.atgm ? 8 + k * 1.5 : 2.5 + k; e.rpgMiss = e.kind === 'rpg' && (easy || (rsD() === 1 ? k > 0 || RS.ambN % 3 > 0 : k % 2 === 1)); e.wild = rsD() < 2; } }
+    else { e = fSpawnStreet0(q.from[0], q.from[1], [q.dest], q.kind); if (e) { e.sq = 'am'; e.tac = 'hold'; e.rpgMiss = easy; } }
+    if (e) { e.ambId = a.id; if (q.side * dir > 0) right++; else left++; } });
+  const n0 = RS.ambN++; if (n0 % 2 === 0) radio('תותחן', right && left ? ['מארב משני צדי הציר!', 'יורים עלינו משני הצדדים!', 'שוחות מימין ומשמאל!'][n0 / 2 % 3] : right ? ['שוחות מימין!', 'מארב מימין, על הדיונה!'][n0 / 2 % 2] : ['שוחות משמאל!', 'מארב משמאל, בין השיחים!'][n0 / 2 % 2], 2);
+}
+/* each drive: the next ambush comes up 125 m before the column reaches it - or up to 260 m before, as soon as fewer than two of the ambushes
+   around the column are still firing (so the fire never stops, however fast the player kills); men left 140 m behind and out of sight are let go */
+function rsAmbUpd(dt) {
+  const C = CHAP.rescue, L = C.amb[RS.stage]; if (!L || CINE.on) return; const dir = RS.stage === 4 ? 1 : -1, tx = TANK.g.position.x - RS.o.x;
+  RS.ambT += dt; if (RS.ambT < 6) return;   // the first seconds of a drive belong to the positions astride the track: the ambushes start after them
+  const lead = RS.stage === 4 && C.shaul.alive ? Math.max(C.shaul.g.position.x - RS.o.x, tx) : tx;
+  if (!(RS.stage === 2 && RS.hillOn)) { while (RS.ambI < L.length && (L[RS.ambI].x - lead) * dir < 125) rsAmbSpawn(L[RS.ambI++]);
+    if (RS.ambI < L.length && (L[RS.ambI].x - lead) * dir < 260) { const live = new Set(); for (const e of UNITS.enemies) if (e.alive && e.sq === 'am' && e.ambId && Math.hypot(e.pos.x - TANK.g.position.x, e.pos.z - TANK.g.position.z) < 300) live.add(e.ambId); if (live.size < 2) rsAmbSpawn(L[RS.ambI++]); } }
+  RS.ambCk -= dt; if (RS.ambCk > 0) return; RS.ambCk = 0.5;
+  for (const e of UNITS.enemies) if (e.alive && e.sz && (e.sq === 'am' || 'ABCN'.includes(e.sq || '#')) && (e.pos.x - RS.o.x - tx) * dir < -140 && !fieldSees(e, 110)) { e.alive = false; e.rig.root.visible = false; e.tag.visible = false; if (e.slot) { e.slot.used = false; e.slot = null; } }
+}
 function rsGroupSpawn(id, first = 9, gap = 8) { const C = CHAP.rescue; let k = 0; for (const s of C.slots) if (s.grp === id && !s.used) { const e = fSlotSpawn(s.kind, (q) => q === s, id); if (e && e.atgm) { e.rpgCd = first + (k++) * gap; } } return k; }
 /* the thirty Egyptians on the hill: they stand in the open, unmarked, until the tank is a hundred metres away */
 function rsHillGroup() {
@@ -248,17 +304,18 @@ function rsHillWake() {
 function rsUpd(dt) {
   const C = CHAP.rescue; C.t += dt; RS.t += dt; if (Math.floor(RS.t * 2) !== Math.floor((RS.t - dt) * 2)) szEnemyCleanup();
   for (let i = DIRQ.length - 1; i >= 0; i--) if (DIRQ[i] && GAME.t >= DIRQ[i].at) { const q = DIRQ.splice(i, 1)[0]; q.fn(); }
-  rsNightUpd(dt); rsRidersUpd(dt); if (RS.walk) rsWalkUpd(dt);
+  rsNightUpd(dt); rsRidersUpd(dt); if (RS.walk) rsWalkUpd(dt); if (RS.stage !== 1 && RS.stage !== 3) rsAmbUpd(dt);
   // the T-55s pick on Shaul's tank once it carries the garrison, the player the rest of the time
   C.t55.forEach((v, i) => { v.tgtV = i >= 3 && RS.stage >= 3 && C.shaul.alive ? (Math.random() < 0.6 ? () => C.shaul : null) : null; });
   if (C.shaul.alive && C.shaul.hp < C.shaul.hpSeen - 1) { C.shaul.hpSeen = C.shaul.hp; radio('שאול', pick(['חטפתי! עוד אני נע.', 'פגיעה בטנק, יש פצועים על הסיפון! תוריד אותם!']), 2.6); }
   if (RS.stage >= 3 && !C.shaul.alive) { endGame(false, 'shaul'); return; }
   if (RS.stage === 0) {
     if (CINE.on) return;
-    for (const [id, s0] of [['A', RS.stops[0]], ['B', RS.stops[1]], ['C', RS.stops[2]]]) if (TANK.s > s0 - 95 && !RS.msgs[id]) { RS.msgs[id] = true; rsGroupSpawn(id); if (id === 'C') rsGroupSpawn('N'); rsSquad(id, 12); DIRQ.push({ at: GAME.t + 11, spawn: true, fn: () => rsSquad(id, 8) }); radio('תותחן', pick(['שוחות על הדיונות מימין!', 'צוות סאגר על הרכס, בתאורה!', 'תנועה בשוחות, משני צדי הציר!']), 2.6); }
+    // the three positions astride the track: A is shot through on the move, the column halts to clear B and C
+    for (const [id, s0, k] of [['A', RS.stops[0], 0], ['B', RS.stops[1], 1], ['C', RS.stops[2], 2]]) if (TANK.s > s0 - 95 && !RS.msgs[id]) { RS.msgs[id] = true; rsGroupSpawn(id); if (id === 'C') rsGroupSpawn('N'); if (id !== 'A') { rsSquad(id, 8); DIRQ.push({ at: GAME.t + 11, spawn: true, fn: () => rsSquad(id, 6) }); } radio('תותחן', ['שוחות על הדיונות מימין!', 'צוות סאגר על הרכס, בתאורה!', 'תנועה בשוחות, משני צדי הציר!'][k], 2.6); }
     const st = TANK.stops[TANK.stopI]; if (st !== undefined && TANK.holdAt === st) {
-      if (TANK.stopI >= 3) { if (!RS.msgs.empty) { RS.msgs.empty = true; radio('שאול', 'אנחנו בנקודה. אין פה אף אחד — סרקנו, כלום. אש כבדה מהצפון.', 4); DIRQ.push({ at: GAME.t + 5, fn: () => radio('מח״ט', 'חזרו לקו, עכשיו. אני מברר איתו בקשר איפה הם.', 3.5) }); DIRQ.push({ at: GAME.t + 9, fn: () => rsCut(() => rsSetup(1)) }); } return; }
-      RS.stopT += dt; const id = 'ABC'[TANK.stopI]; const left = fieldLeft((e) => e.sq === id); if (holdDone(left, RS.stopT)) { fieldDespawn((e) => e.sq === id); TANK.stopI++; TANK.holdAt = null; RS.stopT = 0; radio('נהג', left ? 'אין זמן, ממשיכים!' : 'נקי. ממשיכים מערבה.', 2); }
+      if (TANK.stopI >= 2) { if (!RS.msgs.empty) { RS.msgs.empty = true; radio('שאול', 'אנחנו בנקודה. אין פה אף אחד — סרקנו, כלום. אש כבדה מהצפון.', 4); DIRQ.push({ at: GAME.t + 5, fn: () => radio('מח״ט', 'חזרו לקו, עכשיו. אני מברר איתו בקשר איפה הם.', 3.5) }); DIRQ.push({ at: GAME.t + 9, fn: () => rsCut(() => rsSetup(1)) }); } return; }
+      RS.stopT += dt; const id = 'BC'[TANK.stopI]; const left = fieldLeft((e) => e.sq === id); if (holdDone(left, RS.stopT)) { fieldDespawn((e) => e.sq === id); TANK.stopI++; TANK.holdAt = null; RS.stopT = 0; radio('נהג', left ? 'אין זמן, ממשיכים!' : 'נקי. ממשיכים מערבה.', 2); }
     }
   } else if (RS.stage === 1) {
     const g = RS.flare;
@@ -271,7 +328,7 @@ function rsUpd(dt) {
     if (!RS.msgs.c2 && TANK.s > RS.stops[2] - 100) { RS.msgs.c2 = true; rsSquad('C', 8); }
     const st = TANK.stops[TANK.stopI];
     if (!RS.hillOn && st === RS.sH && TANK.holdAt === st) {
-      RS.hillOn = true; RS.hillCp = true; CP.stats = { ...STATS }; snapRequest('hill'); fieldDespawn((e) => e.sq === 'C' || e.sq === 'N'); rsHillGroup(); feed('נקודת שמירה: הגבעה', 'good');
+      RS.hillOn = true; RS.hillCp = true; CP.stats = { ...STATS }; snapRequest('hill'); fieldDespawn((e) => e.sq === 'C' || e.sq === 'N' || e.sq === 'am'); rsHillGroup(); feed('נקודת שמירה: הגבעה', 'good');
       radio('מח״ט', 'שאול, עצור! קבוצת חיילים יורדת מהגבעה משמאל, לכיוון הטור. אני לא רואה מדים — אל תירו! זה יכול להיות פורקן.', 5);
       hint('rs-hill', 'שלושים איש יורדים מהגבעה אליכם, לא מסומנים. פורקן או מצרים? תנו להם להתקרב — ותהיו מוכנים.', 8);
     } else if (TANK.holdAt === st && st !== RS.sH && TANK.stopI < TANK.stops.length) { RS.stopT += dt; const left = fieldLeft((e) => e.sq === 'C' || e.sq === 'N'); if (holdDone(left, RS.stopT)) { TANK.stopI++; TANK.holdAt = null; RS.stopT = 0; radio('נהג', 'ממשיכים!', 1.6); } }
@@ -286,8 +343,8 @@ function rsUpd(dt) {
     if (RS.boardT > 30 && !RS.msgs.w2) { RS.msgs.w2 = true; for (let k = 0; k < 10; k++) { const sd = k % 2 ? 1 : -1, [x, z] = RW(...corr(RS_WEST, -760 + rand(-30, 30), -64 + sd * rand(2, 22), 23)), [tx, tz] = RW(...corr(RS_WEST, -640 + rand(-20, 20), -64 + sd * rand(2, 20), 22)); fSpawnStreet(x, z, [[tx, tz]], k === 2 ? 'rpg' : 'rifle'); } radio('תצפית', 'חי״ר מצרי מתקרב לטנק של שאול ממערב!', 2.6); }
   } else if (RS.stage === 4) {
     if (!RS.msgs.join && Math.hypot(TANK.g.position.x - C.shaul.g.position.x, TANK.g.position.z - C.shaul.g.position.z) < 70) { RS.msgs.join = true; radio('מח״ט', 'אני מאחוריך, שאול. סע, אני מחפה.', 2.5); }
-    for (const [k, s0, id, n] of [['w1', 520, 'B', 8], ['w2', 860, 'A', 8]]) if (!RS.msgs[k] && C.shaul.s > s0) { RS.msgs[k] = true; rsGroupSpawn(id, 7, 7); rsSquad(id, n); radio('תצפית', pick(['עוד שוחות לפנים, משני צדי הציר!', 'צוותי סאגר על הדיונות — הם מחכים לטנק של שאול!']), 2.6); }
-    if (RS.msgs.home || C.shaul.s > pathLen(C.shaul.path) - 230 || TANK.s > pathLen(TANK.path) - 2) { if (!RS.msgs.endFilm) { RS.msgs.endFilm = true; rsEndFilm(); } }
+    // the last stretch to our line is the film's: once Shaul is past the burning wrecks at the middle of the track, the column is home
+    if (RS.msgs.home || C.shaul.s > RS_HOME_END || TANK.s > pathLen(TANK.path) - 2) { if (!RS.msgs.endFilm) { RS.msgs.endFilm = true; rsEndFilm(); } }
   }
 }
 /* stage 3 without a checkpoint reset: the tank is already parked on the hill, the rest is placed */
@@ -314,12 +371,13 @@ function rsIntroFilm() {
       { d: 5.0, cam: camLerp(() => line.clone().add(V3(40, 3.5, 30)), () => line.clone().add(V3(22, 2.6, 18)), () => line.clone().add(V3(-20, 2, 0)), () => line.clone().add(V3(-30, 2, 0)), 48) },
     ],
     ev: [[9.6, () => { RS.walk = null; for (const q of units) { q.u.rig.root.visible = false; if (q.r) q.r.state = 'hide'; } }]],
-    caps: [[0.3, '<b>8 באוקטובר, בערב.</b> מאירק׳ה, מפקד פורקן, בקשר: "יש בכוונתי להיחלץ רגלית." דיוויזיה מצרית שלמה בינו לבין כוחותינו.', 4.6], [5.3, 'בשתיים וחצי, אחרי שקיעת הירח, יוצאים 33 לוחמים דרומה, לאורך ציר טליסמן. עשרה קילומטרים ברגל, בין העמדות המצריות.', 4.4], [10.0, '<b>לפנות בוקר.</b> חטיבה 14 מקבלת את החילוץ. הכוח: שני טנקים, ארבעה נגמ״שים ורופא. המח״ט עולה לתצפית ומשגיח מקרוב.', 4.8]],
+    caps: [[0.3, '<b>8 באוקטובר, בערב.</b> מאירק׳ה, מפקד פורקן, בקשר: "יש בכוונתי להיחלץ רגלית." דיוויזיה מצרית שלמה בינו לבין כוחותינו.', 4.6], [5.3, 'בשתיים וחצי, אחרי שקיעת הירח, יוצאים 33 לוחמים דרומה, לאורך ציר טליסמן. עשרה קילומטרים ברגל, בין העמדות המצריות.', 4.4], [10.0, '<b>לפנות בוקר.</b> חטיבה 14 מקבלת את החילוץ. הכוח: שני טנקים, ארבעה ג׳יפים ורופא. המח״ט עולה לתצפית ומשגיח מקרוב.', 4.8]],
     end: () => { radio('מח״ט', 'כוח החילוץ, היכנסו. לוחמי פורקן מחכים בנקודת המפגש בקצה הציר. כל שוחה בדרך — אש מיד.', 5); },
   });
 }
 function rsEndFilm() {
   const C = CHAP.rescue; for (const e of UNITS.enemies) if (e.alive) killEnemy(e, false); for (let i = DIRQ.length - 1; i >= 0; i--) if (DIRQ[i].spawn) DIRQ.splice(i, 1);
+  if (C.shaul.path) C.shaul.s = Math.max(C.shaul.s, pathLen(C.shaul.path) - 150); TANK.s = Math.max(TANK.s, pathLen(TANK.path) - 178);
   const sh = () => C.shaul.g.position.clone(), [lx, lz] = RW(620, 10), line = V3(lx, groundAt(lx, lz), lz);
   // the lone, scorched half-track comes along the road behind everyone
   const apc = C.apc[2]; apc.follow = null; { const p = [[380, -12], [500, 38], [640, 10]].map(([x, z]) => RW(x, z)); apc.path = p; apc.s = 0; apc.vmax = 6; apc.stop = undefined; apc.ended = false; if (!apc.alive) vehRevive(apc, 30); const [ax, az, ahd] = pathAt(p, 0); vehPose(apc, ax, az, ahd); }
@@ -330,14 +388,14 @@ function rsEndFilm() {
       { d: 4.6, cam: camLerp(() => line.clone().add(V3(-30, 2.2, 14)), () => line.clone().add(V3(-24, 2.0, 10)), () => apc.g.position.clone().add(V3(0, 1.5, 0)), () => apc.g.position.clone().add(V3(0, 1.5, 0)), 42) },
       { d: 5.4, cam: camOrbit(() => sh().add(V3(0, 1.5, 0)), 22, 2.6, 1.9, 7, 50) },
     ],
-    caps: [[0.3, '<b>06:10.</b> הטנק של שאול שלו מגיע לקו, ועליו 33 לוחמי מעוז פורקן — ללא פגע.', 4.4], [5.2, 'מאחור מגיע נגמ״ש בודד ומפויח. ארבעת הנגמ״שים של פלוגה י׳ נפגעו בדרך.', 4.2], [10.0, 'המחיר של החילוץ: חמישה חללים ועשרים ואחד פצועים, כולם מפלוגה י׳ של גדוד 184.', 5.0]],
+    caps: [[0.3, '<b>06:10.</b> הטנק של שאול שלו מגיע לקו, ועליו 33 לוחמי מעוז פורקן — ללא פגע.', 4.4], [5.2, 'מאחור מגיע ג׳יפ בודד ומפויח. ארבעת כלי הרכב של פלוגה י׳ נפגעו בדרך.', 4.2], [10.0, 'המחיר של החילוץ: חמישה חללים ועשרים ואחד פצועים, כולם מפלוגה י׳ של גדוד 184.', 5.0]],
     end: () => { DIRQ.push({ at: GAME.t + 0.3, fn: () => endGame(true) }); },
   });
 }
 /* ---------- objective, items, hints, minimap, end ---------- */
 function rsObj() {
   const C = CHAP.rescue;
-  if (RS.stage === 0 || (RS.stage === 2 && !RS.hillOn)) { const st = TANK.stops[TANK.stopI]; if (st === undefined) return null; const [x, z] = tankAt(st), [wx, wz] = RW(x, z); return [wx, groundAt(wx, wz), wz, RS.stage === 0 && TANK.stopI >= 3 ? 'נקודת המפגש' : 'עצירה']; }
+  if (RS.stage === 0 || (RS.stage === 2 && !RS.hillOn)) { const st = TANK.stops[TANK.stopI]; if (st === undefined) return null; const [x, z] = tankAt(st), [wx, wz] = RW(x, z); return [wx, groundAt(wx, wz), wz, RS.stage === 0 && TANK.stopI >= 2 ? 'נקודת המפגש' : 'עצירה']; }
   if (RS.stage === 1) return null;
   if (RS.stage === 2) return null;
   if (RS.stage === 3) return C.shaul.alive ? [C.shaul.g.position.x, C.shaul.g.position.y + 1.2, C.shaul.g.position.z, 'הטנק של שאול'] : null;
@@ -372,6 +430,6 @@ function rsEnd(win, why) {
   if (why === 'shaul') return ['הטנק של שאול נפגע', 'הטנק עם לוחמי פורקן על הסיפון הוא המטרה של כל סאגר וכל טנק בגזרה. הישארו מולו, חפשו את הסימונים הצהובים ברגע שהם מופיעים, ותנו פגז לכל טנק מצרי שמציץ מהדיונות.', stats];
   return ['נפגעת', 'המפקד חשוף בצריח. כשהאש כבדה, היכנסו לצריח וירו בכוונת התותחן.', stats];
 }
-CHAP.rescue = { stages: RS_STAGES, st: () => RS.stage, cp: () => CHAP.rescue.cpN || 0, upd: rsUpd, obj: rsObj, hints: rsHints, items: rsItems, mini: rsMini, restore: fieldRestore, tod: () => RS_TOD[RS.stage] - START_MIN + CHAP.rescue.t / 8, end: rsEnd, tank: true, dry: true, night: true, tracers: 0.75, burnLong: true, hitK: () => 0.75,
+CHAP.rescue = { stages: RS_STAGES, st: () => RS.stage, cp: () => CHAP.rescue.cpN || 0, upd: rsUpd, obj: rsObj, hints: rsHints, items: rsItems, mini: rsMini, restore: fieldRestore, tod: () => RS_TOD[RS.stage] - START_MIN + CHAP.rescue.t / 8, end: rsEnd, tank: true, dry: true, night: true, tracers: 0.75, burnLong: true, hitK: () => 0.75, hard: 0.4,
   atgmTarget: (e) => (RS.stage >= 3 && CHAP.rescue.shaul.alive && Math.random() < 0.6 ? () => CHAP.rescue.shaul.g.position.clone().add(V3(0, 1.6, 0)) : null),
   build: () => chapterBuild(CHAP.rescue, rsBuild), setup: rsSetup, clock: '9.10.1973 · ציר טליסמן', toast: ['הלילה שבין 8 ל־9 באוקטובר 1973 · 03:40', 'כוח חילוץ יוצא בלילה לאסוף את לוחמי מעוז פורקן'], start: () => fieldStart('rescue') };
