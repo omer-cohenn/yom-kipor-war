@@ -771,8 +771,8 @@ function rowsStart(o) { Object.assign(ROWS, { on: true, q: [], j: 0, men: 0, shi
 const ROW_MEN = 6, ROW_OARS = 4, ROW_LOAD = () => ROW_MEN + ROW_OARS;   /* a boat of the great wave: ten men, six soldiers and four at the oars - a wave of six boats is sixty */
 function rowsWave() {   // the next wave's boats: where each lands on the beach and when
   const j = ROWS.j++, r = ROWS.r, out = [], zc = (ROWS.z0 + ROWS.z1) / 2, d = (ROWS.z1 - ROWS.z0) / 3.4, cl = (z) => clamp(z, ROWS.z0, ROWS.z1);
-  const boat = (land, z, back = false) => out.push({ land: land + rand(-0.5, 0.5), z: cl(z + (r() - 0.5) * 4), wave: j, back, rpg: r() < 0.3 ? 1 : 0, flame: j > 2 && r() < 0.12 ? 1 : 0 });
-  if (j === 0) boat(ROWS.aLand, zc + (r() - 0.5) * 8);
+  const boat = (land, z, back = false, jit = 0.5) => out.push({ land: land + rand(-jit, jit), z: cl(z + (r() - 0.5) * 4), wave: j, back, rpg: r() < 0.3 ? 1 : 0, flame: j > 2 && r() < 0.12 ? 1 : 0 });
+  if (j === 0) boat(ROWS.aLand, zc + (r() - 0.5) * 8, false, 0);   // to the frame: the boats film shows this one go up on the mines
   else if (j === 1) { boat(ROWS.ctrl + 10, zc - d * 0.9); boat(ROWS.ctrl + 10.8, zc + d * 0.9); }
   else { const L = ROWS.ctrl + 10 + ROWS.every * (j - 1), c = zc + (r() - 0.5) * 8, sg = j % 2 ? 1 : -1;
     for (const k of [-1, 0, 1]) boat(L, c + k * d); for (const k of [-1, 0, 1]) boat(L + 2.6, c + sg * d / 2 + k * d, true); }
