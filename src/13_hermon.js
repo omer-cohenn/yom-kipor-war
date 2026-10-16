@@ -189,7 +189,7 @@ function hmFloorGeo(K, f) {
     }
     // the floor (screed, or boards in the officers' rooms), the ceiling and its beams across the short way, a bulb or two
     const [a, b] = HW(ix0, iz0), [c2, d] = HW(ix1, iz1), fy = f ? HM_PY + 0.012 : HM_L0 - 0.004;
-    if (r.wood) K.floorW.push([boxUV(a, c2, fy - 0.03, fy, b, d, 2.4, 1.28), 0xd8c8b0]); else if (r.tz) K.floorT.push([boxUV(a, c2, fy - 0.03, fy, b, d, 2.2, 2.2), [0xffffff, 0xf2f0ea][ri % 2]]); else K.floorC.push([boxUV(a, c2, fy - 0.03, fy, b, d, 4.6, 4.6), [0x76726a, 0x6e6b64, 0x7a756c][ri % 3]]);
+    if (r.wood) K.floorW.push([boxUV(a, c2, fy - 0.03, fy, b, d, 2.4, 1.28), 0xd8c8b0]); else if (r.tz) K.floorT.push([boxUV(a, c2, fy - 0.03, fy, b, d, 3.6, 3.6), [0xffffff, 0xf2f0ea][ri % 2]]); else K.floorC.push([boxUV(a, c2, fy - 0.03, fy, b, d, 4.6, 4.6), [0x76726a, 0x6e6b64, 0x7a756c][ri % 3]]);
     K.skin.push([colored(boxUV(a, c2, yc - 0.02, yc, b, d, 5.5, 5.5), 0xe4e1d8), null]);
     const wx = ix1 - ix0, wz = iz1 - iz0, alongX = wx < wz, span = alongX ? wz : wx, nb = Math.max(1, Math.round(span / 3.2));
     for (let i = 1; i < nb; i++) { const t = (alongX ? iz0 : ix0) + span * i / nb; const g = alongX ? boxUV(a, c2, yc - 0.28, yc - 0.02, HW(0, t)[1] - 0.16, HW(0, t)[1] + 0.16, 2, 2) : boxUV(HW(t, 0)[0] - 0.16, HW(t, 0)[0] + 0.16, yc - 0.28, yc - 0.02, b, d, 2, 2); K.skin.push([colored(g, (x, y) => hmShade(0xd6d3cb, y > yc - 0.1 ? 0.86 : 1)), null]); }
@@ -325,7 +325,7 @@ function hmFurnish(K, f) {
     sign1('↑ למעלה', 1.2, 284.24, y + 2.0, 0, 1.2); F('f_shelf', -12.68, 291.8, E, true); On('f_radio_set', -12.67, 291.5, y + 0.67, E); On('f_lamp_k', -12.67, 292.2, y + 1.13);
     Pile(11.6, 295.25, 0, 3, 1, 2); Pile(10.2, 295.25, 0.05, 2, 0, 2); F('drum', 12.3, 294.0, 0.4, true); Jerries(-4.6, 295.55, 0, 4);
     // the post was ours until the 6th: its Hebrew signs are still on the walls
-    sign1('מחסן תחמושת · אסור לעשן', -3.6, 296.25, y + 2.05, 0, 1.6);
+    sign1('אסור לעשן', -3.6, 296.25, y + 2.05, 0, 1.4);
   } else {
     // ---- 0: the signals room at the head of the stair. Its sets along the east wall, cabinets, a crate store south of the stairwell ----
     Desk(12.42, 289.9, W, ['f_table_wood', 'f_radio_set', 'f_radio_set']); Desk(12.42, 291.7, W, ['f_table_wood', 'f_radio_set', 'f_lamp_desk'], 'f_chair', true); Cabs(4.0, 293.47, N, 4);
@@ -333,7 +333,7 @@ function hmFurnish(K, f) {
     sign1('חדר קשר', 9.0, 280.32, y + 2.3, 0, 1.1); Desk(1.0, 293.49, N, ['f_desk', 'f_typewriter', 'f_lamp_desk']); Pile(3.0, 280.95, 0.05, 2, 2, 2); S(0, 7.2, 291.8, 'tab'); S(0, 11.2, 293.3, 'pile'); S(0, 4.6, 281.6, 'bags', 'rifle', 1); S(0, 1.6, 289.8, 'drum', 'smg', 2);
     // ---- 1: the intelligence room: the Israeli equipment the Syrians took over - desks, typewriters, cabinets of files ----
     Desk(-7.0, 293.49, N, ['f_desk', 'f_typewriter', 'f_lamp_desk']); Desk(-5.4, 293.49, N, ['f_desk', 'f_typewriter'], 'f_chair', true); Cabs(-6.2, 280.61, 0, 5); Desk(-1.0, 286.8, W, ['f_table_wood', 'f_radio_set', 'f_lamp_k']);
-    S(1, -7.6, 289.2, 'tab'); S(1, -3.2, 284.2, 'pile'); S(1, -8.0, 285.8, 'drum', 'smg', 2); Cabs(-8.46, 288.2, E, 3); F('f_chair', -2.2, 290.6, 2.4); sign1('מודיעין · כניסה למורשים בלבד', -6.2, 293.75, y + 2.25, Math.PI, 1.7);
+    S(1, -7.6, 289.2, 'tab'); S(1, -3.2, 284.2, 'pile'); S(1, -8.0, 285.8, 'drum', 'smg', 2); Cabs(-8.46, 288.2, E, 3); F('f_chair', -2.2, 290.6, 2.4); sign1('מודיעין', -6.2, 293.75, y + 2.25, Math.PI, 1.2);
     // ---- 2: the upper bunk room ----
     for (const x of [-21.15, -19.85, -18.55, -17.25, -15.95]) F('f_bunk', x, 281.23, N, true);
     for (const z of [285.6, 286.9, 288.2]) F('f_bunk', -20.78, z, E, true); Lockers(-14.0, 293.6, N, 4);
