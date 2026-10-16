@@ -11683,7 +11683,19 @@ const HM_COAST = [[90, -18], [75, -24], [66, -28.5], [48, -30], [29, -38], [15, 
 const HM_RIFT = [[-19.5, 12, 520], [-19, -5, 260], [-18.4, -11, 110], [-16.8, -20, 70], [-15.8, -30, 68], [-14, -35, 40], [-15, -42, -120], [-16.5, -45.5, -212], [-17, -64, -212], [-17.5, -90, -250], [-18, -150, -300]];   // the rift's floor: the Ayun valley, Kiryat Shmona, the Hula, the Jordan's gorge, the Kinneret, the Jordan valley
 const HM_RIFT_N = HM_RIFT.map((q) => [q[1], q[0], q[2]]);   // by km north, for hmAlong
 const HM_LEB = [[-22, 38, 1700], [-14, 58, 2100], [-2, 82, 2500], [12, 104, 3000], [30, 122, 2600]];   // the crest of Mount Lebanon: the Barouk, the Kneisseh, Sannine, Qurnat as-Sawda
-const HM_TOWNS = [[-65, -42, 2.2], [-71, -54, 3.5], [-64, -33, 1.8], [-55, -3.3, 2], [-38, 29, 2.2], [-27, 66, 4], [-19, -10, 1.5], [-0.5, -4, 0.8], [-2, -9, 0.6], [-7.5, -6.6, 0.5], [48, 23, 6], [-28, -37, 1.6], [-30, -51, 2]];   // Acre, Haifa, Nahariya, Tyre, Sidon, Beirut, Kiryat Shmona, Majdal Shams, Mas'ade, Banias, Damascus, Safed, Tiberias's hills
+const HM_TOWNS = [[-65, -42, 2.2], [-72.5, -55, 3.6], [-64, -33, 1.8], [-55, -3.3, 2], [-38, 29, 2.2], [-27, 66, 4], [-19, -10, 1.6], [-0.1, -3.9, 0.9], [-1.4, -8, 0.7], [0.8, -11.6, 0.5], [-4.7, -6, 0.45], [-7.5, -6.6, 0.4], [48, 23, 6], [-25.6, -37.7, 1.5], [-19.2, -37, 0.6], [-7.5, -35, 0.9], [-21.8, -57.5, 2.0], [-18, -2.8, 0.6]];   // Acre, Haifa, Nahariya, Tyre, Sidon, Beirut, Kiryat Shmona, Majdal Shams, Mas'ade, Buq'ata, Ein Qiniyye, Banias, Damascus, Safed, Rosh Pina, Katzrin, Tiberias on its slope over the lake, Metula
+/* the roads, as they wind (km east, km north): up the Hermon from Majdal Shams; 98 along the Golan from Majdal Shams by Mas'ade south; 99 down
+   from Mas'ade past Nimrod to Banias and on to Kiryat Shmona; 91 across the plateau from Nafah down to the Bnot Ya'akov bridge and Rosh Pina;
+   90 down the Hula and along the lake's west shore through Tiberias; 92 on its east shore; 87 up from the Jordan's mouth to Katzrin */
+const HM_ROADS = [
+  [[-0.1, -3.9], [0.5, -3.4], [-0.3, -3.0], [0.6, -2.6], [-0.2, -2.2], [0.5, -1.8], [-0.1, -1.4], [0.3, -0.9]],
+  [[-0.1, -3.9], [-0.8, -5.2], [-1.0, -6.6], [-1.4, -8], [-0.6, -9.8], [0.8, -11.6], [1.6, -13.4], [2.1, -15.8], [3.4, -18.2], [4.6, -20], [4.2, -23.5], [5.2, -27], [4.4, -31], [5.8, -36], [5.2, -42], [4.5, -50]],
+  [[-1.4, -8], [-2.6, -7.4], [-3.4, -6.6], [-4.4, -6.4], [-5.2, -5.9], [-6.0, -6.5], [-6.6, -6.1], [-7.5, -6.6], [-9.6, -7.4], [-12.4, -8.2], [-15.2, -8.8], [-17.4, -9.6], [-19, -10]],
+  [[-3.8, -26], [-5.4, -27.2], [-7.0, -28.8], [-8.6, -29.6], [-10.2, -31], [-11.4, -31.6], [-12.4, -32.6], [-13, -33], [-15, -34.2], [-17.2, -35.4], [-19.2, -37]],
+  [[-18, -2.8], [-18.6, -6], [-19, -10], [-18.8, -14], [-18.4, -19], [-18.6, -25], [-19, -31], [-19.2, -37], [-19.6, -41], [-20.4, -45.4], [-21.6, -47.6], [-23.4, -49.6], [-24.4, -52.4], [-22.4, -55.3], [-21.8, -57.5], [-20.9, -60.6], [-19.9, -64.4], [-18.6, -66.8], [-18.4, -72]],
+  [[-13.4, -44.6], [-12.4, -46.8], [-11.6, -49.4], [-11, -52.8], [-11.3, -56], [-11.6, -58.6], [-12.4, -61.4], [-13.6, -63.8], [-15.4, -65.8], [-17.2, -67.2]],
+  [[-13.4, -44.6], [-12, -43], [-10.6, -41.6], [-9.6, -39.6], [-8.4, -37.6], [-7.5, -35], [-5.6, -31], [-3.8, -26]],
+];
 function hmAlong(L, N, i0 = 0, i1 = 1) { if (N >= L[0][0]) return [L[0][i0 + 1], L[0][i1 + 1]]; for (let i = 0; i < L.length - 1; i++) { const a = L[i], b = L[i + 1]; if (N <= a[0] && N >= b[0]) { const t = (a[0] - N) / (a[0] - b[0]); return [lerp(a[i0 + 1], b[i0 + 1], t), lerp(a[i1 + 1], b[i1 + 1], t)]; } } const z = L[L.length - 1]; return [z[i0 + 1], z[i1 + 1]]; }
 const hmCoastE = (N) => hmAlong(HM_COAST, N)[0];
 function hmLine(L, E, N) { let best = 1e9, hh = 0; for (let i = 0; i < L.length - 1; i++) { const [ax, az, ah] = L[i], [bx, bz, bh] = L[i + 1], dx = bx - ax, dz = bz - az, t = clamp(((E - ax) * dx + (N - az) * dz) / (dx * dx + dz * dz), 0, 1), d = Math.hypot(E - ax - dx * t, N - az - dz * t); if (d < best) { best = d; hh = lerp(ah, bh, t); } } return [best, hh]; }
@@ -11727,13 +11739,18 @@ function hmGeoCol(E, N, h, k) {
   const n1 = fbm(E / 1.7 + 7, N / 1.7, 3), cell = Math.abs(Math.sin(Math.floor(E / 0.5) * 12.9898 + Math.floor(N / 0.4) * 78.233) * 43758.5 % 1);
   const mix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
   let c;
-  if (k === 2) c = cell < 0.12 && N < -18 && N > -34 ? [0.36, 0.46, 0.5] : cell < 0.55 ? [0.36, 0.45, 0.25] : [0.55, 0.5, 0.36];
+  if (k === 2) c = cell < 0.11 && N < -18 && N > -34 ? [0.34, 0.47, 0.48] : cell < 0.5 ? [0.31, 0.44, 0.22] : cell < 0.72 ? [0.44, 0.5, 0.28] : cell < 0.88 ? [0.53, 0.47, 0.34] : [0.26, 0.36, 0.2];   // the Hula: green fields, fish ponds, brown ploughland, orchards
   else if (k === 5 || h > 1700) c = mix(mix([0.7, 0.69, 0.66], [0.55, 0.53, 0.49], smooth(-0.2, 0.5, n1)), [0.6, 0.53, 0.4], smooth(1900, 1100, h) * 0.8);
   else if (k === 4) { const n2 = fbm(E / 4.5 + 3, N / 4.5, 3);   // the Golan: dry grass between broad dark fields of basalt, a few tilled plots and orchards round the villages
     c = E > 18 && E < 60 && Math.abs(N - 23) < 8 && cell < 0.6 ? [0.36, 0.42, 0.26] : mix(mix([0.56, 0.5, 0.37], [0.3, 0.28, 0.25], smooth(-0.12, 0.3, n2) * 0.8), [0.4, 0.37, 0.31], smooth(0.1, 0.5, n1) * 0.5);
-    if (cell < 0.1 && n2 < 0.1) c = mix(c, [0.42, 0.46, 0.3], 0.6); else if (cell > 0.93) c = mix(c, [0.62, 0.55, 0.42], 0.5); }
-  else { const plain = E - hmCoastE(N) < 3 + 4 * smooth(-25, -45, N); c = plain ? (cell < 0.4 ? [0.4, 0.48, 0.28] : cell < 0.75 ? [0.6, 0.53, 0.38] : [0.32, 0.4, 0.25]) : mix([0.35, 0.38, 0.27], [0.62, 0.6, 0.54], smooth(-0.1, 0.5, n1) * 0.75); if (h > 1300) c = mix(c, [0.68, 0.67, 0.64], smooth(1300, 2200, h)); }
-  for (const [vx, vz, vr] of HM_TOWNS) { const d = Math.hypot(E - vx, N - vz); if (d < vr) c = mix(c, [0.74, 0.72, 0.68], 0.65 * (1 - d / vr) + 0.2); }
+    if (cell < 0.1 && n2 < 0.1) c = mix(c, [0.42, 0.46, 0.3], 0.6); else if (cell > 0.93) c = mix(c, [0.62, 0.55, 0.42], 0.5);
+    // the orchards of apple and cherry round the villages under the mountain, the kibbutzim's fields on the plateau
+    { const vd = Math.min(Math.hypot(E + 0.1, N + 3.9), Math.hypot(E + 1.4, N + 8), Math.hypot(E - 0.8, N + 11.6), Math.hypot(E + 4.7, N + 6)); if (vd < 3.2 && cell < 0.7) c = mix(c, cell < 0.35 ? [0.27, 0.37, 0.2] : [0.36, 0.42, 0.25], 0.75 * (1 - smooth(1.5, 3.2, vd))); }
+    if (N < -20 && N > -45 && E < 2 && cell > 0.6 && cell < 0.78) c = mix(c, [0.38, 0.45, 0.26], 0.6); }
+  else { const plain = E - hmCoastE(N) < 3 + 4 * smooth(-25, -45, N), n2 = fbm(E / 3.5 + 11, N / 3.5, 3);   // the Galilee and Lebanon: pine and oak woods dark green, olive groves, pale terraced limestone; the coastal plain's patchwork
+    c = plain ? (cell < 0.45 ? [0.34, 0.46, 0.24] : cell < 0.75 ? [0.52, 0.49, 0.36] : [0.27, 0.38, 0.2]) : mix(mix([0.33, 0.37, 0.25], [0.58, 0.57, 0.51], smooth(0.0, 0.5, n1) * 0.6), [0.22, 0.31, 0.18], smooth(0.0, 0.3, n2) * 0.8);
+    if (h > 1300) c = mix(c, [0.68, 0.67, 0.64], smooth(1300, 2200, h)); }
+  for (const [vx, vz, vr] of HM_TOWNS) { const d = Math.hypot(E - vx, N - vz); if (d < vr) c = mix(c, cell < 0.3 ? [0.62, 0.6, 0.56] : [0.8, 0.78, 0.74], 0.7 * (1 - d / vr) + 0.25); }   // white and grey roofs and streets
   return c;
 }
 /* the ground round the post as both the near ground (15 km of it) and the backdrop draw it: height against the post's and sRGB colour. Inside
@@ -11767,7 +11784,7 @@ function hmPanoH(E, N) {
 }
 function hmPano() {
   if (HM_PANO) return;
-  const NR = LITE ? 150 : 240, NA = LITE ? 420 : 720, R0 = 0.12, R1 = 180, [cx, cz] = HW(0, 290), post = HM_PY;
+  const NR = LITE ? 190 : 360, NA = LITE ? 540 : 960, R0 = 0.12, R1 = 180, [cx, cz] = HW(0, 290), post = HM_PY;
   const pos = new Float32Array((NR + 1) * NA * 3), col = new Float32Array((NR + 1) * NA * 3), hz = new Float32Array((NR + 1) * NA), hh = new Float32Array(NR * NA), wet = new Uint8Array(NR * NA), K = 1 / 0.787, C = (r, g, b) => [lin(r) * K, lin(g) * K, lin(b) * K], r = rng(2290);
   for (let i = 0; i < NR; i++) { const km = R0 * Math.pow(R1 / R0, i / (NR - 1));
     for (let j = 0; j < NA; j++) { const a = (j / NA) * Math.PI * 2, E = Math.sin(a) * km, N = Math.cos(a) * km, lx = -E * 1000, lz = 290 + N * 1000;
@@ -11795,7 +11812,14 @@ function hmPano() {
   const m = HM_PANO = new THREE.Mesh(g, mat); m.frustumCulled = false; m.matrixAutoUpdate = false; m.renderOrder = -1000; m.castShadow = false; m.receiveShadow = false; m.userData.dyn = true;
   const KS = 0.01;
   m.onBeforeRender = (rr, sc, cam) => { const p = cam.position; m.matrixWorld.makeScale(KS, KS, KS).setPosition(p.x * (1 - KS), p.y * (1 - KS), p.z * (1 - KS)); if (scene.fog) uHaze.value.copy(scene.fog.color).lerp(new THREE.Color(1, 1, 1), 0.3); };
-  m.onAfterRender = (rr) => rr.clearDepth();
+  // the roads: ribbons laid on the same ground, wide enough to read at their distance (a line a pixel or two across), drawn after the land
+  { const P = [], Cl = [], Hz = [], ix = [], asph = [lin(0.3) / 0.787, lin(0.3) / 0.787, lin(0.31) / 0.787];
+    for (const road of HM_ROADS) { const d = densify(road, 0.12); for (let q = 0; q < d.length; q++) { const [E, N] = d[q], a = d[Math.max(0, q - 1)], b = d[Math.min(d.length - 1, q + 1)], tx = b[0] - a[0], tn = b[1] - a[1], tl = Math.hypot(tx, tn) || 1, km = Math.hypot(E, N), w = Math.max(0.012, km * 0.0011);
+      const n = P.length / 3; for (const sd of [-1, 1]) { const e2 = E + (-tn / tl) * w * sd, n2 = N + (tx / tl) * w * sd, lx = -e2 * 1000, lz = 290 + n2 * 1000, [h] = hmFar(lx, lz); P.push(cx + lx, post + h + 3 + km * 2.5, cz + lz - 290); Cl.push(...asph); Hz.push((0.5 * (1 - Math.exp(-km / 75)) + 0.04) * smooth(1.5, 10, km)); }
+      if (q > 0) ix.push(n - 2, n, n - 1, n - 1, n, n + 1); } }
+    const rg = new THREE.BufferGeometry(); rg.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); rg.setAttribute('color', new THREE.Float32BufferAttribute(Cl, 3)); rg.setAttribute('aHaze', new THREE.Float32BufferAttribute(Hz, 1)); rg.setAttribute('normal', new THREE.Float32BufferAttribute(new Array(P.length).fill(0).map((_, k) => (k % 3 === 1 ? 1 : 0)), 3)); rg.setIndex(ix);
+    const rm = new THREE.Mesh(rg, mat); rm.frustumCulled = false; rm.matrixAutoUpdate = false; rm.renderOrder = -999; rm.castShadow = false; rm.receiveShadow = false; rm.userData.dyn = true; rm.onBeforeRender = (rr, sc, cam) => { const p = cam.position; rm.matrixWorld.makeScale(KS, KS, KS).setPosition(p.x * (1 - KS), p.y * (1 - KS), p.z * (1 - KS)); };
+    rm.onAfterRender = (rr) => rr.clearDepth(); scene.add(rm); }
   sky.renderOrder = -1001; scene.add(m);
 }
 /* ---------- the advance, bound by bound ---------- */
