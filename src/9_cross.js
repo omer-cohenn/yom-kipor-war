@@ -1,49 +1,75 @@
 
-/* ================= chapter 5: the crossing bridge, 16-19 October 1973 =================
-   After Israeli sources. The roller bridge - some 200 m of steel cylinders - was torn on its way to the canal on the 16th, repaired under
-   shelling, towed to the water by battalion 410 on the 18th and laid about a kilometre north of the pontoon bridge, at about 01:00 on the 19th.
-   Film: the repair. 1. 18.10 - across on the rafts, the jeep's machine gun against the far bank. 2. the jeeps through the fields and their
-   bazooka ambushes. 3. a small Egyptian village beside the crossing point, house by house. 4. 19.10, after midnight - the paratroopers hold the
-   houses against the counter-attack while the bridge is pushed into the water. 5. the first tanks cross and come into the village firing.
-   Film: the Egyptians break; a column of tanks on its way to the roller bridge. In this chapter north is +z. */
-const CR = { o: { x: -7000, z: 7000 }, stage: 0, t: 0, cp: 0, msgs: {}, br: 0, flee: [], air: 0, rep: null, push: false, conv: null, filmTod: null, wave: 0, waveT: 0 };
+
+/* ================= chapter 5: the crossing bridges, 18-19 October 1973 =================
+   After Israeli sources (Hebrew Wikipedia, חיל ההנדסה במלחמת יום הכיפורים; ynet; the brigade 14 heritage site). The first tanks went over on
+   16 October on the Gilloa ferries; on the 17th the uniflote pontoons were in the water by 11:30 and the pontoon bridge stood bank to bank at
+   16:30 - from then on the crossing was over it, under shelling and air attack. The roller bridge broke on its way to the canal on the 16th and
+   stuck in the sand; it was dragged on to the water's edge (Lt. Col. Aharon "Johnny" Tana, who led it, fell on the canal bank on the 18th) and
+   launched on the 19th, north of the pontoon bridge; brigade 14's commander crossed on it that day.
+   Film: the repair. 1. 18.10 - over the pontoon bridge in the jeeps, the jeep's machine gun against the Egyptians who crept back onto the
+   rampart. 2. the jeeps north through the fields and their bazooka ambushes. 3. the village where the roller bridge will land: one street,
+   house by house, by one route. 4. the night of the 19th - the house at the head of the street holds the junction against waves from three
+   sides while, behind it, the roller bridge is pushed across. 5. the bridge is down: the tanks come up the street and round into the junction.
+   Film: the Egyptians break; a column of tanks on its way to the roller bridge.
+   As everywhere in the game +x is east (Sinai) and north is -z: the roller bridge lands at z = 0, the pontoon bridge is 404 m south of it. */
+const CR = { o: { x: -7000, z: 7000 }, stage: 0, t: 0, cp: 0, msgs: {}, br: 0, flee: [], air: 0, rep: null, push: false, conv: null, filmTod: null, wave: 0, waveT: 0, doorN: false };
 const CW = toWorld(CR.o);
 const CR_STAGES = [
-  { title: 'על הדוברות', sub: 'צנחני חטיבה 247 חוצים את התעלה בג׳יפים על דוברות, מול גדה שיורה. המקלע על הג׳יפ הוא היחיד שיכול לענות לעמדות ממול — עד שהגלגלים נוגעים באפריקה.', goal: 'מהמקלע על הג׳יפ: השתיקו את העמדות בגדה ממול' },
-  { title: 'בין השדות', sub: 'מעבר לסוללה מתחילים שדות התעלה: תעלות השקיה, שיחים גבוהים, וחוליות בזוקה שמחכות בתוכם. הג׳יפים נוסעים אל הכפר שליד נקודת הגישור.', goal: 'חסלו את מארבי הבזוקה בשיחים, עד הכפר' },
-  { title: 'הכפר', sub: 'כפר מצרי קטן יושב בדיוק במקום שבו יעלה גשר הגלילים לגדה. בית אחרי בית, ממזרח למערב, לאורך הדרך.', goal: 'כבשו את הכפר, בית אחרי בית (◆)' },
-  { title: 'להחזיק את הבתים', sub: '19 באוקטובר, אחרי חצות. מאחוריכם גשר הגלילים נדחף אל המים. המצרים יודעים מה זה אומר — ומסתערים על הכפר מהשדות שבמערב.', goal: 'החזיקו את הבתים מול ההסתערות, עד שהגשר נוגע בגדה (הפס למעלה)' },
-  { title: 'הטנקים עוברים', sub: 'הגשר מונח. הטנקים הראשונים עולים עליו — ומגיעים לכפר באש של מקלעים ופגזים.', goal: 'החזיקו את הבתים — הטנקים בדרך אליכם' },
+  { title: 'על גשר הדוברות', sub: '18 באוקטובר. גשר הדוברות עומד על התעלה מאתמול אחר הצהריים, וכל מה שעובר לגדה המערבית עובר עליו — תחת הפגזה ומטוסים. צנחני חטיבה 247 עוברים בג׳יפים, אחרי הטנקים. בלילה חזרו מצרים לסוללה שמצפון לגשר.', goal: 'מהמקלע על הג׳יפ: השתיקו את המצרים על הסוללה שמצפון לגשר' },
+  { title: 'בין השדות', sub: 'מעבר לסוללה מתחילים שדות התעלה: תעלות השקיה, שיחים גבוהים, וחוליות בזוקה שמחכות בתוכם. הג׳יפים נוסעים צפונה, אל הכפר שליד המקום שבו יונח גשר הגלילים.', goal: 'חסלו את מארבי הבזוקה בשיחים, עד הכפר' },
+  { title: 'רחוב הכפר', sub: 'רחוב אחד, כביש באמצעו ובתים משני צדיו. כובשים בית אחרי בית, בדרך אחת: חצר, בית, חוצים את הרחוב אל הבית שממול, דרך החצר שלו אל החצר הבאה — עד הבית שבראש הרחוב, מול הצומת.', goal: 'כבשו את הרחוב, בית אחרי בית — הדלת הבאה מסומנת ב־◆' },
+  { title: 'הצומת', sub: 'הלילה שבין 18 ל־19 באוקטובר. הבית שבראש הרחוב שולט על הצומת. המצרים יודעים מה זה אומר — והם באים בגלים, משלושה כיוונים: מהסמטה הצפונית, מהסמטה הדרומית ומהדרך שממערב. מאחוריכם, בתעלה, גשר הגלילים נדחף אל המים.', goal: 'החזיקו את הבית מול הצומת עד שגשר הגלילים נוגע בגדה (הפס למעלה)' },
+  { title: 'הטנקים באים', sub: '19 באוקטובר. גשר הגלילים מונח. הטנקים הראשונים עולים עליו — ובאים אליכם במעלה הרחוב ומסביב לכפר, אל הצומת.', goal: 'החזיקו את הבית — הטנקים בדרך אליכם' },
 ];
-const CR_CLOCK = ['18.10.1973 · התעלה', '18.10.1973 · השדות', '18.10.1973 · הכפר', '19.10.1973 · הכפר', '19.10.1973 · גשר הגלילים'];
-const CR_TOD = [8 * 60 + 40, 9 * 60, 9 * 60 + 50, 24 * 60 + 48, 25 * 60 + 4];   // minutes from midnight of the 18th
+const CR_CLOCK = ['18.10.1973 · גשר הדוברות', '18.10.1973 · השדות', '18.10.1973 · הכפר', '19.10.1973 · הצומת', '19.10.1973 · גשר הגלילים'];
+const CR_TOD = [8 * 60 + 40, 9 * 60, 9 * 60 + 50, 24 * 60 + 30, 24 * 60 + 42];   // minutes from midnight of the 18th
 const CR_BRIDGE = -330;   // the sweet-water canal and the little bridge over it
-// the Egyptian trench zigzags along the flat top of the west rampart, north of the breach (scenery now: its men were in the village)
+// the Egyptian trench zigzags along the flat top of the west rampart between the two bridges (scenery now: its men went back into the village)
 const crTri = (t) => 1 - 4 * Math.abs((((t % 1) + 1) % 1) - 0.5);
 const crTX = (lz) => -128 + 2.0 * crTri(lz / 26);
 const CR_TZ0 = 30, CR_TZ1 = 256, CR_RAMP_Z = 268;
-const CR_RAFT_Z = 404;
-// the jeeps: off the rafts, west and then south through the fields, along the foot of the rampart to the village
-const CR_JEEP = [[-86, 400], [-104, 401], [-124, 404], [-152, 410], [-200, 418], [-245, 404], [-252, 370], [-238, 345], [-222, 324], [-204, 302], [-180, 282], [-162, 262], [-153, 236], [-151, 196], [-152, 150], [-152, 104], [-151, 70], [-152, 42]], CR_JEEP_S = smoothPath(CR_JEEP, 3);
+// the pontoon bridge: uniflote pontoons bank to bank, its deck a metre over the water
+const CR_PB_Z = 404, CR_PB_Y = 0.95, CR_PB_PATH = [[134, 404], [100, 404]];
+// the jeeps: over the pontoon bridge, west through the gap in the rampart, then north through the fields, along the foot of the rampart to the village
+const CR_JEEP = [[-100, 404], [-112, 404], [-124, 405], [-152, 410], [-200, 418], [-245, 404], [-252, 370], [-238, 345], [-222, 324], [-204, 302], [-180, 282], [-162, 262], [-153, 236], [-151, 196], [-152, 150], [-152, 104], [-151, 70], [-150, 44], [-147, 10]], CR_JEEP_S = smoothPath(CR_JEEP, 3);
+const CR_J0 = [...CR_PB_PATH, ...CR_JEEP], CR_PB_END = pathLen(CR_PB_PATH) + 196;   // the whole drive, and where on it the bridge's west end is
 // where along the jeep track the three ambushes halt the column, and where their runners come from
-const CR_AMB = { a0: { stop: [-243, 352], from: [-275, 340], txt: 'מארב! בזוקות בשיחים משני הצדדים!' }, a1: { stop: [-196, 296], from: [-228, 286], txt: 'עוד מארב! חי״ר בשדה, משמאל!' }, a2: { stop: [-152, 158], from: [-206, 150], txt: 'בזוקות בשדה מימין! עוד מארב!' } };
+const CR_AMB = { a0: { stop: [-243, 352], from: [-275, 340], txt: 'מארב! בזוקות בשיחים משני הצדדים!' }, a1: { stop: [-196, 296], from: [-228, 286], txt: 'עוד מארב! חי״ר בשדה, משמאל!' }, a2: { stop: [-152, 158], from: [-206, 150], txt: 'בזוקות בשדה משמאל! עוד מארב!' } };
 const crSAt = (path, x, z) => { let acc = 0, best = 0, bd = 1e9; for (let i = 0; i < path.length - 1; i++) { const a = path[i], b = path[i + 1], L = Math.hypot(b[0] - a[0], b[1] - a[1]); for (let u = 0; u <= 1; u += 0.02) { const d = Math.hypot(lerp(a[0], b[0], u) - x, lerp(a[1], b[1], u) - z); if (d < bd) { bd = d; best = acc + L * u; } } acc += L; } return best; };
 const CR_ROAD = [[-120, 0], [-430, 0]];
 const CR_SEGN = 32, CR_SEGL = 6.25, CR_DECK = 1.95, CR_BLEN = CR_SEGN * CR_SEGL;
 const CR_NAMES = ['עמוס', 'רפאל', 'אהרון', 'גבריאל', 'נתן', 'אלון', 'יואב', 'שי', 'בועז', 'עידו', 'אריק', 'מאיר', 'יוסי', 'קובי', 'אבי', 'צחי'];
 const CR_FOLLOW = [0, 1, 2, 3, 10, 11, 12, 13];
-/* the village beside the crossing point: mud-brick houses with walls 60 cm thick and doorways 2.2 m wide, on both sides of the road that runs
-   west from the breach. x, z, width (along x), depth (along z), the side of the door (n: toward -z, s: toward +z), all facing the road */
-const CR_VH = [[-172, -21, 10, 8, 's'], [-197, -23, 9, 10, 's'], [-223, -21, 11, 8, 's'], [-172, 21, 10, 8, 'n'], [-197, 23, 9, 10, 'n'], [-223, 21, 11, 8, 'n'], [-198, -48, 10, 8, 's'], [-198, 48, 10, 8, 'n']];
-const CR_WT = 0.6, CR_HH = 4.4, CR_DOOR = 2.2, CR_WIN = 1.4;   // tall rooms, a high flat roof with its parapet: a village that reads at a glance
-const CR_VSEG = [0, 1, 2, 0, 1, 2, 1, 1];                 // the bound of the advance that takes each house
-const crDoorX = (h) => (h[2] >= 10 ? h[0] + h[2] / 4 : h[0]);
-const crDoorFront = (i) => { const h = CR_VH[i]; return [crDoorX(h), h[4] === 's' ? h[1] + h[3] / 2 + 3.5 : h[1] - h[3] / 2 - 3.5]; };
-// the bounds: in front of a door each, east to west; the man inside each of those houses belongs to the bound that starts at his door
-const CR_VG = [[-152, 8], crDoorFront(3), crDoorFront(1), crDoorFront(5), [-234, 0]];
-const CR_GUARD = [[3, 1], [1, 2], [6, 2], [5, 3], [2, 3]];   // [house, bound]
-const CR_LOWW = [[-240, -40, -28], [-240, -14, -5], [-240, 5, 14], [-240, 28, 40]];   // low walls along the west edge: x, z0, z1
-const crInVillage = (lx, lz, pad = 0) => lx > -252 - pad && lx < -152 + pad && Math.abs(lz) < 62 + pad;
+/* the village, built as a T. The stem is one street running west from the gap in the rampart, the road down its middle, six houses on each side
+   with a walled yard behind each. The advance takes it by ONE route: into the first yard, through its house, across the street into the house
+   opposite, through that house's yard into the next yard, through that house, across the street again... Everything off that route is shut:
+   coils of wire cut the street between the crossings, the houses that are not on the route have their doors shut, the yard walls are higher
+   than a man can climb. At its west end the street runs into the house at the head of the T (CR_D); in front of it the cross-lane and the road
+   from the west meet - the junction. Mud-brick walls 60 cm thick, doorways 2.2 m wide, windows 1.4 m wide with their sills at 1.05 m */
+const CR_WT = 0.6, CR_HH = 4.4, CR_DOOR = 2.2, CR_WIN = 1.4;
+const CR_COLS = [-160, -173, -186, -199, -212, -225], CR_HW = 12, CR_HD = 9, CR_FZ = 6, CR_YZ = 24;   // house centres along the street; width, depth; the fronts at |z| 6; the yards' back walls
+// each house: its column, its side (-1: north of the road, 1: south), its front door and back door (offset from its centre along the street;
+// null: none), whether they are open (the route) or shut, its look; the route goes S1, N1, N2, S2, S3, N3 and on into the house at the head
+const CR_VH = [
+  { id: 'S1', c: 0, sd: 1, fd: -3.2, bd: 3.2, open: true, st: 0, in: 'b' }, { id: 'N1', c: 1, sd: -1, fd: 3.2, bd: -3.2, open: true, st: 1, in: 'f' },
+  { id: 'N2', c: 2, sd: -1, fd: -3.2, bd: 3.2, open: true, st: 2, in: 'b' }, { id: 'S2', c: 3, sd: 1, fd: 3.2, bd: -3.2, open: true, st: 3, in: 'f' },
+  { id: 'S3', c: 4, sd: 1, fd: -3.2, bd: 3.2, open: true, st: 4, in: 'b' }, { id: 'N3', c: 5, sd: -1, fd: 3.2, bd: -3.2, open: true, st: 5, in: 'f' },
+  { id: 'n0', c: 0, sd: -1, fd: 0, bd: null, open: false, st: 6 }, { id: 's1', c: 1, sd: 1, fd: -2.5, bd: null, open: false, st: 7 },
+  { id: 's2', c: 2, sd: 1, fd: 2.5, bd: null, open: false, st: 1 }, { id: 'n3', c: 3, sd: -1, fd: -2.5, bd: null, open: false, st: 4 },
+  { id: 'n4', c: 4, sd: -1, fd: 2.5, bd: null, open: false, st: 0 }, { id: 's5', c: 5, sd: 1, fd: -2.5, bd: null, open: false, st: 5 },
+];
+const CR_D = { x: -240, z: 0, w: 12, d: 22 };            // the house at the head of the street: the village cooperative, two windows wide on the junction
+const CR_LX0 = -246, CR_LX1 = -261, CR_LZ = 104;         // the cross-lane in front of it: between these x, out to |z|
+const CR_WIRE = [-153.6, -179.5, -205.5];                // coils of wire across the street: at its mouth and between the crossings
+// the route, door to door: the gate points of the advance, each just outside the door the next house is entered by
+const CR_VG = [[-147, 10], [-156.8, 17.2], [-169.8, -3.8], [-182.8, -17.2], [-195.8, 3.8], [-208.8, 17.2], [-221.8, -3.8], [-240, -13.3], [-240, -4]];
+const crInVillage = (lx, lz, pad = 0) => (lx > -266 - pad && lx < -150 + pad && Math.abs(lz) < 27 + pad) || (lx > CR_LX1 - 3 - pad && lx < CR_LX0 + 3 + pad && Math.abs(lz) < CR_LZ + 3 + pad) || (lx > -304 - pad && lx < CR_LX1 + pad && Math.abs(lz) < 9 + pad);
+// the three ways into the junction: where a wave forms up out of sight, the mouth it comes through, the windows and the door it storms
+const CR_FRONT = {
+  n: { name: 'מהסמטה הצפונית', short: 'צפון', from: [-253.5, -101], mouth: [-253.5, -27], rpg: [-253.5, -34], tgt: [[-247, -8], [-247, -4], [-247, -9.5]] },
+  s: { name: 'מהסמטה הדרומית', short: 'דרום', from: [-253.5, 101], mouth: [-253.5, 27], rpg: [-253.5, 34], tgt: [[-247, 8], [-247, 4], [-247, 9.5]] },
+  w: { name: 'מהדרך שממערב', short: 'מערב', from: [-358, 0], mouth: [-266, 0], rpg: [-280, 2.5], tgt: [[-247, 0], [-247, -4], [-247, 4]] },
+};
 // the column of tanks in the last film: down the east bank, over the bridge, west along the road
 const CR_CONV = [[330, 440], [318, 330], [330, 220], [300, 120], [250, 60], [190, 24], [140, 6], [110, 0], [-100, 0], [-150, 0], [-430, 0]];
 const crBench = (x, z) => groundAt(x, z) + 0.4;
@@ -65,24 +91,27 @@ function crCarve(x, z, h) {
   const lx = x - CR.o.x, lz = z - CR.o.z, ax = Math.abs(lx);
   if (ax < 100) { const t = smooth(76, 100, ax); mix3(PAL.deep, PAL.wet, t); return lerp(-5.5, 0.9, t); }
   if (lx > 0) {
-    const breach = 1 - smooth(32, 50, Math.abs(lz)); const r = 7 * Math.exp(-(((lx - 142) / 9) ** 2)) * (1 - breach); h += r; mixIn(PAL.fresh, smooth(1, 5, r) * 0.5);
+    // the east rampart, cut where the roads come down to both bridges
+    const breach = Math.max(1 - smooth(32, 50, Math.abs(lz)), 1 - smooth(12, 26, Math.abs(lz - CR_PB_Z))); const r = 7 * Math.exp(-(((lx - 142) / 9) ** 2)) * (1 - breach); h += r; mixIn(PAL.fresh, smooth(1, 5, r) * 0.5);
     mixIn(PAL.wet, 1 - smooth(100, 108, lx));
     { const d = Math.abs(lz); if (d < 5 && lx < 340) mixIn([0.56, 0.5, 0.4], 0.6 * (1 - smooth(2.5, 5, d))); }
+    { const d = Math.abs(lz - CR_PB_Z); if (d < 5 && lx < 200) mixIn([0.56, 0.5, 0.4], 0.6 * (1 - smooth(2.5, 5, d))); }
     { const dc = distPolyline(lx, lz, CR_CONV); if (dc < 5 && lx > 110) mixIn([0.58, 0.52, 0.41], 0.55 * (1 - smooth(2.5, 5, dc))); }
   } else {
     const breach = 1 - smooth(12, 34, Math.abs(lz)), nr = 1 - smooth(6, 24, Math.abs(lz - CR_RAMP_Z)), dr = Math.abs(lx + 128);
-    const ramp = 9 * (1 - smooth(6.5, 17, dr)) * (1 - breach) * (1 - 0.8 * nr) * smooth(10, 30, Math.abs(lz - CR_RAFT_Z));
+    const ramp = 9 * (1 - smooth(6.5, 17, dr)) * (1 - breach) * (1 - 0.8 * nr) * smooth(10, 30, Math.abs(lz - CR_PB_Z));
     h += ramp; mixIn(PAL.fresh, smooth(2, 8, ramp) * 0.4);
     // the Egyptian trench: a cut in the flat top of the rampart, sandbags on its lips
     if (lz > CR_TZ0 - 3 && lz < CR_TZ1 + 3) { const d = Math.abs(lx - crTX(lz)), k = smooth(CR_TZ0 - 3, CR_TZ0 + 2, lz) * (1 - smooth(CR_TZ1 - 2, CR_TZ1 + 3, lz)); const c = 1.0 * (1 - smooth(1.4, 2.8, d)) * k; h -= c; mixIn(PAL.sandD, c * 0.6); }
     if (lx < -150) {
-      const dr2 = Math.abs(lz); if (dr2 < 4) mixIn([0.6, 0.53, 0.42], 0.8 * (1 - smooth(2, 4, dr2)));
       { const dj = distPolyline(lx, lz, CR_JEEP_S); if (dj < 4) mixIn([0.6, 0.53, 0.42], 0.7 * (1 - smooth(2, 4, dj))); }
       const dc = Math.abs(lx - CR_BRIDGE); if (dc < 14) { h = lerp(h, -1.6, 1 - smooth(5, 12, dc)); mixIn(PAL.mud, 1 - smooth(6, 13, dc)); if (Math.abs(lz) < 4 && dc < 12) h = Math.max(h, 1.75); }
     }
-    // the village: trodden dust between the houses
-    { const kv = smooth(-258, -246, lx) * (1 - smooth(-158, -148, lx)) * (1 - smooth(54, 66, Math.abs(lz))); if (kv > 0) mixIn([0.64, 0.57, 0.45], 0.88 * kv); }
+    // the village: one level of trodden dust - the street, its yards, the junction and the lanes - so its floors and its walls sit true
+    { const kv = Math.max(smooth(-148, -154, lx) * (1 - smooth(-264, -270, lx)) * (1 - smooth(26, 31, Math.abs(lz))), smooth(CR_LX0 + 4, CR_LX0 - 1, lx) * (1 - smooth(CR_LX1 + 1, CR_LX1 - 4, lx)) * (1 - smooth(CR_LZ, CR_LZ + 8, Math.abs(lz))), smooth(-260, -264, lx) * (1 - smooth(-300, -306, lx)) * (1 - smooth(7, 11, Math.abs(lz))));
+      if (kv > 0) { h = lerp(h, 1.78, kv); mixIn([0.64, 0.57, 0.45], 0.88 * kv); } }
     { const d = Math.abs(lz); if (d < 4.5 && lx > -150) mixIn([0.58, 0.51, 0.4], 0.6 * (1 - smooth(2.5, 4.5, d))); }
+    { const d = Math.abs(lz - CR_PB_Z); if (d < 4.5 && lx > -128) mixIn([0.58, 0.51, 0.4], 0.6 * (1 - smooth(2.5, 4.5, d))); }
     mixIn(PAL.wet, 1 - smooth(100, 106, ax));
   }
   return h;
@@ -94,13 +123,18 @@ const crH = (x, z) => crCarve(x, z, crNat(x, z));
 function crWall(ax, az, bx, bz, yb, y0, yt, gaps, P, th = CR_WT, paint = null) {
   const alongX = Math.abs(bz - az) < 1e-6, L = alongX ? Math.abs(bx - ax) : Math.abs(bz - az), sx = alongX ? Math.sign(bx - ax) : 0, sz = alongX ? 0 : Math.sign(bz - az);
   const pt = paint || { out: null, c: 0xc9ae86, band: null, in: 0xc9ae86 }, BAND = y0 + 0.9;
-  const piece = (s0, s1, y1, y2) => { if (s1 - s0 < 0.02 || y2 - y1 < 0.02) return; const a = [ax + sx * s0, az + sz * s0], b = [ax + sx * s1, az + sz * s1], [wx0, wz0] = CW(Math.min(a[0], b[0]), Math.min(a[1], b[1])), [wx1, wz1] = CW(Math.max(a[0], b[0]), Math.max(a[1], b[1]));
-    const x0 = alongX ? wx0 : wx0 - th / 2, x1 = alongX ? wx1 : wx0 + th / 2, z0 = alongX ? wz0 - th / 2 : wz0, z1 = alongX ? wz0 + th / 2 : wz1;
+  const span = (s0, s1) => { const a = [ax + sx * s0, az + sz * s0], b = [ax + sx * s1, az + sz * s1], [wx0, wz0] = CW(Math.min(a[0], b[0]), Math.min(a[1], b[1])), [wx1, wz1] = CW(Math.max(a[0], b[0]), Math.max(a[1], b[1]));
+    return [alongX ? wx0 : wx0 - th / 2, alongX ? wx1 : wx0 + th / 2, alongX ? wz0 - th / 2 : wz0, alongX ? wz0 + th / 2 : wz1]; };
+  const piece = (s0, s1, y1, y2) => { if (s1 - s0 < 0.02 || y2 - y1 < 0.02) return; const [x0, x1, z0, z1] = span(s0, s1);
     // below the band line the outer face takes the band's colour: a piece that crosses it is cut in two (one collider still covers both)
     const cuts = pt.band != null && y1 < BAND && y2 > BAND ? [[y1, BAND, true], [BAND, y2, false]] : [[y1, y2, pt.band != null && y2 <= BAND + 1e-3]];
     for (const [q1, q2, band] of cuts) P.walls.push([crPaint(boxUV(x0, x1, q1, q2, z0, z1, 2.6, 2.6), pt.out, band ? pt.band : pt.c, pt.in, y0, yt), null]);
     addCollider((x0 + x1) / 2, (z0 + z1) / 2, (x1 - x0) / 2, (z1 - z0) / 2, 0, y2, y1); };
-  let s = 0; for (const [g0, g1, kind] of [...gaps].sort((p, q) => p[0] - q[0])) { piece(s, g0, yb, yt); if (kind === 'door') piece(g0, g1, y0 + 2.4, yt); else { piece(g0, g1, yb, y0 + 1.05); piece(g0, g1, y0 + 2.05, yt); } s = g1; }
+  // a doorway ('door'), a doorway with its iron doors shut and barred ('shut': nobody passes, no bullet either), one filled with sandbags to
+  // chest height ('bag'), a window ('win'), a breach knocked through a yard wall ('gap': open to the top)
+  let s = 0; for (const [g0, g1, kind] of [...gaps].sort((p, q) => p[0] - q[0])) { piece(s, g0, yb, yt); if (kind === 'win') { piece(g0, g1, yb, y0 + 1.05); piece(g0, g1, y0 + 2.05, yt); } else if (kind !== 'gap') piece(g0, g1, y0 + 2.4, yt);
+    if (kind === 'shut' || kind === 'bag') { const [x0, x1, z0, z1] = span(g0, g1); addCollider((x0 + x1) / 2, (z0 + z1) / 2, (x1 - x0) / 2, (z1 - z0) / 2, 0, kind === 'shut' ? y0 + 2.4 : y0 + 1.55, yb); }
+    s = g1; }
   piece(s, L, yb, yt);
 }
 // a wall box's colours: the outer face (and the jambs) in the house colour, the inner face whitewashed, darker toward the dust and under the roof
@@ -214,6 +248,7 @@ const CR_VSTYLE = [
   { c: 0xbac29e, band: 0x6a7860, raw: false, dh: 0, par: 'solid', roof: 'tank', sh: 0x6a4a30, dr: 0x3e4e44, line: true },
   { c: 0xcfb994, band: null, raw: false, dh: -0.3, par: 'low', roof: 'straw', sh: 0x40607a, dr: 0x6a4a34, scar: true },
   { c: 0xe2ddd0, band: 0x9a8a72, raw: false, dh: 0.4, par: 'rail', roof: 'cols', sh: 0x5a6e4a, dr: 0x5c5048, line: true, hood: true },
+  { c: 0xd6cdb6, band: 0x6f7f74, raw: false, dh: 0.5, par: 'solid', roof: 'tank', sh: 0x3c5c70, dr: 0x4a5a5a, hood: true, shop: true, coop: true },   // the cooperative at the head of the street
 ];
 const CR_IN = 0xe6dfcf, CR_CONC = 0xb4b0a6, CR_RAWC = 0xa8a398;
 const crMix = (a, b, t) => new THREE.Color(a).lerp(new THREE.Color(b), t).getHex();
@@ -249,19 +284,27 @@ function crVDress(H, st, WL, P, r, y0, yt, yb) {
         P.conc.push([crBoxOn(wl, g0 - 0.16, g0, F - 0.02, F + 0.06, y0 - 0.05, y0 + 2.58), fr], [crBoxOn(wl, g1, g1 + 0.16, F - 0.02, F + 0.06, y0 - 0.05, y0 + 2.58), fr], [crBoxOn(wl, g0 - 0.16, g1 + 0.16, F - 0.02, F + 0.07, y0 + 2.4, y0 + 2.6), fr]);
         // the step at the door, a concrete hood over it on some houses
         P.conc.push([crBoxOn(wl, g0 - 0.25, g1 + 0.25, F - 0.02, F + 0.55, Math.min(gl(wl, (g0 + g1) / 2, F + 0.4), y0) - 0.3, y0 - 0.03), conc]);
-        if (st.hood) P.conc.push([crBoxOn(wl, g0 - 0.45, g1 + 0.45, F - 0.02, F + 0.65, y0 + 2.8, y0 + 2.92), conc]);
+        if (st.hood && wl.front) P.conc.push([crBoxOn(wl, g0 - 0.45, g1 + 0.45, F - 0.02, F + 0.65, y0 + 2.8, y0 + 2.92), conc]);
+        if (kind === 'shut') {
+          // a house off the route: its iron doors shut in the opening, a beam barred across them outside
+          const mid = (g0 + g1) / 2; P.door.push([crBoxOn(wl, g0 + 0.02, mid - 0.01, -0.05, 0.05, y0 + 0.03, y0 + 2.38, 1.1, 2.33), st.dr], [crBoxOn(wl, mid + 0.01, g1 - 0.02, -0.05, 0.05, y0 + 0.03, y0 + 2.38, 1.1, 2.33), st.dr]);
+          P.wood.push([crBoxOn(wl, g0 - 0.35, g1 + 0.35, F + 0.02, F + 0.15, y0 + 1.12, y0 + 1.3), 0x5a4630]);
+        } else if (kind === 'bag') {
+          // the door on the junction: filled with sandbags from inside to the chest, to fire over
+          const a = CW(...wpt(wl, g0 - 0.25, -F - 0.27)), b = CW(...wpt(wl, g1 + 0.25, -F - 0.27)); bagWall([a, b], 8, y0 - 0.05, false);
+        } else
         // the iron doors: both leaves swung right back against the wall inside; where a window leaves no room, that leaf lies blown off in the dust outside
         for (const sd of [-1, 1]) { const s0 = sd < 0 ? g0 - 1.12 : g1 + 0.02, s1 = s0 + 1.1;
           if (s0 >= T + 0.05 && s1 <= L - T - 0.05 && !wl.gaps.some(([q0, q1]) => q0 !== g0 && s1 > q0 - 0.1 && s0 < q1 + 0.1)) P.door.push([crBoxOn(wl, s0, s1, -F - 0.06, -F - 0.012, y0 + 0.03, y0 + 2.36, 1.1, 2.33), st.dr]);
           else { const [lx, lz] = wpt(wl, (g0 + g1) / 2 + sd * 0.7, F + 1.7 + r() * 0.8), [wx, wz] = CW(lx, lz); P.door.push([new THREE.BoxGeometry(1.1, 0.05, 2.33), st.dr, M4(wx, groundAt(wx, wz) + 0.05, wz, 0.04, r() * 3, 0.03)]); } }
-        // an iron awning on brackets over the door
-        if (st.aw) { const W = g1 - g0 + 1.6, D = 1.45, yi = y0 + 3.08, yo = y0 + 2.74, g = new THREE.BufferGeometry();
+        // an iron awning on brackets over the front door
+        if (st.aw && wl.front && kind !== 'bag') { const W = g1 - g0 + 1.6, D = 1.45, yi = y0 + 3.08, yo = y0 + 2.74, g = new THREE.BufferGeometry();
           g.setAttribute('position', new THREE.Float32BufferAttribute([-W / 2, yi - y0, 0, W / 2, yi - y0, 0, -W / 2, yo - y0, D, W / 2, yo - y0, D], 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute([0, 1, W, 1, 0, 0, W, 0], 2)); g.setIndex([0, 2, 1, 1, 2, 3]); g.computeVertexNormals();
           P.sheet.push([crOnWall(wl, (g0 + g1) / 2, F + 0.02, y0, g), crMix(0x9a948a, 0x8a5a3a, r() * 0.5)]);
           for (const e of [-1, 1]) P.metal.push([crOnWall(wl, (g0 + g1) / 2 + e * (W / 2 - 0.2), F, y0, new THREE.BoxGeometry(0.04, 0.04, 1.5).rotateX(-0.42).translate(0, 2.55, 0.68)), 0x3a3834]); }
-        // the grocer's board over his door
-        if (st.shop) { const cv = canvas(512, 128), g = cv.getContext('2d'), rr = rng(9099); g.fillStyle = '#2d5a66'; g.fillRect(0, 0, 512, 128); tileBlotches(g, 512, rr, 18, 8, 40, 'rgba(120,70,40,0.35)', 'rgba(255,255,255,0.1)', 0.7);
-          g.strokeStyle = 'rgba(230,224,206,0.85)'; g.lineWidth = 5; g.strokeRect(10, 10, 492, 108); g.fillStyle = '#efe8d4'; g.font = 'bold 74px "DejaVu Sans", Tahoma, Arial, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.direction = 'rtl'; g.fillText('بقالة', 256, 66);
+        // the grocer's board over his door (the cooperative's over the door of the house at the head of the street)
+        if (st.shop && wl.front) { const cv = canvas(512, 128), g = cv.getContext('2d'), rr = rng(9099); g.fillStyle = '#2d5a66'; g.fillRect(0, 0, 512, 128); tileBlotches(g, 512, rr, 18, 8, 40, 'rgba(120,70,40,0.35)', 'rgba(255,255,255,0.1)', 0.7);
+          g.strokeStyle = 'rgba(230,224,206,0.85)'; g.lineWidth = 5; g.strokeRect(10, 10, 492, 108); g.fillStyle = '#efe8d4'; g.font = 'bold 74px "DejaVu Sans", Tahoma, Arial, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.direction = 'rtl'; if (st.coop) g.font = 'bold 58px "DejaVu Sans", Tahoma, Arial, sans-serif'; g.fillText(st.coop ? 'جمعية تعاونية' : 'بقالة', 256, 66);
           const m = new THREE.Mesh(crBoxOn(wl, (g0 + g1) / 2 - 1.3, (g0 + g1) / 2 + 1.3, F + 0.01, F + 0.05, y0 + 3.25, y0 + 3.9, 2.6, 0.65), new THREE.MeshStandardMaterial({ map: tex(cv), roughness: 0.8 })); scene.add(SH(onLayer1(m))); }
       }
     }
@@ -322,8 +365,8 @@ function crVDress(H, st, WL, P, r, y0, yt, yb) {
   if (st.roof === 'straw') {
     // bundles of dry cotton stalks stacked against the parapet, the fuel of the village ovens
     for (let k = 0; k < 4; k++) { const along = r() < 0.5, [wx, wz] = roofPt(along ? 0.2 + r() * 0.6 : (r() < 0.5 ? 0.06 : 0.94), along ? (r() < 0.5 ? 0.08 : 0.92) : 0.2 + r() * 0.6), L = 1.4 + r() * 0.8; P.straw.push([G.box(along ? L : 0.6, 0.5 + r() * 0.2, along ? 0.6 : L), 0xffffff, M4(wx, ys + 0.3, wz, 0, (r() - 0.5) * 0.2, 0)]); }
-    // and the ladder up to them, against a side wall between its windows
-    const wl = WL[2 + Math.floor(r() * 2)], s = (wl.e0 + wl.e1) / 2, g0 = gl(wl, s, F + 1.4), Hh = ys + 0.7 - g0, len = Math.hypot(Hh, 1.35), th = Math.atan2(1.35, Hh);
+    // and the ladder up to them, against the back wall (the side walls stand a hand's breadth from the next house)
+    const wl = WL[H.door === 's' ? 0 : H.door === 'n' ? 1 : 3], s = (wl.e0 + wl.e1) / 2, g0 = gl(wl, s, F + 1.4), Hh = ys + 0.7 - g0, len = Math.hypot(Hh, 1.35), th = Math.atan2(1.35, Hh);
     const parts = [[G.box(0.05, len, 0.07), 0x7a5a3a, M4(-0.22, len / 2, 0)], [G.box(0.05, len, 0.07), 0x7a5a3a, M4(0.22, len / 2, 0)]]; for (let y = 0.3; y < len - 0.1; y += 0.32) parts.push([G.box(0.44, 0.04, 0.045), 0x6e5034, M4(0, y, 0)]);
     P.wood.push([crOnWall(wl, s, F + 1.4, g0, build(parts).rotateX(-th)), null]);
   }
@@ -341,79 +384,184 @@ function crVDress(H, st, WL, P, r, y0, yt, yb) {
   if (st.scar) { const wl = WL[Math.floor(r() * 4)]; for (let n = 0; n < 10; n++) { const s = lerp(wl.e0 + 1.4, wl.e1 - 1.4, r()); if (free(wl, s - 0.85, s + 0.85, 0.1)) { dec(wl, s, y0 + 2.6 + r() * 0.8, 1.7, 1.7, 1); rubble(wl, s, 8, 1.4); break; } } }
   if (st.burnt) for (const wl of WL) for (const [g0, g1, kind] of wl.gaps) if (kind === 'win' && r() < 0.35) dec(wl, (g0 + g1) / 2, y0 + 2.2 + 0.8, 1.7, 1.6, 3);
 }
-function crVHouse(i, P, C, r) {
-  const [x, z, w, d, door] = CR_VH[i], T = CR_WT, x0 = x - w / 2, x1 = x + w / 2, z0 = z - d / 2, z1 = z + d / 2;
+/* a house: sp = { id, x, z, w, d (local centre and size), st (its look), doors: [{ w: 'n'|'s'|'e'|'w', at: the world coordinate along that
+   wall, k: 'door'|'shut'|'bag' }], wins: { wall: 'a' (two, at the quarters, clear of the doors) or [world coordinates] }, part: 'z' (a partition
+   across the long side, a 2.4 m opening in its middle) or null, front: the side its front is on, guard: [x, z, fx, fz] - the man inside } */
+function crHouse(sp, P, C, r) {
+  const { x, z, w, d } = sp, T = CR_WT, x0 = x - w / 2, x1 = x + w / 2, z0 = z - d / 2, z1 = z + d / 2;
   // the floor sits just above the highest ground under the house, the walls go down into it
   let g = -1e9; for (const [a, b] of [[x0, z0], [x1, z0], [x0, z1], [x1, z1], [x, z]]) g = Math.max(g, groundAt(...CW(a, b)));
-  const st = CR_VSTYLE[i], y0 = g + 0.12, yb = g - 0.7, yt = y0 + CR_HH + st.dh, H = { i, x, z, w, d, door, y: y0, win: [], guard: null, box: [x0, x1, z0, z1] };
-  const dx = crDoorX(CR_VH[i]);
-  // windows: two in every outer wall (one where the door leaves no room), each 1.4 m wide, the sill at 1.05 m
-  const wins = (L, avoid) => { const out = []; for (const c of [L * 0.25, L * 0.75]) { if (avoid !== undefined && Math.abs(c - avoid) < CR_DOOR / 2 + CR_WIN / 2 + 0.5) continue; out.push([c - CR_WIN / 2, c + CR_WIN / 2, 'win']); } return out; };
-  const LX = w + T, LZ = d - T;   // the walls along x run the full width, corners included; the walls along z fit between them
-  const nGaps = wins(LX, door === 'n' ? dx - (x0 - T / 2) : undefined), sGaps = wins(LX, door === 's' ? dx - (x0 - T / 2) : undefined);
-  if (door === 'n') nGaps.push([dx - (x0 - T / 2) - CR_DOOR / 2, dx - (x0 - T / 2) + CR_DOOR / 2, 'door']); else sGaps.push([dx - (x0 - T / 2) - CR_DOOR / 2, dx - (x0 - T / 2) + CR_DOOR / 2, 'door']);
-  const wGaps = wins(LZ), eGaps = wins(LZ);
+  const st = CR_VSTYLE[sp.st], y0 = g + 0.12, yb = g - 0.7, yt = y0 + CR_HH + st.dh, H = { id: sp.id, x, z, w, d, door: sp.front || 's', y: y0, yt, win: [], guard: null, box: [x0, x1, z0, z1] };
+  const LX = w + T, LZ = d - T, o = { n: x0 - T / 2, s: x0 - T / 2, w: z0 + T / 2, e: z0 + T / 2 }, Ln = { n: LX, s: LX, w: LZ, e: LZ }, gaps = { n: [], s: [], w: [], e: [] };
+  for (const dr of sp.doors) { const s = dr.at - o[dr.w]; gaps[dr.w].push([s - CR_DOOR / 2, s + CR_DOOR / 2, dr.k || 'door']); }
+  for (const k of ['n', 's', 'w', 'e']) { const ws = sp.wins && sp.wins[k] !== undefined ? sp.wins[k] : 'a', list = ws === 'a' ? [Ln[k] * 0.25, Ln[k] * 0.75] : ws.map((c) => c - o[k]);
+    for (const c of list) { if (gaps[k].some(([g0, g1]) => c + CR_WIN / 2 + 0.5 > g0 && c - CR_WIN / 2 - 0.5 < g1)) continue; gaps[k].push([c - CR_WIN / 2, c + CR_WIN / 2, 'win']); } }
   const pt = (out) => ({ out, c: st.c, band: st.band, in: CR_IN });
-  crWall(x0 - T / 2, z0, x1 + T / 2, z0, yb, y0, yt, nGaps, P, T, pt([0, -1])); crWall(x0 - T / 2, z1, x1 + T / 2, z1, yb, y0, yt, sGaps, P, T, pt([0, 1]));
-  crWall(x0, z0 + T / 2, x0, z1 - T / 2, yb, y0, yt, wGaps, P, T, pt([-1, 0])); crWall(x1, z0 + T / 2, x1, z1 - T / 2, yb, y0, yt, eGaps, P, T, pt([1, 0]));
-  const rec = (gaps, f) => { for (const [g0, g1, k] of gaps) if (k === 'win') H.win.push(f((g0 + g1) / 2)); };
-  rec(nGaps, (s) => ({ x: x0 - T / 2 + s, z: z0, nx: 0, nz: -1 })); rec(sGaps, (s) => ({ x: x0 - T / 2 + s, z: z1, nx: 0, nz: 1 }));
-  rec(wGaps, (s) => ({ x: x0, z: z0 + T / 2 + s, nx: -1, nz: 0 })); rec(eGaps, (s) => ({ x: x1, z: z0 + T / 2 + s, nx: 1, nz: 0 }));
-  // inside: one partition with a 2.4 m opening in the middle, across the long side
+  crWall(x0 - T / 2, z0, x1 + T / 2, z0, yb, y0, yt, gaps.n, P, T, pt([0, -1])); crWall(x0 - T / 2, z1, x1 + T / 2, z1, yb, y0, yt, gaps.s, P, T, pt([0, 1]));
+  crWall(x0, z0 + T / 2, x0, z1 - T / 2, yb, y0, yt, gaps.w, P, T, pt([-1, 0])); crWall(x1, z0 + T / 2, x1, z1 - T / 2, yb, y0, yt, gaps.e, P, T, pt([1, 0]));
+  const rec = (k, f) => { for (const [g0, g1, kd] of gaps[k]) if (kd === 'win') H.win.push(Object.assign(f((g0 + g1) / 2), { wall: k })); };
+  rec('n', (s) => ({ x: o.n + s, z: z0, nx: 0, nz: -1 })); rec('s', (s) => ({ x: o.s + s, z: z1, nx: 0, nz: 1 }));
+  rec('w', (s) => ({ x: x0, z: o.w + s, nx: -1, nz: 0 })); rec('e', (s) => ({ x: x1, z: o.e + s, nx: 1, nz: 0 }));
+  // inside: one partition across the long side with a 2.4 m opening in its middle - the house is two rooms, one after the other
   const wash = { out: null, c: CR_IN, band: null, in: CR_IN };
-  if (w >= 10) crWall(x, z0 + T / 2, x, z1 - T / 2, yb, y0, yt - 0.02, [[LZ / 2 - 1.2, LZ / 2 + 1.2, 'door']], P, 0.45, wash);
-  else crWall(x0 + T / 2, z, x1 - T / 2, z, yb, y0, yt - 0.02, [[(w - T) / 2 - 1.2, (w - T) / 2 + 1.2, 'door']], P, 0.45, wash);
-  // the floor; the roof slab keeps its old collider (its look, the parapet and everything on the roof come from crVDress)
+  if (sp.part === 'z') crWall(x, z0 + T / 2, x, z1 - T / 2, yb, y0, yt - 0.02, [[LZ / 2 - 1.2, LZ / 2 + 1.2, 'door']], P, 0.45, wash);
+  // the floor; the roof slab keeps a collider of its own (its look, the parapet and everything on the roof come from crVDress)
   { const [a, b] = CW(x0 + T / 2, z0 + T / 2), [c, e] = CW(x1 - T / 2, z1 - T / 2); P.floor.push([boxUV(a, c, y0 - 0.14, y0, b, e, 2, 2), 0x6a5a44]); addFloor(a, c, b, e, y0); }
   { const [a, b] = CW(x0 - T / 2 - 0.15, z0 - T / 2 - 0.15), [c, e] = CW(x1 + T / 2 + 0.15, z1 + T / 2 + 0.15); addCollider((a + c) / 2, (b + e) / 2, (c - a) / 2, (e - b) / 2, 0, yt + 0.32, yt); }
-  const WL = [{ o: [x0 - T / 2, z0], t: [1, 0], n: [0, -1], L: LX, gaps: nGaps, e0: 0, e1: LX }, { o: [x0 - T / 2, z1], t: [1, 0], n: [0, 1], L: LX, gaps: sGaps, e0: 0, e1: LX },
-    { o: [x0, z0 + T / 2], t: [0, 1], n: [-1, 0], L: LZ, gaps: wGaps, e0: -T, e1: LZ + T }, { o: [x1, z0 + T / 2], t: [0, 1], n: [1, 0], L: LZ, gaps: eGaps, e0: -T, e1: LZ + T }];
+  const WL = [{ o: [o.n, z0], t: [1, 0], n: [0, -1], L: LX, gaps: gaps.n, e0: 0, e1: LX, front: H.door === 'n' }, { o: [o.s, z1], t: [1, 0], n: [0, 1], L: LX, gaps: gaps.s, e0: 0, e1: LX, front: H.door === 's' },
+    { o: [x0, o.w], t: [0, 1], n: [-1, 0], L: LZ, gaps: gaps.w, e0: -T, e1: LZ + T, front: H.door === 'w' }, { o: [x1, o.e], t: [0, 1], n: [1, 0], L: LZ, gaps: gaps.e, e0: -T, e1: LZ + T, front: H.door === 'e' }];
   crVDress(H, st, WL, P, r, y0, yt, yb);
-  // a few things in the rooms, in the corners away from the doorways
-  const [cx, cz] = CW(x, z), far = door === 's' ? z0 + T / 2 + 0.7 : z1 - T / 2 - 0.7;
-  for (const [ox, kind] of [[x0 + T / 2 + 0.8, 0], [x1 - T / 2 - 0.9, 1]]) { const [px, pz] = CW(ox, far);
-    if (kind === 0) { P.wood.push([new THREE.BoxGeometry(1.0, 0.6, 0.7).translate(px, y0 + 0.3, pz), 0x7a5a38]); addCollider(px, pz, 0.5, 0.35, 0, y0 + 0.6, y0); }
-    else for (let k = 0; k < 3; k++) { P.floor.push([G.cyl(0.24, 0.3, 0.7, 10), 0x9a6a44, M4(px + (k - 1) * 0.55, y0 + 0.35, pz + (k % 2) * 0.3)]); } }
-  { const [px, pz] = CW(x + (r() - 0.5) * 2, z + (r() - 0.5) * 2); P.floor.push([new THREE.BoxGeometry(1.8, 0.03, 1.2).rotateY(r() * 3).translate(px, y0 + 0.02, pz), 0x8a3a2a]); }
-  // cover for whoever fights around it outside, and in the window bays inside
-  coverBox(cx, cz, w / 2 + T / 2, d / 2 + T / 2, 0, 2.4);
-  // inside, beside the doorway: a man stands flat against the wall at the jamb and leans out into the opening to fire
-  { const zw = door === 's' ? z1 : z0, nz = door === 's' ? 1 : -1, zi = zw - nz * (T / 2 + 0.45);
+  // a few things in the rooms, against the side walls, away from the doorways and the opening between the rooms
+  if (sp.part === 'z') for (const [ox, kind] of [[x0 + T / 2 + 0.55, 0], [x1 - T / 2 - 0.6, 1]]) { const [px, pz] = CW(ox, z + (kind ? -1.6 : 1.6));
+    if (kind === 0) { P.wood.push([new THREE.BoxGeometry(0.7, 0.6, 1.0).translate(px, y0 + 0.3, pz), 0x7a5a38]); addCollider(px, pz, 0.35, 0.5, 0, y0 + 0.6, y0); }
+    else for (let k = 0; k < 3; k++) P.floor.push([G.cyl(0.24, 0.3, 0.7, 10), 0x9a6a44, M4(px, y0 + 0.35, pz + (k - 1) * 0.55)]); }
+  { const [px, pz] = CW(x + (sp.part ? 3 : 0) + (r() - 0.5), z + (r() - 0.5)); P.floor.push([new THREE.BoxGeometry(1.8, 0.03, 1.2).rotateY(r() * 3).translate(px, y0 + 0.02, pz), 0x8a3a2a]); }
+  // cover for whoever fights around it outside, and beside each open doorway inside: a man flat against the jamb leans out to fire
+  { const [cx, cz] = CW(x, z); coverBox(cx, cz, w / 2 + T / 2, d / 2 + T / 2, 0, 2.4); }
+  for (const k of ['n', 's']) for (const [g0, g1, kd] of gaps[k]) { if (kd !== 'door') continue; const zw = k === 's' ? z1 : z0, nz = k === 's' ? 1 : -1, dx = o[k] + (g0 + g1) / 2, zi = zw - nz * (T / 2 + 0.45);
     for (const sd of [-1, 1]) { const [qx, qz] = CW(dx + sd * (CR_DOOR / 2 + 0.45), zi), [px, pz] = CW(dx + sd * (CR_DOOR / 2 - 0.3), zi + nz * 0.2); COVER.push({ x: qx, z: qz, nx: 0, nz, h: 2.4, by: null, px, pz, door: true }); } }
-  // the window bays: where an Egyptian waits for the advance in the third stage, and where our men stand in the fourth
+  // the window bays: where an Egyptian waits for the advance, and where our men stand on the night
   for (const wn of H.win) { const bx = wn.x - wn.nx * (T / 2 + 0.55), bz = wn.z - wn.nz * (T / 2 + 0.55), [sx, sz] = CW(bx, bz), [px, pz] = CW(bx + wn.nx * 0.2, bz + wn.nz * 0.2), [hx, hz] = CW(bx - wn.nx * 0.7, bz - wn.nz * 0.7);
-    const s = { x: sx, z: sz, y: y0, nx: wn.nx, nz: wn.nz, f: 0, b: null, used: false, fox: true, p: [px, pz], h: [hx, hz], grp: 'V', hi: i }; C.slots.push(s); wn.slot = s; }
-  // the man inside, waiting for whoever comes through the door
-  { const gz = door === 's' ? z0 + T / 2 + 1.3 : z1 - T / 2 - 1.3, nz = door === 's' ? 1 : -1, gx = w >= 10 ? dx : x, [sx, sz] = CW(gx, gz), [px, pz] = CW(gx, gz + nz * 0.2), [hx, hz] = CW(gx + 0.6, gz - nz * 0.3);
-    const s = { x: sx, z: sz, y: y0, nx: 0, nz, f: 0, b: null, used: false, fox: true, p: [px, pz], h: [hx, hz], grp: 'G', hi: i }; C.slots.push(s); H.guard = s; }
+    const s = { x: sx, z: sz, y: y0, nx: wn.nx, nz: wn.nz, f: 0, b: null, used: false, fox: true, p: [px, pz], h: [hx, hz], grp: 'V', hi: sp.id }; C.slots.push(s); wn.slot = s; }
+  // the man inside, waiting in the second room for whoever comes through the opening
+  if (sp.guard) { const [gx, gz, fx, fz] = sp.guard, [sx, sz] = CW(gx, gz), [px, pz] = CW(gx + fx * 0.2, gz + fz * 0.2), [hx, hz] = CW(gx - fx * 0.5, gz - fz * 0.5);
+    const s = { x: sx, z: sz, y: y0, nx: fx, nz: fz, f: 0, b: null, used: false, fox: true, p: [px, pz], h: [hx, hz], grp: 'G', hi: sp.id }; C.slots.push(s); H.guard = s; }
   return H;
 }
+// a plain wall of the yards and lanes, 2.4 m of mud brick on its own ground: straight runs between the points, with breaches [from, to] (world
+// coordinates along the run). Colliders come with it: higher than a man can jump
+function crYardWall(pts, P, gaps = [], h = 2.4, col = 0xb9a27e, r = null) {
+  for (let i = 0; i < pts.length - 1; i++) {
+    const [ax, az] = pts[i], [bx, bz] = pts[i + 1], alongX = Math.abs(bz - az) < 1e-6, L = alongX ? Math.abs(bx - ax) : Math.abs(bz - az), sg = alongX ? Math.sign(bx - ax) : Math.sign(bz - az);
+    // a long run is cut into pieces of 10 m or less, each standing on the ground under it
+    const n = Math.max(1, Math.ceil(L / 10));
+    for (let k = 0; k < n; k++) {
+      const s0 = (L * k) / n, s1 = (L * (k + 1)) / n, pa = alongX ? [ax + sg * s0, az] : [ax, az + sg * s0], pb = alongX ? [ax + sg * s1, az] : [ax, az + sg * s1];
+      let gmin = 1e9, gmax = -1e9; for (let u = 0; u <= 1.001; u += 0.25) { const gy = groundAt(...CW(lerp(pa[0], pb[0], u), lerp(pa[1], pb[1], u))); gmin = Math.min(gmin, gy); gmax = Math.max(gmax, gy); }
+      const gl = []; for (const [g0, g1] of gaps) { const c0 = alongX ? g0 : g0, c1 = alongX ? g1 : g1, q0 = (c0 - (alongX ? pa[0] : pa[1])) * sg, q1 = (c1 - (alongX ? pa[0] : pa[1])) * sg, lo = Math.min(q0, q1), hi = Math.max(q0, q1); if (hi > 0 && lo < s1 - s0) gl.push([Math.max(0, lo), Math.min(s1 - s0, hi), 'gap']); }
+      crWall(pa[0], pa[1], pb[0], pb[1], gmin - 0.5, gmax, gmax + h, gl, P, 0.42, { out: null, c: col, band: null, in: col });
+      // the coping: a course of brick along the top
+      { const [p0, q0] = CW(Math.min(pa[0], pb[0]), Math.min(pa[1], pb[1])), [p1, q1] = CW(Math.max(pa[0], pb[0]), Math.max(pa[1], pb[1])); P.conc.push([boxUV(alongX ? p0 : p0 - 0.26, alongX ? p1 : p0 + 0.26, gmax + h, gmax + h + 0.1, alongX ? q0 - 0.26 : q0, alongX ? q0 + 0.26 : q1, 1, 1), crMix(col, 0x8a7a62, 0.3)]); }
+      // a breach leaves its bricks in the dust at its foot
+      if (r) for (const [g0, g1] of gl) for (let q = 0; q < 9; q++) { const s = g0 + (g1 - g0) * r(), lat = (r() - 0.5) * 2.4, [wx, wz] = CW(alongX ? pa[0] + sg * s : pa[0] + lat, alongX ? pa[1] + lat : pa[1] + sg * s), qs = 0.1 + r() * 0.16; P.conc.push([new THREE.DodecahedronGeometry(qs, 0), [col, 0x9a5a40, CR_RAWC][Math.floor(r() * 3)], M4(wx, groundAt(wx, wz) + qs * 0.4, wz, r() * 3, r() * 3, r() * 3, 1, 0.7, 1.2)]); }
+    }
+  }
+}
+/* coils of barbed wire, three to a fence (two side by side, one on top, 1.7 m high), on their pickets, following the ground: nobody climbs them
+   and nobody jumps them. Returns the meshes and the colliders, so a stage can lift them (the engineers clear the street for the tanks) */
+const CR_COIL = (() => { const g = new THREE.TorusGeometry(0.46, 0.011, 3, 12); g.rotateY(Math.PI / 2); return g; })();
+function crWire(pts) {
+  const d = densify(pts, 0.21), M = [], q = new THREE.Quaternion(), e = new THREE.Euler(), one = V3(1, 1, 1), cols = [], stakes = [];
+  for (let i = 0; i < d.length; i++) {
+    const a = d[Math.max(0, i - 1)], b = d[Math.min(d.length - 1, i + 1)], hd = Math.atan2(b[0] - a[0], b[1] - a[1]), nx = Math.cos(hd), nz = -Math.sin(hd), [wx, wz] = CW(d[i][0], d[i][1]), gy = groundAt(wx, wz);
+    for (const [lat, y, ph] of [[-0.42, 0.45, 0], [0.42, 0.45, 1.3], [0, 1.22, 2.1]]) { e.set(0, hd + Math.PI / 2 + Math.sin(i * 0.9 + ph) * 0.38, Math.sin(i * 1.7 + ph) * 0.12, 'YXZ'); q.setFromEuler(e); M.push(new THREE.Matrix4().compose(V3(wx + nx * lat, gy + y, wz + nz * lat), q, one)); }
+    if (i % 14 === 0) for (const sd of [-1, 1]) stakes.push([G.box(0.05, 1.5, 0.05), 0x4a4238, M4(wx + nx * sd * 0.5, gy + 0.6, wz + nz * sd * 0.5, sd * 0.25 * nz, 0, -sd * 0.25 * nx)]);
+  }
+  for (let i = 0; i < pts.length - 1; i++) { const [ax, az] = pts[i], [bx, bz] = pts[i + 1], L = Math.hypot(bx - ax, bz - az), n = Math.max(1, Math.ceil(L / 2));
+    for (let k = 0; k < n; k++) { const pa = [lerp(ax, bx, k / n), lerp(az, bz, k / n)], pb = [lerp(ax, bx, (k + 1) / n), lerp(az, bz, (k + 1) / n)], [wa, va] = CW(...pa), [wb, vb] = CW(...pb), g0 = Math.min(groundAt(wa, va), groundAt(wb, vb)), g1 = Math.max(groundAt(wa, va), groundAt(wb, vb));
+      cols.push(addCollider((wa + wb) / 2, (va + vb) / 2, Math.hypot(wb - wa, vb - va) / 2 + 0.1, 0.55, Math.atan2(-(vb - va), wb - wa), g1 + 1.75, g0 - 1)); } }
+  const im = new THREE.InstancedMesh(CR_COIL, new THREE.MeshStandardMaterial({ color: 0x5a544c, roughness: 0.55, metalness: 0.6 }), M.length); M.forEach((m4, k) => im.setMatrixAt(k, m4)); im.instanceMatrix.needsUpdate = true; im.computeBoundingSphere(); im.userData.dyn = true; scene.add(onLayer1(im));
+  const sm = new THREE.Mesh(build(stakes), MAT.vc); sm.userData.dyn = true; scene.add(SH(onLayer1(sm)));
+  return { mesh: [im, sm], cols };
+}
+// the things the stages switch on and off: meshes and colliders kept outside the saves (a save holds only CR's flags, crDynApply puts them back)
+const CR_DYN = {};
+function crDyn(name, mesh, cols) { CR_DYN[name] = { mesh: [].concat(mesh || []), cols: cols.map((k) => ({ k, top: k.top })) }; }
+function crDynSet(name, on) { const g = CR_DYN[name]; if (!g) return; for (const m of g.mesh) m.visible = on; for (const c of g.cols) c.k.top = on ? c.top : -1e9; }
+// what stands when: the street's wire and the walls round the place the jeeps stop belong to the advance; on the night the engineers have cut them
+// for the tanks, the north door of the house at the head is shut and barred behind our men, and the gates in the lanes are shut till the tanks come
+function crDynApply() {
+  const s = CR.stage; crDynSet('wire', s <= 2); crDynSet('box', s <= 2); crDynSet('doorN', CR.doorN); crDynSet('gates', s <= 3);
+  const C = CHAP.cross; if (C.jeepCol) C.jeepCol.top = s === 2 ? C.jeepColTop : -1e9;
+}
 function crVillage(P, C, parts) {
-  const r = rng(4417); C.vh = CR_VH.map((h, i) => crVHouse(i, P, C, r));
-  // the low mud walls along the west edge: chest high, 60 cm thick, with wide gaps between them
-  for (const [lx, z0, z1] of CR_LOWW) { const [a, b] = CW(lx - 0.3, z0), [c, e] = CW(lx + 0.3, z1), g = Math.min(groundAt(a, b), groundAt(c, e)); P.walls.push([boxUV(a, c, g - 0.4, g + 1.25, b, e, 2.6, 2.6), 0xb9a27e]); addCollider((a + c) / 2, (b + e) / 2, 0.3, (e - b) / 2, 0, g + 1.25, g - 0.4); coverBox((a + c) / 2, (b + e) / 2, 0.3, (e - b) / 2, 0, 1.2); }
-  // a well, drums, a cart, a few palms between the houses
-  { const [wx, wz] = CW(-186, 0.0 + 10.5); parts.push([G.cyl(0.9, 0.95, 0.85, 14), 0xa89878, M4(wx, groundAt(wx, wz) + 0.42, wz)], [G.cyl(0.7, 0.7, 0.05, 12), 0x222a2a, M4(wx, groundAt(wx, wz) + 0.86, wz)]); addCollider(wx, wz, 0.9, 0.9, 0, groundAt(wx, wz) + 0.85); }
-  for (const [x, z] of [[-210, -36], [-185, 36], [-232, -9]]) { const [wx, wz] = CW(x, z); fieldDrums(wx, wz, 3); }
-  { const [wx, wz] = CW(-212, 10.5), g = groundAt(wx, wz); parts.push([G.box(2.6, 0.18, 1.4), 0x6e5236, M4(wx, g + 0.8, wz)], [G.cyl(0.55, 0.55, 0.1, 12), 0x3a2e22, M4(wx - 0.4, g + 0.55, wz - 0.75, Math.PI / 2, 0, 0)], [G.cyl(0.55, 0.55, 0.1, 12), 0x3a2e22, M4(wx - 0.4, g + 0.55, wz + 0.75, Math.PI / 2, 0, 0)], [G.box(1.6, 0.08, 0.08), 0x6e5236, M4(wx + 2.0, g + 0.7, wz)]); addCollider(wx, wz, 1.3, 0.8, 0, g + 1.0); coverBox(wx, wz, 1.3, 0.7, 0, 1.0); }
-  { const pl = []; for (const [x, z] of [[-184, -36], [-210, 36], [-160, -12], [-238, 52], [-244, -52], [-186, 60], [-212, -62]]) { const [wx, wz] = CW(x, z); pl.push([wx, wz, 0.9 + r() * 0.3, r() * 6]); } palms(pl); }
-  // the houses on the road take their power from the line along it: a wire sagging from the nearest pole to a bracket on the parapet
-  { const segs = []; for (const h of C.vh) { if (Math.abs(h.z) > 30) continue; const [x0, x1, z0, z1] = h.box, fz = h.z < 0 ? z1 + CR_WT / 2 : z0 - CR_WT / 2, hx = Math.abs(x0 - (-150)) < Math.abs(x1 - (-150)) ? x0 + 0.5 : x1 - 0.5, px = -150 - 40 * Math.round((-150 - hx) / 40);
-      const [ax, az] = CW(px, 7), [bx, bz] = CW(hx, fz), ya = groundAt(ax, az) + 7 - 0.4, yb = h.y + CR_HH + CR_VSTYLE[h.i].dh + 0.9;
+  const r = rng(4417), T = CR_WT; C.vh = {};
+  // the street's houses: the route's six with their doors open front and back, the rest shut
+  for (const h of CR_VH) {
+    const x = CR_COLS[h.c], z = h.sd * (CR_FZ + CR_HD / 2), fw = h.sd > 0 ? 'n' : 's', bw = h.sd > 0 ? 's' : 'n', k = h.open ? 'door' : 'shut';
+    const doors = [{ w: fw, at: x + h.fd, k }]; if (h.bd !== null) doors.push({ w: bw, at: x + h.bd, k });
+    let guard = null;
+    if (h.open) { const ent = h.in === 'b' ? h.bd : h.fd, sg = Math.sign(ent), back = h.in === 'b' ? h.sd : -h.sd, gx = x - sg * 3.9, gz = z + back * 2.3, l = Math.hypot(sg * 3.9, back * 2.3); guard = [gx, gz, (sg * 3.9) / l, (-back * 2.3) / l]; }
+    C.vh[h.id] = crHouse({ id: h.id, x, z, w: CR_HW, d: CR_HD, st: h.st, front: fw, doors, part: 'z', guard, wins: { n: 'a', s: 'a', e: h.c === 0 ? 'a' : [], w: [] } }, P, C, r);
+  }
+  // the house at the head of the street: two windows each side of its barricaded door on the junction, two looking back down the street, its
+  // north door from the yard beside it (the way in; shut behind our men on the night)
+  { const D = CR_D, x0 = D.x - D.w / 2, x1 = D.x + D.w / 2;
+    C.vh.D = crHouse({ id: 'D', x: D.x, z: D.z, w: D.w, d: D.d, st: 8, front: 'w', doors: [{ w: 'w', at: 0, k: 'bag' }, { w: 'n', at: D.x, k: 'door' }], part: null, wins: { w: [-8, -4, 4, 8], e: [-3, 3], n: [x0 + 1.8], s: [x0 + 2.5, x1 - 2.5] } }, P, C, r);
+    // two pillars hold its roof
+    for (const zz of [-5.5, 5.5]) { const [px, pz] = CW(D.x, zz), y0 = C.vh.D.y; P.conc.push([G.box(0.45, CR_HH, 0.45), CR_RAWC, M4(px, y0 + CR_HH / 2, pz)]); addCollider(px, pz, 0.23, 0.23, 0, y0 + CR_HH, y0 - 0.5); }
+    // the north door: its iron leaves, swung shut and barred on the night
+    { const y0 = C.vh.D.y, [ax, az] = CW(D.x - CR_DOOR / 2, D.z - D.d / 2), [bx] = CW(D.x + CR_DOOR / 2, 0), dm = new THREE.Mesh(build([[G.box(CR_DOOR / 2 - 0.02, 2.36, 0.06), CR_VSTYLE[8].dr, M4(ax + CR_DOOR / 4, y0 + 1.2, az)], [G.box(CR_DOOR / 2 - 0.02, 2.36, 0.06), CR_VSTYLE[8].dr, M4(bx - CR_DOOR / 4, y0 + 1.2, az)], [G.box(CR_DOOR + 0.5, 0.14, 0.1), 0x6a5236, M4((ax + bx) / 2, y0 + 1.25, az + 0.12)]]), MAT.vc);
+      dm.userData.dyn = true; scene.add(SH(onLayer1(dm))); crDyn('doorN', dm, [addCollider((ax + bx) / 2, az, CR_DOOR / 2, 0.32, 0, y0 + 2.4, y0 - 0.7)]); }
+    // its two defenders on the day, inside, watching the north door
+    C.dIn = [[-243.6, 2.8], [-236.8, 7.0]].map(([gx, gz]) => { const l = Math.hypot(D.x - gx, -D.d / 2 - gz), fx = (D.x - gx) / l, fz = (-D.d / 2 - gz) / l, [sx, sz] = CW(gx, gz), [px, pz] = CW(gx + fx * 0.2, gz + fz * 0.2), [hx, hz] = CW(gx - fx * 0.5, gz - fz * 0.5);
+      const s = { x: sx, z: sz, y: C.vh.D.y, nx: fx, nz: fz, f: 0, b: null, used: false, fox: true, p: [px, pz], h: [hx, hz], grp: 'G', hi: 'D' }; C.slots.push(s); return s; });
+    // inside: ammunition boxes and a few sandbags under the windows on the junction
+    for (const zz of [-8, -4, 4, 8]) { const [bx, bz] = CW(x0 + 0.95, zz), y0 = C.vh.D.y; bagWall([[bx, bz - 0.55], [bx, bz + 0.55]], 2, y0 - 0.05, false); }
+    for (const [lx, lz] of [[-236, -7], [-236.2, 7.5], [-243.5, 9.6]]) { const [px, pz] = CW(lx, lz), y0 = C.vh.D.y; P.wood.push([G.box(0.8, 0.45, 0.5), 0x5a5a3a, M4(px, y0 + 0.22, pz)], [G.box(0.8, 0.45, 0.5), 0x5f5f3e, M4(px + 0.1, y0 + 0.67, pz + 0.05)]); addCollider(px, pz, 0.45, 0.3, 0, y0 + 0.9, y0); } }
+  // the yards: a wall at the back of each row, walls between the yards, breaches where the route goes through
+  const Y = CR_YZ, F = CR_FZ + CR_HD, E = -154, mids = [-166.5, -179.5, -192.5, -205.5, -218.5, -232.5];
+  for (const sd of [-1, 1]) {
+    crYardWall([[E, sd * Y], [-232.5, sd * Y]], P);   // the back line
+    crYardWall([[E, sd * F], [E, sd * Y]], P, sd > 0 ? [[17.6, 21.6]] : [], 2.4, 0xb9a27e, r);   // the east end: the way into the first yard
+    // (between two houses the gap is a slit of 40 cm, too narrow for a man: the walls between the yards start at the houses' backs; the last
+    // one, beside the house at the head, runs from the street front)
+    mids.forEach((mx, i) => { const gap = (sd < 0 && i === 1) || (sd > 0 && i === 3) || (sd < 0 && i === 5) ? [[sd * 17.6, sd * 21.6]] : []; crYardWall([[mx, sd * (i === 5 ? CR_FZ : F)], [mx, sd * Y]], P, gap, 2.4, 0xb9a27e, r); });
+    // the strip between the last house and the house at the head: shut to the street
+    crYardWall([[-231, sd * CR_FZ], [-234, sd * CR_FZ]], P);
+    // the yards of the house at the head: its north yard is reached from the last house's yard; the south one is shut
+    crYardWall([[-232.5, sd * Y], [CR_LX0, sd * Y]], P); crYardWall([[CR_LX0, sd * (CR_D.d / 2)], [CR_LX0, sd * Y]], P);
+  }
+  // the junction: the cross-lane between walls, the road from the west between walls; gates in the lanes' east walls (shut till the tanks come)
+  { const LZ = CR_LZ, gz0 = 40, gz1 = 46;
+    for (const sd of [-1, 1]) {
+      crYardWall([[CR_LX0, sd * Y], [CR_LX0, sd * gz0]], P); crYardWall([[CR_LX0, sd * gz1], [CR_LX0, sd * LZ]], P);
+      crYardWall([[CR_LX1, sd * 6], [CR_LX1, sd * LZ]], P); crYardWall([[CR_LX1, sd * 6], [-302, sd * 6]], P);
+    }
+    const gl = [], gc = []; for (const sd of [-1, 1]) { const [gx, gzw] = CW(CR_LX0, sd * (gz0 + gz1) / 2), y = groundAt(gx, gzw); gl.push([G.box(0.12, 2.2, 2.95), 0x5a4a36, M4(gx, y + 1.1, gzw - 1.5)], [G.box(0.12, 2.2, 2.95), 0x5e4e38, M4(gx, y + 1.1, gzw + 1.5)], [G.box(0.16, 0.16, 6.1), 0x4a3c2c, M4(gx - 0.08, y + 1.6, gzw)]); gc.push(addCollider(gx, gzw, 0.3, 3.05, 0, y + 2.4, y - 0.7)); }
+    const gm = new THREE.Mesh(build(gl), MAT.vc); gm.userData.dyn = true; scene.add(SH(onLayer1(gm))); crDyn('gates', gm, gc); }
+  // the street is cut by wire between the crossings: the only way on is through the houses
+  // (and Czech hedgehogs in front of it)
+  { const ms = [], cs = []; for (const wx of CR_WIRE) { const w = crWire([[wx, -CR_FZ + 0.35], [wx, CR_FZ - 0.35]]); ms.push(...w.mesh); cs.push(...w.cols); }
+    const hh = []; for (const wx of CR_WIRE) for (const lz of [-3.6, 0.2, 3.9]) { const [x, z] = CW(wx + 1.0 + (lz > 0 ? 0.3 : -0.2), lz), y = groundAt(x, z); hh.push(new THREE.Matrix4().compose(V3(x, y, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, lz * 0.7, 0)), V3(1, 1, 1))); }
+    if (mdlHas('hedgehog')) for (const m of mdlInst('hedgehog', 0, hh)) { m.userData.dyn = true; ms.push(m); }
+    crDyn('wire', ms, cs); }
+  // a well and oil drums in the junction, a palm or two in the yards
+  { const [wx, wz] = CW(-255, -14), y = groundAt(wx, wz); parts.push([G.cyl(0.9, 0.95, 0.85, 14), 0xa89878, M4(wx, y + 0.42, wz)], [G.cyl(0.7, 0.7, 0.05, 12), 0x222a2a, M4(wx, y + 0.86, wz)]); addCollider(wx, wz, 0.9, 0.9, 0, y + 0.85); coverBox(wx, wz, 0.9, 0.9, 0, 0.85); }
+  for (const [x, z] of [[-251, 15], [-258.5, -40], [-249, 62], [-275, -4.6]]) { const [wx, wz] = CW(x, z); fieldDrums(wx, wz, 3); }
+  { const pl = []; for (const [x, z] of [[-161, 21], [-185, -20], [-200, 21], [-214, -20], [-226, 20], [-240, -20], [-170, -21], [-240, 18]]) { const [wx, wz] = CW(x, z); pl.push([wx, wz, 0.85 + r() * 0.3, r() * 6]); } palms(pl); }
+  // the street's power line, a wire from a pole to the parapet of each house on the south side
+  { powerLine([[-152, 5.1], [-232, 5.1]].map(([x, z]) => CW(x, z)), 40, 7); const segs = [];
+    for (const h of CR_VH) { if (h.sd < 0) continue; const H = C.vh[h.id], hx = CR_COLS[h.c] + 4.5, px = -152 - 40 * Math.round((-152 - hx) / 40), [ax, az] = CW(px, 5.1), [bx, bz] = CW(hx, CR_FZ - 0.3), ya = groundAt(ax, az) + 7 - 0.4, yb = H.yt + 0.9;
       for (let k = 0; k < 10; k++) { const t0 = k / 10, t1 = (k + 1) / 10, sag = (t) => -Math.sin(t * Math.PI) * 0.55; segs.push(V3(lerp(ax, bx, t0), lerp(ya, yb, t0) + sag(t0), lerp(az, bz, t0)), V3(lerp(ax, bx, t1), lerp(ya, yb, t1) + sag(t1), lerp(az, bz, t1))); }
       parts.push([G.box(0.06, 0.25, 0.06), 0x2e2c28, M4(bx, yb - 0.1, bz)]); }
     scene.add(onLayer1(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(segs), new THREE.LineBasicMaterial({ color: 0x2a2724 })))); }
+  // where the jeeps stop: fences of wire from the village's corners to the water, a gap for the track that the second jeep parks in. With the canal on the east, the street's wire and the yard walls, the only way on from here is into the first yard
+  { const ms = [], cs = [];
+    for (const sd of [-1, 1]) for (const sg of sd > 0 ? [[[E, Y], [-149.7, Y]], [[-146.7, Y], [-88, Y]]] : [[[E, -Y], [-88, -Y]]]) { const w = crWire(sg); ms.push(...w.mesh); cs.push(...w.cols); }
+    crDyn('box', ms, cs);
+    const [jx, jz] = CW(-148.2, Y), gy = groundAt(jx, jz); C.jeepColTop = gy + 2.2; C.jeepCol = addCollider(jx, jz, 1.55, 0.6, 0, C.jeepColTop, gy - 1); }
 }
 // the roller bridge: one segment = a big steel float (the "roller") under a deck with side rails
 const BR_SEG = build([[G.box(6.2, 0.35, 5.0), 0x5d604a, M4(0, 1.78, 0)], [G.cyl(1.25, 1.25, 4.6, 18), 0x4b4e3e, M4(0, 0.5, 0, Math.PI / 2, 0, 0)], [G.cyl(1.28, 1.28, 0.18, 18), 0x2f3229, M4(0, 0.5, 2.3, Math.PI / 2, 0, 0)], [G.cyl(1.28, 1.28, 0.18, 18), 0x2f3229, M4(0, 0.5, -2.3, Math.PI / 2, 0, 0)],
   ...[-1, 1].flatMap((sd) => [[G.box(6.2, 0.16, 0.14), 0x3f4236, M4(0, 2.85, sd * 2.5)], [G.box(6.2, 0.16, 0.14), 0x3f4236, M4(0, 2.35, sd * 2.5)], [G.box(0.16, 0.95, 0.16), 0x3f4236, M4(-3.0, 2.4, sd * 2.5)], [G.box(0.16, 0.95, 0.16), 0x3f4236, M4(0, 2.4, sd * 2.5)], [G.box(1.3, 0.12, 0.12), 0x3f4236, M4(-1.5, 2.4, sd * 2.5, 0, 0, 0.6)], [G.box(1.3, 0.12, 0.12), 0x3f4236, M4(1.5, 2.4, sd * 2.5, 0, 0, -0.6)]]), [G.box(0.3, 0.5, 5.2), 0x34372c, M4(3.0, 1.6, 0)]]);
 const BR_FRONT = build([[G.cyl(0.05, 0.05, 4.2, 6), 0x2a2a28, M4(0, 3.6, 2.3)], [G.box(0.04, 0.7, 1.1), 0xe8641e, M4(0, 5.2, 2.85)], [G.cyl(0.05, 0.05, 4.2, 6), 0x2a2a28, M4(0, 3.6, -2.3)], [G.box(0.04, 0.7, 1.1), 0xe8641e, M4(0, 5.2, -2.85)]]);
 const JEEP_MG = build([[G.box(0.1, 0.13, 0.95), 0x1d1d1b, M4(0, 0, -0.35)], [G.cyl(0.024, 0.024, 0.75, 6), 0x151515, M4(0, 0.012, -1.17, Math.PI / 2, 0, 0)], [G.cyl(0.04, 0.04, 0.3, 8), 0x2a2a28, M4(0, 0.012, -0.95, Math.PI / 2, 0, 0)], [G.box(0.07, 0.2, 0.1), 0x24221f, M4(0, -0.13, -0.05)], [G.box(0.17, 0.11, 0.26), 0x2a2a24, M4(0, 0.07, -0.5)], [G.box(0.2, 0.15, 0.2), 0x4a4c3a, M4(-0.16, -0.03, -0.5)], [G.box(0.05, 0.08, 0.05), 0x1a1a1a, M4(0, 0.1, -1.45)]]);
-const CRANE_BOOM = build([[G.box(9.9, 0.42, 0.42), 0xc9a43a, M4(4.95, 0, 0)], [G.box(9.9, 0.08, 0.5), 0x8a7428, M4(4.95, 0.25, 0)], [G.box(1.4, 0.9, 1.0), 0x7a6a30, M4(0.2, 0, 0)], [G.cyl(0.18, 0.18, 0.6, 10), 0x2a2a28, M4(9.9, -0.3, 0)]]);
+// the pontoon bridge: 8 m uniflote pontoons pinned end to end, the roadway on them with its kerbs, a ramp down to each bank
+const CR_PBSEG = build([[G.box(7.85, 0.85, 6.4), 0x5f6450, M4(0, 0.05, 0)], [G.box(7.9, 0.1, 4.4), 0x8a8a78, M4(0, 0.88, 0)], ...[-1.4, -0.45, 0.45, 1.4].map((zz) => [G.box(7.9, 0.03, 0.5), 0x9a9886, M4(0, 0.94, zz)]), ...[-1, 1].flatMap((sd) => [[G.box(7.9, 0.22, 0.22), 0x4a4c3e, M4(0, 1.02, sd * 2.25)], [G.box(7.85, 0.3, 0.9), 0x565b48, M4(0, 0.62, sd * 2.75)], [G.cyl(0.09, 0.11, 0.35, 8), 0x2a2b26, M4(-3.4, 0.98, sd * 2.95)], [G.cyl(0.09, 0.11, 0.35, 8), 0x2a2b26, M4(3.4, 0.98, sd * 2.95)]]), [G.box(0.18, 0.12, 4.4), 0x2e3028, M4(3.93, 0.9, 0)]]);
+const CR_PBRAMP = build([[G.box(7.0, 0.22, 4.4), 0x8a8a78, M4(0, 0, 0)], [G.box(7.0, 0.2, 0.2), 0x3a3c30, M4(0, 0.16, 2.25)], [G.box(7.0, 0.2, 0.2), 0x3a3c30, M4(0, 0.16, -2.25)]]);
+// the deck a vehicle drives on: the pontoon bridge (by day) - its roadway, with a ramp at each end down to the bank
+function crPBDeck(x, z) { const lx = x - CR.o.x, lz = z - CR.o.z; if (Math.abs(lz - CR_PB_Z) > 3.4 || Math.abs(lx) > 107) return null; const a = Math.abs(lx); return a <= 100 ? CR_PB_Y : lerp(CR_PB_Y, Math.max(CR_PB_Y, groundAt(x, z)), (a - 100) / 7); }
+// an Egyptian tank knocked out in the fields: the T-55 model, burnt, crooked, smouldering
+function crWreckT55(lx, lz, hd, r) {
+  const [x, z] = CW(lx, lz); if (!(typeof VEH_DATA !== 'undefined' && VEH_DATA.t55)) return placeTank(x, z, hd, TANK_BURNT);
+  const rec = vehModel('t55', 'e'), m = rec.g; m.position.set(x, groundAt(x, z), z); m.rotation.y = -THREE.MathUtils.degToRad(hd) + Math.PI / 2; rec.crew = false; rec.dead = true; vehDamage(rec, true); m.traverse((o) => { if (o.isMesh) o.material = MAT_BURNT; });
+  scene.add(SH(onLayer1(m))); wreckTilt(m, r); wreckFire(m, VEH_FIRE.t55, 1.4); addCollider(x, z, 3.4, 1.8, m.rotation.y, groundAt(x, z) + 2.3); coverBox(x, z, 3.4, 1.8, m.rotation.y, 2.1); return m;
+}
 function crBuild() {
-  const C = CHAP.cross; C.ground = makeGround({ x0: CR.o.x - 440, x1: CR.o.x + 345, z0: CR.o.z - 160, z1: CR.o.z + 450, step: 1.9, h: mapH('cross', crNat, crCarve), map: 'cross', vegOk: (x, z) => { const lx = x - CR.o.x, lz = z - CR.o.z; return Math.abs(lx) > 106 && Math.abs(lz) > 5 && Math.abs(lx - CR_BRIDGE) > 12 && !(lx > -262 && lx < -142 && Math.abs(lz) < 70); } }); GROUND = C.ground;
+  const C = CHAP.cross; C.ground = makeGround({ x0: CR.o.x - 440, x1: CR.o.x + 345, z0: CR.o.z - 160, z1: CR.o.z + 450, step: 1.9, h: mapH('cross', crNat, crCarve), map: 'cross', vegOk: (x, z) => { const lx = x - CR.o.x, lz = z - CR.o.z; return Math.abs(lx) > 106 && Math.abs(lz) > 5 && Math.abs(lz - CR_PB_Z) > 6 && Math.abs(lx - CR_BRIDGE) > 12 && !crInVillage(lx, lz, 6) && !(lx > -158 && lx < -94 && Math.abs(lz) < 27); } }); GROUND = C.ground;
   const BAGS = [], sv = BATCH.bag; BATCH.bag = BAGS; const k0 = COVER.length; C.slots = [];
-  // the trench on the rampart north of the breach: sandbag lips, traverses, bunkers, the Egyptian flag
+  // the trench on the rampart between the bridges: sandbag lips, traverses, bunkers, the Egyptian flag
   { const line = []; for (let lz = CR_TZ0; lz <= CR_TZ1; lz += 2.5) line.push([crTX(lz), lz]); const W = (dx) => line.map(([x, z]) => CW(x + dx, z));
     bagWall(W(-2.9), 4, null, true); bagWall(W(2.9), 3, null, true); if (!LITE) { bagWall(W(-3.35), 3, null, false); bagWall(W(3.35), 2, null, false); }
     bagWall(W(-1.55), LITE ? 1 : 2, null, false);
@@ -421,14 +569,15 @@ function crBuild() {
     const bk = []; for (const [lz, sd] of [[150, 1], [100, -1], [228, 1]]) { const tx = crTX(lz), [wx, wz] = CW(tx + sd * 5.9, lz), y = groundAt(wx, wz) - 0.3; bk.push([G.box(4.2, 1.7, 3.6), 0x8e8468, M4(wx, y + 0.85, wz)], [G.box(4.6, 0.35, 4.0), 0x7a7258, M4(wx, y + 1.85, wz)], [G.box(0.06, 0.25, 2.2), 0x161412, M4(wx - sd * 2.11, y + 1.25, wz)]); addCollider(wx, wz, 2.1, 1.8, 0, y + 2.0); coverBox(wx, wz, 2.1, 1.8, 0, 1.8); }
     scene.add(SH(onLayer1(new THREE.Mesh(build(bk), MAT.vc))));
     { const [fx, fz] = CW(crTX(34) - 3.5, 34); C.egFlag = flag(fx, fz, 'eg', 6.5, Math.PI / 2); C.egFlag.userData.dyn = true; } }
-  // bazooka nests in the scrub: three ambushes along the jeep track; and the nests in the fields west of the village for the counter-attack
+  // bazooka nests in the scrub: three ambushes along the jeep track
   const nb = []; C.nests = {};
   for (const [id, pts] of [['a0', [[-252, 360, 'rpg'], [-212, 352, 'rifle'], [-246, 332, 'rifle'], [-206, 322, 'rpg'], [-230, 314, 'rifle'], [-258, 346, 'rifle']]], ['a1', [[-212, 290, 'rpg'], [-176, 300, 'rifle'], [-192, 266, 'rifle'], [-162, 292, 'rifle'], [-202, 276, 'rpg'], [-170, 258, 'rifle']]],
     ['a2', [[-176, 178, 'rpg'], [-184, 160, 'rifle'], [-172, 146, 'rifle'], [-188, 136, 'rpg'], [-170, 124, 'rifle'], [-182, 170, 'rifle']]]])
-    C.nests[id] = pts.map(([x0, z0, kind]) => { const [x, z] = corr(CR_JEEP, x0, z0, 22, 9), [wx, wz] = CW(x, z); let bd = 1e9, tx = x, tz = z; for (const p of densify(CR_JEEP, 6)) { const d = Math.hypot(p[0] - x, p[1] - z); if (d < bd) { bd = d; tx = p[0]; tz = p[1]; } } const dx = tx - x, dz = tz - z, l = Math.hypot(dx, dz) || 1; return bushNest(wx, wz, dx / l, dz / l, C.slots, 'A' + id, kind, nb, Math.random); });
-  C.nests.h = [[-292, -26, 'rpg'], [-300, 18, 'rifle'], [-288, 44, 'rpg'], [-304, -6, 'rifle']].map(([x, z, kind]) => { const [wx, wz] = CW(x, z); return bushNest(wx, wz, 1, 0, C.slots, 'H', kind, nb, Math.random); });
-  // Egyptian positions at the landing, on the shoulders of the breach, facing the canal
-  for (const [x, z] of [[-112, 386], [-110, 424], [-131, 391], [-131, 419], [-118, 404]]) { const [wx, wz] = CW(x, z); foxhole(wx, wz, 1, 0, C.slots).grp = 'L'; }
+    C.nests[id] = pts.map(([x0, z0, kind]) => { const [x, z] = corr(CR_JEEP, x0, z0, 22, 9), [wx, wz] = CW(x, z); let bd = 1e9, tx = x, tz = z; for (const p of densify(CR_JEEP, 6)) { const d = Math.hypot(p[0] - x, p[1] - z); if (d < bd) { bd = d; tx = p[0]; tz = p[1]; } } const dx = tx - x, dz = tz - z, l = Math.hypot(dx, dz) || 1; return bushNest(wx, wz, dx / l, dz / l, C.slots, 'A' + id, kind, nb, rng(Math.round(x0 * 13 - z0))); });
+  // on the night: two holes on the road from the west, out past the end of its walls, from where a machine gun and a bazooka look down it at the junction
+  C.nests.h = [[-308, -3.4, 'rpg'], [-312, 3.6, 'lmg']].map(([x, z, kind]) => { const [wx, wz] = CW(x, z), s = foxhole(wx, wz, 1, 0, C.slots); s.grp = 'H'; s.kind = kind; return s; });
+  // the Egyptians who crept back onto the rampart north of the pontoon bridge's landing, looking down on the bridge
+  for (const [x, z] of [[-127, 384], [-129, 371], [-125, 360], [-130, 349], [-126, 338]]) { const [wx, wz] = CW(x, z), dx = -40 - x, dz = 404 - z, l = Math.hypot(dx, dz); foxhole(wx, wz, dx / l, dz / l, C.slots).grp = 'L'; }
   // the village
   const P = { walls: [], roof: [], floor: [], wood: [], conc: [], shut: [], door: [], sheet: [], metal: [], pig: [], straw: [], cloth: [], decal: [] }, parts = []; crVillage(P, C, parts);
   { const pt = crPlasterTex(), ct = crConcTex(), vm = (map, o = {}) => new THREE.MeshStandardMaterial(Object.assign({ vertexColors: true, map, roughness: 0.95 }, o)), put = (list, mat, cast = true) => { if (!list.length) return; const m = new THREE.Mesh(build(list), mat); scene.add(SH(onLayer1(m), cast, true)); };
@@ -439,13 +588,17 @@ function crBuild() {
   if (P.roof.length) { const m = new THREE.Mesh(build(P.roof), new THREE.MeshStandardMaterial({ vertexColors: true, map: TX.grime, roughness: 0.95 })); scene.add(SH(onLayer1(m))); }
   { const m = new THREE.Mesh(build(P.floor), MAT.vc); m.receiveShadow = !LITE; scene.add(onLayer1(m)); }
   { const m = new THREE.Mesh(build(P.wood), new THREE.MeshStandardMaterial({ vertexColors: true, map: TX.wood, roughness: 0.92 })); scene.add(SH(onLayer1(m))); }
-  { const pl = []; const r = rng(91); for (let i = 0; i < 46; i++) { const x = -190 - r() * 140, z = 76 + r() * 150; const [wx, wz] = CW(x, z); pl.push([wx, wz, 0.8 + r() * 0.35, r() * 6]); } for (let i = 0; i < 18; i++) { const [wx, wz] = CW(-345 - r() * 60, -150 + r() * 560); pl.push([wx, wz, 0.9, r() * 6]); } palms(pl); }
-  { const r = rng(92), trees = []; for (let i = 0; i < 90; i++) trees.push([-175 - r() * 120, -72 - r() * 80]); const tg = build([[G.cyl(0.12, 0.18, 1.6, 6), 0x5a4632, M4(0, 0.8, 0)], [G.sph(1.5, 9, 7), 0x3d5a2c, M4(0, 2.3, 0, 0, 0, 0, 1, 0.8, 1)]]); const im = new THREE.InstancedMesh(tg, MAT.vc, trees.length), mm = new THREE.Matrix4(), q = new THREE.Quaternion(); trees.forEach(([x, z], i) => { const [wx, wz] = CW(x, z), s = 0.8 + r() * 0.5; im.setMatrixAt(i, mm.compose(V3(wx, groundAt(wx, wz), wz), q.setFromAxisAngle(V3(0, 1, 0), r() * 6), V3(s, s, s))); }); scene.add(SH(onLayer1(im))); for (let i = 0; i < trees.length; i += 4) { const [wx, wz] = CW(...trees[i]); addCover(wx + 0.9, wz, -1, 0, 1.2); } }
+  const clearOf = (x, z) => !crInVillage(x, z, 5);
+  { const pl = []; const r = rng(91); for (let i = 0; i < 46; i++) { const x = -190 - r() * 140, z = 76 + r() * 150; if (!clearOf(x, z)) continue; const [wx, wz] = CW(x, z); pl.push([wx, wz, 0.8 + r() * 0.35, r() * 6]); } for (let i = 0; i < 18; i++) { const [wx, wz] = CW(-345 - r() * 60, -150 + r() * 560); pl.push([wx, wz, 0.9, r() * 6]); } palms(pl); }
+  { const r = rng(92), trees = []; for (let i = 0; i < 90; i++) { const t = [-175 - r() * 120, -72 - r() * 80]; if (clearOf(t[0], t[1]) && Math.abs(t[1] + 34) > 8) trees.push(t); } const tg = build([[G.cyl(0.12, 0.18, 1.6, 6), 0x5a4632, M4(0, 0.8, 0)], [G.sph(1.5, 9, 7), 0x3d5a2c, M4(0, 2.3, 0, 0, 0, 0, 1, 0.8, 1)]]); const im = new THREE.InstancedMesh(tg, MAT.vc, trees.length), mm = new THREE.Matrix4(), q = new THREE.Quaternion(); trees.forEach(([x, z], i) => { const [wx, wz] = CW(x, z), s = 0.8 + r() * 0.5; im.setMatrixAt(i, mm.compose(V3(wx, groundAt(wx, wz), wz), q.setFromAxisAngle(V3(0, 1, 0), r() * 6), V3(s, s, s))); }); scene.add(SH(onLayer1(im))); for (let i = 0; i < trees.length; i += 4) { const [wx, wz] = CW(...trees[i]); addCover(wx + 0.9, wz, -1, 0, 1.2); } }
   // the little bridge over the sweet-water canal
   { const [bx, bz] = CW(CR_BRIDGE, 0), y = 1.85; const m = new THREE.Mesh(build([[G.box(30, 0.5, 6.4), 0xa29a8a, M4(0, -0.25, 0)], [G.box(30, 0.8, 0.3), 0x8e8676, M4(0, 0.4, 3.1)], [G.box(30, 0.8, 0.3), 0x8e8676, M4(0, 0.4, -3.1)]]), MAT.vc); m.position.set(bx, y, bz); scene.add(SH(onLayer1(m))); addFloor(bx - 15, bx + 15, bz - 3, bz + 3, y); addCollider(bx, bz + 3.1, 15, 0.15, 0, y + 0.8, y - 0.5); addCollider(bx, bz - 3.1, 15, 0.15, 0, y + 0.8, y - 0.5); }
-  // the east bank: the crossing yard; the roller bridge lies on the sand behind the water's edge with the tanks that will push it
-  for (const [x, z, b] of [[175, -60, 270], [190, 40, 250], [205, -26, 280], [228, 30, 265]]) { const [wx, wz] = CW(x, z); placeTank(wx, wz, b); }
-  for (const [x, z, b] of [[168, 70, 260], [212, 82, 270], [196, -80, 275]]) { const [wx, wz] = CW(x, z); halftrack(wx, wz, b); }
+  // the pontoon bridge, bank to bank, 404 m south of where the roller bridge will lie
+  { const list = []; for (let x = -96; x <= 96; x += 8) { const [wx, wz] = CW(x, CR_PB_Z); list.push([CR_PBSEG, null, M4(wx, 0, wz)]); }
+    for (const sd of [-1, 1]) { const [wx, wz] = CW(sd * 103.5, CR_PB_Z), gb = Math.max(CR_PB_Y, groundAt(...CW(sd * 107, CR_PB_Z))); list.push([CR_PBRAMP, null, M4(wx, (CR_PB_Y + gb) / 2 - 0.1, wz, 0, 0, sd * Math.atan2(gb - CR_PB_Y, 7))]); }
+    scene.add(SH(onLayer1(new THREE.Mesh(build(list), MAT.vc)), true, true)); }
+  // the east bank: the crossing yard; the roller bridge lies on the sand behind the water's edge with the tanks that will push it, more waiting
+  for (const [x, z, b] of [[175, -60, 270], [190, 40, 250], [205, -26, 280], [228, 30, 265], [168, 70, 260], [212, 82, 270], [196, -80, 275]]) { const [wx, wz] = CW(x, z); placeTank(wx, wz, b); }
   C.towT = [0, 1, 2, 3].map(() => { const m = VEH_DATA.magach ? (() => { const r = vehModel('magach', 'f'); r.crew = true; return r.g; })() : new THREE.Mesh(TANK_GEO, MAT.vc); m.rotation.y = Math.PI; m.userData.dyn = true; scene.add(SH(onLayer1(m))); return m; });
   { const [rx, rz] = CW(104, 0); const m = new THREE.Mesh(build([[G.box(12, 0.5, 5.2), 0x5a5c48, M4(0, 0, 0, 0, 0, 0.12)], [G.box(12, 0.4, 0.15), 0x43463a, M4(0, 0.45, 2.5, 0, 0, 0.12)], [G.box(12, 0.4, 0.15), 0x43463a, M4(0, 0.45, -2.5, 0, 0, 0.12)]]), MAT.vc); m.position.set(rx, 1.4, rz); scene.add(SH(onLayer1(m))); }
   { const [rx, rz] = CW(-106, 0); C.wramp = new THREE.Mesh(build([[G.box(12, 0.5, 5.2), 0x5a5c48, M4(0, 0, 0, 0, 0, -0.1)], [G.box(12, 0.4, 0.15), 0x43463a, M4(0, 0.45, 2.5, 0, 0, -0.1)], [G.box(12, 0.4, 0.15), 0x43463a, M4(0, 0.45, -2.5, 0, 0, -0.1)]]), MAT.vc); C.wramp.position.set(rx, 1.45, rz); C.wramp.userData.dyn = true; C.wramp.visible = false; scene.add(SH(onLayer1(C.wramp))); }
@@ -453,12 +606,12 @@ function crBuild() {
   C.segs = []; for (let k = 0; k < CR_SEGN; k++) { const m = new THREE.Mesh(BR_SEG, MAT.vc); m.userData.dyn = true; SH(m, true, true); onLayer1(m); scene.add(m); C.segs.push(m); }
   // work lamps along the rails and on the bow, lit on the night it is pushed out
   { C.lamps = []; const lm = new THREE.SpriteMaterial({ map: FXT.flare, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, color: 0xffd8a0 });
-    for (let k = 0; k < CR_SEGN; k += 4) for (const sd of [-1, 1]) { const q = new THREE.Sprite(lm); q.position.set(0, 3.1, sd * 2.5); q.scale.setScalar(1.7); q.visible = false; C.segs[k].add(q); C.lamps.push(q); }
-    for (const sd of [-1, 1]) { const q = new THREE.Sprite(lm); q.position.set(0, 4.7, sd * 2.3); q.scale.setScalar(2.6); q.visible = false; C.front.add(q); C.lamps.push(q); } }
-  // the repair of the opening film: a crane on a truck, a trailer, the engineers
-  { const cr = new THREE.Group(); cr.add(new THREE.Mesh(TRUCK_GEO, MAT.vc)); cr.children[0].position.set(1.8, 0, 0); const piv = new THREE.Group(); piv.position.set(0, 2.9, 0); cr.add(piv); const boom = new THREE.Mesh(CRANE_BOOM, MAT.vc); boom.rotation.z = 0.55; piv.add(boom); cr.userData = { dyn: true, piv, boom }; cr.visible = false; scene.add(SH(onLayer1(cr))); C.crane = cr;
-    C.cable = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 1, 5), MAT.metal); C.cable.userData.dyn = true; C.cable.visible = false; scene.add(onLayer1(C.cable));
-    C.trailer = new THREE.Mesh(build([[G.box(7.2, 0.35, 3.0), 0x4e4f40, M4(0, 0.7, 0)], ...[-2.4, -1.4, 2.4].flatMap((x) => [-1, 1].map((sd) => [G.cyl(0.42, 0.42, 0.3, 12), 0x1d1c19, M4(x, 0.42, sd * 1.2, Math.PI / 2, 0, 0)]))]), MAT.vc); C.trailer.userData.dyn = true; C.trailer.visible = false; scene.add(SH(onLayer1(C.trailer)));
+    // (big glows: from the house at the head of the street, 250 m off, they are how the bridge is seen going out across the dark water)
+    for (let k = 0; k < CR_SEGN; k += 2) for (const sd of [-1, 1]) { const q = new THREE.Sprite(lm); q.position.set(0, 3.1, sd * 2.5); q.scale.setScalar(2.6); q.visible = false; C.segs[k].add(q); C.lamps.push(q); }
+    for (const sd of [-1, 1]) { const q = new THREE.Sprite(lm); q.position.set(0, 4.7, sd * 2.3); q.scale.setScalar(6); q.visible = false; C.front.add(q); C.lamps.push(q); }
+    for (const t of C.towT) { const q = new THREE.Sprite(lm); q.position.set(1.5, 2.9, 0); q.scale.setScalar(3.2); q.visible = false; t.add(q); C.lamps.push(q); } }
+  // the repair of the opening film: a tank shoves the new roller in from the side over the sand, the engineers round it
+  { const r = VEH_DATA.magach ? vehModel('magach', 'f') : null, m = r ? r.g : new THREE.Mesh(TANK_GEO, MAT.vc); if (r) r.crew = true; m.userData.dyn = true; m.visible = false; scene.add(SH(onLayer1(m))); C.repT = m;
     C.eng = [0, 1, 2, 3, 4].map(() => { const u = new Unit('f', 'rifle'); scene.remove(u.tag); u.alive = true; u.rig.root.visible = false; u.rig.root.userData.dyn = true; u.rig.gun.visible = false; return u; }); }
   for (const [x, z, s] of [[-900, -500, 40], [-1200, 300, 55], [600, -900, 30], [-700, 800, 45]]) { const [wx, wz] = CW(x, z); smokeColumn(wx, wz, s, true); }
   { // fields, scrub and reeds
@@ -467,7 +620,7 @@ function crBuild() {
     const X0 = CR.o.x - 440, X1 = CR.o.x - 150, Z0 = CR.o.z - 160, Z1 = CR.o.z + 450;
     concealPatches([...patchesNear(CR_JEEP.map(([x, z]) => CW(x, z)), 30, 9, 30, 880, okF, 4, 9), ...patchesNear(CR_ROAD.map(([x, z]) => CW(x, z)), 22, 8, 30, 882, okF, 4, 9), ...patchesIn(40, X0, X1, Z0, Z1, 883, okF, 5, 12)], C, 884, 0.7);
     dressRoute(CR_ROAD.map(([x, z]) => CW(x, z)), okF, 800, 1, 0.8); dressRoute(CR_JEEP.map(([x, z]) => CW(x, z)), okF, 805, 1.2, 0.6); dressArea(X0, X1, Z0, Z1, okF, 820, 0.8, 0.8);
-    { const okE = (x, z) => { const [lx, lz] = L(x, z); return lx > 104 && !(Math.abs(lz) < 40 && lx < 160) && Math.abs(lz) > 6 && distPolyline(lx, lz, CR_CONV) > 7; }; dressArea(CR.o.x + 104, CR.o.x + 345, Z0, Z1, okE, 840, 0.5, 0.1); const okR = (x, z) => { const [lx, lz] = L(x, z); return lx < -100 && lx > -150 && Math.abs(lx - crTX(lz)) > 3.2 && Math.abs(lz) > 20 && distPolyline(lx, lz, CR_JEEP) > 6; }; dressArea(CR.o.x - 150, CR.o.x - 100, Z0, Z1, okR, 860, 0.35, 0.3); }
+    { const okE = (x, z) => { const [lx, lz] = L(x, z); return lx > 104 && !(Math.abs(lz) < 40 && lx < 160) && Math.abs(lz) > 6 && Math.abs(lz - CR_PB_Z) > 7 && distPolyline(lx, lz, CR_CONV) > 7; }; dressArea(CR.o.x + 104, CR.o.x + 345, Z0, Z1, okE, 840, 0.5, 0.1); const okR = (x, z) => { const [lx, lz] = L(x, z); return lx < -100 && lx > -150 && Math.abs(lx - crTX(lz)) > 3.2 && Math.abs(lz) > 27 && Math.abs(lz - CR_PB_Z) > 7 && distPolyline(lx, lz, CR_JEEP) > 6; }; dressArea(CR.o.x - 150, CR.o.x - 100, Z0, Z1, okR, 860, 0.35, 0.3); }
     instScatter(BUSH_G, scatterIn(LITE ? 300 : 700, X0, CR.o.x - 152, Z0, Z1, 501, okF, (x, z, r) => [x, z, 0.7 + r() * 1.0, r() * 6, greenBush(r), 0, 0.9]).concat(nb));
     { const rows = []; for (const [x0, x1, z0, z1] of [[-430, -350, -150, -12], [-430, -350, 12, 160], [-320, -190, 120, 240], [-330, -280, 300, 440]]) for (let x = x0; x < x1; x += 1.6) for (let z = z0; z < z1; z += 6.5) { const [wx, wz] = CW(x, z); if (!okF(wx, wz)) continue; rows.push([wx, wz, 1, 0, 0x5c7a3a + (Math.random() < 0.5 ? 0x060300 : 0), 0, 1]); }
       if (MAPV.kinds && MAPV.kinds.grass_green) {   // with the map's plant cards: rows of young crop, plant by plant, instead of green boxes
@@ -477,27 +630,29 @@ function crBuild() {
       } else { const cg = build([[G.box(0.45, 0.55, 6.0), 0xffffff, M4(0, 0.27, 0)]]); instScatter(cg, rows, DET_MAT, false); } }
     { const reeds = []; for (let lz = -160; lz < 450; lz += 2.6) for (const sd of [-1, 1]) { if (Math.abs(lz) < 6 || Math.random() < 0.3) continue; const [wx, wz] = CW(CR_BRIDGE + sd * rand(7, 9.5), lz + rand(-1, 1)); reeds.push([wx, wz, 0.8 + Math.random() * 0.5, Math.random() * 6, Math.random() < 0.5 ? 0x7a8a4a : 0x8a8a58, 0, 1]); } instScatter(REED_G, reeds, DET_MAT, false); }
     { const hs = []; for (const [x, z] of [[-212, -120], [-224, -126], [-300, 180], [-312, 190], [-290, 360]]) { const [wx, wz] = CW(x, z); hs.push([G.cyl(1.4, 1.6, 1.8, 12), 0xc8b070, M4(wx, groundAt(wx, wz) + 0.9, wz)], [G.cone(1.5, 0.9, 12), 0xbca262, M4(wx, groundAt(wx, wz) + 2.2, wz)]); addCollider(wx, wz, 1.4, 1.4, 0, groundAt(wx, wz) + 2.2); coverBox(wx, wz, 1.4, 1.4, 0, 1.8); } scene.add(SH(onLayer1(new THREE.Mesh(build(hs), MAT.vc)))); }
-    for (const [x, z, w, d, h, ru, col] of [[-318, 14, 4, 4, 2.6, 0, '#bfae8e'], [-380, -36, 6, 4, 2.8, 0, '#c7b490'], [-200, 96, 5, 4, 2.4, 1, '#c2ab84'], [-404, 52, 5, 5, 2.6, 0, '#cbb894'], [-276, 352, 5, 4, 2.5, 1, '#c4ae86'], [-192, 248, 4, 4, 2.4, 0, '#c9b48e']]) { const [wx, wz] = CW(x, z); smallHut(wx, wz, w, d, h, col, 0x7a6a52, !!ru); }
-    powerLine([[-150, 7], [-700, 7]].map(([x, z]) => CW(x, z)), 40, 7); powerLine(CR_JEEP.map(([x, z]) => CW(x - 14, z)), 42, 7);
-    wireFence([[-256, -6], [-322, -6]].map(([x, z]) => CW(x, z))); wireFence([[-340, -6], [-600, -6]].map(([x, z]) => CW(x, z)));
+    for (const [x, z, w, d, h, ru, col] of [[-318, 16, 4, 4, 2.6, 0, '#bfae8e'], [-380, -36, 6, 4, 2.8, 0, '#c7b490'], [-200, 96, 5, 4, 2.4, 1, '#c2ab84'], [-404, 52, 5, 5, 2.6, 0, '#cbb894'], [-276, 352, 5, 4, 2.5, 1, '#c4ae86'], [-192, 248, 4, 4, 2.4, 0, '#c9b48e']]) { const [wx, wz] = CW(x, z); smallHut(wx, wz, w, d, h, col, 0x7a6a52, !!ru); }
+    powerLine([[-306, 9], [-700, 9]].map(([x, z]) => CW(x, z)), 40, 7); powerLine(CR_JEEP.slice(3).map(([x, z]) => CW(x - 14, z)), 42, 7);
+    wireFence([[-306, -9], [-322, -9]].map(([x, z]) => CW(x, z))); wireFence([[-340, -9], [-600, -9]].map(([x, z]) => CW(x, z)));
     { const bl = []; for (const [x, z] of [[-140, 300], [-142, 318], [-136, 330]]) { const [wx, wz] = CW(x, z); bl.push([wx, wz, 1.2 + Math.random() * 0.6, Math.random() * 6, rockCol(Math.random), 0.3, 0.72]); } instScatter(BOULDER_G, bl); boulders(bl); }
-    instScatter(ROCK_G, scatterIn(LITE ? 80 : 180, CR.o.x + 100, CR.o.x + 345, Z0, Z1, 502, (x, z) => { const [lx, lz] = L(x, z); return Math.abs(lz) > 5 && distPolyline(lx, lz, CR_CONV) > 6; }, (x, z, r) => [x, z, 0.25 + r() ** 3, r() * 6, rockCol(r), 0.2, 0.55]).concat(scatterIn(90, X0, X1, Z0, Z1, 503, okF, (x, z, r) => [x, z, 0.2 + r() * 0.4, r() * 6, rockCol(r), 0.2, 0.6])));
-    instScatter(BUSH_G, scatterIn(LITE ? 60 : 140, CR.o.x + 100, CR.o.x + 345, Z0, Z1, 504, (x, z) => { const [lx, lz] = L(x, z); return Math.abs(lz) > 5 && distPolyline(lx, lz, CR_CONV) > 6; }, (x, z, r) => [x, z, 0.35 + r() * 0.5, r() * 6, dryBush(r), 0, 0.7]));
-    for (const [x, z] of [[-150, 280], [-300, 8]]) { const [wx, wz] = CW(x, z); fieldDrums(wx, wz, 5); }
-    { const [a, b] = CW(-170, 276); fieldSign(a, b, 'צומת הצליחה ←', Math.PI, 1.4); }
+    instScatter(ROCK_G, scatterIn(LITE ? 80 : 180, CR.o.x + 100, CR.o.x + 345, Z0, Z1, 502, (x, z) => { const [lx, lz] = L(x, z); return Math.abs(lz) > 5 && Math.abs(lz - CR_PB_Z) > 6 && distPolyline(lx, lz, CR_CONV) > 6; }, (x, z, r) => [x, z, 0.25 + r() ** 3, r() * 6, rockCol(r), 0.2, 0.55]).concat(scatterIn(90, X0, X1, Z0, Z1, 503, okF, (x, z, r) => [x, z, 0.2 + r() * 0.4, r() * 6, rockCol(r), 0.2, 0.6])));
+    instScatter(BUSH_G, scatterIn(LITE ? 60 : 140, CR.o.x + 100, CR.o.x + 345, Z0, Z1, 504, (x, z) => { const [lx, lz] = L(x, z); return Math.abs(lz) > 5 && Math.abs(lz - CR_PB_Z) > 6 && distPolyline(lx, lz, CR_CONV) > 6; }, (x, z, r) => [x, z, 0.35 + r() * 0.5, r() * 6, dryBush(r), 0, 0.7]));
+    for (const [x, z] of [[-150, 280], [-300, 14]]) { const [wx, wz] = CW(x, z); fieldDrums(wx, wz, 5); }
+    { const [a, b] = CW(-170, 276); fieldSign(a, b, 'אל הכפר ←', Math.PI, 1.4); }
   }
   if (parts.length) scene.add(SH(onLayer1(new THREE.Mesh(build(parts), MAT.vc))));
   BATCH.bag = sv; if (BAGS.length) scene.add(bagMesh(BAGS)); C.covers = COVER.slice(k0); for (const c of C.covers) c.y = hAt(c.x, c.z, groundAt(c.x, c.z) + 0.6);
-  // vehicles: our jeeps on their rafts; the tanks that cross the bridge
+  // vehicles: our jeeps (no truck, no half-track: the tanks and the jeeps are the only vehicles of this chapter); the tanks over the bridges
   const jeepCrew = (v) => { const d = new THREE.Mesh(SEATED_F, MAT.clothF); d.position.set(-0.35 * JK, 0.95 * JK, -0.3 * JK); d.rotation.y = Math.PI / 2; v.g.add(d); v.crew = [d]; };
-  C.jeeps = [0, 1, 2].map((i) => { const v = addVeh({ mode: 'cross', side: 'f', kind: 'jeep', geo: JEEP_GEO, half: [1.6 * JK, 1.6 * JK, 0.8 * JK], guns: i > 0, vmax: 6.5 }); jeepCrew(v); const vl = v.g.userData.vl; if (vl) vl.crew = false; else v.g.add(new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.045, 0.8 * JK, 6).translate(-0.55 * JK, 1.35 * JK, 0), MAT.metal));   // the modelled jeep has its own .50 on its post; its men are set here
+  C.jeeps = [0, 1, 2].map((i) => { const v = addVeh({ mode: 'cross', side: 'f', kind: 'jeep', geo: JEEP_GEO, half: [1.6 * JK, 1.6 * JK, 0.8 * JK], guns: i > 0, vmax: 6.5, float: crPBDeck }); jeepCrew(v); const vl = v.g.userData.vl; if (vl) vl.crew = false; else v.g.add(new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.045, 0.8 * JK, 6).translate(-0.55 * JK, 1.35 * JK, 0), MAT.metal));   // the modelled jeep has its own .50 on its post; its men are set here
     if (i > 0) { const gu = new Unit('f', 'rifle'); scene.remove(gu.tag); gu.alive = true; gu.rig.root.visible = true; gu.stance = 'stand'; gu.rig.pose('aim', 0, 0.05); v.crewU = [{ u: gu, at: V3(-0.85 * JK, 0.95 * JK, 0.0) }]; v.crew.push(gu.rig.root); } return v; });
-  C.rafts = [0, 1, 2].map(() => addVeh({ mode: 'cross', side: 'f', kind: 'raft', geo: RAFT_GEO, half: [5.5, 1.2, 3.2], float: (x, z) => (groundAt(x, z) < 0.4 ? 0.02 : null), vmax: 3.2, rock: { a: 0 }, sea: true }));
-  C.jeepX = addVeh({ mode: 'cross', side: 'f', kind: 'jeep', geo: JEEP_GEO, half: [1.6 * JK, 1.6 * JK, 0.8 * JK], vmax: 0 }); if (C.jeepX.g.userData.vl) C.jeepX.g.userData.vl.crew = false; C.jeepX.men = [[-0.35, 0.95, -0.3], [0.45, 0.95, 0.35], [-1.1, 0.95, 0.3]].map(([x, y, z]) => { const d = new THREE.Mesh(SEATED_F, MAT.clothF); d.position.set(x * JK, y * JK, z * JK); d.rotation.y = Math.PI / 2; C.jeepX.g.add(d); return d; });
-  for (const v of C.jeeps) { v.sea = true; v.float = (x, z) => { const lx = x - CR.o.x; return lx > -97 && lx < 100 && Math.abs(z - CR.o.z - CR_RAFT_Z) < 22 ? 1.1 : null; }; }
-  roadRibbon(CR_JEEP.map(([x, z]) => CW(x, z)), 5, 'dirt'); roadRibbon([[-106, 0], [-400, 0]].map(([x, z]) => CW(x, z)), 9, 'asphalt'); roadWrecks([[-262, 0], [-400, 0]].map(([x, z]) => CW(x, z)), 3, 9117, 7.5);
+  C.jeepX = addVeh({ mode: 'cross', side: 'f', kind: 'jeep', geo: JEEP_GEO, half: [1.6 * JK, 1.6 * JK, 0.8 * JK], vmax: 3, float: crPBDeck }); if (C.jeepX.g.userData.vl) C.jeepX.g.userData.vl.crew = false; C.jeepX.men = [[-0.35, 0.95, -0.3], [0.45, 0.95, 0.35], [-1.1, 0.95, 0.3]].map(([x, y, z]) => { const d = new THREE.Mesh(SEATED_F, MAT.clothF); d.position.set(x * JK, y * JK, z * JK); d.rotation.y = Math.PI / 2; C.jeepX.g.add(d); return d; });
+  roadRibbon(CR_JEEP.map(([x, z]) => CW(x, z)), 5, 'dirt'); roadRibbon(CR_PB_PATH.map(([x, z]) => CW(x, z)), 5, 'dirt');
+  roadRibbon([[-106, 0], [-153, 0]].map(([x, z]) => CW(x, z)), 8, 'asphalt'); roadRibbon([[-153, 0], [-234, 0]].map(([x, z]) => CW(x, z)), 6.4, 'asphalt'); roadRibbon([[CR_LX1, 0], [-420, 0]].map(([x, z]) => CW(x, z)), 7, 'asphalt'); roadRibbon([[-253.5, -CR_LZ], [-253.5, CR_LZ]].map(([x, z]) => CW(x, z)), 6, 'dirt');
+  { const r = rng(9117); crWreckT55(-352, -16, 190, r); crWreckT55(-385, 13, 160, r); crWreckT55(-292, 58, 210, r); crWreckT55(-288, -62, 120, r); }
   C.mg = new THREE.Mesh(JEEP_MG, MAT.vc); C.mg.visible = false; C.mg.userData.dyn = true; scene.add(onLayer1(C.mg));
-  C.tanks = [0, 1, 2, 3, 4, 5].map(() => addVeh({ mode: 'cross', side: 'f', kind: 'tank', geo: TANK_GEO, half: [3.4, 2.6, 1.9], guns: false, vmax: 8, float: crDeck }));
+  const deck = (x, z) => crDeck(x, z) ?? crPBDeck(x, z);
+  C.tanks = [0, 1, 2, 3, 4, 5].map(() => addVeh({ mode: 'cross', side: 'f', kind: 'tank', geo: TANK_GEO, half: [3.4, 2.6, 1.9], guns: false, vmax: 8, float: deck }));
+  C.pbT = [0, 1].map(() => addVeh({ mode: 'cross', side: 'f', kind: 'tank', geo: TANK_GEO, half: [3.4, 2.6, 1.9], guns: false, vmax: 3, float: crPBDeck }));
   // the column of the last film: fifty tanks drawn as one instanced mesh
   C.conv = VEH_DATA.magach ? new THREE.InstancedMesh(vehMerged('magach', 2, 'f'), MAT.veh, 50) : new THREE.InstancedMesh(TANK_GEO, MAT.vc, 50); C.conv.frustumCulled = false; C.conv.userData.dyn = true; C.conv.visible = false; SH(C.conv, true, false); scene.add(onLayer1(C.conv));
 }
@@ -520,49 +675,47 @@ function crBridgePose(dt) {
   { const night = CR.filmTod != null ? CR.filmTod % 1440 < 300 : CR.stage >= 3; if (C.lamps[0].visible !== night) for (const q of C.lamps) q.visible = night; }
   if (CR.stage === 3) meter('גשר הגלילים', CR.br);
 }
-/* the repair: segment 12 is lifted off the trailer, swung over and lowered into the gap; then the tanks push the rear half up against it */
+/* the repair: the new roller lies on the sand beside the gap; a tank shoves it in sideways, then the tanks behind push the rear half up against it */
 function crRepStart() {
-  const C = CHAP.cross, cx12 = 100 + 12.5 * CR_SEGL, px = cx12 + 3, pz = -7.9, reach = Math.hypot(cx12 - px, -pz), a1 = Math.atan2(0 - pz, cx12 - px), a0 = a1 + 1.75;
-  const [tx, tz] = [px + Math.cos(a0) * reach, pz + Math.sin(a0) * reach], [wtx, wtz] = CW(tx, tz), gT = groundAt(wtx, wtz);
-  CR.rep = { t: 0, gap: 4, joined: false, px, pz, reach, a0, a1, yT: gT + 1.6, yS: crSegY(cx12) };
-  const [wx, wz] = CW(px, pz); C.crane.position.set(wx, groundAt(wx, wz), wz); C.crane.visible = true; C.cable.visible = true;
-  C.trailer.position.set(wtx, gT, wtz); C.trailer.rotation.y = -a0 + Math.PI / 2; C.trailer.visible = true;
-  const spots = [[cx12 - 4.4, 3.4, 'crouch'], [cx12 + 4.6, 3.3, 'idle'], [cx12 - 4.0, -3.5, 'idle'], [cx12 + 5.8, -3.0, 'crouch'], [px - 2.2, pz - 1.6, 'idle']];
+  const C = CHAP.cross, cx12 = 100 + 12.5 * CR_SEGL, z0 = -9.5;
+  CR.rep = { t: 0, gap: 4, joined: false, cx: cx12, z0, yS: crSegY(cx12) };
+  const spots = [[cx12 - 4.4, 3.4, 'crouch'], [cx12 + 4.6, 3.3, 'idle'], [cx12 - 4.0, -4.2, 'idle'], [cx12 + 5.8, -4.0, 'crouch'], [cx12 + 2.6, -17.5, 'idle']];
   C.eng.forEach((u, i) => { const [ex, ez] = CW(spots[i][0], spots[i][1]); u.place(ex, ez); u.engPose = spots[i][2]; u.face(...CW(cx12, 0)); u.stance = spots[i][2] === 'crouch' ? 'crouch' : 'stand'; u.rig.root.visible = true; u.rig.pose(u.engPose, 0, 0); u.sync(); });
+  C.repT.visible = true; crRepUpd(0);
 }
-function crRepEnd() { const C = CHAP.cross; CR.rep = null; C.crane.visible = false; C.cable.visible = false; C.trailer.visible = false; for (const u of C.eng) u.rig.root.visible = false; }
+function crRepEnd() { const C = CHAP.cross; CR.rep = null; if (C.repT) C.repT.visible = false; for (const u of C.eng || []) u.rig.root.visible = false; }
 function crRepUpd(dt) {
   const R = CR.rep; if (!R) return; const C = CHAP.cross, m = C.segs[12], t = (R.t += dt);
-  // 9.5 lifted off the trailer, 12.5 swung over the gap, 15.5 lowered into it, 18.5 home; 20-25.5 the tanks push the rear half up against it
-  const a = t < 12.5 ? R.a0 : t < 15.5 ? lerp(R.a0, R.a1, smooth(12.5, 15.5, t)) : R.a1, yUp = R.yS + 4.4;
-  const y = t < 9.5 ? R.yT : t < 12.5 ? lerp(R.yT, yUp, smooth(9.5, 12.5, t)) : t < 15.5 ? yUp : t < 18.5 ? lerp(yUp, R.yS, smooth(15.5, 18.5, t)) : R.yS;
-  if (t >= 18.5 && !R.joined) { R.joined = true; const [wx, wz] = CW(R.px + Math.cos(R.a1) * R.reach, 0); fxDust(V3(wx, R.yS - 0.4, wz)); sndClick(240, 0.4); }
-  const lx = R.px + Math.cos(a) * R.reach, lz = R.pz + Math.sin(a) * R.reach, [wx, wz] = CW(lx, lz);
-  if (!R.joined) { m.visible = true; m.position.set(wx, y + (t > 9.5 && t < 18.5 ? Math.sin(t * 1.8) * 0.07 : 0), wz); m.rotation.set(0, a - R.a1, 0); }
+  // 9.5-18.5 the tank shoves the roller across the sand into the gap; 20-25.5 the tanks behind push the rear half up against it
+  const u = smooth(9.5, 18.5, t), lz = lerp(R.z0, 0, u);
+  if (t >= 18.5 && !R.joined) { R.joined = true; const [wx, wz] = CW(R.cx, 0); fxDust(V3(wx, R.yS - 0.4, wz)); sndClick(240, 0.4); }
+  if (!R.joined) { const [wx, wz] = CW(R.cx, lz); m.visible = true; m.position.set(wx, R.yS + (t > 9.5 ? Math.sin(t * 7) * 0.02 : 0), wz); m.rotation.set(0, 0, 0); if (dt > 0 && t > 9.5 && Math.random() < dt * 5) fxDust(V3(wx + rand(-3, 3), R.yS - 0.6, wz - 2.6)); }
   R.gap = t < 20 ? 4 : lerp(4, 0, smooth(20, 25.5, t));
-  const piv = C.crane.userData.piv; piv.rotation.y = -a; C.crane.updateMatrixWorld(true); const tip = C.crane.userData.boom.localToWorld(V3(9.9, -0.4, 0)), top = (R.joined ? R.yS : y) + 2.0, L = Math.max(0.2, tip.y - top);
-  C.cable.position.set(tip.x, tip.y - L / 2, tip.z); C.cable.scale.set(1, L, 1); C.cable.visible = !R.joined || t < 19;
-  for (const u of C.eng) { u.anim = (u.anim || 0) + dt * (u.engPose === 'crouch' ? 1.5 : 0.8); u.rig.pose(u.engPose, u.anim, 0); u.sync(); }
+  // the tank: nose against the roller's side, backing off once it is home
+  { const tz = lz - 2.6 - 3.9 - (R.joined ? smooth(18.5, 22, t) * 6 : 0), [wx, wz] = CW(R.cx, tz); C.repT.position.set(wx, groundAt(wx, wz), wz); C.repT.rotation.set(0, -Math.PI / 2, 0); const vl = C.repT.userData.vl; if (vl) vl.spd = t > 9.5 && t < 22 ? 1.2 : 0; }
+  if (dt > 0 && t > 9.5 && t < 18.5 && Math.random() < dt * 3) { const s = FX.smoke.get(); s.life = 2.2; s.s.position.copy(C.repT.position).add(V3(rand(-1, 1), 2.3, rand(-3.4, -2.6))); s.s.material.color.set(0x2e2c28); s.upd = (q, uu, d2) => { q.s.position.y += 1.6 * d2; q.s.scale.setScalar(0.8 + uu * 3.4); q.s.material.opacity = 0.55 * (1 - uu); }; }
+  for (const e of C.eng) { e.anim = (e.anim || 0) + dt * (e.engPose === 'crouch' ? 1.5 : 0.8); e.rig.pose(e.engPose, e.anim, 0); e.sync(); }
 }
-/* ---------- the third raft: a direct hit on the jeep it carries. One man is killed, two are wounded ---------- */
+/* ---------- the jeep behind on the bridge: a direct hit. One man is killed, two are wounded ---------- */
 function crDirectHit() {
-  const C = CHAP.cross, r = C.rafts[2], X = C.jeepX; CR.hit3 = true; r.g.updateMatrixWorld(true); const p = X.g.getWorldPosition(V3());
-  fxExplosion(p.clone().add(V3(0, 0.8, 0)), 3.2); sndBoom(p, 3.0); crBurst(p.x + 4, p.z + 3, 1.5); crBurst(p.x - 5, p.z - 3, 1.3); crSplash(V3(p.x + 1, 0, p.z - 4), 1.2);
-  r.rock.a = 0.45; r.vmax = 1.3; FX.shake = Math.max(FX.shake, clamp(1.4 - camera.position.distanceTo(p) / 40, 0.2, 0.9));
-  X.wreck = true; X.g.traverse((m) => { if (m.isMesh && !X.men.includes(m)) m.material = MAT_BURNT; }); X.g.rotation.set(0.12, 0.5, 0.2);
+  const C = CHAP.cross, X = C.jeepX; CR.hit3 = true; X.g.updateMatrixWorld(true); const p = X.g.getWorldPosition(V3());
+  fxExplosion(p.clone().add(V3(0, 0.8, 0)), 3.2); sndBoom(p, 3.0); crBurst(p.x + 3, p.z + 7, 1.5); crBurst(p.x - 5, p.z - 6, 1.3); crSplash(V3(p.x + 1, 0, p.z - 5), 1.2);
+  X.vmax = 0; X.speed = 0; X.stop = X.s; FX.shake = Math.max(FX.shake, clamp(1.4 - camera.position.distanceTo(p) / 40, 0.2, 0.9));
+  X.crHit = true; X.g.traverse((m) => { if (m.isMesh && !X.men.includes(m)) m.material = MAT_BURNT; }); { const vl = X.g.userData.vl; if (vl) { vehDamage(vl, true); vl.dead = true; } }
   for (let i = 0; i < 2; i++) { const f = new THREE.Sprite(new THREE.SpriteMaterial({ map: FXT.fire, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, color: HDC })); f.position.set(rand(-0.4, 0.4), 1.4 + i * 0.6, rand(-0.3, 0.3)); f.scale.setScalar(1.8 + i * 0.6); X.g.add(f); X.fires.push(f); }
-  const [a, b, c] = X.men; r.g.attach(a); CR.thrown = { m: a, v: V3(rand(1.5, 3), 5.5, rand(2, 4)), t: 0 };
-  for (const [m, at] of [[b, [2.7, 0.3, 1.5]], [c, [-2.5, 0.3, -1.3]]]) { r.g.attach(m); m.position.set(...at); m.rotation.set(0, rand(0, 3), Math.PI / 2); }
-  radio('קשר', 'פצצה על הדוברה שלידנו! פגיעה ישירה!', 2.4);
-  DIRQ.push({ at: GAME.t + 2.8, fn: () => { radio('חובש', 'הג׳יפ על הדוברה השכנה נפגע! יש הרוג ושני פצועים. אני עליהם!', 3.4); feed('הדוברה השכנה נפגעה: הרוג ושני פצועים', 'bad'); } });
+  // one is thrown off the bridge into the canal; the other two lie on the roadway beside the burning jeep
+  const [a, b, c] = X.men; scene.attach(a); CR.thrown = { m: a, v: V3(rand(-1, 1), 5.5, (Math.random() < 0.5 ? -1 : 1) * rand(3, 4)), t: 0 };
+  for (const [m, at] of [[b, [2.6, 1.6]], [c, [-2.4, -1.5]]]) { scene.attach(m); m.position.set(p.x + at[0], CR_PB_Y + 0.15, p.z + at[1]); m.rotation.set(0, rand(0, 3), Math.PI / 2); }
+  radio('קשר', 'פצצה על הגשר מאחורינו! פגיעה ישירה בג׳יפ!', 2.4);
+  DIRQ.push({ at: GAME.t + 2.8, fn: () => { radio('חובש', 'הג׳יפ מאחורינו נפגע! יש הרוג ושני פצועים. אני עליהם!', 3.4); feed('הג׳יפ שמאחור נפגע על הגשר: הרוג ושני פצועים', 'bad'); } });
 }
-/* the bomb that finds the raft beside the player's: a jet comes in low from behind, along the line of the rafts; the bomb falls in slow motion,
-   the player's head is turned to it, and it lands on the jeep nine metres away */
+/* the bomb that finds the jeep behind the player's on the bridge: a jet comes in low from the east, along the bridge; the bomb falls in slow
+   motion, the player's head is turned to it, and it lands on the jeep some forty metres behind */
 function crStrike() {
   const C = CHAP.cross, X = C.jeepX; X.g.updateMatrixWorld(true); const to = X.g.getWorldPosition(V3());
   const m = new THREE.Mesh(JET_GEO, MAT.jet); SH(m, true, false); scene.add(onLayer1(m));
   CR.strike = { m, t: 0, x0: to.x + 330, z: to.z - 3, rel: false }; m.position.set(to.x + 330, 46, to.z - 3);
-  sndJet(3.2); radio('צנחן', 'מטוס! מאחורינו — הוא צולל על הדוברה שלידנו!', 2.6);
+  sndJet(3.2); radio('צנחן', 'מטוס! מהמזרח — הוא צולל על הגשר!', 2.6);
 }
 function crStrikeUpd(dt) {
   const S = CR.strike; if (!S) return; const C = CHAP.cross, X = C.jeepX; S.t += dt;
@@ -570,7 +723,7 @@ function crStrikeUpd(dt) {
   X.g.updateMatrixWorld(true); const tgt = X.g.getWorldPosition(V3());
   if (!S.rel && x < tgt.x + 52) { S.rel = true; const bm = new THREE.Mesh(BOMB_GEO, MAT.vc); bm.scale.setScalar(1.6); scene.add(onLayer1(bm)); const from = S.m.position.clone().add(V3(0, -1.2, 0));
     CR.shellIn = { m: bm, from, to: tgt.clone().add(V3(0, 0.6, 0)), t: 0, dur: 1.15, track: true }; bm.position.copy(from);
-    slowMo(3.8, 0.2, tgt.clone().add(V3(0, 3.4, 0)));   /* aimed a little high: the burst fills the view above our own jeep's windscreen */ toast('פצצה!', 'הדוברה שלידכם'); }
+    slowMo(3.8, 0.2, tgt.clone().add(V3(0, 3.4, 0))); toast('פצצה!', 'על הגשר, מאחוריכם'); }
   if (x < tgt.x - 800) { scene.remove(S.m); CR.strike = null; }
 }
 function crShellUpd(dt) {
@@ -579,19 +732,19 @@ function crShellUpd(dt) {
 }
 function crHitUpd(dt) {
   const C = CHAP.cross, X = C.jeepX, T = CR.thrown;
-  if (T && T.m.visible) { T.t += dt; T.v.y -= 9.8 * dt; T.m.position.addScaledVector(T.v, dt); T.m.rotation.x += dt * 5; T.m.rotation.z += dt * 3; if (T.m.position.y < -1.2) { T.m.visible = false; const wp = T.m.getWorldPosition(V3()); wp.y = 0; for (let k = 0; k < 4; k++) fxDust(wp.clone().add(V3(rand(-0.6, 0.6), 0.3 + k * 0.3, rand(-0.6, 0.6))), true); rippleAdd(wp.x, wp.z, 0.5); } }
-  if (X.wreck && X.g.visible && Math.random() < dt * 3.5) { const wp = X.g.getWorldPosition(V3()), q = FX.smoke.get(); q.life = 6; q.s.position.set(wp.x + rand(-0.6, 0.6), wp.y + 2.2, wp.z + rand(-0.6, 0.6)); q.s.material.color.set(0x1a1816); q.upd = (o, u, d2) => { o.s.position.y += 2.4 * d2; o.s.scale.setScalar(1.6 + u * 7); o.s.material.opacity = 0.7 * (1 - u); }; }
-  if (X.wreck) for (const f of X.fires) f.scale.setScalar(1.6 + Math.sin(GAME.t * 11 + f.id) * 0.3 + (f.position.y > 1.6 ? 0.6 : 0));
+  if (T && T.m.visible) { T.t += dt; T.v.y -= 9.8 * dt; T.m.position.addScaledVector(T.v, dt); T.m.rotation.x += dt * 5; T.m.rotation.z += dt * 3; if (T.m.position.y < -1.2) { T.m.visible = false; const wp = T.m.position.clone(); wp.y = 0; for (let k = 0; k < 4; k++) fxDust(wp.clone().add(V3(rand(-0.6, 0.6), 0.3 + k * 0.3, rand(-0.6, 0.6))), true); rippleAdd(wp.x, wp.z, 0.5); } }
+  if (X.crHit && X.g.visible && Math.random() < dt * 3.5) { const wp = X.g.getWorldPosition(V3()), q = FX.smoke.get(); q.life = 6; q.s.position.set(wp.x + rand(-0.6, 0.6), wp.y + 2.2, wp.z + rand(-0.6, 0.6)); q.s.material.color.set(0x1a1816); q.upd = (o, u, d2) => { o.s.position.y += 2.4 * d2; o.s.scale.setScalar(1.6 + u * 7); o.s.material.opacity = 0.7 * (1 - u); }; }
+  if (X.crHit) for (const f of X.fires) f.scale.setScalar(1.6 + Math.sin(GAME.t * 11 + f.id) * 0.3 + (f.position.y > 1.6 ? 0.6 : 0));
 }
-/* ---------- the air raids: Egyptian jets dive on the rafts and on the bridge waiting on the bank ---------- */
+/* ---------- the air raids: Egyptian jets dive on the pontoon bridge and on the roller bridge waiting on the bank ---------- */
 const CRJ = [];
 function crJet(kind) {
   const m = new THREE.Mesh(JET_GEO, MAT.jet); SH(m, true, false); m.visible = false; scene.add(onLayer1(m));
   let tx, tz, ang;
-  if (kind === 'raft') { const r = CHAP.cross.rafts[Math.random() < 0.6 ? 0 : 1].g.position; tx = r.x + rand(-6, 6); tz = r.z + rand(-30, 10); ang = Math.PI / 2 + rand(-0.15, 0.15); }
+  if (kind === 'pb') { tx = CR.o.x + rand(-70, 70); tz = CR.o.z + CR_PB_Z + rand(-30, 10); ang = Math.PI / 2 + rand(-0.15, 0.15); }
   else { tx = CR.o.x + 100 - CR.br * CR_BLEN + rand(10, 190); tz = CR.o.z; ang = rand(-0.25, 0.25) + (Math.random() < 0.5 ? 0 : Math.PI); }
   CRJ.push({ m, kind, tx, tz, dx: Math.cos(ang), dz: Math.sin(ang), t: 0, last: -1e9, bombs: false });
-  radio('תצפית', kind === 'raft' ? pick(['מיג צולל על הדוברות!', 'מטוס! הוא בא על הדוברות!']) : pick(['מיגים על גשר הגלילים!', 'סוחויים בצלילה על הצומת!']), 2.6);
+  radio('תצפית', kind === 'pb' ? pick(['מיג צולל על גשר הדוברות!', 'מטוס! הוא בא על הגשר!']) : pick(['מיגים על גשר הגלילים!', 'סוחויים בצלילה על הצומת!']), 2.6);
 }
 function crInTrench(x, z) { const lz = z - CR.o.z; return lz > CR_TZ0 - 2 && lz < CR_TZ1 + 2 && Math.abs(x - CR.o.x - crTX(lz)) < 1.7; }
 function crJetsUpd(dt) {
@@ -614,18 +767,18 @@ function crBombsUpd(dt) {
 }
 // shells from the Egyptian artillery keep falling around the crossing: columns of water in the canal, sand on the yard
 function crShells(dt) {
-  CR.shT = (CR.shT ?? 2) - dt; if (CR.shT > 0) return; const crossing = CR.stage === 0 && CR.msgs.go && !CHAP.cross.rafts[0].ended, pushing = CR.push && CR.br < 1; CR.shT = crossing ? rand(0.4, 1.0) : pushing ? rand(0.7, 1.5) : rand(1.2, 3.2);
+  CR.shT = (CR.shT ?? 2) - dt; if (CR.shT > 0) return; const crossing = CR.stage === 0 && CR.msgs.go && !CR.msgs.off, pushing = CR.push && CR.br < 1; CR.shT = crossing ? rand(0.4, 1.0) : pushing ? rand(0.7, 1.5) : rand(1.2, 3.2);
   const xf = 100 - CR.br * CR_BLEN, r = Math.random(); let x, z;
-  if (crossing && r < 0.9) { const q = CHAP.cross.rafts[Math.floor(Math.random() * 3)].g.position, a = rand(0, 6.283), dd = rand(7, 26); x = q.x + Math.cos(a) * dd; z = q.z + Math.sin(a) * dd; }
-  else if (CR.stage === 0 && r < 0.6) { const q = CHAP.cross.rafts[Math.random() < 0.5 ? 0 : 1].g.position; x = q.x + rand(-30, 30); z = q.z + rand(-25, 25); }
+  // on the crossing they fall in the water either side of the bridge, along the column; a few on the bridge's ends
+  if (crossing && r < 0.9) { const q = CHAP.cross.jeeps[0].g.position; x = clamp(q.x + rand(-40, 50), CR.o.x - 92, CR.o.x + 92); z = CR.o.z + CR_PB_Z + (Math.random() < 0.5 ? -1 : 1) * rand(8, 30); }
+  else if (CR.stage === 0 && r < 0.6) { x = CR.o.x + rand(-90, 90); z = CR.o.z + CR_PB_Z + (Math.random() < 0.5 ? -1 : 1) * rand(10, 45); }
   else if (r < 0.6) { x = CR.o.x + clamp(xf + rand(-30, 60), -90, 92); z = CR.o.z + (Math.random() < 0.5 ? -1 : 1) * rand(8, 34); } else if (r < 0.85) { x = CR.o.x + rand(110, 300); z = CR.o.z + rand(-90, 90); if (Math.abs(z - CR.o.z) < 8) z += 16; } else { x = CR.o.x + rand(-80, 80); z = CR.o.z + rand(-160, 160); if (Math.abs(z - CR.o.z) < 6) z += 12; }
   const gy = groundAt(x, z), p = V3(x, Math.max(gy, 0), z); if (camera.position.distanceTo(p) < 70 && Math.random() < 0.5) sndWhistle(1.0);
   DIRQ.push({ at: GAME.t + 1.0, fn: () => { if (gy < 0) crBurst(x, z, crossing ? 1.5 : 1.2); else { fxExplosion(p, 1.1); sndBoom(p, 1.0); } } });
 }
-// a shell in the canal: a column of water, and every raft near it rocks; close to the camera the whole picture shakes
+// a shell in the canal: a column of water and rings; close to the camera the whole picture shakes
 function crSplash(p, k = 1) {
   const n = Math.round(9 * k); for (let i = 0; i < n; i++) fxDust(p.clone().add(V3(rand(-2, 2) * k, 0.3 + i * 0.55 * k, rand(-2, 2) * k)), true); for (let i = 0; i < 5; i++) fxDust(p.clone().add(V3(rand(-5, 5), 0.2, rand(-5, 5))), true); sndBoom(p, 1.1 * k);
-  for (const r of CHAP.cross.rafts) { const d = r.g.position.distanceTo(p); if (d < 32) r.rock.a = Math.max(r.rock.a, 0.16 * k * (1 - d / 32)); }
   rippleAdd(p.x, p.z, 0.9 * k); FX.shake = Math.max(FX.shake, clamp(1.1 - camera.position.distanceTo(p) / 34, 0, 0.75));
 }
 // a big one: the water thrown high in a white column that falls back, and rings that spread wide
@@ -636,119 +789,171 @@ function crBurst(x, z, k = 1.4) {
 }
 /* ---------- stage setup ---------- */
 function crSeat(v, x, z) { return () => ({ p: v.g.localToWorld(V3(x * JK, 0.95 * JK, z * JK)), hd: v.hdV + (z < 0 ? Math.PI / 2 : -Math.PI / 2) }); }
-const CR_RAFT_LOAD = [[0, 2.6], [0, -2.6], [1, 2.6]];   // which raft each jeep crosses on, and where on its deck
-// the third raft, the one that is hit, crosses right beside the player's
-function crRaftPath(i) { const z = CR_RAFT_Z - 4 + [0, 17, -8.5][i]; return [CW(i === 2 ? 72 : 84, z), CW(-84, z)]; }   // a little ahead, so the gunner sees it past the men beside him
-function crRelease(v, gap) {
-  // a jeep drives off its raft: its own path begins where it stands and joins the track
-  scene.attach(v.g); const J = CR_JEEP.map(([x, z]) => CW(x, z)), p = v.g.position, start = [p.x, p.z], off = Math.hypot(J[0][0] - p.x, J[0][1] - p.z);
-  v.path = [start, ...J]; v.s = 0; v.hdV = null; v.vmax = 6.5; v.speed = 0; v.onRaft = null; v.gap = gap - off; v.off = off;
-}
 function crCut(fn) { const f = $('#fade'); f.style.transition = 'opacity .5s'; f.style.opacity = '1'; DIRQ.push({ at: GAME.t + 0.55, fn: () => { fn(); f.style.transition = 'opacity 1.2s'; f.style.opacity = '0'; } }); }
-// a bay of the village for one of ours: the base of a window slot, facing out of it
+// a post for one of ours: a window bay (or any place with a facing), in world coordinates
 const crPost = (s, name) => ({ name, x: s.x, z: s.z, y: s.y, fx: s.nx, fz: s.nz, state: 'post' });
+const crDi = () => Math.max(0, DIFF.indexOf(diff));   // the level: 0 easy, 1, 2 hard
 function crSetup(stage) {
-  const C = CHAP.cross; fieldSetupCommon(C, stage); resetTrail(); CR.flee = []; CR.msgs = {}; if (CR.shellIn && CR.shellIn.m) scene.remove(CR.shellIn.m); CR.shellIn = null; SLOW.left = 0; SLOW.k = 1; SLOW.look = null; for (const j of CRJ) scene.remove(j.m); CRJ.length = 0; for (const b of AIR.bombs) scene.remove(b.m); AIR.bombs.length = 0;
-  CR.br = stage >= 4 ? 1 : 0; CR.push = false; CR.air = [40, 18, 22, 999, 999][stage]; if (CR.strike) { scene.remove(CR.strike.m); CR.strike = null; } CR.wave = 0; CR.waveT = 4; CR.filmTod = null; CR.tanksOn = false; CR.illumT = 3; crRepEnd(); crConvOff(); meter(null);
+  const C = CHAP.cross; fieldSetupCommon(C, stage); resetTrail(); CR.flee = []; CR.msgs = {}; CR.stage = stage; if (CR.shellIn && CR.shellIn.m) scene.remove(CR.shellIn.m); CR.shellIn = null; SLOW.left = 0; SLOW.k = 1; SLOW.look = null; for (const j of CRJ) scene.remove(j.m); CRJ.length = 0; for (const b of AIR.bombs) scene.remove(b.m); AIR.bombs.length = 0;
+  CR.br = stage >= 4 ? 1 : 0; CR.push = false; CR.air = [34, 18, 999, 999, 999][stage]; if (CR.strike) { scene.remove(CR.strike.m); CR.strike = null; } CR.wave = 0; CR.waveT = 0; CR.filmTod = null; CR.tanksOn = false; CR.illumT = 3; CR.doorN = stage >= 3; CR.rg = { i: 0, clear: false, t: 0 }; crRepEnd(); crConvOff(); meter(null);
   $('#clockSub').textContent = CR_CLOCK[stage];
-  for (const v of C.jeeps) if (v.g.parent !== scene) scene.attach(v.g);
-  for (const v of VEH) if (v.mode === 'cross') { vehRevive(v); v.path = null; v.stop = undefined; v.ended = false; v.shown = false; v.g.visible = false; v.onEnd = null; v.speed = 0; v.onRaft = null; }
+  for (const v of VEH) if (v.mode === 'cross') { vehRevive(v); v.path = null; v.stop = undefined; v.ended = false; v.shown = false; v.g.visible = false; v.onEnd = null; v.speed = 0; }
   if (C.egFlag) C.egFlag.visible = stage < 2;
   P.mode = 'rifle'; vm.visible = true; if (TANK.g) TANK.g.visible = false; C.mg.visible = false;
-  // the rafts: loaded at the Sinai bank, or already tied up at the west bank
-  C.rafts.forEach((r, i) => { const RP = crRaftPath(i); r.shown = true; r.g.visible = true; r.path = RP; r.s = stage === 0 ? 0 : pathLen(RP); r.vmax = 0; r.hdV = null; r.ended = stage > 0; r.onEnd = () => {}; const [x, z, hd] = pathAt(RP, r.s); vehPose(r, x, z, hd); r.g.updateMatrixWorld(true); });
-  // the fourth jeep rides the third raft, the one that will be hit half way over
-  { const X = C.jeepX, r = C.rafts[2]; if (X.g.parent !== r.g) r.g.add(X.g); X.g.position.set(0, 1.1, 0); X.g.rotation.set(0, 0, 0); X.g.visible = stage === 0; X.wreck = false; X.onRaft = r;
+  // the jeep at the tail of the column on the bridge: the one the bomb will find
+  { const X = C.jeepX; X.crHit = false; CR.hit3 = false; CR.thrown = null;
     X.men.forEach((m, i) => { if (m.parent !== X.g) X.g.add(m); m.position.set(...[[-0.35, 0.95, -0.3], [0.45, 0.95, 0.35], [-1.1, 0.95, 0.3]][i].map((q) => q * JK)); m.rotation.set(0, Math.PI / 2, 0); m.visible = true; });
-    CR.hit3 = false; CR.wh3 = false; CR.thrown = null; for (const q of C.rafts) q.rock.a = 0; }
-  const J = CR_JEEP.map(([x, z]) => CW(x, z)), L = pathLen(J);
-  C.jeeps.forEach((v, i) => { v.shown = true; v.g.visible = true; v.ambush = null; v.hdV = null; v.off = 0;
-    if (stage === 0) { const [ri, lx] = CR_RAFT_LOAD[i], r = C.rafts[ri]; r.g.add(v.g); v.g.position.set(lx, 1.1, 0); v.g.rotation.set(0, 0, 0); v.onRaft = r; v.path = null; v.gap = i * 14; }
-    else { v.path = J; v.s = stage === 1 ? 30 - i * 14 : L - i * 14; v.vmax = 6.5; v.gap = i * 14; v.stop = stage === 1 ? undefined : v.s; const [x, z, hd] = pathAt(J, v.s); vehPose(v, x, z, hd); } });
+    if (stage === 0) { X.shown = true; X.g.visible = true; X.path = CR_J0.map(([x, z]) => CW(x, z)); X.s = 6; X.vmax = 0; X.hdV = null; X.stop = CR_PB_END - 42; const [x, z, hd] = pathAt(X.path, X.s); vehPose(X, x, z, hd); } }
+  const J = CR_J0.map(([x, z]) => CW(x, z)), L = pathLen(J);
+  C.jeeps.forEach((v, i) => { v.shown = true; v.g.visible = true; v.ambush = null; v.hdV = null; v.off = 0; v.path = J; v.gap = i * 14;
+    v.s = stage === 0 ? 48 - i * 14 : stage === 1 ? CR_PB_END + 30 - i * 14 : L - i * 14; v.vmax = stage === 0 ? 0 : 6.5; v.stop = stage === 0 ? CR_PB_END - v.gap : stage === 1 ? undefined : v.s; const [x, z, hd] = pathAt(J, v.s); vehPose(v, x, z, hd); });
+  // the two tanks ahead of the jeeps on the bridge: over, and away west into the bridgehead
+  if (stage === 0) C.pbT.forEach((v, i) => { v.shown = true; v.g.visible = true; v.path = [...CR_PB_PATH, [-100, 404], [-124, 405], [-160, 424], [-205, 441], [-245, 449]].map(([x, z]) => CW(x, z)); v.s = 66 + i * 17; v.vmax = 0; v.hdV = null; v.onEnd = (q) => { q.g.visible = false; q.shown = false; }; const [x, z, hd] = pathAt(v.path, v.s); vehPose(v, x, z, hd); });
   const lead = C.jeeps[0];
   lead.crew[0].visible = stage > 1;
-  const put = (lx, lz, yaw, y) => { const [x, z] = CW(lx, lz); P.pos.set(x, y === undefined ? groundAt(x, z) : hAt(x, z, y + 0.4), z); P.yaw = yaw; P.pitch = 0; };
   if (stage <= 1) { P.ride = { pos: () => lead.g.localToWorld(V3(-1.2, 1.3, 0)), eye: 1.62, mg: true, gun: C.mg, muzzle: () => C.mg.localToWorld(V3(0, 0.012, -1.5)) }; lead.g.updateMatrixWorld(true); P.pos.copy(P.ride.pos()); P.yaw = Math.PI / 2; P.pitch = -0.04; vm.visible = false; }
-  else if (stage === 2) put(-149, 34, 0.98);
-  else { const pw = C.vh[2].win.filter((wn) => wn.nx < -0.5)[1].slot; P.pos.set(pw.x, hAt(pw.x, pw.z, pw.y + 0.4), pw.z); P.yaw = Math.PI / 2; P.pitch = 0; }   // the other west window of the house at the corner is the player's
+  else if (stage === 2) { const [x, z] = CW(-146.6, 13.2); P.pos.set(x, groundAt(x, z), z); P.yaw = Math.atan2(7.4, -6.4); P.pitch = 0; }
   const seats = [crSeat(lead, -1.5, -0.55), crSeat(lead, -1.5, 0.55), crSeat(C.jeeps[1], -1.45, -0.5), crSeat(C.jeeps[1], -1.45, 0.5), crSeat(C.jeeps[1], -0.35, 0.3), crSeat(C.jeeps[2], -1.45, -0.5), crSeat(C.jeeps[2], -1.45, 0.5), crSeat(C.jeeps[2], -0.35, 0.3)];
-  // the bays our men hold in the fourth and fifth stages: the west windows of the four houses that face the fields
-  const W = (hi, f) => C.vh[hi].win.filter(f).map((wn) => wn.slot), west = (wn) => wn.nx < -0.5;
-  const bays = [W(2, west)[0], W(2, (wn) => wn.nz < -0.5)[0], ...W(5, west), ...W(6, west), ...W(7, west)];
+  // the night: the house at the head of the street. Our men at three of the four windows on the junction, both sides of the barricaded door, the
+  // north window and a window looking back down the street; the fourth window on the junction is the player's
+  const D = C.vh.D, win = (k) => D.win.filter((w) => w.wall === k).map((w) => w.slot), W = win('w'), dp = (lz) => { const [x, z] = CW(CR_D.x - CR_D.w / 2 + CR_WT / 2 + 0.6, lz); return { x, z, y: D.y, nx: -1, nz: 0 }; };
+  const posts = [W[0], W[1], W[3], dp(-0.75), dp(0.75), win('n')[0], win('e')[0], win('e')[1]];
+  if (stage >= 3) { const s = W[2]; P.pos.set(s.x, hAt(s.x, s.z, s.y + 0.4), s.z); P.yaw = Math.PI / 2; P.pitch = 0; }
   const fw = [-Math.sin(P.yaw), -Math.cos(P.yaw)];
   fieldFriends(CR_NAMES.map((name, i) => {
     const fo = CR_FOLLOW.indexOf(i); if (fo < 0) return null;
     if (stage <= 1) return { name, state: 'ride', ride: seats[fo], fi: fo };
-    if (stage === 2) { const b = 2.2 + fo * 1.4; return { name, x: P.pos.x - fw[0] * b + (fo % 2 ? 1 : -1) * fw[1], z: P.pos.z - fw[1] * b - (fo % 2 ? 1 : -1) * fw[0], state: 'follow', fi: fo }; }
-    return bays[fo] ? crPost(bays[fo], name) : null;
+    if (stage === 2) { const b = 2.2 + fo * 1.2; return { name, x: P.pos.x - fw[0] * b + (fo % 2 ? 1 : -1) * fw[1] * 0.8, z: P.pos.z - fw[1] * b - (fo % 2 ? 1 : -1) * fw[0] * 0.8, state: 'follow', fi: fo }; }
+    return posts[fo] ? crPost(posts[fo], name) : null;
   }));
-  crBridgePose(0); crStage(stage);
+  crDynApply(); crBridgePose(0); crStage(stage);
 }
 function crStage(i) {
-  const C = CHAP.cross; fieldStage(C, i); CR.stage = i; CR.msgs = {};
-  if (i === 0) { if (CR.introSeen) DIRQ.push({ at: GAME.t + 0.4, fn: crIntroEnd }); else DIRQ.push({ at: GAME.t + 0.4, fn: () => crIntroFilm() }); }   // a second try of the crossing starts at once
-  if (i === 1) { const lead = C.jeeps[0]; C.stops = {}; for (const id in CR_AMB) C.stops[id] = crSAt(lead.path, ...CW(...CR_AMB[id].stop)); radio('מ״פ', 'על הגדה! נוסעים בין השדות, ואז דרומה לאורך הסוללה, אל הכפר שליד נקודת הגישור. מקלעים מוכנים!', 4); }
+  const C = CHAP.cross; fieldStage(C, i); CR.stage = i; CR.msgs = {}; crDynApply();
+  if (i === 0) { if (CR.introSeen) DIRQ.push({ at: GAME.t + 0.4, fn: crIntroEnd }); else DIRQ.push({ at: GAME.t + 0.4, fn: () => crIntroFilm() }); }
+  if (i === 1) { const lead = C.jeeps[0]; C.stops = {}; for (const id in CR_AMB) C.stops[id] = crSAt(lead.path, ...CW(...CR_AMB[id].stop)); radio('מ״פ', 'עברנו! עכשיו צפונה בין השדות, לאורך הסוללה, אל הכפר — שם יעלה גשר הגלילים לגדה. מקלעים מוכנים!', 4); }
   if (i === 2) {
-    radio('מ״פ', 'קפצו מהג׳יפים! הכפר שולט על המקום שבו יעלה הגשר. בית אחרי בית, ממזרח למערב — רימון לפני כל דלת!', 4.5);
-    hint('cr-gate', `כובשים את הכפר <b>בית אחרי בית</b>: חסלו את המצרים בחלונות של הבתים שלפניכם, ואז היכנסו מהדלת — יש מישהו בפנים. הבית הבא יסומן ב־◆. הדלתות רחבות, והחלונות טובים לירי.`, 9);
-    crVillageMan(); gateStart(CR_VG.map(([x, z]) => CW(x, z)), crVGate, crVDone, 'בית');
+    radio('מ״פ', 'קפצו מהג׳יפים! הכפר שולט על המקום שבו יעלה הגשר. הרחוב חסום בגדר תיל — עוברים דרך החצרות והבתים, בית אחרי בית!', 4.5);
+    hint('cr-gate', `<b>בית אחרי בית, בדרך אחת:</b> חצר, בית, חוצים את הרחוב אל הבית שממול, ודרך החצר שלו לחצר הבאה. הדלת הבאה מסומנת ב־◆ — היא נפתחת לדרך רק כשכל המצרים בקטע מתים. בכל בית יש מצרי שמחכה בחדר השני.`, 10);
+    crVillageMan(); crVGate(0);
   }
   if (i === 3) crHoldStart();
-  if (i === 4) { meter(null); if (!CR.tanksOn) crTanksGo(); radio('מג״ד', 'הגשר מונח! הטנקים עולים עליו — החזיקו עוד קצת, הם בדרך אליכם!', 4); CR.waveT = 6; }
+  if (i === 4) { meter(null); if (!CR.tanksOn) crTanksGo(); radio('מג״ד', 'הגשר מונח! הטנקים עולים עליו — הם באים במעלה הרחוב ומסביב לכפר. החזיקו עוד קצת!', 4); crWaveGo(9); }
 }
-/* the village: every house manned before the advance reaches it - men in the windows, one inside behind each door the bounds lead to */
+/* the street: every house manned before the advance reaches it - men at the windows that look onto the route, one inside each house on the route,
+   waiting in its second room. Each bound: [house, the wall and which of its windows (or 'g', the man inside; 'in', inside the house at the
+   head), weapon, from which level on] */
+const CR_VMEN = [
+  [['S1', 'e', 0, 'rifle', 0], ['S1', 's', 0, 'smg', 0], ['n0', 'e', 1, 'rifle', 1]],
+  [['S1', 'g', 0, 'smg', 0], ['N1', 's', 0, 'rifle', 0], ['n0', 's', 0, 'lmg', 1], ['s1', 'n', 0, 'rifle', 0]],
+  [['N1', 'g', 0, 'rifle', 0], ['N2', 'n', 0, 'rifle', 0]],
+  [['N2', 'g', 0, 'smg', 0], ['S2', 'n', 0, 'rifle', 0], ['s2', 'n', 0, 'lmg', 1], ['n3', 's', 0, 'rifle', 0]],
+  [['S2', 'g', 0, 'rifle', 0], ['S3', 's', 0, 'smg', 0]],
+  [['S3', 'g', 0, 'smg', 0], ['N3', 's', 0, 'rifle', 0], ['n4', 's', 0, 'rifle', 1], ['s5', 'n', 0, 'lmg', 0], ['D', 'e', 0, 'rifle', 2]],
+  [['N3', 'g', 0, 'rifle', 0], ['D', 'n', 0, 'smg', 0]],
+  [['D', 'in', 0, 'smg', 0], ['D', 'in', 1, 'rifle', 1]],
+];
 function crVillageMan() {
-  const C = CHAP.cross;
-  C.vh.forEach((H, hi) => { const seg = CR_VSEG[hi], tag = 'g' + seg, cap = hi === 2 || hi === 5 ? 4 : 3;
-    const ok = H.win.filter((wn) => wn.nx > 0.5 || (wn.nz !== 0 && Math.sign(wn.nz) !== Math.sign(H.z)) || (seg === 2 && wn.nx > -0.5)).sort(() => Math.random() - 0.5);
-    ok.slice(0, cap).forEach((wn, k) => fSlotPlace(wn.slot, k === 1 && hi % 3 === 1 ? 'lmg' : k === 2 ? 'smg' : 'rifle', tag, { wakeG: seg, wakeR: 30 })); });
-  for (const [hi, seg] of CR_GUARD) { const e = fSlotPlace(C.vh[hi].guard, hi === 2 ? 'smg' : 'rifle', 'g' + seg, { wakeG: seg, wakeR: 7 }); if (e) e.cyc = rand(0.3, 0.8); }
+  const C = CHAP.cross, di = crDi();
+  CR_VMEN.forEach((list, b) => { for (const [id, wall, k, kind, lv] of list) { if (di < lv) continue; const H = C.vh[id];
+    const s = wall === 'g' ? H.guard : wall === 'in' ? C.dIn[k] : (H.win.filter((w) => w.wall === wall)[k] || {}).slot;
+    const e = fSlotPlace(s, kind, 'g' + b, { wakeR: wall === 'g' || wall === 'in' ? 7 : 30 }); if (e) e.cyc = rand(0.3, 0.8); } });
 }
-// each bound: men who run in along the road and the lanes from the west, in plain sight
+// the advance through the street: as the field's gates, but a bound is clear only when every man in it is down - seen or not
+const crRouteLeft = () => UNITS.enemies.reduce((n, e) => n + (e.alive && e.sq === 'g' + CR.rg.i ? 1 : 0), 0);
+const CR_VSAY = [
+  'פורצים לחצר של הבית הראשון — דרך הפרצה בחומה המזרחית!',
+  'בחצר! פנימה מהדלת האחורית — חדר, ואחריו החדר השני. אחר כך החוצה לרחוב, אל הבית שממול.',
+  'חצינו! הבית שממול — פנימה, ואז דרך החצר שלו, בפרצה, אל החצר הבאה.',
+  'החצר הבאה! הדלת האחורית של הבית — פנימה, ומשם שוב לרחוב.',
+  'עוד חציה! הבית שממול, ודרך החצר שלו אל הבית הבא.',
+  'הדלת האחורית! פנימה, ואחר כך החוצה — אל הבית האחרון שממול.',
+  'הבית האחרון! דרך החצר שלו, בפרצה — אל החצר של הבית שבראש הרחוב.',
+  'הדלת של הבית שבראש הרחוב — פנימה! מכאן שולטים על הצומת.',
+];
 function crVGate(k) {
-  const tgt = [[-188, 0], [-210, 0], [-232, 0], [-246, 0]][k], n = [3, 3, 3, 5][k];
-  for (let j = 0; j < n; j++) DIRQ.push({ at: GAME.t + 1.2 + j * 1.1, spawn: true, gate: k, fn: () => { const z0 = k === 3 ? rand(-30, 30) : rand(-6, 6), [x, z] = CW(k === 3 ? rand(-300, -286) : rand(-268, -258), z0), [tx, tz] = CW(tgt[0] + rand(-3, 3), (k === 3 ? z0 * 0.6 : rand(-5, 5))); const e = fSpawnStreet(x, z, [[tx, tz]], j === 1 ? 'smg' : j === 3 ? 'rpg' : 'rifle'); if (e) e.sq = 'g' + k; } });
-  if (k > 0) radio('צנחן', pick(['יש מישהו בבית! רימון לדלת!', 'חלון בקומה — מקלע!', 'הם רצים אלינו בדרך, ממערב!', 'הבית הבא! לכסות את החלונות!']), 2.4);
+  // the bound's men stop hiding: the player sees where the fire will come from
+  for (const e of UNITS.enemies) if (e.alive && e.sq === 'g' + k && e.dormant) { e.dormant = false; e.cyc = rand(0.4, 1.4); }
+  radio('מ״פ', CR_VSAY[k], 3.4);
+}
+function crRouteUpd(dt) {
+  if (CINE.on || CR.msgs.vdone) return; const R = CR.rg, n = CR_VG.length - 1; R.t += dt;
+  const left = crRouteLeft(); if (left > 0 && !(R.t > 60 && left <= 1) && R.t < 100) { R.clear = false; return; }
+  if (!R.clear) { R.clear = true; for (const e of UNITS.enemies) if (e.alive && e.sq === 'g' + R.i && !fieldSees(e, 120)) { e.alive = false; e.rig.root.visible = false; e.tag.visible = false; if (e.slot) { e.slot.used = false; e.slot = null; } }
+    if (R.i >= n - 1) { crVDone(); return; } radio('צנחן', pick(['נקי! הבא!', 'נקי! קדימה, לדלת הבאה!', 'הבית נקי!']), 2); feed(`הקטע נקי · הדלת הבאה ◆ (${R.i + 2}/${n})`, 'good'); }
+  const [x, z] = CW(...CR_VG[R.i + 1]); if (Math.hypot(P.pos.x - x, P.pos.z - z) < 2.8) { R.i++; R.clear = false; R.t = 0; if (R.i >= n) { crVDone(); return; } feed(`בית ${R.i}/${n - 1}`); crVGate(R.i); snapRequest('gate'); }
 }
 function crVDone() {
-  feed('הכפר בידינו', 'good'); radio('מ״פ', 'הכפר שלנו! תופסים את הבתים שמול השדות — מכאן הם יבואו.', 4); snapRequest('village');
+  if (CR.msgs.vdone) return; CR.msgs.vdone = true;
+  feed('הרחוב בידינו', 'good'); radio('מ״פ', 'הרחוב שלנו! כולם לבית שבראש הרחוב — מכאן הם יבואו, מכל הכיוונים של הצומת.', 4); snapRequest('village');
   DIRQ.push({ at: GAME.t + 4.5, fn: () => crCut(() => crSetup(3)) });
 }
-/* ---------- the night: the bridge goes into the water, the Egyptians come for the village ---------- */
+/* ---------- the night: the bridge goes into the water, the Egyptians come for the junction ---------- */
+const CR_HOLD = [150, 165, 180];   // seconds the roller bridge takes to cross, by level: the length of the stand
+// the waves: which ways in each comes by, and how many men down each (on the middle level; the easy level brings fewer, the hard one more)
+const CR_WAVES = [[['w'], 4], [['n'], 5], [['s'], 5], [['w', 'n'], 4], [['s', 'w'], 4], [['n', 's'], 4], [['w', 'n', 's'], 3], [['n', 's', 'w'], 4], [['w', 's', 'n'], 4], [['n', 'w', 's'], 4]];
 function crHoldStart() {
-  const C = CHAP.cross; CR.push = true; CR.waveT = 13; DIRQ.push({ at: GAME.t + 7.4, spawn: true, fn: () => crWave(CR.wave++) });
-  const tip = () => V3(CR.o.x + 100 - CR.br * CR_BLEN, 1.0, CR.o.z), [vx, vz] = CW(-212, -6), vil = V3(vx, groundAt(vx, vz), vz);
-  { const [x, z] = CW(rand(-40, 40), 30); spawnFlare(x, z, 150, 30, 26, 0.6); } { const [x, z] = CW(-280, 10); spawnFlare(x, z, 160, 30, 26, 0.5); }
+  const C = CHAP.cross; CR.push = true; CR.wave = 0; CR.waveT = 2;
+  const tip = () => V3(CR.o.x + 100 - CR.br * CR_BLEN, 1.0, CR.o.z), [vx, vz] = CW(-240, 0), vil = V3(vx, groundAt(vx, vz), vz);
+  { const [x, z] = CW(rand(-40, 40), 30); spawnFlare(x, z, 150, 30, 26, 0.6); } { const [x, z] = CW(-275, 0); spawnFlare(x, z, 160, 30, 26, 0.5); }
   playCine({ vid: 'cr_hold',
-    title: 'גשר הגלילים · 19 באוקטובר 1973',
+    title: 'הצומת · הלילה שבין 18 ל־19 באוקטובר 1973',
     shots: [
       { d: 7.5, cam: camLerp(() => V3(CR.o.x + 132, 6.5, CR.o.z + 24), () => V3(CR.o.x + 122, 5.2, CR.o.z + 20), () => tip().add(V3(16, 0, 0)), () => tip(), 50) },
-      { d: 7.0, cam: camLerp(vil.clone().add(V3(14, 9, 6)), vil.clone().add(V3(11, 8.2, 5)), vil.clone().add(V3(-60, 1, 0)), vil.clone().add(V3(-72, 0, 0)), 54) },
+      { d: 7.5, cam: camLerp(vil.clone().add(V3(16, 15, 22)), vil.clone().add(V3(10, 12, 16)), vil.clone().add(V3(-16, 0, 0)), vil.clone().add(V3(-22, 0, 0)), 56) },
     ],
-    caps: [[0.4, '<b>19 באוקטובר, 00:50.</b> גדוד 410 דוחף את גשר הגלילים אל המים.', 6.8], [7.8, 'בכפר, הצנחנים מחזיקים בבתים. מהשדות שבמערב — הסתערות.', 6.6]],
-    end: () => { CR.filmTod = null; radio('מ״פ', 'כל אחד בחלון שלו! הם באים מהשדות — לא נותנים להם להגיע לבתים עד שהגשר מונח!', 4.4);
-      hint('cr-hold', `<b>מחזיקים את הבתים.</b> ירו מהחלונות על כל מי שרץ אליכם מהשדות במערב. מאחוריכם, דרך הפרצה בסוללה, אפשר לראות את גשר הגלילים נדחף אל המים — הפס למעלה מראה כמה נשאר.`, 10); },
+    caps: [[0.4, '<b>19 באוקטובר, אחרי חצות.</b> הטנקים דוחפים את גשר הגלילים אל המים, גליל אחרי גליל.', 6.8], [7.8, 'בכפר, הצנחנים בבית שבראש הרחוב. מולם הצומת — ושלוש דרכים שמהן יבואו המצרים.', 6.8]],
+    end: () => { CR.filmTod = null; radio('מ״פ', 'כל אחד בחלון שלו! הם יבואו מהסמטה הצפונית, מהסמטה הדרומית ומהדרך שממערב — לא נותנים להם להגיע לקירות!', 4.4);
+      hint('cr-hold', `<b>מחזיקים את הבית מול הצומת.</b> ירו מהחלונות על כל מי שרץ אליכם — מהסמטאות בצפון ובדרום ומהדרך שממערב. מי שמגיע לקיר זורק רימון פנימה: התרחקו מהסימן ⚠. מאחוריכם, דרך החלונות המזרחיים, רואים את גשר הגלילים נדחף אל המים — הפס למעלה מראה כמה נשאר.`, 12); },
   });
 }
-/* the counter-attack: waves out of the fields to the west, on a front as wide as the village, a bazooka here and there */
+/* one man of a wave: out of sight up his lane, at a run through its mouth to a window or the door of the house - he does not stop to fight on the
+   way. At the wall he fires in point blank and, if he carries one, throws a grenade in. The bazooka men stop in the mouth and fire from there */
+function crStormer(f, k, j, kind) {
+  const F = CR_FRONT[f], r = rng(9000 + CR.wave * 131 + k * 17 + j), lat = (r() - 0.5) * (f === 'w' ? 5 : 8), [x, z] = CW(F.from[0] + (f === 'w' ? r() * 6 : lat), F.from[1] + (f === 'w' ? lat : (r() - 0.5) * 6));
+  const rpg = kind === 'rpg', mouth = CW(F.mouth[0] + (f === 'w' ? 0 : lat * 0.6), F.mouth[1] + (f === 'w' ? lat * 0.6 : 0)), t = F.tgt[(k + j) % F.tgt.length], end = rpg ? CW(F.rpg[0] + lat * 0.3, F.rpg[1]) : CW(t[0] - r() * 0.5, t[1] + (r() - 0.5) * 1.6);
+  const path = f === 'w' ? [CW(-318, lat * 0.4), mouth, end] : [mouth, end], e = fSpawnStreet0(x, z, path, kind); if (!e) return null;
+  e.sq = 'h'; e.crFront = f; e.tac = rpg ? 'hold' : 'storm'; e.wild = !rpg; e.crSt = !rpg; e.crG = r() < [0.25, 0.45, 0.5][crDi()] ? 1 : 0; e.crAt = null; e.crK = r(); e.rpgCd = rpg ? 4 + r() * 4 : 99;
+  return e;
+}
 function crWave(n) {
-  const sz = [10, 12, 14, 15, 12, 10][Math.min(n, 5)];
-  for (let k = 0; k < sz; k++) DIRQ.push({ at: GAME.t + k * 0.6, spawn: true, fn: () => { const z0 = rand(-44, 44), [x, z] = CW(rand(-318, -298), z0), pts = [CW(rand(-268, -254), z0 + rand(-6, 6))]; if (Math.random() < 0.4) pts.push(CW(rand(-249, -244), clamp(z0 * 0.8, -40, 40))); const e = fSpawnStreet(x, z, pts, k % 5 === 2 ? 'rpg' : 'rifle'); if (e) e.sq = 'h'; } });
-  if (n === 1) for (const s of CHAP.cross.nests.h) fSlotSpawn(s.kind, (q) => q === s, 'h');
-  radio('תצפית', ['חי״ר מצרי בשדות! מתקרבים מהמערב!', 'עוד גל! הם רצים בין התעלות!', 'משאיות פרקו חי״ר מאחורי המטע! הם באים!', 'עוד גל! תחזיקו, הגשר כמעט מונח!', 'הם עוד באים! הטנקים בדרך!', 'גל אחרון!'][Math.min(n, 5)], 3);
+  const [fronts, base] = CR_WAVES[Math.min(n, CR_WAVES.length - 1)], k = [0.7, 1, 0.85][crDi()], m = Math.max(2, Math.round(base * k));
+  fronts.forEach((f, fi) => { for (let j = 0; j < m; j++) DIRQ.push({ at: GAME.t + fi * 1.6 + j * 0.85, spawn: true, fn: () => crStormer(f, fi, j, j === 2 && n % 2 === 1 ? 'rpg' : j % 4 === 3 ? 'smg' : 'rifle') }); });
+  if (n === 2) for (const s of CHAP.cross.nests.h) { const e = fSlotSpawn(s.kind, (q) => q === s, 'h'); if (e) { e.crSt = false; e.crFront = 'w'; } }
+  const where = fronts.map((f) => CR_FRONT[f].name).join(fronts.length > 2 ? ', ' : ' ו');
+  radio('תצפית', fronts.length > 2 ? `מכל הכיוונים! ${where}!` : `${n ? 'עוד גל' : 'הם באים'} — ${where}!`, 3);
+  CR.lastFronts = fronts;
+}
+// the last assault, as the tanks come: everything down all three ways at once
+function crWaveGo(n) { CR.wave = n; crWave(n); }
+/* at the wall: a man who got there fires in at whatever he sees and throws his grenade in at the window or the doorway beside him */
+function crStormUpd(dt) {
+  const C = CHAP.cross, D = C.vh.D, live = PROJ.filter((q) => q.type === 'gren' && q.owner === 'e').length, cap = [1, 2, 3][crDi()];
+  for (const e of UNITS.enemies) {
+    if (!e.alive || !e.crSt || e.state !== 'sz' || e.sz !== 'street' || !e.path) continue;   // (a man's flags outlive him: the pool hands his body on)
+    if (e.pi < e.path.length) continue;
+    if (e.crAt === null) { e.crAt = GAME.t; e.crGT = GAME.t + 2.2 + e.crK * 1.6; }
+    if (e.crG > 0 && GAME.t > e.crGT && live < cap && P.alive) {
+      // the opening beside him, and a point two metres inside it: whoever stands at that window has the fuse's two seconds to get away from it
+      let best = null, bd = 1e9; for (const w of D.win.concat([{ x: CR_D.x - CR_D.w / 2, z: 0, nx: -1, nz: 0 }])) { if (w.nx > -0.5) continue; const [wx, wz] = CW(w.x, w.z), d = Math.hypot(wx - e.pos.x, wz - e.pos.z); if (d < bd) { bd = d; best = [wx, wz]; } }
+      if (best && bd < 4.5) { const pin = V3(best[0] + 2.4, D.y + 0.2, best[1] + (e.crK - 0.5) * 1.6);
+        const from = e.chest().add(V3(0, 0.6, 0)), T = 0.9, v = V3((pin.x - from.x) / T, (pin.y - from.y) / T + 4.9 * T, (pin.z - from.z) / T); throwGrenade(from, v, 'e'); e.face(pin.x, pin.z); e.throwT = 0.5;
+        e.crG--; e.crGT = GAME.t + 7; if (Math.random() < 0.5) radio(pick(CR_NAMES), pick(['רימון! בחלון!', 'רימון פנימה! זוזו!', 'הוא ליד הקיר — רימון!']), 2); } }
+  }
 }
 function crBridgeDone() {
   const C = CHAP.cross; CR.push = false; meter('גשר הגלילים', 1); feed('גשר הגלילים מונח', 'good'); crTanksGo();
+  for (let i = DIRQ.length - 1; i >= 0; i--) if (DIRQ[i].spawn) DIRQ.splice(i, 1);
   const t0 = () => C.tanks[0].g.position.clone(), wb = V3(CR.o.x - 112, 4.2, CR.o.z - 16);
   playCine({ vid: 'cr_bridge', shots: [{ d: 8.5, cam: camLerp(wb, wb.clone().add(V3(3, -0.6, 2)), () => t0().add(V3(-26, 1, 0)), () => t0().add(V3(0, 1.5, 0)), 44) }],
-    caps: [[0.5, '<b>01:00.</b> הקצה נוגע בגדה המערבית. הטנק הראשון עולה על הגשר.', 7.6]],
+    caps: [[0.5, '<b>19 באוקטובר.</b> הקצה נוגע בגדה המערבית. הטנק הראשון עולה על גשר הגלילים.', 7.6]],
     end: () => crStage(4) });
 }
-/* ---------- the tanks: over the bridge, through the breach, into the village with every gun they have ---------- */
-const CR_TDEST = [[[-184, 0], [-232, 0]], [[-184, 0], [-186, -35], [-232, -35]], [[-184, 0], [-186, 35], [-232, 35]], [[-166, 0]], [[-148, 0]], [[-130, 0]]];
+/* ---------- the tanks: over the bridge, up the street, and round the village through the gates into the lanes - with every gun they have ---------- */
+const CR_TDEST = [[[-150, 0], [-226, 0]], [[-150, 0], [-150, -34], [-232, -34], [-242, -43], [-251, -43], [-253.5, -34]], [[-150, 0], [-150, 34], [-232, 34], [-242, 43], [-251, 43], [-253.5, 34]], [[-150, 0], [-210, 0]], [[-150, 0], [-192, 0]], [[-150, 0], [-172, 0]]];
 function crTanksGo() {
   const C = CHAP.cross; CR.tanksOn = true;
-  C.tanks.forEach((v, i) => { vehRevive(v); const pts = [[104 + i * 15, 0], [100, 0], [-100, 0], [-150, 0], ...CR_TDEST[i]]; v.path = pts.map(([x, z]) => CW(x, z)); v.s = 0; v.vmax = 8.5; v.speed = 0; v.stop = pathLen(v.path); v.ended = false; v.hdV = null; v.onEnd = null; v.shown = true; v.g.visible = true; v.name = ['הטנק הראשון', 'טנק 2', 'טנק 3', 'טנק 4', 'טנק 5', 'טנק 6'][i]; v.mgT = rand(0, 1); v.gunT = rand(1.5, 3.5); const [x, z, hd] = pathAt(v.path, 0); vehPose(v, x, z, hd); });
+  C.tanks.forEach((v, i) => { vehRevive(v); const pts = [[104 + i * 15, 0], [100, 0], [-100, 0], ...CR_TDEST[i]]; v.path = pts.map(([x, z]) => CW(x, z)); v.s = 0; v.vmax = 8.5; v.speed = 0; v.stop = pathLen(v.path); v.ended = false; v.hdV = null; v.onEnd = null; v.shown = true; v.g.visible = true; v.name = ['הטנק הראשון', 'טנק 2', 'טנק 3', 'טנק 4', 'טנק 5', 'טנק 6'][i]; v.mgT = rand(0, 1); v.gunT = rand(1.5, 3.5); const [x, z, hd] = pathAt(v.path, 0); vehPose(v, x, z, hd); });
 }
 // a tank's machine gun in long bursts, and its gun every few seconds where the Egyptians are thickest
 function crTankGun(v, dt) {
@@ -761,7 +966,7 @@ function crTankGun(v, dt) {
   v.gunT -= dt; if (v.gunT <= 0) { v.gunT = rand(2.4, 4.0); const p = e.pos.clone(), a = Math.atan2(p.x - from.x, p.z - from.z), mz = v.g.position.clone().add(V3(Math.sin(a) * 4.6, 2.3, Math.cos(a) * 4.6)); fxMuzzle(mz, true); fxExplosion(mz, 0.4); sndBoom(mz, 1.0); fxTracer(mz, c, true); FX.shake = Math.max(FX.shake, clamp(0.5 - camera.position.distanceTo(mz) / 80, 0, 0.4));
     DIRQ.push({ at: GAME.t + 0.22, fn: () => { p.y = groundAt(p.x, p.z); fxExplosion(p, 1.3); sndBoom(p, 1.1); for (const o of UNITS.enemies) if (o.alive && o.pos.distanceTo(p) < 5.5) killEnemy(o, false); } }); }
 }
-// the Egyptians break: whoever is left turns and runs for the fields
+// the Egyptians break: whoever is left turns and runs back the way he came
 function crFlee() {
   CR.msgs.flee = true; CR.fleeT = CHAP.cross.t; for (let i = DIRQ.length - 1; i >= 0; i--) if (DIRQ[i].spawn) DIRQ.splice(i, 1);
   for (const e of UNITS.enemies) if (e.alive && e.sz && e.sq === 'h') { e.state = 'film'; e.sz = null; e.dormant = false; e.drift = rand(-0.9, 0.9); e.anim = rand(0, 6); if (e.slot) { e.slot.used = false; e.slot = null; } CR.flee.push(e); }
@@ -777,86 +982,93 @@ function crUpd(dt) {
   const C = CHAP.cross; C.t += dt; CR.t = (CR.t || 0) + dt; if (Math.floor(C.t * 2) !== Math.floor((C.t - dt) * 2)) szEnemyCleanup();
   for (let i = DIRQ.length - 1; i >= 0; i--) if (DIRQ[i] && GAME.t >= DIRQ[i].at) { const q = DIRQ.splice(i, 1)[0]; q.fn(); }
   crJetsUpd(dt); crBombsUpd(dt); updDebris(dt); crHitUpd(dt); rippleUpd(dt); crRepUpd(dt); crConvUpd(dt); crLook(dt); if (!CR.msgs.flee) crShells(dt);
-  if (CR.push && CR.br < 1) CR.br = Math.min(1, CR.br + dt / 62);
+  if (CR.push && CR.br < 1) CR.br = Math.min(1, CR.br + dt / CR_HOLD[crDi()]);
   crBridgePose(dt);
-  if (CR.stage < 3 && !CINE.on && !(CR.stage === 0 && !CR.msgs.go)) { CR.air -= dt; if (CR.air <= 0) { CR.air = rand(20, 30); crJet(CR.stage === 0 ? 'raft' : 'bridge'); } }
+  if (CR.stage < 2 && !CINE.on && !(CR.stage === 0 && !CR.msgs.go)) { CR.air -= dt; if (CR.air <= 0) { CR.air = rand(20, 30); crJet(CR.stage === 0 ? 'pb' : 'bridge'); } }
   // the jeep's machine gun turns with the gunner
   if (P.ride && P.ride.mg) { C.mg.visible = !CINE.on; C.mg.quaternion.copy(camera.quaternion); C.mg.position.copy(camera.position).add(V3(0.0, -0.44, -0.3).applyQuaternion(camera.quaternion)); } else C.mg.visible = false;
-  // fleeing Egyptians run for the fields
-  for (const e of CR.flee) { if (!e.alive) continue; e.pos.x -= 5.4 * dt; e.pos.z += (e.drift || 0) * dt; e.pos.y = groundAt(e.pos.x, e.pos.z); e.heading = -Math.PI / 2; e.anim += dt * 11; e.stance = 'stand'; e.rig.pose('run', e.anim); e.sync(); }
+  // the Egyptians who break run back the way they came: up the lanes, or west down the road (kept between its walls)
+  for (const e of CR.flee) { if (!e.alive) continue; const sp = 5.4 * dt, lx = e.pos.x - CR.o.x, lz = e.pos.z - CR.o.z;
+    if (e.crFront === 'n' || e.crFront === 's') { const sg = e.crFront === 'n' ? -1 : 1; e.pos.z += sg * sp; e.pos.x += clamp(clamp(lx, CR_LX1 + 1.5, CR_LX0 - 1.5) - lx, -3 * dt, 3 * dt); e.heading = sg < 0 ? Math.PI : 0; }
+    else { e.pos.x -= sp; if (e.crFront === 'w' && lx < CR_LX0 - 1 && lx > -304) e.pos.z += clamp(clamp(lz, -3.5, 3.5) - lz, -3 * dt, 3 * dt); else e.pos.z += (e.drift || 0) * dt; e.heading = -Math.PI / 2; }
+    e.pos.y = groundAt(e.pos.x, e.pos.z); e.anim += dt * 11; e.stance = 'stand'; e.rig.pose('run', e.anim); e.sync(); }
   if (CR.stage === 4) for (const v of C.tanks) crTankGun(v, dt);
   if (CR.stage === 0) {
-    // the rafts cross; the Egyptians at the landing open fire half way over; the jeeps drive off when the bank is quiet
-    const rA = C.rafts[0], u = rA.s / pathLen(rA.path);
-    { const r3 = C.rafts[2], u3 = r3.s / pathLen(r3.path); if (CR.msgs.go && !CR.hit3 && u3 > 0.3 && !CR.strike && !CR.shellIn) crStrike(); crStrikeUpd(dt); crShellUpd(dt); }
-    if (u > 0.22 && !CR.msgs.fire) { CR.msgs.fire = true; for (const s of C.slots) if (s.grp === 'L') fSlotSpawn(s === C.slots.find((q) => q.grp === 'L') ? 'rpg' : 'rifle', (q) => q === s, 'L'); radio('צנחן', 'אש מהגדה ממול! מקלע בסוללה!', 2.4);
-      for (let k = 0; k < 10; k++) DIRQ.push({ at: GAME.t + 3 + k * 1.1, spawn: true, fn: () => { const lz = CR_RAFT_Z + rand(-30, 26), [x, z] = CW(-150 - rand(0, 40), lz), [tx, tz] = CW(-108 - rand(0, 10), lz + rand(-6, 6)); const e = fSpawnStreet(x, z, [[tx, tz]], k % 5 === 2 ? 'rpg' : 'rifle'); if (e) e.sq = 'L'; } }); }
-    if (rA.ended) { CR.msgs.landT = (CR.msgs.landT || 0) + dt; if (!CR.msgs.off && holdDone(fieldLeft((e) => e.sq === 'L'), CR.msgs.landT)) { CR.msgs.off = true; fieldDespawn((e) => e.sq === 'L'); crRelease(C.jeeps[0], 0); radio('נהג', 'יורדים מהדוברה! מחזיקים חזק!', 2); crStage(1); } }
+    // the column crawls over the bridge behind the tanks; the Egyptians on the rampart open fire as it reaches the middle; it goes on when they are quiet
+    const lead = C.jeeps[0], X = C.jeepX;
+    if (CR.msgs.go && !CR.hit3 && !CR.strike && !CR.shellIn && X.g.position.x - CR.o.x < 40) crStrike(); crStrikeUpd(dt); crShellUpd(dt);
+    if (lead.g.position.x - CR.o.x < 62 && !CR.msgs.fire) { CR.msgs.fire = true; let first = true; for (const s of C.slots) if (s.grp === 'L') { fSlotSpawn(first ? 'rpg' : 'rifle', (q) => q === s, 'L'); first = false; } radio('צנחן', 'אש מהסוללה! מצפון לגשר, על הסוללה — מקלע!', 2.4);
+      for (let k = 0; k < 8; k++) DIRQ.push({ at: GAME.t + 3 + k * 1.2, spawn: true, fn: () => { const [x, z] = CW(-129 + (k % 3) * 2, 296 - k * 3), [tx, tz] = CW(-123 - (k % 4) * 2.5, 350 + k * 5); const e = fSpawnStreet(x, z, [[tx, tz]], k % 4 === 2 ? 'rpg' : 'rifle'); if (e) e.sq = 'L'; } }); }
+    if (lead.s >= lead.stop - 0.8) { CR.msgs.landT = (CR.msgs.landT || 0) + dt; if (!CR.msgs.off && holdDone(fieldLeft((e) => e.sq === 'L'), CR.msgs.landT)) { CR.msgs.off = true; fieldDespawn((e) => e.sq === 'L'); radio('נהג', 'יורדים מהגשר! מחזיקים חזק!', 2); crStage(1); } }
   } else if (CR.stage === 1) {
     const lead = C.jeeps[0], L = pathLen(lead.path);
-    // the other jeeps leave their rafts in turn, fourteen metres apart
-    const [j1, j2] = [C.jeeps[1], C.jeeps[2]];
-    if (j1.onRaft && lead.s > 16) crRelease(j1, 14);
-    if (j2.onRaft && !j1.onRaft && C.rafts[1].ended && j1.s - (j1.off || 0) > 16) crRelease(j2, 28);
     for (const id in CR_AMB) { const s0 = C.stops[id]; if (lead.s > s0 - 75 && !CR.msgs[id]) { CR.msgs[id] = true; crAmbush(id); lead.stop = s0; } }
     // after the last ambush the track runs straight along the rampart: the column picks up speed
     if (CR.msgs.a1 && lead.stop === undefined) lead.vmax = 8.5;
-    for (const v of C.jeeps) { if (v.onRaft) continue; v.stop = lead.stop === undefined ? (v === lead ? undefined : L - v.gap) : lead.stop - v.gap; if (v !== lead) v.vmax = lead.vmax; }
+    for (const v of C.jeeps) { v.stop = lead.stop === undefined ? (v === lead ? undefined : L - v.gap) : lead.stop - v.gap; if (v !== lead) v.vmax = lead.vmax; }
     if (lead.stop !== undefined && lead.s > lead.stop - 0.8) { CR.msgs.wait = (CR.msgs.wait || 0) + dt; const left = fieldLeft((e) => e.sq === lead.ambush); if (holdDone(left, CR.msgs.wait)) { fieldDespawn((e) => e.sq === lead.ambush); lead.stop = undefined; CR.msgs.wait = 0; radio('נהג', left ? 'אין זמן, ממשיכים!' : 'נקי! ממשיכים!', 2); } }
     if (lead.s >= L - 0.6 && !CR.msgs.out) { CR.msgs.out = true; crDismount(); }
-  } else if (CR.stage === 2) { updTrail(dt); gateUpd(dt); }
+  } else if (CR.stage === 2) { updTrail(dt); crRouteUpd(dt); }
   else if (CR.stage === 3) {
-    updTrail(dt); if (CINE.on) return;
-    CR.waveT -= dt; if (CR.waveT <= 0 && CR.br < 0.94) { crWave(CR.wave++); CR.waveT = 13; }
+    updTrail(dt); if (CINE.on) return; crStormUpd(dt);
+    CR.waveT -= dt; if (CR.waveT <= 0 && CR.br < 0.94 && CR.wave < CR_WAVES.length - 1) { crWave(CR.wave++); CR.waveT = (CR_HOLD[crDi()] - 12) / (CR_WAVES.length - 1); }
     for (const [k, txt] of [[0.3, 'הגשר בשליש הדרך! תחזיקו!'], [0.55, 'חצי גשר במים!'], [0.8, 'שמונים אחוז! הקצה כמעט אצלנו!'], [0.95, 'עוד גליל אחד! הטנקים מתניעים!']]) if (CR.br >= k && !CR.msgs['b' + k]) { CR.msgs['b' + k] = true; radio('גשר', txt, 3); }
+    if (CR.br >= 0.5 && !CR.msgs.look) { CR.msgs.look = true; hint('cr-look', 'הסתכלו לאחור דרך החלון המזרחי, במורד הרחוב: הפנסים על גשר הגלילים כבר באמצע התעלה, והטנקים מאחוריו.', 7); }
     if (CR.br >= 1 && !CR.msgs.done) { CR.msgs.done = true; crBridgeDone(); }
   } else if (CR.stage === 4) {
-    updTrail(dt); if (CINE.on) return;
-    if (!CR.msgs.flee) { CR.waveT -= dt; if (CR.waveT <= 0) { crWave(CR.wave++); CR.waveT = 12; } }
-    const tlx = C.tanks[0].g.position.x - CR.o.x;
-    if (!CR.msgs.arr && tlx < -112) { CR.msgs.arr = true; radio('מפקד הטנק', 'אנחנו בפרצה! תנו לנו מטרות — אנחנו מנקים את השדה!', 3.2); DIRQ.push({ at: GAME.t + 9, fn: () => { if (!CR.msgs.flee) crFlee(); } }); }
-    if (!CR.msgs.flee && C.t > 60) crFlee();
+    updTrail(dt); if (CINE.on) return; crStormUpd(dt);
+    const arr = [C.tanks[1], C.tanks[2]].some((v) => v.alive && v.s >= v.stop - 0.6);
+    if (!CR.msgs.arr && arr) { CR.msgs.arr = true; radio('מפקד הטנק', 'אנחנו בסמטה! תנו לנו מטרות — אנחנו מנקים את הצומת!', 3.2); DIRQ.push({ at: GAME.t + 7, fn: () => { if (!CR.msgs.flee) crFlee(); } }); }
+    if (!CR.msgs.flee && C.t > 80) crFlee();
     if (CR.msgs.flee && !CR.msgs.end && C.t - CR.fleeT > 9) { CR.msgs.end = true; DIRQ.push({ at: GAME.t + 0.5, fn: crEndFilm }); }
   }
 }
 function crAmbush(id) {
   const C = CHAP.cross, lead = C.jeeps[0], A = CR_AMB[id]; lead.ambush = id;
   for (const s of C.nests[id]) fSlotSpawn(s.kind, (q) => q === s, id);
-  for (let k = 0; k < 13; k++) DIRQ.push({ at: GAME.t + 2 + k * 0.7, spawn: true, fn: () => { const [x, z] = corr(CR_JEEP, A.from[0] + rand(-10, 10), A.from[1] + rand(-14, 14), 22, 14), [tx, tz] = corr(CR_JEEP, x + rand(10, 20), z + rand(-8, 8), 14, 7); const e = fSpawnStreet(...CW(x, z), [CW(tx, tz)], k === 3 ? 'rpg' : 'rifle'); if (e) e.sq = id; } });
+  const rr = rng(7300 + id.charCodeAt(1));   // the same runners from the same places on every try
+  for (let k = 0; k < 13; k++) { const ox = rr() * 20 - 10, oz = rr() * 28 - 14, tx0 = 10 + rr() * 10, tz0 = rr() * 16 - 8; DIRQ.push({ at: GAME.t + 2 + k * 0.7, spawn: true, fn: () => { const [x, z] = corr(CR_JEEP, A.from[0] + ox, A.from[1] + oz, 22, 14), [tx, tz] = corr(CR_JEEP, x + tx0, z + tz0, 14, 7); const e = fSpawnStreet(...CW(x, z), [CW(tx, tz)], k === 3 ? 'rpg' : 'rifle'); if (e) e.sq = id; } }); }
   radio('צנחן', A.txt, 2.6);
 }
 function crDismount() {
   const C = CHAP.cross, lead = C.jeeps[0]; P.ride = null; C.mg.visible = false; vm.visible = true; P.crouch = false; lead.crew[0].visible = true;
-  const p = lead.g.localToWorld(V3(-0.6 * JK, 0, -2.0 * JK)); P.pos.set(p.x, groundAt(p.x, p.z), p.z); resetTrail();
+  const p = lead.g.localToWorld(V3(-0.6 * JK, 0, -2.0 * JK)); P.pos.set(p.x, groundAt(p.x, p.z), p.z); P.yaw = Math.atan2(7.4, -6.4); resetTrail();
   CR_FOLLOW.forEach((fi, k) => { const f = FRIENDS[fi], u = f.unit, q = C.jeeps[Math.floor(k / 3)].g.localToWorld(V3(-1.2 + (k % 3) * 0.8, 0, k % 2 ? -2.0 : 2.0)); u.place(q.x, q.z); f.state = 'follow'; f.fi = k; f.ti = 0; f.stuck = 0; f.post = { id: 'F' + fi, fx: 0, fz: -1, mag: null, occupant: f, stand: [q.x, q.z] }; });
-  crStage(2);
+  crStage(2); crDynApply();
 }
 /* ---------- films ---------- */
-/* the opening: the roller bridge on the east bank, mended under fire - the crane lowers a new roller into the gap, the tanks close it up,
-   shells throw up the canal; then the rafts */
+/* the opening: the roller bridge on the east bank, mended under fire - a tank shoves the new roller into the gap, the tanks close it up, shells
+   throw up the canal; then the pontoon bridge to the south, the tanks and the jeeps on it */
 function crIntroFilm() {
-  const C = CHAP.cross, rp = () => C.rafts[0].g.position.clone(), cx12 = 100 + 12.5 * CR_SEGL, slot = V3(CR.o.x + cx12, 2.6, CR.o.z), g = groundAt(slot.x, slot.z);
+  const C = CHAP.cross, pb = () => C.jeeps[0].g.position.clone(), cx12 = 100 + 12.5 * CR_SEGL, slot = V3(CR.o.x + cx12, 2.6, CR.o.z), g = groundAt(slot.x, slot.z);
   crRepStart(); CR.filmTod = 7 * 60 + 50;
   const water = (lx, lz, k) => () => crBurst(CR.o.x + lx, CR.o.z + lz, k), land = (lx, lz) => () => { const [x, z] = CW(lx, lz), p = V3(x, groundAt(x, z), z); fxExplosion(p, 1.2); sndBoom(p, 1.0); };
-  // slow: every shot long enough to look at - the crane, the roller swinging over, the water thrown up by the shells
+  // slow: every shot long enough to look at - the tank shoving the roller, the water thrown up by the shells, the bridge of pontoons
   playCine({ vid: 'cr_intro',
-    title: 'גשר הצליחה · 16–18 באוקטובר 1973',
+    title: 'הגשרים · 16–18 באוקטובר 1973',
     shots: [
       { d: 8.5, cam: camLerp(V3(slot.x + 54, 34, slot.z + 66), V3(slot.x + 36, 25, slot.z + 52), slot.clone().add(V3(-30, -2, 0)), slot.clone().add(V3(-16, -2, 0)), 50) },
-      { d: 10.5, cam: camLerp(V3(slot.x - 17, g + 5.2, slot.z + 21), V3(slot.x - 14, g + 4.7, slot.z + 18), slot.clone().add(V3(2, 3.0, -6)), slot.clone().add(V3(0, 1.4, -2)), 50) },
+      { d: 10.5, cam: camLerp(V3(slot.x - 17, g + 5.2, slot.z + 21), V3(slot.x - 14, g + 4.7, slot.z + 18), slot.clone().add(V3(2, 2.0, -7)), slot.clone().add(V3(0, 1.4, -3)), 50) },
       { d: 8.0, cam: camLerp(V3(CR.o.x + 66, 1.5, CR.o.z + 30), V3(CR.o.x + 69, 1.45, CR.o.z + 27), V3(CR.o.x + 150, 2.5, CR.o.z), V3(CR.o.x + 162, 2.5, CR.o.z), 46) },
-      { d: 8.5, cam: (u) => ({ p: rp().add(V3(-17 + u * 4, 4.5, 15)), l: rp().add(V3(0, 1.2, 0)), fov: 50 }) },
+      { d: 8.5, cam: (u) => ({ p: pb().add(V3(-26 + u * 6, 7.5, 24)), l: pb().add(V3(-6, 1.0, 0)), fov: 50 }) },
     ],
-    ev: [[1.8, water(70, 26, 1.5)], [4.0, land(220, 40)], [5.8, water(55, -18, 1.4)], [10.5, water(84, 14, 1.2)], [13.5, land(162, -30)], [17.0, water(64, 9, 1.4)], [20.2, water(86, -7, 1.6)], [22.0, water(74, 18, 1.5)], [24.0, land(236, -24)], [25.6, water(60, -12, 1.3)], [27.0, () => { crRepEnd(); CR.filmTod = null; }], [29.5, water(40, 430, 1.3)], [32.0, water(-30, 380, 1.2)]],
-    caps: [[0.6, '<b>16 באוקטובר.</b> בדרך אל התעלה נקרע גשר הגלילים — כ־200 מטר של גלילי פלדה.', 7.4], [9.0, 'המהנדסים מחליפים את הגליל הפגוע, תחת הפגזה.', 8.6], [19.4, '<b>18 באוקטובר.</b> גדוד 410 גורר את הגשר אל שפת המים. כדי להניח אותו — צריך להחזיק את הגדה שממול.', 7.2], [27.4, 'בינתיים צנחני חטיבה 247 חוצים בג׳יפים על הדוברות.', 4.6], [32.4, '<b>מ״פ:</b> דוברות, יוצאים! מקלעים על הגדה ממול!', 3.0]],
+    ev: [[1.8, water(70, 26, 1.5)], [4.0, land(220, 40)], [5.8, water(55, -18, 1.4)], [10.5, water(84, 14, 1.2)], [13.5, land(162, -30)], [17.0, water(64, 9, 1.4)], [20.2, water(86, -7, 1.6)], [22.0, water(74, 18, 1.5)], [24.0, land(236, -24)], [25.6, water(60, -12, 1.3)], [27.0, () => { crRepEnd(); CR.filmTod = null; }], [29.5, water(40, CR_PB_Z + 26, 1.3)], [32.0, water(-30, CR_PB_Z - 22, 1.2)]],
+    caps: [[0.6, '<b>16 באוקטובר.</b> בדרך אל התעלה נשבר גשר הגלילים — כ־200 מטר של גלילי פלדה — ונתקע בחולות.', 7.4], [9.0, 'המהנדסים מחליפים את החוליה הפגועה, תחת הפגזה.', 8.6], [19.4, '<b>18 באוקטובר.</b> הגשר נגרר אל שפת המים. סא״ל אהרון (ג׳וני) טנא, שהוביל אותו, נופל על גדת התעלה.', 7.2], [27.4, 'מדרום, גשר הדוברות עומד על התעלה מאז אחר הצהריים של ה־17. עליו עוברים הטנקים — ואחריהם הצנחנים בג׳יפים.', 4.6], [32.4, '<b>מ״פ:</b> נוסעים! מקלעים מוכנים — ועיניים על הסוללה ממול!', 3.0]],
     end: crIntroEnd,
   });
 }
-function crIntroEnd() { const C = CHAP.cross; CR.introSeen = true; crRepEnd(); CR.filmTod = null; CR.msgs.go = true; for (const r of C.rafts) r.vmax = 3.2; C.rafts[1].vmax = 2.9; C.rafts[2].vmax = 3.15; hint('cr-mg', `אתם על המקלע של הג׳יפ: ${TOUCH ? 'לחצו ממושך על אש' : 'לחיצה ממושכת'} יורה צרורות. הכוונת נצמדת לאויב הקרוב. חוליות בזוקה מסומנות באדום.`, 8); }
+function crIntroEnd() { const C = CHAP.cross; CR.introSeen = true; crRepEnd(); CR.filmTod = null; CR.msgs.go = true; for (const v of [...C.jeeps, C.jeepX, ...C.pbT]) if (v.g.visible) v.vmax = 3; hint('cr-mg', `אתם על המקלע של הג׳יפ: ${TOUCH ? 'לחצו ממושך על אש' : 'לחיצה ממושכת'} יורה צרורות. הכוונת נצמדת לאויב הקרוב. חוליות בזוקה מסומנות באדום.`, 8); }
 // the column of the last film: fifty tanks along the east bank, over the bridge, west along the road
 function crConvOff() { const C = CHAP.cross; CR.conv = null; if (C.conv) C.conv.visible = false; }
+// on the night the tanks that will cross wait in a file beside the roller bridge on the east bank, closing up as it goes out: seen from the
+// house at the head of the street, down the street and through the gap in the rampart
+function crQueuePose() {
+  const C = CHAP.cross, m4 = new THREE.Matrix4(), q = new THREE.Quaternion().setFromAxisAngle(V3(0, 1, 0), Math.PI), one = V3(1, 1, 1), zero = V3(0.001, 0.001, 0.001), hide = V3(0, -100, 0);
+  for (let i = 0; i < 50; i++) { if (i >= 10) { C.conv.setMatrixAt(i, m4.compose(hide, q, zero)); continue; } const [x, z] = CW(160 + i * 16 - 46 * CR.br, 10.5); C.conv.setMatrixAt(i, m4.compose(V3(x, groundAt(x, z), z), q, one)); }
+  C.conv.instanceMatrix.needsUpdate = true; C.conv.visible = true;
+}
 function crConvUpd(dt) {
-  const C = CHAP.cross, V = CR.conv; if (!V) return; V.s += 7 * dt; const path = V.path, m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), up = V3(0, 1, 0), hide = V3(0, -100, 0), one = V3(1, 1, 1), zero = V3(0.001, 0.001, 0.001);
+  const C = CHAP.cross, V = CR.conv; if (!V) { if (CR.stage === 3 && C.conv) crQueuePose(); return; } V.s += 7 * dt; const path = V.path, m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), up = V3(0, 1, 0), hide = V3(0, -100, 0), one = V3(1, 1, 1), zero = V3(0.001, 0.001, 0.001);
   for (let i = 0; i < 50; i++) { const s = V.s - i * 17; if (s < 0) { C.conv.setMatrixAt(i, m4.compose(hide, q.identity(), zero)); continue; } const [x, z, hd] = pathAt(path, s), fy = crDeck(x, z); q.setFromAxisAngle(up, hd - Math.PI / 2); C.conv.setMatrixAt(i, m4.compose(V3(x, fy ?? groundAt(x, z), z), q, one)); }
   C.conv.instanceMatrix.needsUpdate = true; C.conv.visible = true;
 }
@@ -882,27 +1094,26 @@ function crEndFilm() {
       ...[0.8, 1.9, 2.7, 3.9, 4.6, 5.8, 6.9, 7.8].map((t) => [t, boom(lp, 13, 38)]),
       [8.5, () => { CR.filmTod = 30 * 60 + 15; for (const e of CR.flee) { e.alive = false; e.rig.root.visible = false; } for (const v of C.tanks.slice(3)) { v.g.visible = false; v.path = null; } }],
       ...[9.4, 10.6, 11.5, 12.9, 14.2, 15.0, 16.4, 17.7].map((t) => [t, boom(c2, 16, 44)]), ...[19.6, 21.3, 23.0, 25.1, 26.8].map((t) => [t, boom(c2, 30, 75, 1.3)])],
-    caps: [[0.4, 'המצרים נשברים ונסוגים מערבה, אל השדות.', 7.4], [8.8, '<b>19 באוקטובר, עם שחר.</b> טור ארוך של טנקים בדרך אל גשר הגלילים.', 8.6], [18.6, 'הגשר הונח כקילומטר צפונית לגשר הדוברות. בימים הבאים עברו על שני הגשרים אוגדות שלמות, וראש הגשר בגדה המערבית התרחב לרוחב של קילומטרים.', 9.0]],
+    caps: [[0.4, 'המצרים נשברים ונסוגים אל השדות.', 7.4], [8.8, '<b>19 באוקטובר, עם שחר.</b> טור ארוך של טנקים בדרך אל גשר הגלילים.', 8.6], [18.6, 'גשר הגלילים הונח מצפון לגשר הדוברות. בימים הבאים עברו על שני הגשרים אוגדות שלמות, וראש הגשר בגדה המערבית התרחב לרוחב של קילומטרים.', 9.0]],
     end: () => { CR.filmTod = null; DIRQ.push({ at: GAME.t + 0.3, fn: () => endGame(true) }); },
   });
 }
 /* ---------- the chapter's hooks ---------- */
 function crObj() {
   const C = CHAP.cross;
-  if (CR.stage === 0) { const e = fieldNearest((q) => q.sq === 'L'); if (e) return [e.pos.x, e.pos.y + 2.2, e.pos.z, 'עמדה בגדה']; const [x, z] = CW(-96, CR_RAFT_Z); return [x, 1, z, 'הגדה המערבית']; }
-  if (CR.stage === 1) { const lead = C.jeeps[0]; if (lead.stop !== undefined) { const e = fieldNearest((q) => q.sq === lead.ambush); if (e) return [e.pos.x, e.pos.y + 2.2, e.pos.z, 'מארב']; } return null; }
-  if (CR.stage === 2) return gateObj('מצרי בבית', 'הבית הבא');
-  if (CR.stage === 3) { const e = fieldNearest((q) => q.sq === 'h', 140); return e ? [e.pos.x, e.pos.y + 2.2, e.pos.z, 'מסתערים', 'foe'] : null; }
-  if (CR.stage === 4) { const e = !CR.msgs.flee && fieldNearest((q) => q.sq === 'h', 140); if (e) return [e.pos.x, e.pos.y + 2.2, e.pos.z, 'מסתערים', 'foe']; const p = C.tanks[0].g.position; return [p.x, p.y + 3.5, p.z, 'הטנקים']; }
+  if (CR.stage === 0) { const e = fieldNearest((q) => q.sq === 'L'); if (e) return [e.pos.x, e.pos.y + 2.2, e.pos.z, 'מצרים על הסוללה', 'foe']; const [x, z] = CW(-100, CR_PB_Z); return [x, 1.5, z, 'קצה הגשר']; }
+  if (CR.stage === 1) { const lead = C.jeeps[0]; if (lead.stop !== undefined) { const e = fieldNearest((q) => q.sq === lead.ambush); if (e) return [e.pos.x, e.pos.y + 2.2, e.pos.z, 'מארב', 'foe']; } return null; }
+  if (CR.stage === 2) { if (CINE.on || CR.msgs.vdone) return null; if (crRouteLeft() > 0) { const e = fieldNearest((q) => q.sq === 'g' + CR.rg.i); return e ? [e.pos.x, e.pos.y + 2.2, e.pos.z, 'מצרי בקטע', 'foe'] : null; } const [x, z] = CW(...CR_VG[CR.rg.i + 1]); return [x, groundAt(x, z), z, CR.rg.i + 1 >= CR_VG.length - 2 ? 'הבית שבראש הרחוב' : 'הדלת הבאה']; }
+  if (CR.stage === 3 || CR.stage === 4) { const e = !CR.msgs.flee && fieldNearest((q) => q.sq === 'h', 140); if (e) return [e.pos.x, e.pos.y + 2.2, e.pos.z, 'מסתערים', 'foe']; if (CR.stage === 4) { const p = C.tanks[1].g.position; return [p.x, p.y + 3.5, p.z, 'הטנקים']; } return null; }
   return null;
 }
 function crItems(items) {
   const C = CHAP.cross, S = CR_STAGES[CR.stage]; items.push(['go', (S.goal || S.sub) + (OBJ.on ? ' (◆)' : '')]);
-  if (CR.stage === 0) { const r = C.rafts[0]; items.push(['', r.ended ? `הדוברה עגנה · מצרים בגדה: ${fieldLeft((e) => e.sq === 'L')}` : `עד הגדה המערבית: ${Math.max(0, Math.round(pathLen(r.path) - r.s))} מ׳`]); }
+  if (CR.stage === 0) { const lead = C.jeeps[0], left = fieldLeft((e) => e.sq === 'L'); items.push(['', lead.s >= lead.stop - 1 ? `בקצה הגשר · מצרים על הסוללה: ${left}` : `עד קצה הגשר: ${Math.max(0, Math.round(lead.stop - lead.s))} מ׳${left ? ` · מצרים על הסוללה: ${left}` : ''}`]); }
   if (CR.stage === 1) { const lead = C.jeeps[0]; items.push(['', lead.stop !== undefined ? `מארב! מצרים שנותרו: ${fieldLeft((e) => e.sq === lead.ambush)}` : `עד הכפר: ${Math.max(0, Math.round(pathLen(lead.path) - lead.s))} מ׳`]); }
-  if (CR.stage === 2) gateItem(items);
-  if (CR.stage === 3) { items.push(['next', `גשר הגלילים: ${Math.round(CR.br * 100)}%`]); items.push(['', `גל ${CR.wave} · מצרים מול הכפר: ${fieldLeft((e) => e.sq === 'h', 160)}`]); }
-  if (CR.stage === 4) { const lead = C.tanks[0], lx = lead.g.position.x - CR.o.x; items.push(['next', CR.msgs.flee ? 'המצרים נסוגים' : lx > -100 ? `הטנק הראשון על הגשר: עוד ${Math.max(0, Math.round(lx + 100))} מ׳` : 'הטנקים בכפר!']); items.push(['', `מצרים מול הכפר: ${fieldLeft((e) => e.sq === 'h', 160)}`]); }
+  if (CR.stage === 2 && !CR.msgs.vdone) { const n = CR_VG.length - 1, left = crRouteLeft(); items.push([left ? '' : 'next', left ? `בית ${Math.min(CR.rg.i + 1, n - 1)}/${n - 1} · מצרים בקטע: ${left}` : `הקטע נקי · לדלת הבאה (◆)`]); }
+  if (CR.stage === 3) { items.push(['next', `גשר הגלילים: ${Math.round(CR.br * 100)}%`]); const fr = (CR.lastFronts || []).map((f) => CR_FRONT[f].short); items.push(['', `גל ${CR.wave}${fr.length ? ` · ${fr.join(', ')}` : ''} · מסתערים: ${UNITS.enemies.filter((e) => e.alive && e.sq === 'h').length}`]); }
+  if (CR.stage === 4) { const lead = C.tanks[0], lx = lead.g.position.x - CR.o.x; items.push(['next', CR.msgs.flee ? 'המצרים נסוגים' : lx > -100 ? `הטנק הראשון על הגשר: עוד ${Math.max(0, Math.round(lx + 100))} מ׳` : 'הטנקים בכפר!']); items.push(['', `מסתערים: ${UNITS.enemies.filter((e) => e.alive && e.sq === 'h').length}`]); }
   if (CR.stage >= 2) { const n = FRIENDS.filter((f) => f.state === 'follow' || f.state === 'post').length; items.push([n < 2 ? 'warn' : '', `צנחנים איתכם: ${n}`]); }
 }
 function crHints() {
@@ -910,17 +1121,19 @@ function crHints() {
 }
 function crMini(g, X, poly, dot, k) {
   const W = (pts) => pts.map(([x, z]) => CW(x, z)), tl = []; for (let z = CR_TZ0; z <= CR_TZ1; z += 4) tl.push([crTX(z), z]); const xf = 100 - CR.br * CR_BLEN;
-  miniField(g, X, poly, dot, k, { bg: 'rgba(120,128,84,.92)', polys: [[W([[100, -900], [100, 900], [900, 900], [900, -900]]), 'rgba(176,152,112,.95)'], [W([[-150, -900], [-150, 900], [100, 900], [100, -900]]), 'rgba(184,160,118,.95)'], [W([[-92, -900], [-92, 900], [92, 900], [92, -900]]), 'rgba(28,70,86,.95)'], [W([[CR_BRIDGE - 8, -900], [CR_BRIDGE - 8, 900], [CR_BRIDGE + 8, 900], [CR_BRIDGE + 8, -900]]), 'rgba(40,80,90,.95)'], ...CR_VH.map(([x, z, w, d]) => [W([[x - w / 2, z - d / 2], [x + w / 2, z - d / 2], [x + w / 2, z + d / 2], [x - w / 2, z + d / 2]]), 'rgba(205,190,160,.95)'])],
-    lines: [[W([[-150, 0], [-700, 0]]), 3, 'rgba(150,130,96,.9)'], [W(CR_JEEP), 3, 'rgba(150,130,96,.9)'], [W(tl), 2.5, 'rgba(90,60,40,.95)'], [W([[xf, 0], [xf + CR_BLEN, 0]]), 4, 'rgba(60,64,50,1)']] });
+  const box = (x, z, w, d, col) => [W([[x - w / 2, z - d / 2], [x + w / 2, z - d / 2], [x + w / 2, z + d / 2], [x - w / 2, z + d / 2]]), col];
+  miniField(g, X, poly, dot, k, { bg: 'rgba(120,128,84,.92)', polys: [[W([[100, -900], [100, 900], [900, 900], [900, -900]]), 'rgba(176,152,112,.95)'], [W([[-150, -900], [-150, 900], [100, 900], [100, -900]]), 'rgba(184,160,118,.95)'], [W([[-92, -900], [-92, 900], [92, 900], [92, -900]]), 'rgba(28,70,86,.95)'], [W([[CR_BRIDGE - 8, -900], [CR_BRIDGE - 8, 900], [CR_BRIDGE + 8, 900], [CR_BRIDGE + 8, -900]]), 'rgba(40,80,90,.95)'],
+      box(-193, 0, 79, 48, 'rgba(170,150,116,.9)'), box((CR_LX0 + CR_LX1) / 2, 0, CR_LX0 - CR_LX1, 2 * CR_LZ, 'rgba(160,140,108,.9)'), ...CR_VH.map((h) => box(CR_COLS[h.c], h.sd * (CR_FZ + CR_HD / 2), CR_HW, CR_HD, h.open ? 'rgba(222,206,172,.98)' : 'rgba(150,136,112,.95)')), box(CR_D.x, CR_D.z, CR_D.w, CR_D.d, 'rgba(236,222,186,1)')],
+    lines: [[W([[-106, 0], [-153, 0]]), 3, 'rgba(150,130,96,.9)'], [W([[CR_LX1, 0], [-700, 0]]), 3, 'rgba(150,130,96,.9)'], [W(CR_JEEP), 3, 'rgba(150,130,96,.9)'], [W(tl), 2.5, 'rgba(90,60,40,.95)'], [W([[-100, CR_PB_Z], [100, CR_PB_Z]]), 3.5, 'rgba(70,74,58,1)'], [W([[xf, 0], [xf + CR_BLEN, 0]]), 4, 'rgba(60,64,50,1)']] });
 }
 function crEnd(win, why) {
   const stats = [[STATS.kills, 'אויבים נפגעו'], [Math.round(CR.br * 100), 'גשר הגלילים %'], [CR.stage + 1, 'השלב שהגעתם אליו']];
-  if (win) return ['גשר הגלילים מונח', 'גשר הגלילים — כ־200 מטר של גלילי פלדה — נקרע בדרך אל התעלה ב־16 באוקטובר 1973, תוקן תחת הפגזה, ונגרר אל המים בידי גדוד 410. בלילה שבין 18 ל־19 באוקטובר, בסביבות 01:00, הוא הונח כקילומטר צפונית לגשר הדוברות. באותם ימים נלחמו צנחני חטיבה 247 בכפרים ובבתים שלאורך התעלה כדי להרחיב את ראש הגשר; גדוד 565 החזיק בבתי סרפאום מול הסתערויות, עד שחולץ. מעל שני הגשרים עברו אוגדות שלמות לגדה המערבית.', stats];
-  return ['נפגעת', ['תנו למקלע לעבוד: צרורות ארוכים על העמדות בגדה, והחוליות המסומנות באדום קודם.', 'במארב — קודם הבזוקות. הן מסומנות באדום.', 'בכפר: חלון אחרי חלון, ורימון לפני כל דלת. הדלתות רחבות — אל תעמדו בתוכן.', 'מהחלון — לירות ולרדת. רימון על מי שמגיע עד החומה הנמוכה.', 'הטנקים בדרך. עוד כמה שניות של אש מהחלונות.'][CR.stage] || '', stats];
+  if (win) return ['גשר הגלילים מונח', 'מ־16 באוקטובר 1973 עברו הטנקים לגדה המערבית על התמסחים, ומאחר הצהריים של ה־17 — על גשר הדוברות, תחת הפגזה ותקיפות מהאוויר. גשר הגלילים — כ־200 מטר של גלילי פלדה — נשבר בדרך אל התעלה, תוקן, ונגרר אל שפת המים; סא״ל אהרון (ג׳וני) טנא, שהוביל אותו, נפל על גדת התעלה ב־18 באוקטובר. ב־19 באוקטובר הושק הגשר למים, מצפון לגשר הדוברות, ובו ביום עבר עליו מח״ט 14. באותם ימים נלחמו הצנחנים בכפרים ובשדות שלאורך התעלה כדי להרחיב את ראש הגשר. מעל שני הגשרים עברו אוגדות שלמות לגדה המערבית.', stats];
+  return ['נפגעת', ['תנו למקלע לעבוד: צרורות ארוכים על המצרים שעל הסוללה, והחוליות המסומנות באדום קודם.', 'במארב — קודם הבזוקות. הן מסומנות באדום.', 'בכל בית יש מצרי בחדר השני: רימון לפני שעוברים בפתח, והחלונות של הבית שממול לפני שחוצים את הרחוב.', 'מהחלון — לירות ולרדת. מי שמגיע לקיר זורק רימון: זוזו מהסימן ⚠. אל תעמדו מול הדלת.', 'הטנקים בדרך. עוד כמה שניות של אש מהחלונות.'][CR.stage] || '', stats];
 }
-function crSnapOK() { if (CR.stage === 0) return false; if (CR.stage === 1 && CHAP.cross.jeeps.some((v) => v.onRaft)) return false; return true; }
-function crSnapAfter() { crRepEnd(); crBridgePose(0); if (CR.stage !== 3) meter(null); CR.filmTod = null; }
+function crSnapOK() { if (CR.stage === 0) return false; if (CR.stage === 1 && CR.msgs.out) return false; return true; }
+function crSnapAfter() { crRepEnd(); crDynApply(); crBridgePose(0); if (CR.stage !== 3) meter(null); CR.filmTod = null; }
 CHAP.cross = { stages: CR_STAGES, st: () => CR.stage, cp: () => CHAP.cross.cpN || 0, upd: crUpd, obj: crObj, hints: crHints, items: crItems, mini: crMini, restore: fieldRestore, end: crEnd, tank: false, night: true, snapOK: crSnapOK, snapAfter: crSnapAfter,
   stableTag: () => 'למחסה',
   tod: () => { const m = CR.filmTod != null ? CR.filmTod : CR_TOD[CR.stage] + CHAP.cross.t / (CR.stage >= 3 ? 20 : 6); return (((m % 1440) + 1440) % 1440) - START_MIN; },
-  build: () => chapterBuild(CHAP.cross, crBuild), setup: crSetup, clock: CR_CLOCK[0], toast: ['18–19 באוקטובר 1973 · גשר הצליחה', 'גשר הגלילים מחכה על הגדה. צריך להחזיק את הצד שממול'], start: () => { CR.introSeen = false; fieldStart('cross'); } };
+  build: () => chapterBuild(CHAP.cross, crBuild), setup: crSetup, clock: CR_CLOCK[0], toast: ['18–19 באוקטובר 1973 · הגשרים', 'גשר הדוברות כבר על התעלה; גשר הגלילים מחכה על הגדה. צריך להחזיק את הצד שממול'], start: () => { CR.introSeen = false; fieldStart('cross'); } };
