@@ -136,13 +136,13 @@ function rgSetup() {
 }
 function rgSpawnGallery(i) {
   const C = CHAP.range, [kind, pose] = RG_GALLERY[i], [x, z] = RGW(-21 + i * 6, -20), e = spawnEnemy(x, z, kind === 'atgm' ? 'rpg' : kind, null, null); if (!e) return;
-  e.atgm = kind === 'atgm'; e.state = 'film'; e.sz = null; e.slot = null; e.dormant = false; e.heading = 0; e.stance = pose === 'crouch' ? 'crouch' : 'stand'; e.anim = 0.35; e.rig.pose(pose, e.anim, 0); e.sync(); e.rgG = C.gal[i]; C.gal[i].e = e;
+  e.atgm = false; e.state = 'film'; e.sz = null; e.slot = null; e.dormant = false; e.heading = 0; e.stance = pose === 'crouch' ? 'crouch' : 'stand'; e.anim = 0.35; e.rig.pose(pose, e.anim, 0); e.sync(); e.rgG = C.gal[i]; C.gal[i].e = e;
 }
 function rgUpd(dt) {
   const C = CHAP.range; C.t += dt;
   for (let i = DIRQ.length - 1; i >= 0; i--) if (DIRQ[i] && GAME.t >= DIRQ[i].at) { const q = DIRQ.splice(i, 1)[0]; q.fn(); }
   // the range never runs dry
-  P.reserve = 160; P.gren = 9; P.smoke = 4; P.hp = 100; for (const p of C.posts) if (p.mag && !p.mag.big) p.mag.belt = p.mag.cap;
+  P.reserve = 160; P.gren = 9; P.smoke = 0; P.hp = 100; for (const p of C.posts) if (p.mag && !p.mag.big) p.mag.belt = p.mag.cap;
   // the rafts and boats ride the water
   for (const f of C.float) { f.m.position.y = f.y + Math.sin(GAME.t * 1.3 + f.ph) * 0.05 * f.bob; f.m.rotation.x = Math.sin(GAME.t * 1.1 + f.ph) * 0.02 * f.bob; f.m.rotation.z = Math.sin(GAME.t * 1.6 + f.ph * 1.3) * 0.025 * f.bob; }
   // the jeep's MG, when manned: it follows the eyes

@@ -4,9 +4,9 @@
    react and the more of them storm; the more each hit costs and the less you heal; the weaker the men beside you; the fewer the saves.
    The aim lock is the same on every level */
 const DIFF = [
-  { name: 'טירון', cap: 0.9, seats: 4, extra: 0.8, boats: 0.8, acc: 0.05, accF: 0.012, dmg: [10, 15], bleed: 200, art: [32, 48], boat: 9.5, fgun: 0.85, fAcc: 1.5, fSmart: 2, regenD: 2, regenCap: 100, react: 1.2, storm: 0.25, gren: 0, aware: 18, cp: 2, gren0: 6, foeMap: true },
-  { name: 'לוחם', cap: 1.5, seats: 5, extra: 1.0, boats: 1.0, acc: 0.08, accF: 0.022, dmg: [17, 25], bleed: 140, art: [22, 34], boat: 10.5, fgun: 1, fAcc: 1, fSmart: 1, regenD: 3, regenCap: 100, react: 0.7, storm: 0.55, gren: 1, aware: 24, cp: 1, gren0: 4, foeMap: true },
-  { name: 'ותיק', cap: 1.9, seats: 6, extra: 1.35, boats: 1.3, acc: 0.11, accF: 0.032, dmg: [25, 36], bleed: 90, art: [15, 25], boat: 11.5, fgun: 1.25, fAcc: 0.6, fSmart: 0, regenD: 5, regenCap: 60, react: 0.4, storm: 0.75, gren: 1.6, aware: 30, cp: 0, gren0: 3, foeMap: false },
+  { name: 'טירון', cap: 0.9, seats: 4, extra: 0.8, boats: 0.8, acc: 0.04, accF: 0.012, dmg: [9, 13], bleed: 200, art: [32, 48], boat: 9.5, fgun: 0.85, fAcc: 1.5, fSmart: 2, regenD: 2, regenCap: 100, react: 1.2, storm: 0.25, gren: 0, aware: 18, cp: 2, gren0: 6, foeMap: true },
+  { name: 'לוחם', cap: 1.5, seats: 5, extra: 1.0, boats: 1.0, acc: 0.065, accF: 0.022, dmg: [14, 21], bleed: 140, art: [22, 34], boat: 10.5, fgun: 1, fAcc: 1, fSmart: 1, regenD: 3, regenCap: 100, react: 0.7, storm: 0.55, gren: 1, aware: 24, cp: 1, gren0: 4, foeMap: true },
+  { name: 'ותיק', cap: 1.9, seats: 6, extra: 1.35, boats: 1.3, acc: 0.09, accF: 0.032, dmg: [21, 31], bleed: 90, art: [15, 25], boat: 11.5, fgun: 1.25, fAcc: 0.6, fSmart: 0, regenD: 5, regenCap: 60, react: 0.4, storm: 0.75, gren: 1.6, aware: 30, cp: 0, gren0: 3, foeMap: false },
 ];
 let diff = DIFF[1];
 /* the first chapter has to leave the player sure that he can win: on top of the level, the stronghold eases its own war (survival keeps the
@@ -342,12 +342,12 @@ function enemyFire(e) {
    wide and closes in the longer the player stays in his sight. Awareness: a man posted at a window or a parapet sees what is in front of him
    until he is alerted - by seeing the player, by fire near him, by a comrade - and every man remembers where he last saw the player: his
    grenades go there, and when he cannot see him he fires at that place to keep his head down. Squads (the men who share a tag): only so many
-   leave cover at once while the rest fire to cover them, under smoke if they have it; a player who stays in one place draws a flanker round
+   leave cover at once while the rest fire to cover them; a player who stays in one place draws a flanker round
    his side; a squad that has lost most of its men falls back to cover further off. Nothing is said aloud - it shows in what they do */
-const TAC = [   // by level: how easily fire pins them, how fast it wears off, how long their aim takes to close in, the time a player may stay put before he is flanked, the share of a squad that may move at once, the losses that break a squad, smoke
-  { supp: 1.35, sDecay: 0.42, ramp: 3.0, flank: 26, mover: 0.3, fall: 0.5, smoke: false },
-  { supp: 1.0, sDecay: 0.36, ramp: 2.1, flank: 16, mover: 0.38, fall: 0.6, smoke: true },
-  { supp: 0.72, sDecay: 0.3, ramp: 1.4, flank: 11, mover: 0.5, fall: 0.72, smoke: true },
+const TAC = [   // by level: how easily fire pins them, how fast it wears off, how long their aim takes to close in, the time a player may stay put before he is flanked, the share of a squad that may move at once, the losses that break a squad
+  { supp: 1.45, sDecay: 0.4, ramp: 3.6, flank: 30, mover: 0.3, fall: 0.45 },
+  { supp: 1.1, sDecay: 0.34, ramp: 2.7, flank: 20, mover: 0.36, fall: 0.55 },
+  { supp: 0.8, sDecay: 0.3, ramp: 1.8, flank: 13, mover: 0.45, fall: 0.68 },
 ];
 const tacK = () => TAC[Math.max(0, DIFF.indexOf(diff))] || TAC[1];
 const pinned = (e) => (e.supp || 0) > 0.55;
@@ -400,8 +400,6 @@ function sqMoving(s, tag) { let n = 0; for (const m of s.men) if (m.alive && sqK
 function sqMayMove(e) {
   const s = sqOf(e); if (!s) return true; const key = sqKey(e), n = sqAlive(s, key); if (n <= 1) return true;
   if (sqMoving(s, key) >= Math.max(1, Math.round(n * tacK().mover))) return false;
-  // the first of a bound under the player's eyes: a puff of smoke between them first, if the squad has it
-  if (tacK().smoke && n >= 3 && GAME.t - s.smokeT > 50 && e.target && e.target.player) { const dP = Math.hypot(P.pos.x - e.pos.x, P.pos.z - e.pos.z); if (dP > 22 && dP < 85) { s.smokeT = GAME.t; const p = V3(lerp(e.pos.x, P.pos.x, 0.32), 0, lerp(e.pos.z, P.pos.z, 0.32)); p.y = groundAt(p.x, p.z); smokeAdd(p); e.throwT = 0.5; } }
   return true;
 }
 /* while one of them is out in the open the others fire to cover him */
@@ -1275,7 +1273,10 @@ function updPlayer(dt) {
     const back = (m.big ? V3(-0.34, 0.4, -0.95) : m.heavy ? V3(0.2, 0.55, -1.25) : V3(0.15, 0.37, -1.22)).applyEuler(new THREE.Euler(-P.pitch * 0.4, P.yaw + Math.PI, 0, 'YXZ'));
     camera.position.copy(m.pivot.position).add(back);
   } else if (P.ride) {
-    const rp = P.ride.pos(); P.pos.copy(rp); P.crouch = true; P.sprint = false; const e = playerEye(); camera.position.set(e.x, e.y, e.z); if (P.ride.mg || P.ride.novm) vm.visible = false;
+    const rp = P.ride.pos(); P.pos.copy(rp); P.crouch = true; P.sprint = false; const e = playerEye(); if (P.ride.mg || P.ride.novm) vm.visible = false;
+    // a touch of third person on a vehicle: the eye drawn back 2.1 m along the look and lifted 1.2 m, so the vehicle and its gun are in the picture; the shot still goes through the crosshair's centre
+    const k = P.ads > 0.5 ? 0 : 1 - P.ads * 2, fx = -Math.sin(P.yaw) * Math.cos(P.pitch), fz = -Math.cos(P.yaw) * Math.cos(P.pitch), fy = Math.sin(P.pitch);
+    camera.position.set(e.x - fx * 2.1 * k, e.y + (1.2 - fy * 2.1) * k, e.z - fz * 2.1 * k);   // (high enough to clear the open hatch lid behind a tank's cupola)
   } else {
     let fwd = (k.KeyW || k.ArrowUp ? 1 : 0) - (k.KeyS || k.ArrowDown ? 1 : 0) - INPUT.joy.y, str = (k.KeyD || k.ArrowRight ? 1 : 0) - (k.KeyA || k.ArrowLeft ? 1 : 0) + INPUT.joy.x;
     const l = Math.hypot(fwd, str); if (l > 1) { fwd /= l; str /= l; }
@@ -1435,8 +1436,24 @@ function feed(text, cls = '') { const el = document.createElement('div'); el.tex
 let toastTimer = 0;
 function toast(t, s = '') { $('#toastT').textContent = t; $('#toastS').textContent = s; $('#toast').classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => $('#toast').classList.remove('show'), 3800 + Math.min(4200, s.length * 32)); }
 function clockText() { const m = START_MIN + Math.floor(FIELDM() ? CH().tod() : GAME.t / 6); return `${Math.floor(m / 60)}:${String(m % 60).padStart(2, '0')}`; }
+/* which enemies carry their red mark, and when: the ones that matter now - firing, aiming a bazooka, or with the player in their sight. On
+   the easy level also every man who knows we are here; on the hard one only those shooting */
+function tagWanted(e) {
+  const lv = Math.max(0, DIFF.indexOf(diff)), fired = GAME.t - (e.shotT ?? -9) < 2.6, aim = (e.rpgAim > 0.1 && e.peek) || !!e.guide;
+  if (fired || aim) return true; if (lv === 2) return false; if ((e.seeT || 0) > 0.3) return true; return lv === 0 && !!e.alert;
+}
+/* arrows on a ring round the middle of the screen toward the men shooting at the player from out of view - the nearer the arrow to the top,
+   the more ahead of him the shooter (up to four, the most recent) */
+const _thv = V3();
+function threatArrows() {
+  const box = $('#threats'); if (!box) return; if (!box.children.length) for (let i = 0; i < 4; i++) box.appendChild(document.createElement('i'));
+  const L = []; if (GAME.state === 'play' && P.alive && !CINE.on) for (const e of UNITS.enemies) { if (!e.alive || GAME.t - (e.shotT ?? -9) > 3) continue; const c = e.chest(), v = _thv.copy(c).project(camera); if (v.z < 1 && Math.abs(v.x) < 0.92 && Math.abs(v.y) < 0.92) continue; L.push([e.shotT, c.clone().applyMatrix4(camera.matrixWorldInverse)]); }
+  L.sort((a, b) => b[0] - a[0]); const W = innerWidth, H = innerHeight;
+  [...box.children].forEach((el, i) => { const q = L[i]; if (!q) { el.style.opacity = '0'; return; } const a = Math.atan2(q[1].x, -q[1].z), x = W / 2 + Math.sin(a) * W * 0.4, y = H / 2 - Math.cos(a) * H * 0.38;
+    el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) rotate(${a.toFixed(3)}rad)`; el.style.opacity = '1'; });
+}
 function updHUD(dt) {
-  updCompass(); drawMinimap();
+  updCompass(); drawMinimap(); threatArrows();
   // no movement stick when the player cannot move anyway: on a vehicle that drives itself, or in a gun pit
   { const noMove = (P.mode === 'tank' && !TANK.free) || !!P.ride || P.mode === 'mag' || CINE.on; if (noMove !== updHUD.noMove) { updHUD.noMove = noMove; $('#app').classList.toggle('nomove', noMove); } }
   const low = 1 - P.hp / 100; $('#vignette').style.opacity = String(clamp(Math.pow(low, 1.2) * 1.1, 0, 0.95));
@@ -1614,7 +1631,6 @@ window.addEventListener('keydown', (e) => {
   if (INPUT.keys[e.code]) return; INPUT.keys[e.code] = true;
   if (e.code === 'KeyR') { if (P.mode === 'tank' && CH() && CH().tankAct2) CH().tankAct2(); else reload(); }
   if (e.code === 'KeyG') throwPlayerGrenade();
-  if (e.code === 'KeyT') throwSmoke();
   if (e.code === 'KeyB') survAir();
   if (e.code === 'KeyE') doAction();
   if (e.code === 'KeyC') { if (P.mode === 'rifle' || P.mode === 'tank') P.crouch = !P.crouch; }
@@ -1717,6 +1733,7 @@ window.addEventListener('resize', resize);
 function update(dt, time) {
   const rdt = dt; if (CINE.on) dt *= CINE.slow; FDT = dt;
   GAME.t += dt; GAME.gCd -= dt;
+  for (const v of VEH) if (v.tag && v.tag.visible && (v.mode !== MODE || !FIELDM())) v.tag.visible = false;   // marks of another chapter's vehicles
   if (FIELDM()) { CH().upd(dt); if (GAME.state !== 'play') return; updTank(dt); updVeh(dt); } else { if (SURV.on) survUpd(dt); else updDirector(dt); if (GAME.state !== 'play') return; updBoats(dt); flotUpd(dt, BOATS.some((b) => !b.dead && (b.state === 'cross' || b.state === 'landed'))); }
   updJets(dt); if (FILMW.length) filmWalk(dt);
   for (const e of UNITS.enemies) if (e.rig.root.visible) updEnemy(e, dt);

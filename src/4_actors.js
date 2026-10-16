@@ -715,7 +715,7 @@ class Unit {
       if (want < lv && eff > QLOD[want] * 0.9) want = lv; this.rig.setLOD(want); }
     // far enemies are drawn larger (by how small they would look through the current lens), so a soldier always reads as a soldier
     if (this.side === 'e') { const want = CINE.on || (this.sz === 'win' && this.stance === 'hide') /* a man ducked behind bags or a parapet stays his real size, so they hide him */ ? 1 : clamp(0.03 * far * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2), 1, 2.1); this.vs += (want - this.vs) * 0.25; this.rig.root.scale.setScalar(US * this.vs); }
-    const show = this.rig.root.visible && this.alive && this.stance !== 'down' && (this.stance !== 'hide' || hid) && this.fall < 0; this.tag.visible = show && !CINE.on && !this.noTag && (this.side === 'f' || far > 12);
+    const show = this.rig.root.visible && this.alive && this.stance !== 'down' && (this.stance !== 'hide' || hid) && this.fall < 0; this.tag.visible = show && !CINE.on && !this.noTag && (this.side === 'f' || (far > 12 && tagWanted(this)));
     if (this.tag.visible) { this.tag.position.set(this.pos.x, this.pos.y + (this.stance === 'crouch' ? 1.55 : 2.2) * US * this.vs, this.pos.z);
       if (this.side === 'e') { const aim = (this.rpgAim > 0.1 && this.peek) || !!this.guide, fired = GAME.t - (this.shotT ?? -9) < (MODE === 'suez' ? 2.6 : 1.3), field = MODE !== 'mezach', big = field && P.mode === 'tank', base = big ? 0.04 : field ? 0.032 : 0.026;
         this.tag.material = aim ? TAGM.rpg : fired ? TAGM.fire : hid ? TAGM.dim : this.kind === 'rpg' && field ? TAGM.rpg : TAGM.e;

@@ -583,8 +583,9 @@ function tankMainGun() {
 function tankCamera(dt) {
   const hd = TANK.g.rotation.y;
   if (P.ads > 0.5) { TANK.gun.updateMatrixWorld(); const gp = TANK.gun.localToWorld(V3(0.55, 0.32, 0.4)); camera.position.copy(gp); }
-  else { const hp = tankHeadPos(); camera.position.copy(hp); }
-  P.pos.set(camera.position.x, camera.position.y - 1.65, camera.position.z); P.pitch = clamp(P.pitch, -0.55, 1.2);
+  else { const hp = tankHeadPos(), k = 1 - P.ads * 2, fx = -Math.sin(P.yaw) * Math.cos(P.pitch), fz = -Math.cos(P.yaw) * Math.cos(P.pitch), fy = Math.sin(P.pitch);
+    camera.position.set(hp.x - fx * 2.8 * k, hp.y + (0.9 - fy * 2.8) * k, hp.z - fz * 2.8 * k); }   // a touch of third person: behind and above the commander's head, the tank in the picture
+  { const hp = P.ads > 0.5 ? camera.position : tankHeadPos(); P.pos.set(hp.x, hp.y - 1.65, hp.z); } P.pitch = clamp(P.pitch, -0.55, 1.2);   // the player is at the cupola, wherever the eye is
   const sh = FX.shake; FX.shake = Math.max(0, FX.shake - dt * 1.8);
   camera.rotation.set(P.pitch + (sh ? rand(-sh, sh) * 0.03 : 0), P.yaw + (sh ? rand(-sh, sh) * 0.02 : 0), 0, 'YXZ');
   const fov = P.ads > 0.5 ? 13 : P.crouch ? 55 : 70; if (Math.abs(camera.fov - fov) > 0.05) { camera.fov = fov; camera.updateProjectionMatrix(); }

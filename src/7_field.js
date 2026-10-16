@@ -123,10 +123,13 @@ function addVeh(o) {
   if ((o.geo === HT_GEO || o.geo === ETRUCK_GEO || o.geo === JEEP_GEO) && typeof VEH_DATA !== 'undefined' && VEH_DATA.jeep) { const r = vehModel('jeep', o.geo === ETRUCK_GEO || (o.side || 'e') === 'e' ? 'e' : 'f'); scene.add(SH(onLayer1(r.g))); o = Object.assign({}, o, { g: r.g, half: [2.05, 2.0, 0.95] }); if (o.mg) Object.assign(o, { mgM: r.mg, mgOff: 0 }); }   // the half-tracks and trucks of the old set are jeeps now
   if (o.geo === TANK_GEO && typeof VEH_DATA !== 'undefined' && VEH_DATA.magach) { const r = vehModel('magach', 'f'); scene.add(SH(onLayer1(r.g))); o = Object.assign({}, o, { g: r.g, tur: r.tur, half: [3.5, 2.6, 1.8] }); }   // the modelled Magach
   if (o.geo === T55_HULL && typeof VEH_DATA !== 'undefined' && VEH_DATA.t55) { const r = vehModel('t55', 'e'); scene.add(SH(onLayer1(r.g))); o = Object.assign({}, o, { g: r.g, tur: r.tur, half: [3.5, 2.3, 1.7], hit: T55_HIT }); delete o.turGeo; }   // the modelled T-55
-  const v = Object.assign({ mode: MODE, side: 'e', kind: 'truck', alive: true, hp: 100, armor: 0.12, s: 0, speed: 0, vmax: 7, path: null, fireCd: rand(4, 7), half: [3.2, 2.6, 1.2], fwdX: true, hdV: null, x: 0, z: 0, burnT: 0, fires: [] }, o);
+  const v = Object.assign({ mode: MODE, side: 'e', kind: 'truck', alive: true, hp: 100, armor: 0.12, s: 0, speed: 0, vmax: 7, path: null, fireCd: rand(8, 12), half: [3.2, 2.6, 1.2], fwdX: true, hdV: null, x: 0, z: 0, burnT: 0, fires: [] }, o);
   if (!v.g) { v.g = new THREE.Group(); const m = new THREE.Mesh(v.geo, MAT.vc); v.g.add(m); v.body = m; if (v.geo === TANK_GEO) tankMarks(m, TANK_GEO); if (v.turGeo) { v.tur = new THREE.Group(); v.tur.position.set(v.turAt[0], v.turAt[1], v.turAt[2]); v.tur.add(new THREE.Mesh(v.turGeo, MAT.vc)); v.g.add(v.tur); } scene.add(SH(onLayer1(v.g))); }
   if (v.g.userData.vl) v.g.userData.vl.crew = true;   // a modelled vehicle in the battle has its man at the gun or in the hatch
-  v.g.userData.dyn = true; v.g.rotation.order = 'YXZ'; v.mats = []; v.g.traverse((m) => { if (m.isMesh) v.mats.push([m, m.material]); }); VEH.push(v); return v;
+  v.g.userData.dyn = true; v.g.rotation.order = 'YXZ'; v.mats = []; v.g.traverse((m) => { if (m.isMesh) v.mats.push([m, m.material]); });
+  // an enemy tank or gun carries a red mark over it, so it stands out against the sand (it flashes when it is about to fire)
+  if (v.side === 'e' && (v.kind === 't55' || v.kind === 'tank' || v.kind === 'atgun')) { v.tag = new THREE.Sprite(TAGM.e); v.tag.center.set(0.5, 0); v.tag.renderOrder = 5; v.tag.visible = false; v.tag.userData.dyn = true; scene.add(onLayer1(v.tag)); }
+  VEH.push(v); return v;
 }
 /* the modelled vehicles (4d_vehicles.js): a group with the body and, on the jeep, its MG on the post, turning about the post's top.
    Each keeps its level of detail by its distance from the camera */
@@ -289,7 +292,7 @@ function allyFire(v, dt) {
 }
 /* Egyptian tanks and anti-tank guns: they shoot at the player's tank (or at the player on foot) when they see it */
 function enemyVehFire(v, dt) {
-  v.fireCd -= dt; if (!v.alive || v.fireCd > 0 || !v.shoots) return; v.fireCd = rand(6, 9.5);
+  v.fireCd -= dt; if (!v.alive || v.fireCd > 0 || !v.shoots) return; v.fireCd = rand(10, 15);   // (their crews are slow: a shell every 10-15 s)
   // some tanks are told to shoot at a friendly vehicle instead (the rescue: Shaul's tank under the hill)
   const other = v.tgtV ? v.tgtV() : null;
   if (other && other.alive && other.g.visible) { const from = v.g.position.clone(); from.y += 2.1; const tp = other.g.position.clone(); tp.y += 1.4; const d = from.distanceTo(tp); if (d > 1600) return;
@@ -304,7 +307,7 @@ function enemyVehFire(v, dt) {
   if (v.tur) v.tur.rotation.y = wrapPi(Math.atan2(tp.x - from.x, tp.z - from.z) - v.hdV);
   const mz = v.g.position.clone().add(V3(Math.sin(Math.atan2(tp.x - from.x, tp.z - from.z)) * 4.5, v.kind === 'atgun' ? 1.0 : 2.2, Math.cos(Math.atan2(tp.x - from.x, tp.z - from.z)) * 4.5));
   fxMuzzle(mz, true); fxExplosion(mz, 0.35); sndBoom(mz, 0.9); fxTracer(mz, tp, true);
-  const pHit = clamp(0.55 - d / 2600, 0.14, 0.5) * (tank ? (P.crouch ? 0.7 : 1) : 0.35) * (CH() && CH().hitK ? CH().hitK() : 1), mk = CH() && CH().missK ? CH().missK() : 1;
+  const pHit = 0.55 * clamp(0.55 - d / 2600, 0.14, 0.5) * (tank ? (P.crouch ? 0.7 : 1) : 0.35) * (CH() && CH().hitK ? CH().hitK() : 1), mk = CH() && CH().missK ? CH().missK() : 1;
   if (Math.random() < pHit) { if (tank) { tankHit(tp.clone().add(V3(rand(-1, 1), -0.6, rand(-1, 1))), false, 22, v.g.position); radio('נהג', pick(['פגיעה מטנק! זה בא מ־' + clockOf(v.g.position) + '!', 'טנק מצרי יורה עלינו!']), 2.4); } else { explode(tp.clone().add(V3(rand(-2, 2), -1.4, rand(-2, 2))), 1.0, 6, 60, 'art'); } }
   else { const ux = (from.x - tp.x) / d, uz = (from.z - tp.z) / d, over = Math.random() < 0.6, along = over ? -rand(9, 20) : rand(-5, 5), side = (over ? rand(-6, 6) : (Math.random() < 0.5 ? -1 : 1) * rand(9, 15)) * Math.max(1, mk); const m = V3(tp.x + ux * along - uz * side, 0, tp.z + uz * along + ux * side); m.y = groundAt(m.x, m.z); fxExplosion(m, 0.8); sndBoom(m, 0.7); }
 }
@@ -321,7 +324,13 @@ function jeepMgFire(v, dt) {
   if (hit) hurtPlayer(rand(5, 9), from); else if (d < 60 && Math.random() < 0.3) sndWhiz();
 }
 function clockOf(p) { const fwd = Math.atan2(-Math.sin(P.yaw), -Math.cos(P.yaw)), a = Math.atan2(p.x - P.pos.x, p.z - P.pos.z); let h = Math.round(-wrapPi(a - fwd) / (Math.PI / 6)); h = ((h % 12) + 12) % 12 || 12; return `שעה ${h}`; }
+function vehTagTick(v) {   // the enemy vehicle's mark: over it while it is alive and in view, larger and flashing just before it fires
+  if (!v.tag) return; const on = v.alive && v.mode === MODE && v.g.visible && !CINE.on && v.g.position.distanceTo(camera.position) > 14; v.tag.visible = on; if (!on) return;
+  v.tag.position.set(v.g.position.x, v.g.position.y + (v.kind === 'atgun' ? 2.4 : 3.9), v.g.position.z); const warn = v.shoots && v.fireCd < 1.4;
+  v.tag.material = warn ? TAGM.fire : TAGM.e; v.tag.scale.setScalar(warn ? 0.06 + 0.012 * Math.sin(GAME.t * 16) : 0.05);
+}
 function updVeh(dt) {
+  for (const v of VEH) vehTagTick(v);
   VLT -= dt; if (VLT <= 0) { VLT = 0.3; vehLodTick(); } wreckUpd(dt); vehAnim(dt); crewUpd(dt);
   for (const v of VEH) {
     if (v.tag && (v.mode !== MODE || !v.g.visible || !v.alive || CINE.on)) v.tag.visible = false;
@@ -518,7 +527,7 @@ function fireAtgm(e, tgt = null) {
   if (bright) { const gl = new THREE.Sprite(new THREE.SpriteMaterial({ map: FXT.glow || FXT.fire, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, depthTest: false, sizeAttenuation: false, fog: false, toneMapped: false, color: new THREE.Color(3.2, 2.6, 0.4) })); gl.scale.setScalar(0.045); gl.position.z = -0.5; gl.renderOrder = 6; m.add(gl); }
   m.position.copy(from); scene.add(m); const tp = tgt ? tgt() : tankTurretWorld(); const dir = tp.clone().sub(from).normalize(); dir.y += 0.12; dir.normalize();
   const q = { type: 'atgm', m, fl, op: e, dir, speed: (CH() && CH().atgmSpeed) || 48, life: 30, tgt: tgt || (() => tankTurretWorld()), t: 0, bright }; e.guide = q; PROJ.push(q); sndShot('ak', from); sndBoom(from, 0.25);
-  if (bright) return q; szRpgCall(e, 'סאגר'); hint('sagger', `<b>סאגר!</b> הטיל מונחה בחוט: הוא פוגע רק אם המפעיל ממשיך לכוון. הרגו את המפעיל (סימון צהוב) לפני שהטיל מגיע, או היכנסו לצריח (${K('C')}).`, 8); return q;
+  if (bright) return q; szRpgCall(e, 'אר־פי־ג׳י'); hint('sagger', `<b>אר־פי־ג׳י!</b> הטיל מונחה בחוט: הוא פוגע רק אם המפעיל ממשיך לכוון. הרגו את המפעיל (סימון צהוב) לפני שהטיל מגיע, או היכנסו לצריח (${K('C')}).`, 8); return q;
 }
 function updAtgm(q, dt) {
   q.t += dt; q.life -= dt; const p = q.m.position;
@@ -530,7 +539,7 @@ function updAtgm(q, dt) {
   p.addScaledVector(q.dir, q.speed * dt); q.m.lookAt(p.clone().add(q.dir)); q.fl.scale.setScalar(0.8 + Math.random() * 0.5);
   if (Math.random() < dt * (q.bright ? 60 : 40)) { const s = FX.smoke.get(); s.life = q.bright ? 2.4 : 1.4; s.s.position.copy(p); s.s.material.color.set(q.bright ? 0xe0d6a8 : 0xb8b2a6); s.upd = (qq, u) => { qq.s.scale.setScalar(0.4 + u * (q.bright ? 2.4 : 1.6)); qq.s.material.opacity = (q.bright ? 0.65 : 0.5) * (1 - u); }; }
   const done = () => { if (q.op && q.op.guide === q) { q.op.guide = null; q.op.cyc = 0.6; } return true; };
-  if (TANK.alive && TANK.g && TANK.g.visible && p.distanceTo(tankTurretWorld(_tw)) < 2.6) { tankHit(p.clone(), false, P.crouch ? 14 : 22, q.op && q.op.pos); radio('נהג', 'סאגר פגע בנו! ממשיכים!', 2.2); return done(); }
+  if (TANK.alive && TANK.g && TANK.g.visible && p.distanceTo(tankTurretWorld(_tw)) < 2.6) { tankHit(p.clone(), false, P.crouch ? 14 : 22, q.op && q.op.pos); radio('נהג', 'אר־פי־ג׳י פגע בנו! ממשיכים!', 2.2); return done(); }
   if (q.vt) for (const v of VEH) if (v.alive && v.side === 'f' && v.mode === MODE && p.distanceTo(v.g.position) < 3.2) { if (v.sturdy) { fxExplosion(p.clone(), 0.9); sndBoom(p, 0.9); vehHit(v, 30, p); if (v.onHit) v.onHit(v, 'atgm'); } else vehDestroy(v); return done(); }
   if (p.y < groundAt(p.x, p.z) + 0.15 || q.life <= 0 || segHitT(p.x - q.dir.x * 1.2, p.y - q.dir.y * 1.2, p.z - q.dir.z * 1.2, p.x, p.y, p.z) >= 0) { explode(p.clone(), 0.8, 4, 50, 'rpg'); return done(); }
   return false;
@@ -640,7 +649,7 @@ function fSpawnStreet(x, z, path, kind = 'rifle') {
   return e;
 }
 function fSpawnStreet0(x, z, path, kind = 'rifle') { const e = spawnEnemy(x, z, varyKind(kind, x, z), null, null); if (!e) return null; e.sz = 'street'; e.state = 'sz'; e.alert = true; e.path = path.map((p) => [p[0], p[1]]); e.pi = 0; e.cov = null; e.patience = 0; e.climb = false; e.cyc = 1; e.peek = false; e.meleeCd = 0.5; e.rpgCd = rand(7, 13); return e; }
-function fSlotSpawn(kind, filter, tag) { const e = szSpawnSlot(kind === 'atgm' ? 'rpg' : kind, filter); if (e) { e.atgm = kind === 'atgm'; e.sq = tag; e.guide = null; if (e.atgm) e.rpgCd = rand(9, 16); } return e; }
+function fSlotSpawn(kind, filter, tag) { const e = szSpawnSlot(kind === 'atgm' ? 'rpg' : kind, filter); if (e) { e.atgm = false;   /* no Saggers: an anti-tank post holds a bazooka team */ e.sq = tag; e.guide = null; if (e.atgm) e.rpgCd = rand(9, 16); } return e; }
 /* ---------- defenders placed ahead of the advance ----------
    A position is manned before the player can see it, not when he reaches it: the man sits in his hole, hidden, and comes alive when the
    fight reaches him - his sector opens (wakeG), the player comes within his waking distance (wakeR), or a bullet lands near him.

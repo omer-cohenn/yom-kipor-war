@@ -47,7 +47,7 @@ const FM_STAGES = [
   { title: 'מי כאן יהודי?', sub: 'האש דועכת. בין הבורות בשטח שוכבים פצועים — שלנו, ולא רק שלנו. בחושך אין דרך לדעת לפני שקוראים.', goal: 'בדקו את ארבע הנקודות. חלצו את שני הפצועים שלנו לחובש שליד ג׳יפ הפינוי' },
   { title: 'אקווריום · 01:25', sub: 'ליל 15–16 באוקטובר. בזמן שהצומת בוערת, צנחני חטיבה 247 חוצים את התעלה בסירות גומי מהחצר — בשקט מוחלט.', goal: 'הצליחה בסירות גומי — סרטון' },
   { title: 'טרטור 42', sub: 'ליל 16–17 באוקטובר. ראש הגשר מעבר לתעלה מחזיק — אבל אין אליו דרך. גדוד 890 הולך מערבה בציר טרטור, בפריסה שקטה, תחת ירח, לפתוח אותו.', goal: 'התקדמו בשקט מערבה בציר טרטור' },
-  { title: 'עשן אפור', sub: 'עלות השחר, 17 באוקטובר. טנקים באים לחלץ את הפצועים על הסיפון, ומהחווה יורים עליהם סאגרים. רימון עשן אחד במקום הנכון — והטיל עיוור.', goal: 'זרקו עשן מול הסאגרים, והעלו את הפצועים לטנקי החילוץ' },
+  { title: 'חילוץ הפצועים', sub: 'עלות השחר, 17 באוקטובר. טנקים באים לחלץ את הפצועים על הסיפון, ומהחווה יורים עליהם. חפו על הטנקים והעלו את הפצועים — אחד אחד.', goal: 'העלו את הפצועים לטנקי החילוץ, וירו בצוותי האר־פי־ג׳י בחווה' },
   { title: 'החצר', sub: '17 באוקטובר. הדוברות עברו בלילה בציר עכביש אל החצר שעל שפת התעלה. מ־09:00 בונים כאן את הגשר, והארטילריה המצרית נופלת במטחים.', goal: 'בין המטחים: שחררו את הדוברות למים (◆). כשמתחילה הפגזה — למחסה' },
 ];
 // the clock of each stage (minutes from midnight at the start of the 15th; the next days go on past 24:00)
@@ -675,7 +675,7 @@ function fmSetup(st) {
   const C = CHAP.farm; fieldSetupCommon(C, st); resetTrail();
   Object.assign(FM, { stage: st, t: 0, msgs: {}, ph: '', saved: 0, loaded: 0, jt: 0, kt: 0, holdT: 0, waveT: 0, salvoT: 6, salvoN: 0, blind: 0, eng: 0, hitDone: false, hitAnim: null, slip: { st: 'ready', t: 0 }, pits: [], drive: false, artT: 0, illumT: 5, shot0: STATS.shots || 0, infT: 20, aq: null, amb: 1, filmTod: null, film: [], wave: 0, infN: 0, sagR: 0 });
   fmBarStop(); fmRingsClear(); SMOKE_POOL.clear(); SMOKES.length = 0; for (const m of FMX.pitMk) m.mk.visible = false;
-  P.mode = 'rifle'; vm.visible = true; P.smokeMax = [0, 0, 0, 3, 8, 0][st]; P.smoke = P.smokeMax; if (TANK.g) TANK.g.visible = false;
+  P.mode = 'rifle'; vm.visible = true; P.smokeMax = 0; P.smoke = 0;   // (no smoke grenades in the game) if (TANK.g) TANK.g.visible = false;
   for (const v of VEH) if (v.mode === 'farm') { vehRevive(v, v.rescue ? 90 : 100); fmHide(v); v.onHit = null; v.onDead = null; v.arrived = false; v.load = 0; v.shoots = false; v.speed = 0; v.s = 0; v.hdV = null; }
   meter(null); fmBridgeSet(st === S_YARD ? 3 : 0, false);
   { const [sx, sz] = FW(-344, FM_YARD.bz + FM_SLIPZ); C.slip.position.set(sx, FY + 0.6, sz); C.slip.rotation.set(0, 0, 0); C.slip.visible = st === S_YARD; }
@@ -927,7 +927,7 @@ function fm4Setup(C, put) {
   fmWounded(FM_WNAMES[1].map((n, i) => [n, FM_COLL[i][0], FM_COLL[i][1], true, Math.PI / 2 + (i % 2) * Math.PI]));
   // the rescue comes along Tirtur from the east: two carriers to the wounded, three tanks to cover them
   C.apc.forEach((v, i) => { fmDrive(v, [[[176, 196][i], -233], [[126, 156][i], -233]], 6.5, (vv) => { vv.arrived = true; if (!FM.msgs.arr) { FM.msgs.arr = true; radio('מפקד הטנק', 'אנחנו פה! תעלו אותם על הסיפון, מאחורי הצריח!', 3); } });
-    v.onHit = () => { radio('מפקד הטנק', pick(['חטפנו סאגר! אנחנו עוד זזים!', 'פגיעה! השריון החזיק — אנחנו פה!']), 2.6); };
+    v.onHit = () => { radio('מפקד הטנק', pick(['חטפנו אר־פי־ג׳י! אנחנו עוד זזים!', 'פגיעה! השריון החזיק — אנחנו פה!']), 2.6); };
     v.onDead = (vv) => { feed(`${vv.name} נפגע ועולה באש!`, 'bad'); radio('קשר', `${vv.name} נפגע! הטנק השני — אתם האחרונים!`, 3); }; });
   C.btank.forEach((v, i) => { fmDrive(v, [[[174, 187, 200][i], -227], [[168, 181, 194][i], -227]], 5); v.name = ['טנק 1', 'טנק 2', 'טנק 3'][i]; });
   // one front, north: the Sagger crews far up in the farm on the edges of the plots, a fresh one in place of every crew that falls; riflemen nearer
@@ -943,22 +943,23 @@ function fm4Start(C) {
   fmEstablish(S_SMOKE, 'ציר טרטור, מול החווה · 17.10 · 05:38', [
     { d: 4.4, cam: camLerp(farm.clone().add(V3(-30, 26, 150)), farm.clone().add(V3(-20, 16, 110)), farm, at, 50) },
     { d: 4.4, cam: (u) => { const a = C.apc[1].g.position; return { p: at.clone().add(V3(-14 - u * 4, 3.4, -10)), l: a.clone().add(V3(0, 1.4, 0)), fov: 44 }; } }],
-    [[0.3, 'הצנחנים מחזיקים בתעלה עד הבוקר, עם הפצועים. טנקים יוצאים לחלץ אותם בציר טרטור.', 4.0], [4.5, '״כל האזור היה מלא בעשן אפור. כל 45 שניות בערך, מקבץ של סאגרים שוגרו לעבר הטנקים.״ · מפקד גדוד 100', 4.4]],
-    () => { radio('מ״פ', 'הטנקים פה! ארבעה פצועים בתעלה — כל אחד לסיפון של טנק חילוץ. ועיניים לחווה, צפונה: הם יורים סאגרים!', 4.6); });
+    [[0.3, 'הצנחנים מחזיקים בתעלה עד הבוקר, עם הפצועים. טנקים יוצאים לחלץ אותם בציר טרטור.', 4.0], [4.5, 'הטנקים עולים בציר טרטור תחת אש מהחווה. כל פצוע — לסיפון של טנק חילוץ.', 4.0]],
+    () => { radio('מ״פ', 'הטנקים פה! ארבעה פצועים בתעלה — כל אחד לסיפון של טנק חילוץ. ועיניים לחווה, צפונה: הם יורים אר־פי־ג׳י!', 4.6); });
 }
 // a salvo: one missile (later two) from a crew that can see its target, at a carrier mostly
 function fmSagger() {
+  return;   // no Saggers in the game: the farm fires rifles and bazookas at the rescue
   const C = CHAP.farm, ops = UNITS.enemies.filter((e) => e.alive && e.fmSag && !e.guide).sort(() => Math.random() - 0.5);
   const apcs = C.apc.filter((v) => v.alive && v.g.visible), tks = C.btank.filter((v) => v.alive && v.g.visible);
   const v = apcs.length && (Math.random() < 0.72 || !tks.length) ? pick(apcs) : tks.length ? pick(tks) : null; if (!v || !ops.length) return;
   const tp = () => v.g.position.clone().add(V3(0, 1.5, 0)); let op = null;
   for (const e of ops) { const mz = e.muzzle(), t = tp(); if (losW(mz.x, mz.y + 0.4, mz.z, t.x, t.y, t.z)) { op = e; break; } } if (!op) return;
   op.face(tp().x, tp().z); op.peek = true; const q = fireAtgm(op, tp); q.vt = true; q.fmV = v;
-  q.onLost = () => { FM.blind++; feed('הסאגר איבד את המטרה! הטיל יורד לחול', 'good'); radio('מ״פ', pick(['הוא עיוור! הטיל נפל!', 'העשן עבד — הטיל הולך לאיבוד!', 'יופי! עוד אחד לחול!']), 2.2); fmSagRingOff(q, true); };
+  q.onLost = () => { FM.blind++; feed('האר־פי־ג׳י איבד את המטרה! הטיל יורד לחול', 'good'); radio('מ״פ', pick(['הוא עיוור! הטיל נפל!', 'העשן עבד — הטיל הולך לאיבוד!', 'יופי! עוד אחד לחול!']), 2.2); fmSagRingOff(q, true); };
   const t = v.g.position, o = op.pos, dx = o.x - t.x, dz = o.z - t.z, d = Math.hypot(dx, dz) || 1, x = t.x + dx / d * 7, z = t.z + dz / d * 7, y = hAt(x, z, FY + 0.6) + 0.14;
   const m = new THREE.Mesh(RING_GEO, fmRingMat()), dm = new THREE.Mesh(DISC_GEO, fmRingMat(0xffd23a, 0.16)); m.position.set(x, y, z); dm.position.set(x, y - 0.02, z); m.renderOrder = dm.renderOrder = 4; scene.add(onLayer1(m), onLayer1(dm)); FMX.sagRings.push({ q, m, d: dm, x, y, z, t: 0 });
-  radio('תצפית', `סאגר! ${clockOf(op.pos)}! אל ${v.name}!`, 2.2); FM.sagN = (FM.sagN || 0) + 1;
-  if (!FM.msgs.sag1) { FM.msgs.sag1 = true; slowMo(1.6, 0.35); hint('fm-smoke', `<b>סאגר!</b> הלהבה הצהובה באוויר היא הטיל, והמפעיל מהבהב בצהוב בחווה. זרקו רימון עשן (${K('T')}) לתוך <b>העיגול הצהוב</b> שליד ${v.name} — המפעיל לא יראה את המטרה, והטיל יאבד אותה.`, 10); }
+  radio('תצפית', `אר־פי־ג׳י! ${clockOf(op.pos)}! אל ${v.name}!`, 2.2); FM.sagN = (FM.sagN || 0) + 1;
+  if (!FM.msgs.sag1) { FM.msgs.sag1 = true; slowMo(1.6, 0.35); hint('fm-smoke', `<b>אר־פי־ג׳י!</b> הלהבה הצהובה באוויר היא הטיל, והמפעיל מהבהב בצהוב בחווה. זרקו רימון עשן (${K('T')}) לתוך <b>העיגול הצהוב</b> שליד ${v.name} — המפעיל לא יראה את המטרה, והטיל יאבד אותה.`, 10); }
 }
 function fmSagRingOff(q, good) { const i = FMX.sagRings.findIndex((r) => r.q === q); if (i < 0) return; const r = FMX.sagRings[i]; scene.remove(r.m); scene.remove(r.d); FMX.sagRings.splice(i, 1); if (good) fxDust(V3(r.x, r.y + 0.4, r.z)); }
 function fmRingsUpd() {
@@ -1161,10 +1162,10 @@ function fmItems(items) {
   if (st === S_PITS) { const left = FM.pits.filter((p) => p.st === 'wait').length; items.push(['next', `פצועים שפונו: ${FM.saved}/2`]); if (left) items.push(['', `נקודות שלא נבדקו: ${left}`]); }
   if (st === S_AQ) items.push(['', 'צנחני 247 בסירות: 11']);
   if (st === S_T42) { if (FM.ph === 'gates') gateItem(items); if (FM.ph === 'hold') items.push(['next', `מחזיקים עד אור ראשון: ${Math.max(0, Math.ceil(FM.holdT))} שנ׳`]); const n = FRIENDS.filter((f) => f.state === 'follow').length; items.push([n < 3 ? 'warn' : '', `צנחנים איתכם: ${n}`]); }
-  if (st === S_SMOKE) { items.push(['next', `פצועים על טנקי החילוץ: ${FM.loaded}/4`]); for (const v of C.apc) items.push([!v.alive || v.hp < 40 ? 'warn' : '', `${v.name}: ${v.alive ? Math.max(0, Math.round(v.hp / 0.9)) + '%' : 'נפגע'}`]); if (FMX.sagRings.length) items.push(['warn', 'סאגר באוויר! עשן לעיגול הצהוב']); items.push(['', `רימוני עשן: ${P.smoke} · טילים שעוורו: ${FM.blind}`]); }
+  if (st === S_SMOKE) { items.push(['next', `פצועים על טנקי החילוץ: ${FM.loaded}/4`]); for (const v of C.apc) items.push([!v.alive || v.hp < 40 ? 'warn' : '', `${v.name}: ${v.alive ? Math.max(0, Math.round(v.hp / 0.9)) + '%' : 'נפגע'}`]); if (FMX.sagRings.length) items.push(['warn', 'אר־פי־ג׳י באוויר! עשן לעיגול הצהוב']); items.push(['', `רימוני עשן: ${P.smoke} · טילים שעוורו: ${FM.blind}`]); }
   if (st === S_YARD) { const B = FM.bar; items.push(['next', `דוברות בגשר: ${FM.br}/${FM_BR.n}`]); if (B.on) items.push(B.phase === 'calm' ? ['', `שקט — המטח הבא בעוד ${Math.max(0, Math.ceil(B.calm - B.t))} שנ׳`] : ['warn', fmInShelter() ? 'הפגזה — אתם במחסה' : 'הפגזה! למחסה!']); }
 }
-function fmHints() { if (FM.stage === S_SMOKE && P.smoke === 0 && FM.ph === 'rescue') hint('fm-refill', `נגמרו רימוני העשן. ליד טנק חילוץ — ${K('E')} למילוי.`, 6); }
+function fmHints() { if (false) hint('fm-refill', `נגמרו רימוני העשן. ליד טנק חילוץ — ${K('E')} למילוי.`, 6); }
 function fmMini(g, X, poly, dot, k) {
   const W = (pts) => pts.map(([x, z]) => FW(x, z)), F = FM_FARM, Y = FM_YARD, cx = FM_CANAL.x, hw = FM_CANAL.hw, wl = [];
   for (const x of FM_DX) wl.push([W([[x, F.z0], [x, F.z1]]), 1.4, 'rgba(70,58,44,.85)']); for (const z of FM_DZ) wl.push([W([[F.x0, z], [F.x1, z]]), 1.4, 'rgba(70,58,44,.85)']);
@@ -1176,10 +1177,10 @@ function fmMini(g, X, poly, dot, k) {
   for (const r of FMX.sagRings) { const [a, b] = X(r.x, r.z); g.strokeStyle = '#ffd23a'; g.lineWidth = 2; g.beginPath(); g.arc(a, b, 6 + 2 * Math.sin(GAME.t * 8), 0, 6.283); g.stroke(); }
 }
 function fmEnd(win, why) {
-  const stats = [[STATS.kills, 'אויבים נפגעו'], [STATS.saved, 'פצועים חולצו'], [FM.blind || 0, 'סאגרים שעוורו בעשן']];
+  const stats = [[STATS.kills, 'אויבים נפגעו'], [STATS.saved, 'פצועים חולצו'], [FM.blind || 0, 'אר־פי־ג׳י שעוורו בעשן']];
   if (win) return ['יש גשר לאפריקה', 'ב־15 באוקטובר 1973 עברה חטיבה 14 בשקט בתפר שבין שתי הארמיות המצריות והגיעה לתעלה בלי ירייה — ובצומת טרטור–לכסיקון נקלעה לאחד הקרבות הקשים של המלחמה. באותו לילה חצו צנחני 247 את התעלה בסירות גומי, ו״ההפתעה היתה מושלמת״. בליל 16–17 הלך גדוד 890 מערבה בציר טרטור ונלחם בתעלות עד הבוקר; בזמן שהמצרים נלחמו בו, עברו הדוברות בציר עכביש אל החצר. המהנדסים בנו את הגשר תחת הפגזה, ובסביבות 16:30 ב־17 באוקטובר נגע הגשר בגדה המערבית. בקרבות החווה נפלו כ־120 לוחמי חטיבה 14 בלילה הראשון וכארבעים מצנחני 890.', stats];
-  if (why === 'apc') return ['טנקי החילוץ הושמדו', 'כל סאגר שמגיע לטנק פוגע בו. כשנשמעת קריאת "סאגר!" — חפשו את הלהבה הצהובה וזרקו עשן (T) לעיגול הצהוב שבין הטנק לחווה. מפעיל שלא רואה את המטרה מאבד את הטיל.', stats];
-  return ['נפגעת', ['הישארו ליד הטנקים וירו בציידי הטנקים (צהוב) לפני שהם מגיעים. בתעלה — קטע אחרי קטע, ורימון לפני כל פינה.', 'לא כל מי ששוכב בבור הוא שלנו. כשעונים בערבית — יורים מיד, ומתרחקים מהבור.', 'הצליחה בסירות היא סרטון: אפשר לדלג עליו.', 'כשנפתחת האש — לתעלה שמצפון לכביש (◆): שם יש מחסה, ועשן (T) מסתיר אתכם בדרך. משם מערבה, קטע אחרי קטע.', 'הפצועים בתעלה, טנקי החילוץ על הכביש. סחבו אחד־אחד, וזרקו עשן כשטס סאגר.', 'כשהקשר צועק "ארטילריה!" יש כמה שניות להגיע לבונקר. משחררים דוברות רק בין המטחים.'][FM.stage] || '', stats];
+  if (why === 'apc') return ['טנקי החילוץ הושמדו', 'כל אר־פי־ג׳י שמגיע לטנק פוגע בו. כשנשמעת קריאת "אר־פי־ג׳י!" — חפשו את הלהבה הצהובה וזרקו עשן (T) לעיגול הצהוב שבין הטנק לחווה. מפעיל שלא רואה את המטרה מאבד את הטיל.', stats];
+  return ['נפגעת', ['הישארו ליד הטנקים וירו בציידי הטנקים (צהוב) לפני שהם מגיעים. בתעלה — קטע אחרי קטע, ורימון לפני כל פינה.', 'לא כל מי ששוכב בבור הוא שלנו. כשעונים בערבית — יורים מיד, ומתרחקים מהבור.', 'הצליחה בסירות היא סרטון: אפשר לדלג עליו.', 'כשנפתחת האש — לתעלה שמצפון לכביש (◆): שם יש מחסה, ועשן (T) מסתיר אתכם בדרך. משם מערבה, קטע אחרי קטע.', 'הפצועים בתעלה, טנקי החילוץ על הכביש. סחבו אחד־אחד, וזרקו עשן כשטס אר־פי־ג׳י.', 'כשהקשר צועק "ארטילריה!" יש כמה שניות להגיע לבונקר. משחררים דוברות רק בין המטחים.'][FM.stage] || '', stats];
 }
 CHAP.farm = { stages: FM_STAGES, st: () => FM.stage, cp: () => CHAP.farm.cpN || 0, upd: fmUpd, obj: fmObj, hints: fmHints, items: fmItems, mini: fmMini, restore: fieldRestore, end: fmEnd,
   tank: false, dry: false, night: true, cloth: 0xb0a582, tracers: 0.8, burnLong: true, allyK: 0.15, allyInf: () => (FM.stage === S_JCT ? 0.2 : 0.5), hitK: () => 0.8, atgmBright: true, atgmSpeed: 38,

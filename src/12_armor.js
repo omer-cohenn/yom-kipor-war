@@ -256,7 +256,7 @@ function amItems(items) {
   if (AM.zs === 'hold') { const [left, tot] = amAssault(), ins = amInside(AM.zi); items.push([ins ? 'warn' : 'next', ins ? `האויב בתוך העמדה (${ins})!` : `טנקים בהסתערות: ${left} מתוך ${tot}`]); }
   if (AM.zs === 'clear') items.push(['warn', `מצרים בתוך העמדה: ${amInside(AM.zi)}`]);
   items.push(['', `טנקים וחי״ר מצריים בגזרה: ${amLeft(AM.zi)}`]);
-  if (PROJ.some((q) => q.type === 'atgm')) items.push(['warn', 'סאגר באוויר! זוזו, הסתתרו מאחורי סוללה, או הרגו את המפעיל']);
+  if (PROJ.some((q) => q.type === 'atgm')) items.push(['warn', 'אר־פי־ג׳י באוויר! זוזו, הסתתרו מאחורי סוללה, או הרגו את המפעיל']);
 }
 function amHints() { if (GAME.t > 1) hint('sz-tank', TOUCH ? `אתם מפקד הטנק ונוהג בו. <kbd>אש</kbd> = מקלע 0.5, <kbd>רימון</kbd> = פגז, <kbd>כוונת</kbd> = כוונת התותחן.` : `${K('לחיצה ממושכת')} מקלע 0.5, ${K('G')} פגז מהתותח, לחצן ימני כוונת תותחן. טנק שזז קשה יותר לפגוע בו.`, 9); }
 function amMini(g, X, poly, dot, k) {
