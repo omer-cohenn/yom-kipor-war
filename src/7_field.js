@@ -264,7 +264,9 @@ function rayVeh(o, d, maxT) {
   let best = null, bt = maxT;
   for (const v of VEH) { if (v.mode !== MODE || v.side !== 'e' || !v.g.visible) continue; if (Math.hypot(v.g.position.x - o.x, v.g.position.z - o.z) > maxT + 10) continue;
     _vi.copy(v.g.matrixWorld).invert(); _vo.copy(o).applyMatrix4(_vi); _vd.copy(d).transformDirection(_vi); const [hx, hy, hz] = v.half;
-    const t = v.fwdX ? rayBox(_vo, _vd, -hx, hx, 0, hy, -hz, hz) : rayBox(_vo, _vd, -hz, hz, 0, hy, -hx, hx); if (t !== null && t < bt && t > 0.5) { bt = t; best = { t, kind: 'veh', v }; } }
+    let t = v.fwdX ? rayBox(_vo, _vd, -hx, hx, 0, hy, -hz, hz) : rayBox(_vo, _vd, -hz, hz, 0, hy, -hx, hx);
+    if (v.box2) { const b = v.box2, t2 = rayBox(_vo, _vd, b[0], b[1], b[2], b[3], b[4], b[5]); if (t2 !== null && (t === null || t2 < t)) t = t2; }   // a second box in the vehicle's own frame (a tank's cupola and the man in its hatch, above the hull box)
+    if (t !== null && t < bt && t > 0.5) { bt = t; best = { t, kind: 'veh', v }; } }
   return best;
 }
 /* friendly guns: jeep machine guns and the wingman tanks shoot at whatever they can see */
@@ -295,7 +297,7 @@ function enemyVehFire(v, dt) {
   const mz = v.g.position.clone().add(V3(Math.sin(Math.atan2(tp.x - from.x, tp.z - from.z)) * 4.5, v.kind === 'atgun' ? 1.0 : 2.2, Math.cos(Math.atan2(tp.x - from.x, tp.z - from.z)) * 4.5));
   fxMuzzle(mz, true); fxExplosion(mz, 0.35); sndBoom(mz, 0.9); fxTracer(mz, tp, true);
   const pHit = clamp(0.55 - d / 2600, 0.14, 0.5) * (tank ? (P.crouch ? 0.7 : 1) : 0.35) * (CH() && CH().hitK ? CH().hitK() : 1), mk = CH() && CH().missK ? CH().missK() : 1;
-  if (Math.random() < pHit) { if (tank) { tankHit(tp.clone().add(V3(rand(-1, 1), -0.6, rand(-1, 1))), false, 22); radio('נהג', pick(['פגיעה מטנק! זה בא מ־' + clockOf(v.g.position) + '!', 'טנק מצרי יורה עלינו!']), 2.4); } else { explode(tp.clone().add(V3(rand(-2, 2), -1.4, rand(-2, 2))), 1.0, 6, 60, 'art'); } }
+  if (Math.random() < pHit) { if (tank) { tankHit(tp.clone().add(V3(rand(-1, 1), -0.6, rand(-1, 1))), false, 22, v.g.position); radio('נהג', pick(['פגיעה מטנק! זה בא מ־' + clockOf(v.g.position) + '!', 'טנק מצרי יורה עלינו!']), 2.4); } else { explode(tp.clone().add(V3(rand(-2, 2), -1.4, rand(-2, 2))), 1.0, 6, 60, 'art'); } }
   else { const ux = (from.x - tp.x) / d, uz = (from.z - tp.z) / d, over = Math.random() < 0.6, along = over ? -rand(9, 20) : rand(-5, 5), side = (over ? rand(-6, 6) : (Math.random() < 0.5 ? -1 : 1) * rand(9, 15)) * Math.max(1, mk); const m = V3(tp.x + ux * along - uz * side, 0, tp.z + uz * along + ux * side); m.y = groundAt(m.x, m.z); fxExplosion(m, 0.8); sndBoom(m, 0.7); }
 }
 /* a jeep's machine gun: short bursts at the player whenever it sees him; a man flat in the trench is hard to hit */
@@ -520,7 +522,7 @@ function updAtgm(q, dt) {
   p.addScaledVector(q.dir, q.speed * dt); q.m.lookAt(p.clone().add(q.dir)); q.fl.scale.setScalar(0.8 + Math.random() * 0.5);
   if (Math.random() < dt * (q.bright ? 60 : 40)) { const s = FX.smoke.get(); s.life = q.bright ? 2.4 : 1.4; s.s.position.copy(p); s.s.material.color.set(q.bright ? 0xe0d6a8 : 0xb8b2a6); s.upd = (qq, u) => { qq.s.scale.setScalar(0.4 + u * (q.bright ? 2.4 : 1.6)); qq.s.material.opacity = (q.bright ? 0.65 : 0.5) * (1 - u); }; }
   const done = () => { if (q.op && q.op.guide === q) { q.op.guide = null; q.op.cyc = 0.6; } return true; };
-  if (TANK.alive && TANK.g && TANK.g.visible && p.distanceTo(tankTurretWorld(_tw)) < 2.6) { tankHit(p.clone(), false, P.crouch ? 14 : 22); radio('נהג', 'סאגר פגע בנו! ממשיכים!', 2.2); return done(); }
+  if (TANK.alive && TANK.g && TANK.g.visible && p.distanceTo(tankTurretWorld(_tw)) < 2.6) { tankHit(p.clone(), false, P.crouch ? 14 : 22, q.op && q.op.pos); radio('נהג', 'סאגר פגע בנו! ממשיכים!', 2.2); return done(); }
   if (q.vt) for (const v of VEH) if (v.alive && v.side === 'f' && v.mode === MODE && p.distanceTo(v.g.position) < 3.2) { if (v.sturdy) { fxExplosion(p.clone(), 0.9); sndBoom(p, 0.9); vehHit(v, 30, p); if (v.onHit) v.onHit(v, 'atgm'); } else vehDestroy(v); return done(); }
   if (p.y < groundAt(p.x, p.z) + 0.15 || q.life <= 0 || segHitT(p.x - q.dir.x * 1.2, p.y - q.dir.y * 1.2, p.z - q.dir.z * 1.2, p.x, p.y, p.z) >= 0) { explode(p.clone(), 0.8, 4, 50, 'rpg'); return done(); }
   return false;

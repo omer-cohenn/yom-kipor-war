@@ -57,6 +57,7 @@ button:focus-visible{outline:2px solid var(--sand);outline-offset:2px}
 #flashHit{inset:0;background:rgba(160,20,10,.28);opacity:0}
 #fade{inset:0;background:#000;opacity:0}
 #dmg{left:50%;top:50%;width:0;height:0}
+#flashHit,#dmg{z-index:4} /* over the tank gunner's sight (#tsight, later in the page): he sees he is hit and from where */
 #dmg b{position:absolute;left:-90px;top:-90px;width:180px;height:180px;border-radius:50%;border-top:6px solid rgba(230,40,30,.9);opacity:0;transition:opacity .9s}
 #fire{left:50%;top:50%;width:0;height:0}
 #fire b{position:absolute;left:-128px;top:-128px;width:256px;height:256px;border-radius:50%;border-top:4px solid rgba(255,164,52,.95);opacity:0;filter:drop-shadow(0 0 2px rgba(0,0,0,.85))}
