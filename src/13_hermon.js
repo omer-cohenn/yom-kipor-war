@@ -79,6 +79,15 @@ function hmNat(x, z) {
   mix3([0.64, 0.645, 0.65], [0.52, 0.525, 0.53], smooth(-0.3, 0.5, fbm(lx / 30, lz / 30, 3))); mixIn([0.72, 0.72, 0.7], 0.3 * smooth(0.2, 0.6, fbm(lx / 11, lz / 11, 2))); mixIn([0.5, 0.39, 0.31], 0.2 * smooth(0.15, 0.6, noise(lx / 48 + 3, lz / 48))); mixIn([0.34, 0.37, 0.3], 0.14 * smooth(0.3, 0.7, noise(lx / 25, lz / 25 + 9)));
   return h;
 }
+/* grass on all the mountain but the road, the trenches and their bunkers, and the post itself (0 or 1, in local coordinates) */
+function hmGrassL(lx, lz) {
+  if (distPolyline(lx, lz, HM_ROAD_S) < 4.6 || hmDist(lx, lz) < 3.5) return 0;
+  for (const ring of [HM_RING_O, HM_RING_I]) if (distPolyline(lx, lz, ring) < 2.4) return 0;
+  for (const sp of HM_SPURS) { if (!sp) continue; const [a, b] = sp; if (distPolyline(lx, lz, [a, b]) < 2.6) return 0; }
+  for (const b of HM_PILL) { const u = (lx - b.x) * b.tx + (lz - b.z) * b.tz, v = (lx - b.x) * b.nx + (lz - b.z) * b.nz; if (Math.max(Math.abs(u) - 2.0, Math.abs(v) - 1.6) < 1.2) return 0; }
+  return 1;
+}
+const hmGrassOk = (x, z) => hmGrassL(x - HM.o.x, z - HM.o.z);
 function hmCarve(x, z, h) {
   const lx = x - HM.o.x, lz = z - HM.o.z, base = hmBase(lx, lz);
   { const d = distPolyline(lx, lz, HM_ROAD_S); if (d < 8) { h = lerp(h, base + 0.3 * fbm(lx / 30, lz / 30, 2), 1 - smooth(3.5, 8, d)); mixIn([0.5, 0.47, 0.43], 0.75 * (1 - smooth(2, 4, d))); } }
@@ -93,6 +102,8 @@ function hmCarve(x, z, h) {
     if (cut > 0 && dp > 0.3) { h -= cut; mixIn([0.45, 0.42, 0.36], 0.35 * Math.min(1, cut)); }
     if (dp < 1.8) h = HM_L0 - 0.02;
   }
+  // green under the grass, inside the map's box (outside it hmFar has its own green)
+  if (Math.abs(lx) < 240 && lz > -220 && lz < 355 && hmGrassL(lx, lz)) mixIn([0.33, 0.42, 0.2], 0.66);
   return h;
 }
 function hmBuildKit() {
@@ -375,7 +386,7 @@ function hmTrenchProp(K, x, z, y, a, kind) {
   else K.ft('akms', ...at(0, 0), y, ry, 0, Math.PI / 2, false, T);
 }
 function hmBuild() {
-  const C = CHAP.hermon; C.ground = makeGround({ x0: HM.o.x - 230, x1: HM.o.x + 230, z0: HM.o.z - 210, z1: HM.o.z + 345, step: 1.6, ext: 1500, h: mapH('hermon', hmOuter, hmCarve), map: 'hermon', vegOk: (x, z) => { const lx = x - HM.o.x, lz = z - HM.o.z; return distPolyline(lx, lz, HM_ROAD_S) > 5 && hmDist(lx, lz) > 70; } }); GROUND = C.ground;
+  grassCarpet('hermon', hmGrassOk); const C = CHAP.hermon; C.ground = makeGround({ x0: HM.o.x - 230, x1: HM.o.x + 230, z0: HM.o.z - 210, z1: HM.o.z + 345, step: 1.6, ext: 1500, h: mapH('hermon', hmOuter, hmCarve), map: 'hermon', vegOk: (x, z) => { const lx = x - HM.o.x, lz = z - HM.o.z; return distPolyline(lx, lz, HM_ROAD_S) > 5 && hmDist(lx, lz) > 70; } }); GROUND = C.ground;
   const BAGS = [], sv = BATCH.bag; BATCH.bag = BAGS; const k0 = COVER.length; C.slots = [];
   const K = hmBuildKit(), r = rng(2210), stone = [], L = (x, z) => [x - HM.o.x, z - HM.o.z], y0 = HM_L0, y1 = HM_PY, yR = HM_RY;
   const { x0, x1, z0, z1 } = HM_F, [dx] = HM_DOOR, U = HM_U, ST = HM_STAIR, RS = HM_RSTAIR;
@@ -588,9 +599,9 @@ function hmGeoCol(E, N, h, k) {
   const mix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
   let c;
   if (k === 2) c = cell < 0.11 && N < -18 && N > -34 ? [0.34, 0.47, 0.48] : cell < 0.5 ? [0.31, 0.44, 0.22] : cell < 0.72 ? [0.44, 0.5, 0.28] : cell < 0.88 ? [0.53, 0.47, 0.34] : [0.26, 0.36, 0.2];   // the Hula: green fields, fish ponds, brown ploughland, orchards
-  else if (k === 5 || h > 1700) c = mix(mix([0.7, 0.69, 0.66], [0.55, 0.53, 0.49], smooth(-0.2, 0.5, n1)), [0.6, 0.53, 0.4], smooth(1900, 1100, h) * 0.8);
+  else if (k === 5 || h > 1700) { c = mix(mix([0.6, 0.6, 0.55], [0.48, 0.48, 0.42], smooth(-0.2, 0.5, n1)), [0.5, 0.5, 0.36], smooth(1900, 1100, h) * 0.8); c = mix(c, cell < 0.5 ? [0.3, 0.39, 0.2] : [0.38, 0.44, 0.24], 0.55 * smooth(2600, 1500, h)); }   // grass and oak scrub up the mountain's sides
   else if (k === 4) { const n2 = fbm(E / 4.5 + 3, N / 4.5, 3);   // the Golan: dry grass between broad dark fields of basalt, a few tilled plots and orchards round the villages
-    c = E > 18 && E < 60 && Math.abs(N - 23) < 8 && cell < 0.6 ? [0.36, 0.42, 0.26] : mix(mix([0.56, 0.5, 0.37], [0.3, 0.28, 0.25], smooth(-0.12, 0.3, n2) * 0.8), [0.4, 0.37, 0.31], smooth(0.1, 0.5, n1) * 0.5);
+    c = E > 18 && E < 60 && Math.abs(N - 23) < 8 && cell < 0.6 ? [0.36, 0.42, 0.26] : mix(mix([0.46, 0.48, 0.3], [0.28, 0.29, 0.22], smooth(-0.12, 0.3, n2) * 0.7), [0.36, 0.42, 0.24], smooth(0.1, 0.5, n1) * 0.5);
     if (cell < 0.1 && n2 < 0.1) c = mix(c, [0.42, 0.46, 0.3], 0.6); else if (cell > 0.93) c = mix(c, [0.62, 0.55, 0.42], 0.5);
     // the orchards of apple and cherry round the villages under the mountain, the kibbutzim's fields on the plateau
     { const vd = Math.min(Math.hypot(E + 0.1, N + 3.9), Math.hypot(E + 1.4, N + 8), Math.hypot(E - 0.8, N + 11.6), Math.hypot(E + 4.7, N + 6)); if (vd < 3.2 && cell < 0.7) c = mix(c, cell < 0.35 ? [0.27, 0.37, 0.2] : [0.36, 0.42, 0.25], 0.75 * (1 - smooth(1.5, 3.2, vd))); }
@@ -606,7 +617,8 @@ function hmGeoCol(E, N, h, k) {
 function hmFar(lx, lz) {
   const E = -lx / 1000, N = (lz - 290) / 1000, km = Math.hypot(E, N), [gh, gk] = hmGeo(E, N), F = MAPS.hermon && MAPS.hermon.far; let rel = gh - 2070, c = hmGeoCol(E, N, gh, gk);
   if (F && km < 1.8) { const [u, v] = mapUV(F, HM.o.x + lx, HM.o.z + lz), fw = 1 - smooth(0.6, 1.8, km); rel = lerp(rel, (mapBil(F.h, F.W, F.H, u, v) - HM_PY) * (1 + 0.8 * smooth(0.25, 1.2, km)), fw);
-    for (let q = 0; q < 3; q++) c[q] = lerp(c[q], mapCh(F.c, u, v, q) * 0.86, fw * 0.45); }   // the map's pale limestone only in part, and a shade darker: on the steep sunlit slopes it read as snow
+    for (let q = 0; q < 3; q++) c[q] = lerp(c[q], mapCh(F.c, u, v, q) * 0.86, fw * 0.45);
+    if (km > 0.2) { const gc = [0.3, 0.38, 0.19]; for (let q = 0; q < 3; q++) c[q] = lerp(c[q], gc[q], 0.62 * fw); } }   // the grass round the post   // the map's pale limestone only in part, and a shade darker: on the steep sunlit slopes it read as snow
   return [rel - km * km / 12.742, c, gk];
 }
 let HM_PANO = null;
