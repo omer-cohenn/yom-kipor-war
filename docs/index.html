@@ -60,6 +60,7 @@ button:focus-visible{outline:2px solid var(--sand);outline-offset:2px}
 #flashHit{inset:0;background:rgba(160,20,10,.28);opacity:0}
 #fade{inset:0;background:#000;opacity:0}
 #dmg{left:50%;top:50%;width:0;height:0}
+#flashHit,#dmg{z-index:4} /* over the tank gunner's sight (#tsight, later in the page): he sees he is hit and from where */
 #dmg b{position:absolute;left:-90px;top:-90px;width:180px;height:180px;border-radius:50%;border-top:6px solid rgba(230,40,30,.9);opacity:0;transition:opacity .9s}
 #fire{left:50%;top:50%;width:0;height:0}
 #fire b{position:absolute;left:-128px;top:-128px;width:256px;height:256px;border-radius:50%;border-top:4px solid rgba(255,164,52,.95);opacity:0;filter:drop-shadow(0 0 2px rgba(0,0,0,.85))}
@@ -1024,7 +1025,7 @@ window.LD = (function () {
 <script>
 /* the game's code is one big file: fetched here so the loading screen can show how much of it has arrived, then run as a module */
 (function () {
-  var SRC = 'game.js?v=5b2349063c', SIZE = 13089985, mb = function (n) { return (n / 1048576).toFixed(1); };
+  var SRC = 'game.js?v=ff70409854', SIZE = 13144383, mb = function (n) { return (n / 1048576).toFixed(1); };
   LD.plan([['dl', 'מוריד את המשחק', 5], ['code', 'מכין את המשחק', 4]], { img: 'img/mezach.jpg', clip: 'mezach' }); LD.step('dl'); LD.note('0.0 מתוך ' + mb(SIZE) + ' מ״ב');
   function fail() { LD.error('ההורדה נכשלה. בדקו את החיבור לאינטרנט ורעננו את הדף.'); }
   function start(s) { LD.step('code'); LD.frac(0.15, 2500); s.type = 'module'; document.body.appendChild(s); }
