@@ -2,18 +2,19 @@
 /* ================= chapter 5: the Hermon, 22 October 1973 =================
    Golani climb from Majdal Shams to take back the outpost that fell on the first day of the war. On the road, Syrian commandos lie in wait
    by the roadside and snipers sit on the rocks; at the cable-car station the fighting is room to room. Then the post itself, layer by layer:
-   an outer ring of trench, an inner ring with sangars in the yard, a bunker of eight rooms sunk into the rock, the terrace and the three
-   upper rooms on its slab, and last the roof, where the Syrians dug in behind stone baskets. Every position is manned before the player
-   can see it: the defenders wait hidden and come alive as the fight reaches them - nothing appears out of thin air. */
+   an outer ring of trench, an inner ring with sangars in the yard, the bunker sunk into the rock - a chain of eight rooms, each opening
+   into the next, round to the stair in the middle - the six rooms of the upper floor the same way, and last the roof, where the Syrians dug
+   in behind walls of stone baskets. Every position is manned before the player can see it: the defenders wait hidden and come alive as the
+   fight reaches them - nothing appears out of thin air. */
 const HM = { o: { x: 0, z: 11000 }, stage: 0, msgs: {} };
 const HW = toWorld(HM.o);
 const HM_STAGES = [
   { title: 'בעלייה', sub: 'עוד חושך, וקר. הציר ממג׳דל שמס מתפתל במעלה ההר, ובצדי הדרך, בין הסלעים, שוכב הקומנדו הסורי ומחכה. קטע אחרי קטע, סלע אחרי סלע.', goal: 'נקו קטע, רוצו לקטע הבא (◆). הקומנדו בצדי הדרך ועל הסלעים' },
   { title: 'הטבעת החיצונית', sub: 'הגדר של המוצב. התעלה החיצונית מתפתלת סביבו, עמדה אחרי עמדה, בכיוון אחד בלבד — עד תעלת הקשר שמובילה פנימה.', goal: 'בתעלה החיצונית סביב המוצב, עמדה אחרי עמדה, עד תעלת הקשר (◆)' },
   { title: 'אל דלת הבונקר', sub: 'בתעלת הקשר פנימה, אל הטבעת הפנימית. בחצר סנגרים של אבנים, ובסופה דלת הבונקר שהסורים נעלו מאחוריהם.', goal: 'הטבעת הפנימית, הסנגרים בחצר, ואז דלת הבונקר (◆)' },
-  { title: 'בתוך ההר', sub: 'מסדרון ארוך, קר ואפל, ושמונה חדרים — כולם מאוישים. רימון לפני כל דלת, הפיצוץ, ואז פנימה. בקצה האולם מדרגות שעולות.', goal: 'חדר אחרי חדר, רימון לפני כל דלת, עד המדרגות באולם הכניסה (◆)' },
-  { title: 'המרפסת', sub: 'עולים למרפסת, תחת אש מהגג שמעל. עמדות הגביונים, ואז שלושת החדרים העליונים: התצפית, הקשר והמפות.', goal: 'עמדות הגביונים במרפסת, ואז שלושת החדרים העליונים (◆)' },
-  { title: 'הדגל', sub: 'במדרגות החיצוניות לגג. שם הם התבצרו, בין הגביונים והאנטנות, עם הנוף על כל הגליל. עמדה אחרי עמדה, עד התורן.', goal: 'עמדה אחרי עמדה על הגג, עד התורן (◆)' },
+  { title: 'בתוך ההר', sub: 'אין כאן מסדרון: חדר נפתח לחדר. חדר השמירה, המגורים, חדר האוכל, המטבח, המחסן, הקשר ומגורי הקצינים — ובאמצע האולם עם המדרגות למעלה. כל דלת נפתחת רק כשהחדר שלפניה נקי.', goal: 'חדר אחרי חדר, עד המדרגות שבאולם האמצעי (◆)' },
+  { title: 'הקומה העליונה', sub: 'במדרגות למעלה, אל חדר הקשר. גם כאן חדר אחרי חדר: המודיעין, המגורים, החדר של המ״פ, אולם התצפית — עד המחסן שבו המדרגות לגג.', goal: 'חדר אחרי חדר בקומה העליונה, עד המדרגות לגג (◆)' },
+  { title: 'הדגל', sub: 'דרך הפתח אל הגג. קירות של סלסלות אבנים חוצים אותו, וביניהם מסלול אחד שמתפתל עד התורן. שם הם התבצרו, עמדה אחרי עמדה.', goal: 'במסלול שבין קירות הגביונים, עמדה אחרי עמדה, עד התורן (◆)' },
 ];
 const HM_ROAD = [[-22, -150], [38, -92], [-26, -30], [34, 34], [-22, 98], [28, 160], [4, 232]], HM_ROAD_S = smoothPath(HM_ROAD, 4);
 /* the post: two rings of trench round a bunker of three levels. Both rings are listed clockwise (seen from above, north up), so each bay's
@@ -28,10 +29,37 @@ const HM_SPURS = [[[28, 246.3], [24, 264.8]], null, null, [[0, 260], [6.5, 271.6
 /* small concrete bunkers sunk into the outer wall of the ring trenches, a firing slit looking back down the trench at whoever comes along it:
    the centre (x, z), the trench point beside it (cx, cz), along the trench (tx, tz) and outward (nx, nz) */
 const HM_PILL = (() => { const out = []; for (const [ring, tag, at] of [[HM_RING_O, 'o', [72, 160, 246]], [HM_RING_I, 'i', [58, 142]]]) { const d = densify(ring, 0.5); let acc = 0, k = 0; for (let i = 1; i < d.length && k < at.length; i++) { acc += Math.hypot(d[i][0] - d[i - 1][0], d[i][1] - d[i - 1][1]); if (acc < at[k]) continue; k++; const [px, pz] = d[i], [qx, qz] = d[Math.max(0, i - 4)], l = Math.hypot(px - qx, pz - qz) || 1, tx = (px - qx) / l, tz = (pz - qz) / l; let nx = -tz, nz = tx; if (nx * px + nz * (pz - 290) < 0) { nx = -nx; nz = -nz; } out.push({ x: px + nx * 2.9, z: pz + nz * 2.9, cx: px, cz: pz, tx, tz, nx, nz, ring: tag }); } } return out; })();
-const HM_F = { x0: -26, x1: 26, z0: 272, z1: 308 }, HM_DOOR = [6.5, 272], HM_CORR = [287, 293], HM_RX = [[-26, -13], [-13, 0], [0, 13], [13, 26]];
-const HM_U = { x0: -22, x1: 22, z0: 293, z1: 308 };                       // the upper block, three rooms on the slab; the terrace is south of it
-const HM_STAIR = { x0: 2.5, x1: 11, z0: 282, z1: 286, top: 10.5 };          // the main stair, across the back of the entrance hall, up through the slab onto the terrace (rises toward +x)
-const HM_RSTAIR = { x0: 22.4, x1: 25.4, z0: 289, z1: 300, zl: 303 };        // the outside stair to the roof, along the east wall of the upper block (rises toward +z)
+/* the bunker: no corridor. Each floor is a chain of rooms, one door from each into the next and no other way between them, the way the
+   trenches outside are one lane: the guard room at the door, then deeper and deeper into the post, round to the stair in the middle; upstairs
+   the same, round to the stair onto the roof. Each door stays shut until the room before it is clear, so there is only ever one room to take */
+const HM_F = { x0: -26, x1: 26, z0: 272, z1: 308 }, HM_DOOR = [6.5, 272];
+const HM_U = { x0: -22, x1: 22, z0: 280, z1: 308 };                       // the upper block on the slab; the strip of terrace south of it is never walked
+// the rooms of each floor, in the order they are taken. paint: the lower band and the wall above it; wood: a board floor; tz: polished screed (else rough)
+const HM_RM = [[
+  { id: 'guard', x0: 0, x1: 13, z0: 272, z1: 284, paint: [0x7a8466, 0xe8e2d0] },
+  { id: 'bunks', x0: -13, x1: 0, z0: 272, z1: 284, paint: [0x7e8c78, 0xeae5d6] },
+  { id: 'mess', x0: -26, x1: -13, z0: 272, z1: 296, paint: [0x8e8064, 0xede6d2] },
+  { id: 'kitchen', x0: -26, x1: -13, z0: 296, z1: 308, paint: [0xb9c0b8, 0xeeede6], tz: true },
+  { id: 'ammo', x0: -13, x1: 0, z0: 296, z1: 308, paint: [0xa29e94, 0xbcb8ae] },
+  { id: 'radio', x0: 0, x1: 13, z0: 296, z1: 308, paint: [0x667579, 0xe4e3da], tz: true },
+  { id: 'officers', x0: 13, x1: 26, z0: 284, z1: 308, paint: [0x74604a, 0xebe3d1], wood: true },
+  { id: 'hall', x0: -13, x1: 13, z0: 284, z1: 296, paint: [0x737c66, 0xdcd8cb] },
+], [
+  { id: 'signals', x0: 0, x1: 13, z0: 280, z1: 294, paint: [0x667579, 0xe6e5dc], tz: true },
+  { id: 'intel', x0: -9, x1: 0, z0: 280, z1: 294, paint: [0x80907c, 0xebe7da], tz: true },
+  { id: 'bunks2', x0: -22, x1: -9, z0: 280, z1: 294, paint: [0x7e8c78, 0xeae5d6] },
+  { id: 'cmdr', x0: -22, x1: -9, z0: 294, z1: 308, paint: [0x74604a, 0xebe3d1], wood: true },
+  { id: 'obs', x0: -9, x1: 13, z0: 294, z1: 308, paint: [0x7a8466, 0xe6e0ce], tz: true },
+  { id: 'store', x0: 13, x1: 22, z0: 294, z1: 308, paint: [0xa29e94, 0xbcb8ae] },
+]];
+// door k of a floor leads from room k-1 into room k: [x, z, the axis its wall runs along]. The lower floor's door 0 is the way in from the trench
+const HM_DR = [[[6.5, 272, 'x'], [0, 281, 'z'], [-13, 275, 'z'], [-22, 296, 'x'], [-13, 303, 'z'], [0, 299, 'z'], [13, 304, 'z'], [13, 291.5, 'z']],
+  [null, [0, 291, 'z'], [-9, 283, 'z'], [-19, 294, 'x'], [-9, 304, 'z'], [13, 298, 'z']]];
+// slits in the upper block's outer walls, over Syria and the Golan: [x, z, axis]
+const HM_WIN = [[-18, 308, 'x'], [-13, 308, 'x'], [-5, 308, 'x'], [0, 308, 'x'], [5, 308, 'x'], [10, 308, 'x'], [17.5, 308, 'x'], [-22, 286, 'z'], [-22, 300, 'z'], [-22, 304, 'z'], [-15.5, 280, 'x'], [-4.5, 280, 'x'], [6.5, 280, 'x']];
+const HM_STAIR = { x0: 2, x1: 10, z0: 284.2, z1: 287.6 };              // the hall's stair, along its south wall, rising toward +x into the signals room above
+const HM_RSTAIR = { x0: 18.6, x1: 21.6, z0: 298, z1: 306 };            // the store's stair along its east wall, rising toward -z through a hatch onto the roof
+const HM_MAST = [-17.5, 294], HM_RW = [14, 5, -4, -13];                 // the flag; the roof's walls of stone baskets, north to south, each open at alternate ends
 const HM_CABLE = [56, 44];
 const HM_NAMES = ['אבי', 'גיורא', 'דודי', 'ציון', 'ניסים', 'משה', 'יוסי', 'שמוליק', 'רמי', 'עוזי'];
 const hmRock = (r) => [0x8f8a80, 0x7d786f, 0x9a948a, 0x6e6a63, 0x878177, 0xa39d92][Math.floor(r() * 6)];   // weathered limestone, grey-tan with lichen (lighter greys read as snow in the sun)
@@ -71,214 +99,327 @@ function hmCarve(x, z, h) {
   return h;
 }
 function hmBuildKit() {
-  const K = { con: [], dark: [], gab: [], wood: [], prop: [], lamps: [] };
-  // a straight wall from (a) to (b) in local coordinates, with door gaps [from, to] measured along it
+  const K = { con: [], gab: [], wood: [], prop: [], lamps: [], skin: [], floorC: [], floorW: [], floorT: [], bulb: [] };
+  // a straight wall from (a) to (b) in local coordinates, with openings [from, to] measured along it: a door runs from the foot of the wall up
+  // to dTop, a window [from, to, bottom, top] is a slit with wall below and above it
   // the walls' concrete is tiled every 2 m (a plain box would stretch the whole texture along a 52 m wall)
   const wUV = (g, len, h, th) => { const uv = g.attributes.uv, n = g.attributes.normal; for (let i = 0; i < uv.count; i++) { const w = Math.abs(n.getX(i)) > 0.5 ? th : len, hh = Math.abs(n.getY(i)) > 0.5 ? th : h; uv.setXY(i, uv.getX(i) * w / 2, uv.getY(i) * hh / 2); } return g; };
-  K.wall = (ax, az, bx, bz, y0, y1, gaps = [], th = 0.35) => {
+  K.wall = (ax, az, bx, bz, y0, y1, gaps = [], th = 0.35, col = 0xffffff, dTop = null, list = K.con) => {
     const L = Math.hypot(bx - ax, bz - az), ux = (bx - ax) / L, uz = (bz - az) / L, rot = Math.atan2(-uz, ux); let s = 0; const segs = [];
-    for (const [g0, g1] of [...gaps].sort((p, q) => p[0] - q[0])) { if (g0 > s) segs.push([s, g0]); s = g1; } if (s < L) segs.push([s, L]);
-    for (const [s0, s1] of segs) { const m = (s0 + s1) / 2, [wx, wz] = HW(ax + ux * m, az + uz * m), len = s1 - s0; K.con.push([wUV(new THREE.BoxGeometry(len, y1 - y0, th), len, y1 - y0, th).rotateY(rot).translate(wx, (y0 + y1) / 2, wz), 0xffffff]); addCollider(wx, wz, len / 2, th / 2, rot, y1, y0); }
-    for (const [g0, g1] of gaps) { const m = (g0 + g1) / 2, [wx, wz] = HW(ax + ux * m, az + uz * m); K.con.push([wUV(new THREE.BoxGeometry(g1 - g0, 0.6, th), g1 - g0, 0.6, th).rotateY(rot).translate(wx, y1 - 0.3, wz), 0xffffff]); addCollider(wx, wz, (g1 - g0) / 2, th / 2, rot, y1, y1 - 0.6); }
+    const piece = (s0, s1, ya, yb) => { if (s1 - s0 < 0.01 || yb - ya < 0.01) return; const m = (s0 + s1) / 2, [wx, wz] = HW(ax + ux * m, az + uz * m), len = s1 - s0; list.push([wUV(new THREE.BoxGeometry(len, yb - ya, th), len, yb - ya, th).rotateY(rot).translate(wx, (ya + yb) / 2, wz), col]); addCollider(wx, wz, len / 2, th / 2, rot, yb, ya); };
+    for (const [g0, g1] of [...gaps].sort((p, q) => p[0] - q[0])) { if (g0 > s) segs.push([s, g0]); s = Math.max(s, g1); } if (s < L) segs.push([s, L]);
+    for (const [s0, s1] of segs) piece(s0, s1, y0, y1);
+    for (const [g0, g1, wb, wt] of gaps) { if (wb === undefined) piece(g0, g1, dTop ?? y1 - 0.6, y1); else { piece(g0, g1, y0, wb); piece(g0, g1, wt, y1); } }
   };
   K.slab = (x0, x1, z0, z1, y, t = 0.3, collide = true) => { const [a, b] = HW(x0, z0), [c, d] = HW(x1, z1); K.con.push([boxUV(a, c, y - t, y, b, d, 2, 2), 0xd8d4cc]); if (collide) addCollider((a + c) / 2, (b + d) / 2, (c - a) / 2, (d - b) / 2, 0, y, y - t); };
-  K.gabion = (lx, lz, w, d, h, y) => { const [wx, wz] = HW(lx, lz); K.gab.push(boxUV(wx - w / 2, wx + w / 2, y, y + h, wz - d / 2, wz + d / 2, 1, 1)); addCollider(wx, wz, w / 2, d / 2, 0, y + h, y - 0.2); };
-  K.box = (lx, lz, y, w, h, d, col, list = K.prop, rot = 0) => { const [wx, wz] = HW(lx, lz); list.push([new THREE.BoxGeometry(w, h, d).rotateY(rot).translate(wx, y + h / 2, wz), col]); };
-  K.solid = (lx, lz, y, w, h, d, col, list = K.prop, rot = 0) => { K.box(lx, lz, y, w, h, d, col, list, rot); const [wx, wz] = HW(lx, lz); addCollider(wx, wz, w / 2, d / 2, rot, y + h, y); };
-  // a model of the furniture pack (src/4f_data_furn.js): standing at y, turned ry (0: its front to +z), scaled sc (a number or [x, y, z]). solid: it
-  // blocks, sized from the model's own box. Each copy is an instance; all the copies of a model are drawn at once at the end. Returns its top (y without the model)
-  // set: K.mdl for the post's furniture, K.mdlC for the cable-car station's
-  K.mdl = {}; K.mdlC = {};
+  K.gabion = (lx, lz, w, d, h, y, collide = true) => { const [wx, wz] = HW(lx, lz); K.gab.push(boxUV(wx - w / 2, wx + w / 2, y, y + h, wz - d / 2, wz + d / 2, 1, 1)); if (collide) addCollider(wx, wz, w / 2, d / 2, 0, y + h, y - 0.2); };
+  // a model of the furniture pack (src/4f_data_furn.js) or the props pack (4f_data_props.js): standing at y, turned ry (0: its front to +z), scaled sc (a
+  // number or [x, y, z]). solid: it blocks, sized from the model's own box. Each copy is an instance; all the copies of a model are drawn at once at
+  // the end. Returns its top (y without the model). set: K.mdl for the post's furniture, K.mdlC for the cable-car station's, K.mdlT for the trenches'
+  K.mdl = {}; K.mdlC = {}; K.mdlT = {};
   K.fm = (name, lx, lz, y, ry = 0, solid = false, sc = 1, set = K.mdl) => {
     if (!mdlHas(name)) return y; const b = mdlBox(name), s = Array.isArray(sc) ? sc : [sc, sc, sc], [wx, wz] = HW(lx, lz);
     (set[name] = set[name] || []).push(M4(wx, y, wz, 0, ry, 0, s[0], s[1], s[2]));
     if (solid) addCollider(wx, wz, b[0] * s[0] / 2, b[2] * s[2] / 2, ry, y + b[1] * s[1], y);
     return y + b[1] * s[1];
   };
+  // the same knocked over: tipped rx about its own x axis and rz about its own z, then turned ry; it rests on its lowest corner. solid: a collider
+  // round what it covers now (a table on its side is a shield 0.8 high)
+  const _q = new THREE.Quaternion(), _e = new THREE.Euler(), _v = V3(), _mt = new THREE.Matrix4(), _my = new THREE.Matrix4();
+  K.ft = (name, lx, lz, y, ry, rx, rz = 0, solid = false, set = K.mdl) => {
+    if (!mdlHas(name)) return; const b = mdlBox(name), [wx, wz] = HW(lx, lz), lo = [1e9, 1e9, 1e9], hi = [-1e9, -1e9, -1e9]; _q.setFromEuler(_e.set(rx, 0, rz, 'XYZ'));
+    for (const sx of [-0.5, 0.5]) for (const sy of [0, 1]) for (const sz of [-0.5, 0.5]) { _v.set(sx * b[0], sy * b[1], sz * b[2]).applyQuaternion(_q); for (let k = 0; k < 3; k++) { lo[k] = Math.min(lo[k], _v.getComponent(k)); hi[k] = Math.max(hi[k], _v.getComponent(k)); } }
+    const m = _my.makeRotationY(ry).clone().multiply(_mt.makeRotationFromQuaternion(_q)); m.setPosition(wx, y - lo[1], wz); (set[name] = set[name] || []).push(m);
+    if (solid) { const cx = (lo[0] + hi[0]) / 2, cz = (lo[2] + hi[2]) / 2, c = Math.cos(ry), s = Math.sin(ry); addCollider(wx + cx * c + cz * s, wz - cx * s + cz * c, (hi[0] - lo[0]) / 2, (hi[2] - lo[2]) / 2, ry, y + hi[1] - lo[1], y); }
+  };
   // a pile of crates: layers of the long weapons crates n side by side, then ammunition boxes, each a little askew; it blocks. Returns its top
   const jr = rng(2311);
-  K.pile = (lx, lz, y, ry, layers, boxes, n = 2, solid = true) => {
+  K.pile = (lx, lz, y, ry, layers, boxes, n = 2, solid = true, set = K.mdl) => {
     if (!mdlHas('f_crate_long') || !mdlHas('f_crate_wood')) return y; const L = mdlBox('f_crate_long'), A = mdlBox('f_crate_wood'), s = Math.sin(ry), c = Math.cos(ry); let h = y;
-    for (let l = 0; l < layers; l++, h += L[1]) for (let i = 0; i < n; i++) { const o = (i - (n - 1) / 2) * L[2]; K.fm('f_crate_long', lx + s * o, lz + c * o, h, ry + (jr() - 0.5) * 0.05); }
-    for (let k = 0; k < boxes; k++, h += A[1]) K.fm('f_crate_wood', lx, lz, h, ry + (jr() - 0.5) * 0.16);
+    for (let l = 0; l < layers; l++, h += L[1]) for (let i = 0; i < n; i++) { const o = (i - (n - 1) / 2) * L[2]; K.fm('f_crate_long', lx + s * o, lz + c * o, h, ry + (jr() - 0.5) * 0.05, false, 1, set); }
+    for (let k = 0; k < boxes; k++, h += A[1]) K.fm('f_crate_wood', lx, lz, h, ry + (jr() - 0.5) * 0.16, false, 1, set);
     if (solid) { const [wx, wz] = HW(lx, lz); addCollider(wx, wz, (layers ? L[0] : A[0]) / 2, (layers ? n * L[2] : A[2]) / 2, ry, h, y); }
     return h;
   };
   return K;
 }
-// cover points inside the building belong to a floor, so the defenders stay on their own level
-function hmCover(lx, lz, nx, nz, f, h = 1) { const [wx, wz] = HW(lx, lz); const l = Math.hypot(nx, nz) || 1; COVER.push({ x: wx, z: wz, nx: nx / l, nz: nz / l, h, by: null, floor: f, y: hmY(f) }); }
-/* ---------- the furniture of the post: bunks, lockers, radio racks, map boards, the kitchen; and the mess the battle left ----------
-   door = { z, nz }: the wall the door is in and which way the room extends from it; the defenders get cover flanking the door.
-   The pieces are the models of the furniture pack; the walls a piece stands against are at most 0.3 thick on the room's side, so a piece's back is set 0.32 in */
+/* ---------- the walls of a floor, its paint, floors, ceilings and lights ----------
+   Every room's edges and the floor's outline, merged line by line into straight walls, the doors and slits cut into them. Inside, each room is
+   painted the way army posts were: a dark band to shoulder height, a line, pale wash above, darker into the corners where the floor and the
+   ceiling meet the wall (all in the vertex colours over a plaster texture); a screed floor or boards; a whitewashed ceiling on concrete beams */
+const hmShade = (hex, k) => { const c = new THREE.Color(hex); return c.multiplyScalar(k).getHex(); };
+function hmFloorGeo(K, f) {
+  const R = HM_RM[f], y0 = hmY(f), yc = f ? HM_U1 : HM_PY - 0.3, B = f ? HM_U : HM_F, tOut = f ? 0.5 : 0.6, doors = HM_DR[f].filter(Boolean), wins = f ? HM_WIN : [];
+  const lines = new Map(), add = (ax, c, a, b) => { const k = ax + c; if (!lines.has(k)) lines.set(k, { ax, c, iv: [] }); lines.get(k).iv.push([Math.min(a, b), Math.max(a, b)]); };
+  for (const r of R) { add('x', r.z0, r.x0, r.x1); add('x', r.z1, r.x0, r.x1); add('z', r.x0, r.z0, r.z1); add('z', r.x1, r.z0, r.z1); }
+  add('x', B.z0, B.x0, B.x1); add('x', B.z1, B.x0, B.x1); add('z', B.x0, B.z0, B.z1); add('z', B.x1, B.z0, B.z1);
+  const outer = (ax, c) => (ax === 'x' ? c === B.z0 || c === B.z1 : c === B.x0 || c === B.x1), thick = (ax, c) => (outer(ax, c) ? tOut : 0.35);
+  const at = (o, ax, c) => o[2] === ax && Math.abs((ax === 'x' ? o[1] : o[0]) - c) < 1e-6, along = (o, ax) => (ax === 'x' ? o[0] : o[1]);
+  const dw = (d) => (d === HM_DR[0][0] ? 1.0 : 0.8);   // half the width of a door: the way in from the trench is 2 m wide, the others 1.6
+  for (const { ax, c, iv } of lines.values()) {
+    iv.sort((p, q) => p[0] - q[0]); const m = []; for (const v of iv) { const l = m[m.length - 1]; if (l && v[0] <= l[1] + 1e-6) l[1] = Math.max(l[1], v[1]); else m.push([...v]); }
+    const out = outer(ax, c), th = thick(ax, c);
+    for (let [a, b] of m) {
+      a -= th / 2; b += th / 2;   // run into the walls across its ends, so no corner is left open
+      const gaps = [];
+      for (const d of doors) if (at(d, ax, c)) { const p = along(d, ax); if (p > a && p < b) gaps.push([p - a - dw(d), p - a + dw(d)]); }
+      for (const w of wins) if (at(w, ax, c)) { const p = along(w, ax); if (p > a && p < b) gaps.push([p - a - 0.55, p - a + 0.55, y0 + 1.4, y0 + 1.78]); }
+      const lo = out && !f ? y0 - 0.4 : y0, hi = f ? yc : out ? HM_PY : yc, col = f ? 0xc9c5bc : 0xb8b4aa;
+      if (ax === 'x') K.wall(a, c, b, c, lo, hi, gaps, th, col, y0 + 2.3); else K.wall(c, a, c, b, lo, hi, gaps, th, col, y0 + 2.3);
+    }
+  }
+  // a concrete sill in each doorway of the lower floor, where the room floors stop at the wall (else the rock of the pit shows through)
+  if (!f) for (const d of doors) { if (d === HM_DR[0][0]) continue; const [x, z, ax] = d, [a, b] = HW(ax === 'z' ? x - 0.22 : x - 0.8, ax === 'z' ? z - 0.8 : z - 0.22), [c, e] = HW(ax === 'z' ? x + 0.22 : x + 0.8, ax === 'z' ? z + 0.8 : z + 0.22); K.floorC.push([boxUV(a, c, y0 - 0.034, y0 - 0.002, b, e, 1, 1), 0x7a766c]); }
+  // the paint, room by room, on the inner face of each of its walls
+  const S = 0.02, dado = 1.22, band = 0.06;
+  R.forEach((r, ri) => {
+    const [lo, hi] = r.paint, inset = (ax, c, sd) => c + sd * (thick(ax, c) / 2 + 0.006), ix0 = inset('z', r.x0, 1), ix1 = inset('z', r.x1, -1), iz0 = inset('x', r.z0, 1), iz1 = inset('x', r.z1, -1);
+    const ao = (hex) => (x, y, z) => hmShade(hex, lerp(0.7, 1, smooth(y0, y0 + 0.9, y)) * lerp(1, 0.84, smooth(yc - 0.7, yc, y)));
+    const bandBox = (p0, p1, ya, yb, ax, c, sd) => {   // one wall face from p0 to p1 along it, between heights ya and yb, cut into the three bands
+      for (const [b0, b1, hex] of [[y0, y0 + dado, lo], [y0 + dado, y0 + dado + band, hmShade(lo, 0.55)], [y0 + dado + band, yc, hi]]) { const u0 = Math.max(ya, b0), u1 = Math.min(yb, b1); if (u1 - u0 < 0.005) continue;
+        const [w0, wz0] = HW(ax === 'x' ? p0 : c, ax === 'x' ? c : p0), [w1, wz1] = HW(ax === 'x' ? p1 : c + sd * S, ax === 'x' ? c + sd * S : p1);
+        const g = ax === 'x' ? boxUV(w0, w1, u0, u1, Math.min(wz0, wz1), Math.max(wz0, wz1), 4.4, 4.4) : boxUV(Math.min(w0, w1), Math.max(w0, w1), u0, u1, wz0, wz1, 4.4, 4.4); K.skin.push([colored(g, ao(hex)), null]); } };
+    for (const [ax, c, sd, p0, p1] of [['x', iz0, 1, ix0, ix1], ['x', iz1, -1, ix0, ix1], ['z', ix0, 1, iz0, iz1], ['z', ix1, -1, iz0, iz1]]) {
+      const line = ax === 'x' ? (sd > 0 ? r.z0 : r.z1) : (sd > 0 ? r.x0 : r.x1), cuts = [];
+      for (const d of doors) if (at(d, ax, line)) { const p = along(d, ax); if (p > p0 && p < p1) cuts.push([p - dw(d), p + dw(d), y0 + 2.3, yc]); }
+      for (const w of wins) if (at(w, ax, line)) { const p = along(w, ax); if (p > p0 && p < p1) cuts.push([p - 0.55, p + 0.55, y0 + 1.4, y0 + 1.78, true]); }
+      cuts.sort((p, q) => p[0] - q[0]); let s = p0;
+      for (const [q0, q1, ya, yb, win] of cuts) { if (q0 > s) bandBox(s, q0, y0, yc, ax, c, sd); if (win) { bandBox(q0, q1, y0, ya, ax, c, sd); bandBox(q0, q1, yb, yc, ax, c, sd); } else bandBox(q0, q1, ya, yb, ax, c, sd); s = q1; }
+      if (s < p1) bandBox(s, p1, y0, yc, ax, c, sd);
+    }
+    // the floor (screed, or boards in the officers' rooms), the ceiling and its beams across the short way, a bulb or two
+    const [a, b] = HW(ix0, iz0), [c2, d] = HW(ix1, iz1), fy = f ? HM_PY + 0.012 : HM_L0 - 0.004;
+    if (r.wood) K.floorW.push([boxUV(a, c2, fy - 0.03, fy, b, d, 2.4, 1.28), 0xd8c8b0]); else if (r.tz) K.floorT.push([boxUV(a, c2, fy - 0.03, fy, b, d, 3.6, 3.6), [0xffffff, 0xf2f0ea][ri % 2]]); else K.floorC.push([boxUV(a, c2, fy - 0.03, fy, b, d, 4.6, 4.6), [0x76726a, 0x6e6b64, 0x7a756c][ri % 3]]);
+    K.skin.push([colored(boxUV(a, c2, yc - 0.02, yc, b, d, 5.5, 5.5), 0xe4e1d8), null]);
+    const wx = ix1 - ix0, wz = iz1 - iz0, alongX = wx < wz, span = alongX ? wz : wx, nb = Math.max(1, Math.round(span / 3.2));
+    for (let i = 1; i < nb; i++) { const t = (alongX ? iz0 : ix0) + span * i / nb; const g = alongX ? boxUV(a, c2, yc - 0.28, yc - 0.02, HW(0, t)[1] - 0.16, HW(0, t)[1] + 0.16, 2, 2) : boxUV(HW(t, 0)[0] - 0.16, HW(t, 0)[0] + 0.16, yc - 0.28, yc - 0.02, b, d, 2, 2); K.skin.push([colored(g, (x, y) => hmShade(0xd6d3cb, y > yc - 0.1 ? 0.86 : 1)), null]); }
+    const nl = span > 16 ? 2 : 1; for (let i = 0; i < nl; i++) { const t = (i + 0.5) / nl, lx = alongX ? (ix0 + ix1) / 2 : lerp(ix0, ix1, t), lz = alongX ? lerp(iz0, iz1, t) : (iz0 + iz1) / 2, [bx, bz] = HW(lx, lz);
+      K.bulb.push([new THREE.SphereGeometry(0.07, 8, 6).translate(bx, yc - 0.36, bz), 0xfff4d0]); K.con.push([new THREE.CylinderGeometry(0.008, 0.008, 0.3, 4).translate(bx, yc - 0.17, bz), 0x222222]); K.lamps.push([bx, yc - 0.45, bz, f, ri]); }
+  });
+}
+/* ---------- the doors between the rooms: steel, painted, shut. Each opens into the room it leads to, once the room before it is clear ---------- */
+const HM_DOORS = [[], []];
+function hmDoorsBuild() {
+  // one mesh a door: the painted leaf, two stiffening ribs across it, the handles (in the vertex colours, over the grime texture)
+  const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.62, metalness: 0.3, map: TX.grime });
+  const geo = build([[new THREE.BoxGeometry(1.56, 2.24, 0.05), 0x5a6450, M4(0.78, 1.12, 0)], [new THREE.BoxGeometry(1.4, 0.06, 0.07), 0x525c48, M4(0.78, 0.35, 0)], [new THREE.BoxGeometry(1.4, 0.06, 0.07), 0x525c48, M4(0.78, 1.9, 0)], [new THREE.BoxGeometry(0.12, 0.04, 0.16), 0x1c1c1a, M4(1.38, 1.02, 0)]]);
+  for (let f = 0; f < 2; f++) HM_DR[f].forEach((d, k) => {
+    if (!d || (f === 0 && k === 0)) { HM_DOORS[f][k] = null; return; }
+    const [x, z, ax] = d, y = hmY(f), into = HM_RM[f][k], u = ax === 'x' ? [1, 0] : [0, 1], c = ax === 'x' ? z : x, n = ax === 'x' ? [0, (into.z0 === c ? 1 : -1)] : [(into.x0 === c ? 1 : -1), 0];
+    const hx = x - u[0] * 0.78, hz = z - u[1] * 0.78, [wx, wz] = HW(hx, hz), phi = Math.atan2(-u[1], u[0]), sgn = Math.abs(n[0] - u[1]) < 1e-6 && Math.abs(n[1] + u[0]) < 1e-6 ? 1 : -1;
+    const pivot = new THREE.Group(); pivot.position.set(wx, y, wz); pivot.rotation.y = phi;
+    pivot.add(new THREE.Mesh(geo, mat)); scene.add(SH(onLayer1(pivot), false, true));
+    const [cx, cz] = HW(x, z), col = addCollider(cx, cz, 0.82, 0.12, Math.atan2(-u[1], u[0]), y + 2.3, y - 0.1);
+    HM_DOORS[f][k] = { pivot, phi, sgn, col, top: col.top, bot: col.bot, ang: 0, open: false, at: V3(cx, y + 1.2, cz) };
+  });
+}
+function hmDoorSet(d, open, now = true) { if (!d) return; d.open = open; d.req = null; d.col.top = open ? -1e9 : d.top; d.col.bot = open ? -1e9 - 1 : d.bot; if (now) { d.ang = open ? 1 : 0; d.pivot.rotation.y = d.phi + d.sgn * d.ang * 1.66; } }
+// the doors as a stage of the post begins (or comes back from a checkpoint at bound g0): every door up to the room the player stands in is open
+function hmDoorsSet(stage, g0 = 0) {
+  HM_DOORS[0].forEach((d, k) => hmDoorSet(d, stage > 3 || (stage === 3 && k <= g0)));
+  HM_DOORS[1].forEach((d, k) => hmDoorSet(d, stage > 4 || (stage === 4 && k <= g0)));
+}
+function hmDoorsUpd(dt) {
+  const st = HM.stage;
+  if ((st === 3 || st === 4) && GATE.on && GATE.clear) { const d = HM_DOORS[st - 3][GATE.i + 1]; if (d && !d.open && !d.req) d.req = GAME.t + 1.1; }
+  for (const L of HM_DOORS) for (const d of L) { if (!d) continue;
+    if (d.req && GAME.t >= d.req) { hmDoorSet(d, true, false); sndBoom(d.at, 0.12); sndClick(260, 0.22); radio('לוחם', pick(['פותחים! רימון ונכנסים!', 'הדלת פתוחה - פנימה!', 'דלת! מכסים, נכנסים!']), 1.8); }
+    const tg = d.open ? 1 : 0; if (Math.abs(d.ang - tg) > 1e-3) { d.ang += (tg - d.ang) * Math.min(1, dt * 7); d.pivot.rotation.y = d.phi + d.sgn * d.ang * 1.66; } }
+}
+/* ---------- the rooms: a Syrian company has lived in the post for two weeks, and the attack catches it at breakfast ----------
+   Bunks with the blankets thrown back and mattresses dragged to the floor, rifles left on the beds and on the mess tables, chairs knocked over,
+   the radio room with its sets still on, crates of ammunition opened in the store, the officers' beds and the commander's desk. Every piece is a
+   model of the furniture and props packs. The defenders: each has his place behind something solid, facing the door the attack comes through
+   (cover: 'tab' a table thrown on its side, 'pile' crates, 'bags' sandbags, 'drum' oil drums, 'own' whatever stands there already) */
 const HM_TE = Math.PI / 2, HM_TW = -Math.PI / 2, HM_TN = Math.PI;   // the turn that faces a model's front to +x, to -x, to -z (0: to +z)
-// a row of n lockers against the wall at x1, their fronts into the room, centred on lz: one collider for the row
-function hmLockers(K, x1, lz, y, n) {
-  if (!mdlHas('f_locker')) return; const b = mdlBox('f_locker'), lx = x1 - 0.18 - b[2] / 2;
-  for (let i = 0; i < n; i++) K.fm('f_locker', lx, lz + (i - (n - 1) / 2) * b[0], y, HM_TW);
-  const [wx, wz] = HW(lx, lz); addCollider(wx, wz, b[2] / 2, n * b[0] / 2, 0, y + b[1], y);
-}
-// the two bunks stand against the wall away from the door (the rooms south of the corridor have their door in the z1 wall): the first one's x, their z, and +1 / -1 for that wall
-const hmBunks = (x0, z0, z1, door) => (door && door.nz < 0 ? [x0 + 1.6, z0 + 1.3, -1] : [x0 + 1.2, z1 - 1.3, 1]);
-function hmRoom(K, x0, x1, z0, z1, f, kind, r, door = null) {
-  const y = hmY(f), cx = (x0 + x1) / 2, cz = (z0 + z1) / 2, E = HM_TE, W = HM_TW, N = HM_TN;
-  if (kind === 'bunks') { const [b0, bz, sg] = hmBunks(x0, z0, z1, door); for (let i = 0; i < 2; i++) K.fm('f_bunk', b0 + i * 2.6, bz, y, 0, true); hmLockers(K, x1, z0 + 1.2, y, 3); hmCover(x1 - 1.2, z0 + 1.2, 1, 0, f); hmCover(b0 + 1.3, bz - sg * 1.3, 0, sg, f); }
-  else if (kind === 'radio') {
-    // the racks: two steel cabinets side by side, the sets on top
-    const cb = mdlHas('f_cabinet') ? mdlBox('f_cabinet') : null;
-    if (cb) for (let i = 0; i < 3; i++) { const bz = z0 + 1.0 + i * 1.5, lx = x1 - 0.18 - cb[2] / 2; for (const o of [-0.5, 0.5]) K.fm('f_cabinet', lx, bz + o * cb[0], y, W); const [wx, wz] = HW(lx, bz); addCollider(wx, wz, cb[2] / 2, cb[0], 0, y + cb[1], y); }
-    K.fm('f_table_wood', cx - 0.5, cz, y, 0, true, [1.3, 1, 1.2]); hmCover(cx - 0.5, cz - 1.1, 0, -1, f); hmCover(x1 - 1.4, z0 + 2.2, 1, 0, f);
+function hmFurnish(K, f) {
+  const C = CHAP.hermon, y = hmY(f), E = HM_TE, W = HM_TW, N = HM_TN, PI = Math.PI, r = rng(2230 + f);
+  const F = (n, x, z, ry = 0, solid = false, sc = 1) => K.fm(n, x, z, y, ry, solid, sc);
+  const On = (n, x, z, top, ry = 0) => K.fm(n, x, z, top, ry);
+  const T = (n, x, z, ry, rx, rz = 0, top = y, solid = false) => K.ft(n, x, z, top, ry, rx, rz, solid);
+  const Lie = (n, x, z, ry, top = y) => K.ft(n, x, z, top, ry, 0, PI / 2);             // a rifle on its side
+  const Rack = (x, z, ry, n, step = 0.13) => { const c = Math.cos(ry), s = Math.sin(ry); for (let i = 0; i < n; i++) K.ft('akms', x + c * (i - (n - 1) / 2) * step, z - s * (i - (n - 1) / 2) * step, y, ry + PI, -PI / 2 + 0.12, 0); };   // rifles stood on their butts against a wall, leaning in
+  const Pile = (x, z, ry, layers, boxes, n = 2, solid = true) => K.pile(x, z, y, ry, layers, boxes, n, solid);
+  const Bags = (pts, layers = 4) => bagWall(pts.map(([a, b]) => HW(a, b)), layers, y - 0.02, true);
+  const Lockers = (x, z, ry, n) => { if (!mdlHas('f_locker')) return; const b = mdlBox('f_locker'), c = Math.cos(ry), s = Math.sin(ry); for (let i = 0; i < n; i++) { const o = (i - (n - 1) / 2) * b[0]; K.fm('f_locker', x + c * o, z - s * o, y, ry); } const [wx, wz] = HW(x, z); addCollider(wx, wz, n * b[0] / 2, b[2] / 2, ry, y + b[1], y); };
+  const Cabs = (x, z, ry, n) => { if (!mdlHas('f_cabinet')) return; const b = mdlBox('f_cabinet'), c = Math.cos(ry), s = Math.sin(ry); for (let i = 0; i < n; i++) { const o = (i - (n - 1) / 2) * b[0]; K.fm('f_cabinet', x + c * o, z - s * o, y, ry); } const [wx, wz] = HW(x, z); addCollider(wx, wz, n * b[0] / 2, b[2] / 2, ry, y + b[1], y); };
+  const Jerries = (x, z, ry, n) => { const c = Math.cos(ry), s = Math.sin(ry); for (let i = 0; i < n; i++) K.fm('jerry', x + c * i * 0.2, z - s * i * 0.2, y, ry + (r() - 0.5) * 0.25); };
+  const Mess = (x, z, ry, tip = 0) => {   // a mess table: two metal tables end to end, a bench along each side (tip: which bench lies on its side)
+    const c = Math.cos(ry), s = Math.sin(ry); for (const o of [-0.615, 0.615]) K.fm('f_table_metal', x + c * o, z - s * o, y, ry); const [wx, wz] = HW(x, z); addCollider(wx, wz, 1.23, 0.34, ry, y + 0.76, y);
+    for (const sd of [-1, 1]) for (const o of [-0.66, 0.66]) { const bx = x + c * o + s * sd * 0.56, bz = z - s * o + c * sd * 0.56; if (tip && sd === tip && o > 0) K.ft('f_bench_metal', bx + s * sd * 0.2, bz + c * sd * 0.2, y, ry + 0.2, PI / 2, 0); else K.fm('f_bench_metal', bx, bz, y, ry + (r() - 0.5) * 0.12); } };
+  const Desk = (x, z, ry, items, chair = 'f_chair', tip = false) => {   // a desk or table against a wall (front: the side the chair is), what stands on it, the chair
+    const n = items.shift(), top = K.fm(n, x, z, y, ry, true), c = Math.cos(ry), s = Math.sin(ry), w = mdlHas(n) ? mdlBox(n)[0] : 1.2;
+    items.forEach((it, i) => { const o = ((i + 0.5) / items.length - 0.5) * (w - 0.35); if (it === 'akms') K.ft('akms', x + c * o, z - s * o, top, ry + PI / 2 + (r() - 0.5) * 0.3, 0, PI / 2); else K.fm(it, x + c * o, z - s * o, top, ry + (r() - 0.5) * 0.3); });
+    if (chair) { const cx = x + s * 0.72, cz = z + c * 0.72; if (tip) K.ft(chair, cx + s * 0.35, cz + c * 0.35, y, ry + PI + 0.5, -PI / 2, 0); else K.fm(chair, cx, cz, y, ry + PI + (r() - 0.5) * 0.4); } };
+  // a defender's place: hiding at (hx, hz) behind his cover, facing the door the attack comes through; he rises to fire over low cover,
+  // or steps out beside tall cover. dmin: the lowest level (DIFF) he is there on
+  const S = (k, hx, hz, cover, kind = 'rifle', dmin = 0, face = null) => {
+    const ent = face || (f === 0 ? HM_DR[0][k] : k === 0 ? [10.4, 285.9] : HM_DR[1][k]), dx = ent[0] - hx, dz = ent[1] - hz, l = Math.hypot(dx, dz) || 1, ux = dx / l, uz = dz / l, ry = Math.atan2(ux, uz);
+    let px = hx, pz = hz;
+    if (cover === 'tab') K.ft('f_table_wood', hx + ux * 0.42, hz + uz * 0.42, y, ry, PI / 2, 0, true);   /* on its side the wooden table stands 0.8: a man ducked behind it is hidden */
+    else if (cover === 'pile') Pile(hx + ux * 0.68, hz + uz * 0.68, ry, 3, 0, 2);   /* the crates broadside to the door */
+    else if (cover === 'bags') Bags([[hx + ux * 0.72 - uz * 1.0, hz + uz * 0.72 + ux * 1.0], [hx + ux * 0.72 + uz * 1.0, hz + uz * 0.72 - ux * 1.0]]);
+    else if (cover === 'drum') for (const sd of [-1, 1]) K.fm('drum', hx + ux * 0.72 + uz * sd * 0.32, hz + uz * 0.72 - ux * sd * 0.32, y, r() * 3, true);
+    else if (cover === 'side') { px = hx - uz * 0.62; pz = hz + ux * 0.62; }   // tall cover beside him: he steps out to his right to fire
+    const [wx, wz] = HW(hx, hz), [ppx, ppz] = HW(px, pz);
+    C.slots.push({ x: wx, z: wz, y, nx: ux, nz: uz, f, b: null, used: false, fox: true, p: [ppx + ux * 0.08, ppz + uz * 0.08], h: [wx, wz], grp: 'IN', fl: f, room: k, kind, dmin });
+  };
+  const sign1 = (t, x, z, yy, rot, w = 1.3) => { const [sx, sz] = HW(x, z); sign(t, 'plain', sx, yy, sz, rot, w); };
+  if (f === 0) {
+    // ---- 0: the guard room inside the door. A sandbag post facing the way in, the sentries' bunks, their table and radio, a rack of rifles ----
+    Bags([[8.4, 274.0], [8.4, 275.7], [11.8, 275.7]]); S(0, 9.5, 276.6, 'own', 'lmg');
+    S(0, 2.7, 279.7, 'pile'); S(0, 3.0, 276.1, 'bags', 'smg', 2);
+    Lockers(12.6, 278.2, W, 4); Desk(10.4, 283.3, N, ['f_table_wood', 'f_radio_set', 'akms', 'f_lamp_k'], 'f_chair', true);
+    Cabs(7.2, 283.45, N, 2); F('f_shelf', 4.6, 283.67, N, true); On('f_radio_set', 4.3, 283.68, y + 0.67, N); On('f_lamp_k', 5.0, 283.66, y + 1.13);
+    F('f_bunk', 0.58, 274.15, 0, true); F('f_bunk', 0.58, 276.35, 0, true); F('f_mattress', 1.62, 274.6, 0.22); Lie('akms', 1.6, 274.3, 0.3, y + 0.2);
+    F('drum', 12.3, 272.95, 0, true); F('drum', 11.65, 272.95, 0.5, true); Jerries(12.45, 273.75, E, 3); Rack(12.62, 280.6, W, 4);
+    T('f_chair', 5.8, 278.2, 1.1, -PI / 2); F('f_bench_metal', 2.9, 272.66, 0); F('f_table_metal', 10.3, 280.5, 0, true); On('f_lamp_k', 10.0, 280.55, y + 0.76); F('f_stool_metal', 10.8, 279.75, 0.4);
+    F('f_shelf', 0.32, 278.6, E, true); On('f_radio_set', 0.33, 278.3, y + 0.67, E); On('f_lamp_k', 0.33, 279.0, y + 1.13); F('jerry', 7.9, 283.5, 0.2);
+    // ---- 1: the first bunk room. Two rows of bunks, blankets thrown back, mattresses dragged off; a table in the middle where they played cards ----
+    for (const x of [-12.35, -11.05, -9.75, -6.8, -5.5, -4.2]) F('f_bunk', x, 282.85, 0, true);
+    for (const x of [-9.0, -7.7, -6.4, -5.1]) F('f_bunk', x, 273.28, N, true);
+    S(1, -8.4, 282.7, 'pile', 'rifle', 0, [0, 281]); S(1, -10.7, 278.0, 'tab'); S(1, -11.4, 273.6, 'tab', 'smg', 1);
+    Desk(-6.6, 278.0, 0, ['f_table_wood', 'f_lamp_k', 'f_radio_set'], null); F('f_bench_metal', -6.6, 278.8, 0); F('f_stool_metal', -7.6, 277.3); T('f_stool_metal', -5.4, 277.1, 0.4, PI / 2);
+    F('f_mattress', -2.7, 275.2, 1.3); F('f_mattress', -10.2, 280.6, 1.75); Lie('akms', -9.75, 282.5, 0.1, y + 0.54); Lie('akms', -2.4, 275.0, 1.0, y + 0.2); Lie('akms', -5.1, 273.4, 1.6, y + 1.32);
+    Lockers(-0.4, 283.5, W, 2); Jerries(-12.45, 277.4, 0, 2); F('crate', -1.2, 272.9, 0.1, true);
+    // ---- 2: the mess hall. Long tables and benches, the rifles laid down by the plates, a bench knocked over as they ran ----
+    Mess(-22.6, 278.6, E, 1); Mess(-22.6, 283.8, E); Mess(-22.6, 289.0, E, -1); Mess(-17.1, 281.4, E); Mess(-17.1, 286.6, E, 1); Mess(-17.1, 291.8, E);
+    for (const [x, z, n] of [[-22.6, 278.0, 'f_lamp_k'], [-22.5, 284.4, 'f_radio_set'], [-17.0, 287.0, 'f_lamp_k'], [-17.2, 291.2, 'f_lamp_k']]) On(n, x, z, y + 0.76, r() * 6);
+    Lie('akms', -22.7, 289.4, 0.2, y + 0.76); Lie('akms', -17.0, 281.0, 2.9, y + 0.76); Lie('akms', -22.5, 283.2, 0.1, y + 0.76);
+    S(2, -19.6, 279.2, 'tab'); S(2, -24.6, 286.0, 'pile'); S(2, -14.6, 293.3, 'drum', 'lmg', 1); S(2, -19.6, 294.6, 'bags', 'rifle', 2);
+    F('f_shelf', -25.55, 293.0, E, true); On('f_radio_set', -25.55, 292.7, y + 0.67, E); F('drum', -25.1, 272.9, 0, true); F('drum', -24.45, 272.95, 1, true); Jerries(-23.8, 272.75, 0, 3); Cabs(-25.35, 275.5, E, 2);
+    T('f_chair', -20.0, 286.3, 2.2, -PI / 2); T('f_stool_metal', -15.6, 284.0, 0.7, 0, PI / 2);
+    // ---- 3: the kitchen. Ovens and worktops on the north wall, shelves, water drums, food crates; the breakfast left on the prep table ----
+    for (const x of [-24.9, -24.3, -23.7]) F('f_oven', x, 307.44, N, true); for (const x of [-22.45, -21.2]) F('f_table_metal', x, 307.36, N, true);
+    On('f_lamp_k', -21.6, 307.3, y + 0.76); F('f_shelf', -25.55, 304.6, E, true); F('f_shelf', -25.55, 302.9, E, true); On('f_lamp_k', -25.5, 303.1, y + 1.13);
+    for (const [x, z] of [[-25.2, 296.75], [-24.55, 296.8], [-25.2, 297.45]]) F('drum', x, z, r() * 3, true); Pile(-14.0, 297.2, 0, 0, 3, 1); Pile(-15.0, 297.2, 0.1, 0, 2, 1); F('crate', -14.0, 298.4, E, true);
+    Desk(-19.5, 302.4, 0, ['f_table_wood', 'f_lamp_k', 'f_radio_set'], null); F('f_stool_metal', -20.2, 301.6); T('f_stool_metal', -18.6, 301.4, 1.0, PI / 2);
+    S(3, -15.3, 305.8, 'pile', 'rifle', 0); S(3, -19.4, 303.4, 'own'); S(3, -23.8, 300.6, 'drum', 'smg', 2);
+    for (const zz of [299.6, 300.85]) F('f_table_metal', -25.36, zz, E, true); On('f_lamp_k', -25.3, 300.3, y + 0.76); K.fm('f_crate_wood', -25.36, 299.6, y + 0.76, E + 0.1);
+    F('f_table_metal', -16.4, 300.4, 0, true); F('f_stool_metal', -16.9, 299.7); F('f_stool_metal', -15.8, 301.15, 2.0); On('f_radio_set', -16.6, 300.5, y + 0.76, 0.3);
+    Pile(-17.6, 296.62, 0, 0, 2, 1); F('crate', -19.2, 296.56, 0, true); Jerries(-22.9, 306.95, 0, 3);
+    // ---- 4: the ammunition store. Stacks of crates on both long walls, an island of them in the middle, the RPGs on top, a rack of rifles ----
+    for (let i = 0; i < 7; i++) { const x = -11.6 + i * 1.5, top = Pile(x, 307.25, 0, 3 + (i % 2), i % 3 === 0 ? 1 : 0, 2); if (i === 2 || i === 5) K.ft('rpg7', x, 307.2, top, PI / 2, 0, PI / 2); }
+    for (const x of [-11.2, -9.4]) { const top = K.fm('crate', x, 296.6, y, 0, true); K.fm('crate', x, 296.6, top, 0.05); } Pile(-7.4, 296.75, 0, 2, 2, 2);
+    Rack(-3.6, 296.45, 0, 6); Jerries(-0.55, 301.5, -PI / 2, 6); F('drum', -0.65, 305.2, 0, true); F('drum', -0.65, 305.85, 1.3, true);
+    S(4, -4.2, 301.6, 'pile', 'rifle', 0); S(4, -7.6, 304.4, 'pile'); S(4, -1.6, 304.0, 'drum', 'lmg', 1);
+    K.ft('rpg7', -7.3, 297.0, y + 2 * 0.259 + 2 * 0.231, 0.2, 0, PI / 2); K.ft('crate', -5.6, 299.5, y, 0.6, 0, PI / 2);
+    // ---- 5: the radio room. The sets on the long table, the typewriter, the filing cabinets, the map table in the middle ----
+    Desk(3.5, 307.3, N, ['f_table_wood', 'f_radio_set', 'f_radio_set', 'f_lamp_desk']); Desk(5.3, 307.3, N, ['f_table_wood', 'f_radio_set', 'f_lamp_k'], 'f_chair', true);
+    Desk(9.6, 307.36, N, ['f_desk', 'f_typewriter', 'f_lamp_desk']); Cabs(3.3, 296.53, 0, 4);
+    for (const zz of [301.8, 302.6]) F('f_table_wood', 6.6, zz, 0, true); F('f_chair_fold', 5.8, 300.95, 0); F('f_chair_fold', 7.4, 300.95, 0.3); F('f_chair_fold', 5.8, 303.45, N); T('f_chair_fold', 7.6, 303.8, 2.9, -PI / 2); On('f_radio_set', 6.3, 302.4, y + 0.76, 0.4); On('f_lamp_k', 7.0, 301.9, y + 0.76);
+    S(5, 10.6, 299.4, 'tab'); S(5, 6.8, 303.7, 'own'); S(5, 11.6, 302.6, 'pile', 'smg', 1);
+    Desk(12.43, 299.6, W, ['f_desk', 'f_typewriter', 'f_lamp_desk'], 'f_chair', true); F('f_shelf', 0.32, 304.6, E, true); On('f_radio_set', 0.33, 304.2, y + 0.67, E); On('f_radio_set', 0.33, 305.0, y + 1.13, E); On('f_lamp_k', 0.33, 304.9, y + 0.67);
+    // ---- 6: the officers' quarters. Beds and wardrobes in the north half, a line of wardrobes across the room, the commander's office beyond ----
+    K.fm('f_bed_wood', 24.7, 306.7, W, true); K.fm('f_bed_wood', 24.7, 302.6, W, true); F('f_wardrobe', 20.6, 307.39, N, true); F('f_wardrobe', 19.05, 307.39, N, true);
+    for (const x of [13.95, 15.45, 16.95, 18.45, 19.95]) F('f_wardrobe', x, 296.0, 0, true);
+    F('f_sofa', 17.2, 300.3, 0, true); Desk(14.3, 301.0, E, ['f_table_metal', 'f_lamp_k'], 'f_stool_metal'); Lie('akms', 24.6, 302.3, 0.1, y + 0.62);
+    S(6, 22.9, 300.2, 'tab'); S(6, 21.8, 305.2, 'bags', 'rifle', 1); F('f_wardrobe', 25.39, 299.2, W, true); F('f_table_metal', 23.25, 304.65, 0, true); On('f_lamp_k', 23.0, 304.7, y + 0.76); On('f_radio_set', 23.6, 304.6, y + 0.76, 0.2);
+    Desk(19.4, 284.52, 0, ['f_desk', 'f_typewriter', 'f_lamp_desk', 'f_radio_set']); F('f_sofa', 25.28, 290.0, W, true); F('f_table_metal', 23.9, 290.0, E, true); On('f_lamp_k', 23.9, 289.7, y + 0.76);
+    Cabs(23.2, 284.53, 0, 3); F('f_chair', 21.9, 292.8, 2.6); F('f_shelf', 13.33, 287.5, E, true);
+    S(6, 15.6, 288.6, 'pile', 'rifle', 0, [23.3, 295.6]); S(6, 18.6, 292.4, 'tab', 'smg', 2, [23.3, 295.6]);
+    // ---- 7: the hall in the middle of the post, its stair up to the signals room. The Syrians' last stand on this floor, sandbags at the stair ----
+    S(7, -1.0, 289.6, 'bags', 'lmg', 0); S(7, -6.2, 293.6, 'pile'); S(7, -3.4, 286.2, 'drum', 'rifle', 1); S(7, 6.2, 294.6, 'bags', 'smg', 1); S(7, -10.6, 289.2, 'pile', 'rifle', 2);
+    Desk(-9.2, 295.4, N, ['f_table_wood', 'f_radio_set', 'f_radio_set']); Desk(-11.4, 295.4, N, ['f_table_wood', 'f_lamp_k', 'akms'], 'f_chair', true);
+    Cabs(-12.45, 286.2, E, 3); F('drum', 11.2, 285.0, 0, true); F('drum', 11.9, 285.2, 1, true); Jerries(12.0, 286.0, 0, 3); Pile(2.6, 295.3, 0, 2, 2, 2); F('crate', 0.4, 295.35, 0, true);
+    sign1('↑ למעלה', 1.2, 284.24, y + 2.0, 0, 1.2); F('f_shelf', -12.68, 291.8, E, true); On('f_radio_set', -12.67, 291.5, y + 0.67, E); On('f_lamp_k', -12.67, 292.2, y + 1.13);
+    Pile(11.6, 295.25, 0, 3, 1, 2); Pile(10.2, 295.25, 0.05, 2, 0, 2); F('drum', 12.3, 294.0, 0.4, true); Jerries(-4.6, 295.55, 0, 4);
+    // the post was ours until the 6th: its Hebrew signs are still on the walls
+    sign1('אסור לעשן', -3.6, 296.25, y + 2.05, 0, 1.4);
+  } else {
+    // ---- 0: the signals room at the head of the stair. Its sets along the east wall, cabinets, a crate store south of the stairwell ----
+    Desk(12.42, 289.9, W, ['f_table_wood', 'f_radio_set', 'f_radio_set']); Desk(12.42, 291.7, W, ['f_table_wood', 'f_radio_set', 'f_lamp_desk'], 'f_chair', true); Cabs(4.0, 293.47, N, 4);
+    Pile(1.2, 281.0, 0, 3, 1, 2); F('drum', 12.3, 280.9, 0, true); Jerries(11.4, 280.7, 0, 3); F('crate', 8.0, 280.8, 0, true);
+    sign1('חדר קשר', 9.0, 280.32, y + 2.3, 0, 1.1); Desk(1.0, 293.49, N, ['f_desk', 'f_typewriter', 'f_lamp_desk']); Pile(3.0, 280.95, 0.05, 2, 2, 2); S(0, 7.2, 291.8, 'tab'); S(0, 11.2, 293.3, 'pile'); S(0, 4.6, 281.6, 'bags', 'rifle', 1); S(0, 1.6, 289.8, 'drum', 'smg', 2);
+    // ---- 1: the intelligence room: the Israeli equipment the Syrians took over - desks, typewriters, cabinets of files ----
+    Desk(-7.0, 293.49, N, ['f_desk', 'f_typewriter', 'f_lamp_desk']); Desk(-5.4, 293.49, N, ['f_desk', 'f_typewriter'], 'f_chair', true); Cabs(-6.2, 280.61, 0, 5); Desk(-1.0, 286.8, W, ['f_table_wood', 'f_radio_set', 'f_lamp_k']);
+    S(1, -7.6, 289.2, 'tab'); S(1, -3.2, 284.2, 'pile'); S(1, -8.0, 285.8, 'drum', 'smg', 2); Cabs(-8.46, 288.2, E, 3); F('f_chair', -2.2, 290.6, 2.4); sign1('מודיעין', -6.2, 293.75, y + 2.25, Math.PI, 1.2);
+    // ---- 2: the upper bunk room ----
+    for (const x of [-21.15, -19.85, -18.55, -17.25, -15.95]) F('f_bunk', x, 281.23, N, true);
+    for (const z of [285.6, 286.9, 288.2]) F('f_bunk', -20.78, z, E, true); Lockers(-14.0, 293.6, N, 4);
+    F('f_mattress', -15.4, 285.2, 0.5); F('f_mattress', -12.0, 288.6, 1.4); Lie('akms', -18.55, 281.0, 0.2, y + 0.54); Lie('akms', -20.6, 286.9, 1.7, y + 1.32);
+    Desk(-17.0, 290.0, 0, ['f_table_metal', 'f_lamp_k'], null); F('f_stool_metal', -17.6, 289.3); T('f_stool_metal', -16.2, 289.1, 2.0, PI / 2);
+    S(2, -14.6, 290.8, 'tab'); S(2, -19.2, 284.6, 'bags'); S(2, -11.4, 292.6, 'pile', 'smg', 1);
+    // ---- 3: the company commander's room: his bed, wardrobe, desk under the slit, a sofa, the map table ----
+    K.fm('f_bed_wood', -20.75, 306.4, E, true); F('f_wardrobe', -17.0, 307.44, N, true); Desk(-13.4, 307.41, N, ['f_desk', 'f_typewriter', 'f_lamp_desk', 'f_radio_set']);
+    F('f_sofa', -21.33, 299.6, E, true); F('f_table_wood', -15.6, 300.6, 0, true); F('f_chair_fold', -16.2, 299.8, 0); T('f_chair_fold', -14.8, 299.4, 0.8, -PI / 2); On('f_lamp_k', -15.4, 300.8, y + 0.76);
+    Cabs(-9.75, 296.0, W, 2); Lie('akms', -20.8, 306.1, 0.2, y + 0.6);
+    S(3, -12.0, 301.6, 'tab'); S(3, -16.4, 305.0, 'bags', 'rifle', 1);
+    // ---- 4: the observation hall: stations under the slits over Syria, the map table, the RPGs by the windows ----
+    for (const x of [-5, 0, 5, 10]) { F('f_table_metal', x, 307.36, N, true); F(x === 0 ? 'f_chair' : 'f_stool_metal', x + 0.2, 306.6, r() * 0.6); }
+    On('f_radio_set', -5.2, 307.4, y + 0.76, N); On('f_radio_set', 10.1, 307.4, y + 0.76, N); On('f_lamp_k', 4.8, 307.3, y + 0.76); K.ft('rpg7', 0.1, 307.3, y + 0.76, PI / 2, 0, PI / 2);
+    for (const zz of [300.1, 300.9]) F('f_table_wood', 2.0, zz, 0, true); F('f_chair_fold', 1.2, 299.25, 0); F('f_chair_fold', 2.8, 301.75, N); T('f_chair_fold', 3.2, 299.0, 0.9, -PI / 2);
+    Cabs(-6.0, 294.53, 0, 4); Rack(12.4, 296.2, W, 3); Cabs(12.46, 302.5, W, 3); Bags([[-3.4, 307.35], [-1.4, 307.35]], 3); Bags([[6.6, 307.35], [8.4, 307.35]], 3);
+    S(4, 3.2, 304.2, 'tab'); S(4, 8.2, 297.6, 'pile'); S(4, -3.2, 296.2, 'bags', 'rifle', 1); S(4, 11.2, 305.6, 'drum', 'lmg', 2);
+    // ---- 5: the store under the roof hatch ----
+    Pile(20.1, 295.0, 0, 3, 1, 2); F('drum', 21.1, 296.6, 0, true); Jerries(18.9, 297.2, 0, 3); F('f_shelf', 13.33, 303.6, E, true); F('crate', 13.7, 306.9, E, true);
+    S(5, 16.8, 304.6, 'pile'); S(5, 16.0, 295.4, 'drum', 'smg', 1); Pile(13.62, 300.6, PI / 2, 3, 1, 2); Pile(13.62, 305.3, PI / 2, 2, 2, 2); F('drum', 14.0, 295.0, 0.3, true); F('drum', 14.65, 294.85, 1.2, true);
   }
-  else if (kind === 'map') { K.box(x0 + 0.08, cz, y + 0.9, 0.06, 1.3, 2.4, 0xd8cfb4); K.box(x0 + 0.1, cz, y + 1.2, 0.02, 0.5, 1.6, 0x6b8a9a);
-    // the map table: two tables pushed together, the chairs round it
-    for (const o of [-0.4, 0.4]) K.fm('f_table_wood', cx, cz + o, y); if (mdlHas('f_table_wood')) { const [wx, wz] = HW(cx, cz); addCollider(wx, wz, 0.8, 0.8, 0, y + 0.76, y); }
-    for (const [o, sd] of [[-0.45, -1], [0.45, -1], [-0.45, 1], [0.45, 1]]) K.fm('f_chair_fold', cx + o, cz + sd * 1.15, y, sd < 0 ? 0 : N);
-    hmCover(cx, cz + 1.0, 0, 1, f); hmCover(cx, cz - 1.0, 0, -1, f); }
-  else if (kind === 'kitchen') {
-    // along the outer wall: the cooker, two worktops, then the shelves of tins and bottles; the mess table in the middle with its benches
-    K.fm('f_oven', x0 + 0.32 + 0.26, z0 + 1.0, y, E, true); for (const lz of [z0 + 2.0, z0 + 3.25]) K.fm('f_table_metal', x0 + 0.32 + 0.34, lz, y, E, true);
-    for (const lz of [z0 + 5.0, z0 + 6.6, z0 + 8.2]) K.fm('f_shelf', x0 + 0.32 + 0.15, lz, y, E, true);
-    for (const o of [-0.615, 0.615]) K.fm('f_table_metal', cx + 0.6, cz + o, y, E); if (mdlHas('f_table_metal')) { const [wx, wz] = HW(cx + 0.6, cz); addCollider(wx, wz, 0.34, 1.23, 0, y + 0.76, y); }
-    for (const sx of [-1, 1]) for (const o of [-0.66, 0.66]) K.fm('f_bench_metal', cx + 0.6 + sx * 0.55, cz + o, y, E);
-    hmCover(cx + 1.6, cz, 1, 0, f); }
-  else if (kind === 'store') { for (let i = 0; i < 6; i++) K.pile(x0 + 0.85 + (i % 3) * 1.4, z1 - 0.6 - Math.floor(i / 3) * 1.1, y, 0, 2 + (i % 2), 0); K.pile(x1 - 0.6, z0 + 2.9, y, E, 0, 3, 2, false); hmCover(cx, z1 - 2.4, 0, 1, f); }
-  else if (kind === 'obs') { K.solid(cx, z1 - 1.0, y, 1.0, 1.1, 0.6, 0x55524a); K.box(cx, z1 - 1.0, y + 1.1, 0.3, 0.25, 0.9, 0x1a1a1a); K.fm('f_table_wood', x0 + 1.2, cz, y, 0, true); hmCover(x0 + 1.2, cz - 1.0, 0, -1, f); hmCover(cx, z1 - 2.0, 0, 1, f); }
-  // wide rooms get a second table with stools and a row of lockers on the far side, so the room is not half empty
-  if (x1 - x0 > 11) { K.fm('f_table_wood', x1 - 3.2, cz + 0.5, y, 0, true); for (const [ox, oz] of [[-0.6, -1.0], [0.6, -1.0], [0, 1.0]]) K.fm('f_stool_metal', x1 - 3.2 + ox, cz + 0.5 + oz, y, oz < 0 ? 0 : N); hmLockers(K, x1, cz + 3.33, y, 4); hmCover(x1 - 3.2, cz - 0.6, 0, -1, f); K.pile(x0 + 2.2, cz - 0.5, y, 0, 0, 4); hmCover(x0 + 2.2, cz - 1.3, 0, -1, f, 0.9); }
-  // and cover flanking the door, inside: the first men in through it are met from both sides
-  if (door) { for (const sd of [-1, 1]) { const px = cx + sd * 2.6, pz = door.z + door.nz * 1.1; K.pile(px, pz, y, 0, 2, 2); hmCover(px, pz + door.nz * 0.6, cx - px, door.z - pz - door.nz * 0.6, f, 0.95); } }
-  // the battle of the 6th: overturned crates, scorch marks, papers and spent cases on the floor
-  for (let i = 0; i < 5; i++) { const px = lerp(x0 + 0.8, x1 - 0.8, r()), pz = lerp(z0 + 0.8, z1 - 0.8, r()); if (r() < 0.5) K.fm('f_crate_wood', px, pz, y, r() * 3); else K.box(px, pz, y + 0.01, 0.6 + r() * 0.8, 0.005, 0.5 + r() * 0.6, 0x26221e, K.prop, r() * 3); }
-  K.box(cx, cz, y + 2.55, 0.12, 0.12, 0.12, 0xfff2c8); K.lamps.push([cx, cz, y + 2.4]);
-  hmRoomMore(K, x0, x1, z0, z1, f, kind); hmRoomProps(x0, x1, z0, z1, f, kind, r, door);
 }
-/* the rest of the furniture: a post that men lived in for months is full - tables and stools, shelves, stoves with their pipes, a generator, barrels, boards */
-function hmRoomMore(K, x0, x1, z0, z1, f, kind) {
-  const y = hmY(f), cx = (x0 + x1) / 2, cz = (z0 + z1) / 2, E = HM_TE, W = HM_TW, N = HM_TN;
-  const shelf = (lx, lz, ry) => K.fm('f_shelf', lx, lz, y, ry, true);
-  // the cooker against the wall at z0, its pipe up from its back and into that wall
-  const stove = (lx, lz) => { K.fm('f_oven', lx, lz, y, 0, true); K.box(lx, lz - 0.2, y + 0.9, 0.12, 1.56, 0.12, 0x2a2a28); K.box(lx, lz - 0.4, y + 2.4, 0.12, 0.12, 0.5, 0x2a2a28); };
-  if (kind === 'bunks') { K.fm('f_table_metal', cx, z0 + 1.6, y, 0, true); K.fm('f_stool_metal', cx - 0.9, z0 + 1.6, y, E); K.fm('f_stool_metal', cx + 0.9, z0 + 1.6, y, W); stove(x0 + 0.6, z0 + 0.6); shelf(cx + 4.0, z0 + 0.47, 0); for (let i = 0; i < 3; i++) K.box(x1 - 0.2, z0 + 2.4 + i * 0.5, y + 1.6, 0.06, 0.06, 0.06, 0x2a2a28); }
-  else if (kind === 'radio') { K.fm('f_desk', cx + 1.6, z1 - 0.65, y, N, true); K.fm('f_lamp_desk', cx + 2.05, z1 - 0.5, y + 0.76, N); K.fm('f_chair_fold', cx + 1.4, z1 - 1.35, y, 0); K.fm('f_stool_metal', cx - 0.5, cz - 1.0, y); K.solid(x0 + 0.7, z1 - 0.7, y, 0.9, 0.7, 0.6, 0x3a3a30); K.box(x0 + 0.7, z1 - 0.7, y + 0.7, 0.3, 0.1, 0.3, 0x2a2a28); for (let i = 0; i < 4; i++) K.box(x0 + 1.2 + i * 1.2, z1 - 0.4, y + 0.01, 1.3, 0.02, 0.03, 0x1a1a1a); shelf(x0 + 2.0, z0 + 0.47, 0); }
-  else if (kind === 'map') { for (const sd of [-1, 1]) K.fm('f_stool_metal', cx + sd * 1.1, cz, y); K.fm('f_cabinet', x1 - 0.18 - 0.36, z0 + 0.8, y, W, true); K.box(x1 - 0.08, cz + 1.2, y + 0.9, 0.06, 1.1, 1.6, 0xd8cfb4); K.box(x1 - 0.1, cz + 1.2, y + 1.15, 0.02, 0.5, 1.2, 0x6b8a9a); shelf(cx + 4.0, z1 - 0.47, N); }
-  else if (kind === 'kitchen') { K.solid(x1 - 0.6, z1 - 0.7, y, 0.9, 1.1, 0.9, 0x6a7a8a); K.box(x1 - 0.6, z1 - 0.7, y + 1.1, 0.9, 0.06, 0.9, 0x5a6a7a); stove(x1 - 0.6, z0 + 0.6); K.fm('f_table_metal', x0 + 2.2, z1 - 0.51, y, N, true); }
-  else if (kind === 'store') { for (let i = 0; i < 3; i++) K.pile(x0 + 0.6 + i * 0.75, z0 + 0.7, y, E, 0, 4); for (let i = 0; i < 3; i++) { const [wx, wz] = HW(x1 - 0.6, z0 + 0.6 + i * 0.75); K.prop.push([G.cyl(0.3, 0.3, 0.9, 12), i % 2 ? 0x46503f : 0x5a4a30, M4(wx, y + 0.45, wz)]); addCollider(wx, wz, 0.32, 0.32, 0, y + 0.9, y); } shelf(x0 + 10.9, z0 + 0.47, 0); shelf(x0 + 0.47, z0 + 4.0, E); K.pile(cx, cz, y, 0, 2, 0, 3); }
-  else if (kind === 'obs') { K.fm('f_bench_metal', cx + 1.6, cz - 0.9, y, 0, true); K.box(x0 + 0.08, cz + 1.4, y + 0.9, 0.06, 1.0, 1.4, 0xd8cfb4); K.box(x0 + 0.1, cz + 1.4, y + 1.15, 0.02, 0.5, 1.0, 0x6b8a9a); K.fm('f_chair_fold', x0 + 1.2, cz - 0.75, y, 0); stove(x1 - 0.6, z0 + 0.6); shelf(cx + 4.0, z0 + 0.47, 0); }
+/* the roof: four walls of stone baskets across it, north to south, each open at alternate ends - a lane that winds from the hatch to the flag.
+   The men of each stretch wait behind baskets facing the gap the attack comes through */
+function hmRoof(K) {
+  const C = CHAP.hermon, U = HM_U, yR = HM_RY, H = 1.9;
+  const wallZ = (x, z0, z1) => { for (let z = z0 + 0.6; z < z1 - 0.3; z += 1.2) for (let c = 0; c < 2; c++) K.gabion(x + (c ? 0.04 : 0), z, 1.0 - c * 0.08, 1.15, H / 2, yR + c * H / 2, false); const [wx, wz] = HW(x, (z0 + z1) / 2); addCollider(wx, wz, 0.5, (z1 - z0) / 2, 0, yR + H, yR - 0.2); };
+  HM_RW.forEach((x, i) => (i % 2 === 0 ? wallZ(x, U.z0 + 3.5, U.z1 - 0.9) : wallZ(x, U.z0 + 0.9, U.z1 - 3.5)));
+  const r = rng(2291), st = [[17.2, 285.0, 0, 1, 0], [20.0, 287.6, 0, 1, 1], [8.0, 300.6, 1, -1, 0], [11.4, 304.8, 1, -1, 0], [6.6, 292.2, 1, -1, 1], [0.2, 288.0, 2, 1, 0], [-2.4, 284.0, 2, 1, 0], [2.8, 293.6, 2, 1, 1],
+    [-8.6, 300.8, 3, -1, 0], [-11.0, 305.0, 3, -1, 0], [-6.2, 293.2, 3, -1, 1], [-17.2, 288.4, 4, 1, 0], [-20.0, 290.8, 4, 1, 0], [-15.4, 284.2, 4, 1, 1]];
+  // each man faces the way the lane comes at his stretch (north or south), a block of baskets in front of him
+  for (const [x, z, k, sd, dmin] of st) { K.gabion(x, z + sd * 0.95, 2.4, 1.0, 1.05, yR); const [wx, wz] = HW(x, z); C.slots.push({ x: wx, z: wz, y: yR, nx: 0, nz: sd, f: 2, b: null, used: false, fox: true, roof: true, p: [wx, wz + sd * 0.12], h: [wx, wz], grp: 'R2', room: k, kind: r() < 0.25 ? 'lmg' : 'rifle', dmin }); }
 }
-/* the small things of the post, room by room: everything the Syrians found there and everything they brought. They stand on the furniture models:
-   tables, desks and metal tables 0.76 high, the cooker 0.9, the boards of a shelf 0.21, 0.67 and 1.13, the bunk's mattresses 0.54 and 1.32, the
-   steel cabinet 1.3, the lockers 1.9, the metal bench 0.39, a chair's seat 0.42, the crates 0.26 (long) and 0.23 (ammunition) a layer */
-function hmRoomProps(x0, x1, z0, z1, f, kind, r, door = null) {
-  const y = hmY(f), cx = (x0 + x1) / 2, cz = (z0 + z1) / 2, seed = Math.round(x0 * 7 + z0 * 3 + f * 101);
-  const P = (k, lx, lz, yy, rot = 0, floor = y) => { const [x, z] = HW(lx, lz); return propAdd('hermon', k, x, yy, z, rot, floor); };
-  const On = (kinds, lx, lz, yy, w, d, sd) => { const [x, z] = HW(lx, lz); return propsOn('hermon', kinds, x, z, yy, w, d, 0, sd, y); };
-  const W = (k, lx, yy, lz, ry, sd = 1) => { const [x, z] = HW(lx, lz); return propWall('hermon', k, x, yy, z, ry, sd, 'e'); };
-  const E = Math.PI / 2, Wf = -Math.PI / 2, S = 0, N = Math.PI;   // facing +x, -x, +z, -z
-  const LC = mdlHas('f_crate_long') ? mdlBox('f_crate_long')[1] : 0.26, AC = mdlHas('f_crate_wood') ? mdlBox('f_crate_wood')[1] : 0.23;
-  if (kind === 'bunks') {
-    const [b0, bz, sg] = hmBunks(x0, z0, z1, door);   // the pillows lie at the bunks' -z end, the boots and the helmets on the floor in front of them
-    for (let i = 0; i < 2; i++) { const bx = b0 + i * 2.6; P('blanketF', bx, bz + 0.2, y + 0.54, 0.2); P('books', bx + 0.2, bz + 0.7, y + 0.54, 0.4); P('pack', bx, bz + 0.55, y + 1.32, 1.5 + i); P('boots', bx + 0.6, bz - sg * 0.95, y, 0.3); P('helmet', bx - 0.5, bz - sg * 1.15, y, 0.8); P('canteen', bx + 0.2, bz - sg * 1.2, y); }
-    P('frame', x1 - 0.4, z0 + 1.0, y + 1.9, 0.2); P('lamp', x1 - 0.4, z0 + 1.5, y + 1.9); On(['cards', 'cups', 'ashtray', 'candle', 'backgammon'], cx, z0 + 1.6, y + 0.76, 1.1, 0.6, seed + 1); On(['books', 'canteen', 'frame', 'cigs', 'thermos'], cx + 4.0, z0 + 0.47, y + 0.68, 1.3, 0.2, seed + 2); On(['helmet', 'mess', 'books', 'lamp'], cx + 4.0, z0 + 0.47, y + 1.14, 1.3, 0.2, seed + 3); P('kettle', x0 + 0.5, z0 + 0.7, y + 0.9, 0.3); P('pot', x0 + 0.72, z0 + 0.55, y + 0.9, 0); for (let i = 0; i < 3; i++) P('helmet', x1 - 0.35, z0 + 2.4 + i * 0.5, y + 1.42, 0.5 + i, y); P('cigs', x0 + 2.9, z0 + 1.3, y); P('jerry', x0 + 0.6, z0 + 1.2, y, 0.2); P('bucket', x1 - 1.6, z0 + 0.6, y); P('radio', x0 + 3.0, z0 + 2.0, y, 2.6);
-    W('calendar', x0 + 0.03, y + 1.6, z0 + 2.0, E, 2); W('portrait', cx, y + 1.75, z0 + 0.03, S, 5); W('clock', x1 - 0.03, y + 2.0, z1 - 2.2, Wf);
-  } else if (kind === 'radio') {
-    On(['radioBig', 'phone', 'papers', 'headset', 'cups', 'lamp', 'cigs', 'thermos'], cx - 0.5, cz, y + 0.76, 1.9, 0.8, seed);
-    for (let i = 0; i < 3; i++) { const bz = z0 + 1.0 + i * 1.5; P('radioBig', x1 - 0.54, bz - 0.25, y + 1.3, Wf, y); P('headset', x1 - 0.54, bz + 0.3, y + 1.3, 0.3 * i, y); }
-    On(['radioBig', 'phone', 'headset', 'papers', 'cups'], cx + 1.4, z1 - 0.65, y + 0.76, 0.8, 0.5, seed + 4); P('jerry', x0 + 0.4, z1 - 1.3, y, 0.3); P('oilcan', x0 + 1.3, z1 - 0.5, y); On(['books', 'papers', 'canteen', 'cans', 'tclock'], x0 + 2.0, z0 + 0.47, y + 0.68, 1.3, 0.2, seed + 5); On(['maptube', 'books', 'lamp', 'cigs'], x0 + 2.0, z0 + 0.47, y + 1.14, 1.3, 0.2, seed + 6); P('ammo', x0 + 0.6, z1 - 0.6, y, 0.2); P('jerry', x0 + 1.1, z1 - 0.6, y, 0.3); P('helmet', x0 + 0.5, z0 + 0.6, y, 1.0); P('pack', x0 + 1.0, z0 + 0.5, y, 2.0); P('crateS', cx + 0.5, z1 - 0.6, y, 0.1); P('radio', cx + 0.5, z1 - 0.6, y + 0.33, 0.4);
-    W('map', cx, y + 1.65, z0 + 0.03, S, 3); W('clock', x0 + 1.0, y + 2.05, z0 + 0.03, S); W('portrait', x0 + 0.03, y + 1.75, cz, E, 6); W('calendar', x0 + 0.03, y + 1.5, cz + 1.4, E, 1);
-  } else if (kind === 'map') {
-    On(['papers', 'maptube', 'maptube', 'phone', 'binocs', 'lamp', 'cups', 'ashtray', 'books'], cx - 0.15, cz + 0.1, y + 0.76, 1.2, 1.3, seed);
-    P('helmet', cx - 0.45, cz - 1.2, y + 0.42, 0.4); P('radio', cx + 0.45, cz + 1.2, y + 0.42, 0.3); P('papers', x1 - 0.5, z0 + 0.8, y + 1.3, 0.3); P('phone', x1 - 0.55, z0 + 0.65, y + 1.3, 0.1); On(['books', 'maptube', 'binocs', 'cans', 'lamp', 'papers'], cx + 4.0, z1 - 0.47, y + 0.68, 1.3, 0.2, seed + 7); On(['bottles', 'cups', 'tclock', 'books'], cx + 4.0, z1 - 0.47, y + 1.14, 1.3, 0.2, seed + 8); P('jerry', x1 - 0.6, z1 - 0.6, y, 0.3); P('pack', x1 - 1.15, z0 + 0.7, y, 1.1); P('crateS', x0 + 0.9, z1 - 0.7, y, 0.3); P('papers', x0 + 0.9, z1 - 0.7, y + 0.33, 0.8); P('thermos', x0 + 1.2, z1 - 0.9, y + 0.33);
-    W('portrait', cx + 2.0, y + 1.75, z1 - 0.03, N, 4); W('clock', x1 - 0.03, y + 2.0, cz, Wf); W('map', x1 - 0.03, y + 1.5, cz - 1.8, Wf, 9);
-  } else if (kind === 'kitchen') {
-    P('pot', x0 + 0.58, z0 + 1.0, y + 0.9, 0); P('pan', x0 + 0.66, z0 + 1.85, y + 0.76, 0.3); P('kettle', x0 + 0.66, z0 + 3.5, y + 0.76, 0.6); for (let i = 0; i < 2; i++) { const bz = z0 + 2.0 + i * 1.25; P(['plates', 'jug'][i], x0 + 0.5, bz + 0.3, y + 0.76, 0); P(['cans', 'cups'][i], x0 + 0.78, bz - 0.15, y + 0.76, 0.3); P(['bottles', 'basket'][i], x0 + 0.5, bz - 0.4, y + 0.76, 0.1); }
-    On(['plates', 'glasses', 'teapot', 'backgammon', 'bottle', 'basket', 'fruit', 'cards', 'cups'], cx + 0.6, cz, y + 0.76, 0.55, 2.3, seed);
-    On(['cans', 'bottles', 'plates', 'jug', 'cans', 'basket', 'bottle'], x0 + 0.47, z0 + 6.6, y + 0.68, 0.2, 4.4, seed + 9); On(['bottles', 'cans', 'tin', 'cups', 'teapot', 'cans'], x0 + 0.47, z0 + 6.6, y + 1.14, 0.2, 4.4, seed + 10); P('bucket', x1 - 0.6, z1 - 1.5, y, 0.2); P('cups', x1 - 0.4, z1 - 0.7, y + 1.16, 0, y); P('pot', x1 - 0.68, z0 + 0.6, y + 0.9, 0.3); P('kettle', x1 - 0.48, z0 + 0.5, y + 0.9, 0); On(['plates', 'pan', 'bottles', 'mess'], x0 + 2.2, z1 - 0.51, y + 0.76, 1.0, 0.45, seed + 11);
-    P('bucket', x0 + 1.2, z0 + 0.6, y); P('sack', x1 - 0.8, z1 - 0.7, y, 0.3); P('sack', x1 - 0.9, z1 - 1.4, y, 1.4); P('jerry', x1 - 0.6, z0 + 1.3, y, 0.2); P('tin', x1 - 0.6, z0 + 1.75, y, 0.1); P('crateS', x0 + 1.0, z1 - 0.7, y, 0.4); P('cans', x0 + 1.0, z1 - 0.7, y + 0.33, 0.2); P('primus', x0 + 1.4, z1 - 1.5, y); P('oilcan', x0 + 1.9, z1 - 1.3, y);
-    W('calendar', x1 - 0.03, y + 1.6, cz, Wf, 1); W('clock', cx, y + 2.05, z1 - 0.03, N);
-  } else if (kind === 'store') {
-    for (let i = 0; i < 6; i++) { const bx = x0 + 0.85 + (i % 3) * 1.4, bz = z1 - 0.6 - Math.floor(i / 3) * 1.1, top = y + (2 + (i % 2)) * LC; P(['ammo', 'jerry', 'cans', 'blanket', 'helmet', 'sack'][i], bx, bz, top, 0.4 * i); }
-    for (let i = 0; i < 3; i++) P(['ammo', 'jerry', 'cans'][i], x0 + 0.6 + i * 0.75, z0 + 0.7, y + 4 * AC, 0.3 * i); for (const [lx, lz, h, ks, w, d] of [[x0 + 10.9, z0 + 0.47, 0.68, ['ammo', 'ammo', 'cans', 'jerry', 'tin'], 1.3, 0.2], [x0 + 10.9, z0 + 0.47, 1.14, ['bottles', 'cans', 'blanket', 'mess', 'cans'], 1.3, 0.2], [x0 + 0.47, z0 + 4.0, 0.68, ['helmet', 'helmet', 'pack', 'blanket'], 0.2, 1.3]]) On(ks, lx, lz, y + h, w, d, seed + h * 10 + lx); P('blanketF', cx - 0.3, cz, y + 2 * LC, 0.2); P('helmet', cx + 0.4, cz + 0.2, y + 2 * LC, 0.6);
-    P('jerry', x0 + 0.5, z0 + 1.4, y, 0.2); P('jerry', x0 + 0.95, z0 + 1.4, y, -0.1); P('sack', cx, z0 + 0.8, y, 0.7); P('sack', cx + 0.6, z0 + 1.2, y, 1.9); P('tin', x1 - 1.2, z0 + 0.6, y, 0.2); P('oilcan', x1 - 1.5, z0 + 1.0, y); P('crateS', cx - 1.5, z0 + 1.1, y, 0.3); P('bottles', cx - 1.5, z0 + 1.1, y + 0.33, 0.2); P('lamp', cx - 1.2, z0 + 0.9, y + 0.33);
-    W('calendar', x0 + 0.03, y + 1.6, cz, E, 2);
-  } else if (kind === 'obs') {
-    On(['binocs', 'papers', 'phone', 'lamp', 'cups', 'maptube', 'headset', 'cigs'], x0 + 1.2, cz, y + 0.76, 1.5, 0.7, seed);
-    P('helmet', x1 - 1.3, z0 + 0.6, y, 0.4); P('ammo', x1 - 0.7, z0 + 1.25, y, 0.1); P('jerry', x0 + 0.5, z0 + 0.5, y, 0.3); On(['pack', 'helmet', 'canteen', 'blanket'], cx + 1.6, cz - 0.9, y + 0.39, 1.2, 0.25, seed + 12); On(['books', 'binocs', 'cans', 'lamp'], cx + 4.0, z0 + 0.47, y + 1.14, 1.3, 0.2, seed + 13); P('kettle', x1 - 0.6, z0 + 0.6, y + 0.9, 0.2); P('cups', x1 - 0.42, z0 + 0.72, y + 0.9, 0, y); P('thermos', x0 + 0.55, cz + 0.25, y + 0.76); P('radio', x1 - 0.8, cz + 0.6, y, 1.9);
-    W('map', x0 + 0.03, y + 1.6, cz, E, 10); W('clock', cx, y + 2.05, z0 + 0.03, S);
-  }
+/* the small things along the trenches: crates of ammunition, jerrycans, an oil drum, a rifle left against the wall - the models of the props packs */
+function hmTrenchProp(K, x, z, y, a, kind) {
+  const [lx, lz] = [x - HM.o.x, z - HM.o.z], c = Math.cos(a), s = Math.sin(a), at = (u, v) => [lx + c * u - s * v, lz + s * u + c * v], ry = -a, T = K.mdlT;
+  if (kind === 0) K.pile(...at(0, 0), y, ry, 2, 0, 1, false, T);
+  else if (kind === 1) { K.fm('jerry', ...at(0, 0), y, ry, false, 1, T); K.fm('jerry', ...at(0.22, 0.04), y, ry + 0.2, false, 1, T); }
+  else if (kind === 2) { const top = K.fm('f_crate_wood', ...at(0, 0), y, ry + Math.PI / 2, false, 1, T); K.fm('f_crate_wood', ...at(0.02, 0), top, ry + Math.PI / 2 + 0.1, false, 1, T); }
+  else if (kind === 3) K.fm('crate', ...at(0, 0), y, ry, false, 1, T);
+  else if (kind === 4) K.fm('drum', ...at(0, 0), y, ry, false, 1, T);
+  else K.ft('akms', ...at(0, 0), y, ry, 0, Math.PI / 2, false, T);
 }
 function hmBuild() {
   const C = CHAP.hermon; C.ground = makeGround({ x0: HM.o.x - 230, x1: HM.o.x + 230, z0: HM.o.z - 210, z1: HM.o.z + 345, step: 1.6, h: mapH('hermon', hmOuter, hmCarve), map: 'hermon', vegOk: (x, z) => { const lx = x - HM.o.x, lz = z - HM.o.z; return distPolyline(lx, lz, HM_ROAD_S) > 5 && hmDist(lx, lz) > 70; } }); GROUND = C.ground;
   const BAGS = [], sv = BATCH.bag; BATCH.bag = BAGS; const k0 = COVER.length; C.slots = [];
-  const K = hmBuildKit(), r = rng(2210), stone = [], L = (x, z) => [x - HM.o.x, z - HM.o.z], y0 = HM_L0, y1 = HM_PY, u0 = HM_PY, u1 = HM_U1, yR = HM_RY;
-  const { x0, x1, z0, z1 } = HM_F, [c0, c1] = HM_CORR, [dx, dz] = HM_DOOR, U = HM_U, ST = HM_STAIR, RS = HM_RSTAIR;
-  // ---- the lower level, sunk into the rock: a 6 m corridor east to west, four rooms on each side, the entrance hall with the stair at the south door ----
-  K.wall(x0, z1, x1, z1, y0 - 0.4, y1, [], 0.6); K.wall(x0, z0, x1, z0, y0 - 0.4, y1, [[dx - x0 - 1.3, dx - x0 + 1.3]], 0.6);
-  K.wall(x0, z0, x0, z1, y0 - 0.4, y1, [], 0.6); K.wall(x1, z0, x1, z1, y0 - 0.4, y1, [], 0.6);
-  const doorAt = (a, b) => [(a + b) / 2 - x0 - 1.0, (a + b) / 2 - x0 + 1.0];
-  K.wall(x0, c1, x1, c1, y0, y1 - 0.3, HM_RX.map(([a, b]) => doorAt(a, b)));                                            // the north wall of the corridor: a door into each room
-  K.wall(x0, c0, x1, c0, y0, y1 - 0.3, [...HM_RX.filter((rr) => rr[0] !== 0).map(([a, b]) => doorAt(a, b)), [1.2 - x0, 11.8 - x0]]);   // south: three doors and the wide opening of the hall
-  for (const x of [-13, 0, 13]) { K.wall(x, c1, x, z1, y0, y1 - 0.3, x === 0 ? [] : [[7, 9]]); K.wall(x, z0, x, c0, y0, y1 - 0.3, x === -13 ? [[6, 8]] : []); }   // partitions, two of them with a connecting door
-  K.con.push([boxUV(...[HW(x0, z0)[0], HW(x1, z1)[0]], y0 - 0.02, y0, ...[HW(x0, z0)[1], HW(x1, z1)[1]], 2, 2), 0x8e8a82]);   // the floor
-  // the main stair: in the hall, rising east onto the terrace through a hole in the slab; stringer walls along its sides, a step rail at the top
-  { const [a, b] = HW(ST.x0, ST.z0), [c, d] = HW(ST.x1, ST.z1); addRamp(a, c, b, d, 'x', a, HW(ST.top, 0)[0], y0, y1);
-    const n = 14, run = ST.top - ST.x0; for (let i = 0; i < n; i++) { const xx = ST.x0 + (i + 0.5) * run / n, [sx, sz] = HW(xx, (ST.z0 + ST.z1) / 2); K.con.push([new THREE.BoxGeometry(run / n + 0.02, 0.2, ST.z1 - ST.z0).translate(sx, y0 + (i + 1) / n * (y1 - y0) - 0.1, sz), 0x9a968c]); }
-    for (let i = 0; i < 4; i++) { const xa = ST.x0 + i * run / 4, xb = xa + run / 4, top = y0 + (i + 1) / 4 * (y1 - y0) + 0.95; for (const zz of [ST.z0, ST.z1]) K.wall(xa, zz, xb, zz, y0 - 0.2, top, [], 0.16); }
-    for (let i = 0; i < 4; i++) { const h = Math.max(0.25, (i + 0.15) / 4 * (y1 - y0)), [bx, bz] = HW(ST.x0 + (i + 0.5) * run / 4, (ST.z0 + ST.z1) / 2); K.con.push([new THREE.BoxGeometry(run / 4, h, ST.z1 - ST.z0 - 0.1).translate(bx, y0 + h / 2, bz), 0x8e8a82]); }   // the solid under the steps
-    K.wall(ST.x1, ST.z0, ST.x1, ST.z1, y0, y1 - 0.45, [], 0.12);   // the high end is closed below, so nobody walks in under the steps
-  }
-  // the slab, split round the stair hole; the terrace apron 3.8 m wide all round, with the strip for the door trench left open; the lower level's walls hold it up
+  const K = hmBuildKit(), r = rng(2210), stone = [], L = (x, z) => [x - HM.o.x, z - HM.o.z], y0 = HM_L0, y1 = HM_PY, yR = HM_RY;
+  const { x0, x1, z0, z1 } = HM_F, [dx] = HM_DOOR, U = HM_U, ST = HM_STAIR, RS = HM_RSTAIR;
+  // ---- the two floors: walls, paint, floors, ceilings; the furniture and the defenders' places ----
+  hmFloorGeo(K, 0); hmFloorGeo(K, 1); hmFurnish(K, 0); hmFurnish(K, 1); hmDoorsBuild();
+  // the hall's stair: rising east along the hall's south wall through a hole in the slab into the signals room; a stringer wall along its open
+  // side rising with it, the solid under the steps, and the high end walled in below so nobody walks in under it
+  { const [a, b] = HW(ST.x0, ST.z0), [c, d] = HW(ST.x1, ST.z1); addRamp(a, c, b, d, 'x', a, c, y0, y1);
+    const n = 15, run = ST.x1 - ST.x0, w = ST.z1 - ST.z0, zc = (ST.z0 + ST.z1) / 2; for (let i = 0; i < n; i++) { const [sx, sz] = HW(ST.x0 + (i + 0.5) * run / n, zc); K.con.push([new THREE.BoxGeometry(run / n + 0.02, 0.2, w).translate(sx, y0 + (i + 1) / n * (y1 - y0) - 0.1, sz), 0x9a968c]); }
+    for (let i = 0; i < 4; i++) { const xa = ST.x0 + i * run / 4, xb = xa + run / 4, top = y0 + (i + 1) / 4 * (y1 - y0) + 0.95; K.wall(xa, ST.z1 + 0.08, xb, ST.z1 + 0.08, y0, Math.min(top, y1 - 0.31), [], 0.16, 0x7c8470, null, K.skin); }
+    for (let i = 0; i < 4; i++) { const h = Math.max(0.25, (i + 0.15) / 4 * (y1 - y0)), [bx, bz] = HW(ST.x0 + (i + 0.5) * run / 4, zc); K.con.push([new THREE.BoxGeometry(run / 4, h, w - 0.1).translate(bx, y0 + h / 2, bz), 0x8e8a82]); }
+    K.wall(ST.x1 + 0.06, ST.z0, ST.x1 + 0.06, ST.z1 + 0.16, y0, y1 - 0.45, [], 0.12, 0x7c8470, null, K.skin);
+    // round the hole upstairs, a low wall on three sides; the east end, where the stair comes up, open
+    K.wall(ST.x0 - 0.08, ST.z0 - 0.16, ST.x0 - 0.08, ST.z1 + 0.16, y1, y1 + 0.95, [], 0.16, 0x6c7a7e, null, K.skin); for (const zz of [ST.z0 - 0.08, ST.z1 + 0.08]) K.wall(ST.x0, zz, ST.x1 - 0.2, zz, y1, y1 + 0.95, [], 0.16, 0x6c7a7e, null, K.skin); }
+  // the store's stair to the roof: along its east wall, rising south through the hatch; its stringer wall on the open side, the high end walled in below
+  { const [a, b] = HW(RS.x0, RS.z0), [c, d] = HW(RS.x1, RS.z1); addRamp(a, c, b, d, 'z', d, b, y1, yR);
+    const n = 16, run = RS.z1 - RS.z0, w = RS.x1 - RS.x0, xc = (RS.x0 + RS.x1) / 2; for (let i = 0; i < n; i++) { const [sx, sz] = HW(xc, RS.z1 - (i + 0.5) * run / n); K.con.push([new THREE.BoxGeometry(w, 0.2, run / n + 0.02).translate(sx, y1 + (i + 1) / n * (yR - y1) - 0.1, sz), 0x9a968c]); }
+    for (let i = 0; i < 4; i++) { const za = RS.z1 - i * run / 4, zb = za - run / 4, top = y1 + (i + 1) / 4 * (yR - y1) + 0.95; K.wall(RS.x0 - 0.08, za, RS.x0 - 0.08, zb, y1, Math.min(top, HM_U1 - 0.01), [], 0.16, 0xa8a49a, null, K.skin); const h = Math.max(0.25, (i + 0.15) / 4 * (yR - y1)), [bx, bz] = HW(xc, (za + zb) / 2); K.con.push([new THREE.BoxGeometry(w - 0.1, h, run / 4).translate(bx, y1 + h / 2, bz), 0x8e8a82]); }
+    K.wall(RS.x0 - 0.16, RS.z0 - 0.06, RS.x1, RS.z0 - 0.06, y1, yR - 0.45, [], 0.12, 0xa8a49a, null, K.skin);
+    // on the roof, round the hatch: low walls west, north and east; the south end, where the stair comes out, open
+    K.wall(RS.x0 - 0.08, RS.z0, RS.x0 - 0.08, RS.z1 + 0.16, yR, yR + 1.0, [], 0.16, 0xc9c5bc); K.wall(RS.x0 - 0.16, RS.z1 + 0.08, RS.x1 + 0.2, RS.z1 + 0.08, yR, yR + 1.0, [], 0.16, 0xc9c5bc); K.wall(RS.x1 + 0.12, RS.z0 - 0.5, RS.x1 + 0.12, RS.z1 + 0.16, yR, yR + 1.0, [], 0.16, 0xc9c5bc); }
+  // the slab over the lower floor, split round the stair hole; the terrace apron 3.8 m wide all round, with the strip for the door trench left open
   K.slab(x0 - 0.3, x1 + 0.3, ST.z1, z1 + 0.3, y1, 0.3); K.slab(x0 - 0.3, x1 + 0.3, z0 - 0.3, ST.z0, y1, 0.3); K.slab(x0 - 0.3, ST.x0, ST.z0, ST.z1, y1, 0.3); K.slab(ST.x1, x1 + 0.3, ST.z0, ST.z1, y1, 0.3);
   { const A = 3.8, t = 0.7; for (const [a, b, c, d] of [[x0 - A, dx - 1.6, z0 - A, z0 - 0.3], [dx + 1.6, x1 + A, z0 - A, z0 - 0.3], [x0 - A, x1 + A, z1 + 0.3, z1 + A], [x0 - A, x0 - 0.3, z0 - 0.3, z1 + 0.3], [x1 + 0.3, x1 + A, z0 - 0.3, z1 + 0.3]]) K.slab(a, b, c, d, y1, t, false);
-    // the walkable surfaces: the slab and apron, minus the stair hole and the door strip
     const F = (a, b, c, d, y) => { const [p, q] = HW(a, c), [s, t2] = HW(b, d); addFloor(p, s, q, t2, y); };
     F(x0 - 3.2, x1 + 3.2, ST.z1, z1 + 3.2, y1); F(x0 - 3.2, dx - 1.6, z0 - 3.2, ST.z0, y1); F(dx + 1.6, x1 + 3.2, z0 - 3.2, ST.z0, y1); F(x0 - 3.2, ST.x0, ST.z0, ST.z1, y1); F(ST.x1, x1 + 3.2, ST.z0, ST.z1, y1); F(dx - 1.6, dx + 1.6, z0 - 0.3, ST.z0, y1);
     // the concrete-walled approach: the last stretch of the door trench between retaining walls
     { const [a, b] = HM_SPURS[3], ux = b[0] - a[0], uz = b[1] - a[1], l = Math.hypot(ux, uz), nx = -uz / l, nz = ux / l; for (const sd of [-1, 1]) K.wall(a[0] + ux * 0.35 + nx * sd * 1.5, a[1] + uz * 0.35 + nz * sd * 1.5, b[0] + nx * sd * 1.5, b[1] + nz * sd * 1.5, y0 - 0.3, y1 + 0.25, [], 0.4); }
-    // a low wall round the stair hole on the terrace, open on the east where the stair comes out
-    K.wall(ST.x0, ST.z0, ST.x0, ST.z1, y1, y1 + 0.9, [], 0.15); K.wall(ST.x0, ST.z0, ST.x1 - 0.5, ST.z0, y1, y1 + 0.9, [], 0.15); K.wall(ST.x0, ST.z1, ST.x1 - 0.5, ST.z1, y1, y1 + 0.9, [], 0.15);
-  }
-  // the rooms of the lower level: the door of each is on the corridor wall
-  const RK_N = ['bunks', 'store', 'radio', 'bunks'], RK_S = ['kitchen', 'map', null, 'bunks'];
-  HM_RX.forEach(([a, b], i) => { hmRoom(K, a, b, c1, z1, 0, RK_N[i], r, { z: c1, nz: 1 }); if (RK_S[i]) hmRoom(K, a, b, z0, c0, 0, RK_S[i], r, { z: c0, nz: -1 }); });
-  // the entrance hall: crates to fight from, a sign for the stair
-  for (const [lx, lz] of [[1.4, 279.4], [11.6, 279.4]]) K.pile(lx, lz, y0, 0, 2, 2); hmCover(1.4, 280.1, 5.1, -7.1, 0, 0.95); hmCover(11.6, 280.1, -5.1, -7.1, 0, 0.95); hmCover(1.0, 274.5, 5.5, 8, 0, 0.6);
-  for (const [lx, lz] of [[12.2, 274.5], [12.2, 275.6], [1.2, 286.2]]) K.pile(lx, lz, y0, 0, 2, 0);
-  { const [sx, sz] = HW(12.6, 284); sign('↑ לגג', 'plain', sx, y0 + 2.0, sz, -Math.PI / 2, 1.3); const [tx, tz] = HW(6.5, 292.85); sign('← המסדרון →', 'plain', tx, y0 + 2.2, tz, Math.PI, 1.6); }
-  for (const x of [-20, -7, 7, 20]) { K.box(x, (c0 + c1) / 2, y0 + 2.6, 0.12, 0.12, 0.12, 0xfff2c8); } K.lamps.push([-14, 290, y0 + 2.5], [14, 290, y0 + 2.5]);
-  // the Syrians' barricades in the corridor: sandbags across half its width, a man behind each
-  for (const [x, sd] of [[-16, 1], [-3, -1], [18, 1]]) { const [wx, wz] = HW(x, 290 + sd * 1.3); for (let k = 0; k < 12; k++) BAGS.push([wx + ((k % 6) - 2.5) * 0.52, y0 + 0.1 + Math.floor(k / 6) * 0.2, wz, 0]); addCollider(wx, wz, 1.6, 0.25, 0, y0 + 0.5, y0 - 0.2); hmCover(x + 0.7, 290 + sd * 1.3, -1, 0, 0, 0.5); }
-  // ---- the upper level: three rooms in a block on the slab, their doors onto the terrace; slit windows north, over Syria ----
-  K.wall(U.x0, U.z1, U.x1, U.z1, u0, u1); K.wall(U.x0, U.z0, U.x1, U.z0, u0, u1, [-15, 0, 15].map((x) => [x - U.x0 - 1.0, x - U.x0 + 1.0])); K.wall(U.x0, U.z0, U.x0, U.z1, u0, u1); K.wall(U.x1, U.z0, U.x1, U.z1, u0, u1);
-  K.wall(-8, U.z0, -8, U.z1, u0, u1, [[7, 9]]); K.wall(8, U.z0, 8, U.z1, u0, u1, [[7, 9]]);
-  K.slab(U.x0 - 0.3, U.x1 + 0.3, U.z0 - 0.3, U.z1 + 0.3, yR, 0.3);
-  hmRoom(K, U.x0, -8, U.z0, U.z1, 1, 'obs', r, { z: U.z0, nz: 1 }); hmRoom(K, -8, 8, U.z0, U.z1, 1, 'radio', r, { z: U.z0, nz: 1 }); hmRoom(K, 8, U.x1, U.z0, U.z1, 1, 'map', r, { z: U.z0, nz: 1 });
-  for (const lx of [-15, -5, 5, 15]) K.box(lx, U.z1 + 0.05, u0 + 1.4, 2.2, 0.06, 0.1, 0x101010);
-  { const [a, b] = HW(U.x0 - 0.3, U.z0 - 0.3), [c, d] = HW(U.x1 + 0.3, U.z1 + 0.3); addFloor(a, c, b, d, yR); }
-  // the outside stair to the roof, along the east wall: concrete steps, a parapet on its outer side rising with it, a landing with its own parapet
-  { const [a, b] = HW(RS.x0 - 0.2, RS.z0), [c, d] = HW(RS.x1, RS.z1); addRamp(a, c, b, d, 'z', b, d, y1, yR);
-    const n = 16, run = RS.z1 - RS.z0; for (let i = 0; i < n; i++) { const zz = RS.z0 + (i + 0.5) * run / n, [sx, sz] = HW((RS.x0 + RS.x1) / 2, zz); K.con.push([new THREE.BoxGeometry(RS.x1 - RS.x0, 0.2, run / n + 0.02).translate(sx, y1 + (i + 1) / n * (yR - y1) - 0.1, sz), 0x9a968c]); }
-    for (let i = 0; i < 4; i++) { const za = RS.z0 + i * run / 4, zb = za + run / 4, top = y1 + (i + 1) / 4 * (yR - y1) + 1.0; K.wall(RS.x1 + 0.12, za, RS.x1 + 0.12, zb, y1 - 0.2, top, [], 0.25); const [bx, bz] = HW((RS.x0 + RS.x1) / 2, (za + zb) / 2); K.con.push([new THREE.BoxGeometry(RS.x1 - RS.x0, Math.max(0.3, (i + 0.5) / 4 * (yR - y1) - 0.3), run / 4).translate(bx, y1 + Math.max(0.3, (i + 0.5) / 4 * (yR - y1) - 0.3) / 2 - 0.3, bz), 0x8e8a82]); }
-    K.slab(RS.x0 - 0.2, RS.x1 + 0.3, RS.z1, RS.zl + 0.3, yR, 0.3); { const [a2, b2] = HW(RS.x0 - 0.2, RS.z1), [c2, d2] = HW(RS.x1 + 0.3, RS.zl + 0.3); addFloor(a2, c2, b2, d2, yR); }
-    K.wall(RS.x1 + 0.12, RS.z1, RS.x1 + 0.12, RS.zl + 0.3, yR, yR + 1.0, [], 0.25); K.wall(RS.x0 - 0.2, RS.zl + 0.3, RS.x1 + 0.3, RS.zl + 0.3, yR, yR + 1.0, [], 0.25);
-    const [sx, sz] = HW(RS.x1 + 0.3, RS.z0 - 1.2); sign('↑ לגג', 'plain', sx, y1 + 2.1, sz, -Math.PI / 2, 1.3);
-  }
-  // ---- the gabion blast layer: baskets of stone round the terrace, round the roof, and the firing blocks on the roof ----
+    // the roof slab over the upper block, split round the hatch, and its walkable top
+    K.slab(U.x0 - 0.3, U.x1 + 0.3, U.z0 - 0.3, RS.z0, yR, 0.3); K.slab(U.x0 - 0.3, U.x1 + 0.3, RS.z1, U.z1 + 0.3, yR, 0.3); K.slab(U.x0 - 0.3, RS.x0, RS.z0, RS.z1, yR, 0.3); K.slab(RS.x1, U.x1 + 0.3, RS.z0, RS.z1, yR, 0.3);
+    F(U.x0 - 0.3, U.x1 + 0.3, U.z0 - 0.3, RS.z0, yR); F(U.x0 - 0.3, U.x1 + 0.3, RS.z1, U.z1 + 0.3, yR); F(U.x0 - 0.3, RS.x0, RS.z0, RS.z1, yR); F(RS.x1, U.x1 + 0.3, RS.z0, RS.z1, yR); }
+  // ---- the gabion blast layer: baskets of stone round the terrace (nobody walks the terrace: they close it off from the yard) and round the roof ----
   for (let x = x0 - 2.5; x <= x1 + 2.5; x += 1.2) { if (Math.abs(x - dx) > 2.4) K.gabion(x, z0 - 2.6, 1.15, 1.0, 1.1, y1); K.gabion(x, z1 + 2.6, 1.15, 1.0, 1.1, y1); }
   for (let z = z0 - 1.5; z <= z1 + 1.5; z += 1.2) { K.gabion(x0 - 2.6, z, 1.0, 1.15, 1.1, y1); K.gabion(x1 + 2.6, z, 1.0, 1.15, 1.1, y1); }
   for (let x = U.x0 + 0.6; x <= U.x1 - 0.5; x += 1.2) { K.gabion(x, U.z1 - 0.5, 1.15, 1.0, 1.1, yR); K.gabion(x, U.z0 + 0.5, 1.15, 1.0, 1.1, yR); }
-  for (let z = U.z0 + 1.7; z <= U.z1 - 1.6; z += 1.2) { K.gabion(U.x0 + 0.5, z, 1.0, 1.15, 1.1, yR); if (z < RS.z1 - 0.8 || z > RS.zl + 0.6) K.gabion(U.x1 - 0.5, z, 1.0, 1.15, 1.1, yR); }
-  // the terrace nests: gabion blocks facing the stair exit; the roof blocks facing the landing
-  // a gabion block is cover for two: one man at each end of it, both facing the same way
-  let nestId = 0;
-  const nest = (lx, lz, fx, fz, y, f, grp, long) => { const l = Math.hypot(fx, fz) || 1; fx /= l; fz /= l; K.gabion(lx, lz, long ? 1.0 : 2.4, long ? 2.4 : 1.0, 1.05, y); const [wx, wz] = HW(lx, lz), sx = -fz, sz = fx, id = 'n' + nestId++;
-    for (const o of [-0.7, 0.7]) C.slots.push({ x: wx - fx * 0.8 + sx * o, z: wz - fz * 0.8 + sz * o, y, nx: fx, nz: fz, f, b: null, used: false, fox: true, roof: f === 2, p: [wx - fx * 0.85 + sx * o, wz - fz * 0.85 + sz * o], h: [wx - fx * 1.35 + sx * o, wz - fz * 1.35 + sz * o], grp, bay: id }); addCover(wx - fx * 0.75, wz - fz * 0.75, fx, fz, 1.0); };
-  nest(-15, 287, 26, -3, y1, 1, 'T2', true); nest(16, 287.5, -5, -3.5, y1, 1, 'T2', false); nest(-7, 290.6, 18, -6.5, y1, 1, 'T2', false); nest(7, 290.6, 4, -6.5, y1, 1, 'T2', false); nest(-21, 281, 32, 3, y1, 1, 'T2', true); nest(21, 276, -10, 8, y1, 1, 'T2', true);
-  for (const [lx, lz] of [[12, 297], [12, 304], [4, 297], [4, 304], [-4, 300.5], [-12, 297], [-12, 304], [-18, 300.5]]) nest(lx, lz, 1, 0, yR, 2, 'R2', true);
-  nest(18, 306.4, 0.76, -0.65, yR, 2, 'R2', false); nest(18, 294.6, 0.64, 0.77, yR, 2, 'R2', false);
+  for (let z = U.z0 + 1.7; z <= U.z1 - 1.6; z += 1.2) { K.gabion(U.x0 + 0.5, z, 1.0, 1.15, 1.1, yR); if (z < RS.z0 - 0.8 || z > RS.z1 + 0.8) K.gabion(U.x1 - 0.5, z, 1.0, 1.15, 1.1, yR); }
+  hmRoof(K);
   // antennas, the radar dome on the terrace, the observation cupola on the roof, a water tank in the yard
   for (const [lx, lz, hgt] of [[-31, 300, 22], [31, 280, 28]]) { const [wx, wz] = HW(lx, lz), y = groundAt(wx, wz); for (const [ox, oz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) K.prop.push([G.cyl(0.07, 0.09, hgt, 5), 0x8e8e88, M4(wx + ox * 0.9, y + hgt / 2, wz + oz * 0.9, oz * 0.025, 0, -ox * 0.025)]); for (let k = 1; k < hgt / 1.6; k++) { const yy = y + k * 1.6, w = 0.9 * (1 - k * 1.6 / hgt * 0.35); K.prop.push([G.box(w * 2, 0.04, 0.04), 0x8e8e88, M4(wx, yy, wz - w, 0, 0, k % 2 ? 0.5 : -0.5)], [G.box(w * 2, 0.04, 0.04), 0x8e8e88, M4(wx, yy, wz + w, 0, 0, k % 2 ? -0.5 : 0.5)], [G.box(0.04, 0.04, w * 2), 0x8e8e88, M4(wx - w, yy, wz, k % 2 ? 0.5 : -0.5, 0, 0)], [G.box(0.04, 0.04, w * 2), 0x8e8e88, M4(wx + w, yy, wz, k % 2 ? -0.5 : 0.5, 0, 0)]); } K.prop.push([G.sph(1.3, 14, 8, 0, Math.PI * 2, 0, Math.PI * 0.45), 0xd8d8d0, M4(wx, y + hgt * 0.78, wz + 1.1, -1.3, 0, 0)]); addCollider(wx, wz, 1.1, 1.1, 0, y + hgt, y); }
-  { const [wx, wz] = HW(-16, 279); K.prop.push([G.sph(3.4, 22, 12, 0, Math.PI * 2, 0, Math.PI * 0.55), 0xe8e8e2, M4(wx, y1 + 0.4, wz)], [G.cyl(3.5, 3.6, 0.6, 22), 0xbab8b0, M4(wx, y1 + 0.3, wz)]); addCollider(wx, wz, 3.0, 3.0, 0, y1 + 3.6, y1); }
-  { const [wx, wz] = HW(-7, 300.5); K.prop.push([G.cyl(0.7, 0.7, 1.0, 12), 0x55524a, M4(wx, yR + 0.5, wz)], [G.box(1.0, 0.28, 0.3), 0x1a1a1a, M4(wx, yR + 0.9, wz + 0.5)]); addCollider(wx, wz, 0.75, 0.75, 0, yR + 1.0, yR); }
+  { const [wx, wz] = HW(-16, 276); K.prop.push([G.sph(3.4, 22, 12, 0, Math.PI * 2, 0, Math.PI * 0.55), 0xe8e8e2, M4(wx, y1 + 0.4, wz)], [G.cyl(3.5, 3.6, 0.6, 22), 0xbab8b0, M4(wx, y1 + 0.3, wz)]); addCollider(wx, wz, 3.0, 3.0, 0, y1 + 3.6, y1); }
+  { const [wx, wz] = HW(-8, 296.4); K.prop.push([G.cyl(0.7, 0.7, 1.0, 12), 0x55524a, M4(wx, yR + 0.5, wz)], [G.box(1.0, 0.28, 0.3), 0x1a1a1a, M4(wx, yR + 0.9, wz + 0.5)]); addCollider(wx, wz, 0.75, 0.75, 0, yR + 1.0, yR); }
   { const [wx, wz] = HW(-30, 278), y = groundAt(wx, wz); for (const [ox, oz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) K.prop.push([G.cyl(0.08, 0.08, 3, 5), 0x6e6a60, M4(wx + ox * 1.1, y + 1.5, wz + oz * 1.1)]); K.prop.push([G.cyl(1.6, 1.6, 2.2, 16), 0x8a8a7a, M4(wx, y + 4.1, wz)]); addCollider(wx, wz, 1.4, 1.4, 0, y + 5.2); }
   // ---- the trenches: timber revetments and duckboards, sandbags on the lips of both rings ----
   const lipBag = (pts, off) => pts.map(([x, z], i) => { const j = Math.min(i + 1, pts.length - 1), p = pts[Math.max(0, j - 1)], q = pts[j], dx2 = q[0] - p[0], dz2 = q[1] - p[1], l = Math.hypot(dx2, dz2) || 1; return HW(x - dz2 / l * off, z + dx2 / l * off); });
@@ -293,7 +434,7 @@ function hmBuild() {
       if (HM_SPURS.some((sp) => sp && distPolyline(bx, bz, sp) < 4) || HM_PILL.some((b) => Math.hypot(bx - b.cx, bz - b.cz) < 6)) continue;
       bagWall([[wx + nx * 1.45 + tx * 0.9, wz + nz * 1.45 + tz * 0.9], [wx + nx * 0.8 + tx * 0.9, wz + nz * 0.8 + tz * 0.9]], 4, g - 0.05, false);
       for (const o of [0.6, 1.1]) C.slots.push({ x: wx + nx * o, z: wz + nz * o, y: g, nx: -tx, nz: -tz, f: 0, b: null, used: false, fox: true, p: [wx + nx * o - tx * 0.3, wz + nz * o - tz * 0.3], h: [wx + nx * o + tx * 0.4, wz + nz * o + tz * 0.4], grp: 'T', ring, at: [bx, bz], bay: ring + i }); addCover(wx + nx * 0.6 + tx * 0.2, wz + nz * 0.6 + tz * 0.2, -tx, -tz, 0.8); } }
-  for (const line of LINES) { const d = densify(line, 2.6); for (let i = 1; i < d.length; i++) { if (hmDist(...d[i]) < 3.5 || HM_PILL.some((b) => Math.hypot(d[i][0] - b.cx, d[i][1] - b.cz) < 4.6)) continue; const [x, z] = d[i], [px, pz] = d[i - 1], a = Math.atan2(z - pz, x - px), sd = i % 2 ? 1 : -1, [wx, wz] = HW(x - Math.sin(a) * 0.85 * sd, z + Math.cos(a) * 0.85 * sd); hmProps(K.prop, K.wood, wx, wz, groundAt(wx, wz) + 0.06, a, r, Math.floor(r() * 10)); } }
+  for (const line of LINES) { const d = densify(line, 4.2); for (let i = 1; i < d.length; i++) { if (hmDist(...d[i]) < 3.5 || HM_PILL.some((b) => Math.hypot(d[i][0] - b.cx, d[i][1] - b.cz) < 4.6)) continue; const [x, z] = d[i], [px, pz] = d[i - 1], a = Math.atan2(z - pz, x - px), sd = i % 2 ? 1 : -1, [wx, wz] = HW(x - Math.sin(a) * 0.85 * sd, z + Math.cos(a) * 0.85 * sd); hmTrenchProp(K, wx, wz, groundAt(wx, wz) + 0.04, a, Math.floor(r() * 6)); } }
   // ---- the trench bunkers: concrete boxes sunk into the outer wall of the rings, roofed with a slab and a layer of earth and bags; a slit
   //      in the trench-side wall looks back down the trench, the door is at its far end. One machine gun in each ----
   HM_PILL.forEach((b, bi) => { const at = (u, v) => [b.x + b.tx * u + b.nx * v, b.z + b.tz * u + b.nz * v], fy = groundAt(...HW(b.cx, b.cz)), W = (u0, v0, u1, v1, y0, y1) => K.wall(...at(u0, v0), ...at(u1, v1), fy + y0, fy + y1, [], 0.35);
@@ -307,44 +448,64 @@ function hmBuild() {
     { const [ax, az] = HW(...at(1.2, -0.75)), [bx2, bz2] = HW(...at(1.2, -1.05)), [cx2, cz2] = HW(...at(1.25, 0.55)); C.slots.push({ x: ax, z: az, y: fy, nx: -b.nx, nz: -b.nz, f: 0, b: null, used: false, fox: true, p: [bx2, bz2], h: [cx2, cz2], grp: 'B', ring: b.ring, at: [b.cx, b.cz], bay: 'pb' + bi, door: true }); } });
   // the Syrian flag on the mast on the roof (in 1973 the Federation flag, the same red, white and black with the gold hawk as Egypt's): it flies
   // over the post the whole battle, and comes down at the end
-  { const [mx, mz] = HW(-16, 300.5); C.syFlag = flag(mx, mz, 'sy', 9, Math.PI * 0.4); C.syFlag.position.y = yR; }
-  // the roof parapet, looking out over the rings: the Syrians fire down from it while the rings are fought for
-  for (const [lx, lz, nx, nz] of [[-15, 294.5, 0, -1], [0, 294.5, 0, -1], [15, 294.5, 0, -1], [-20.5, 297, -1, 0], [-20.5, 304, -1, 0], [20.5, 297, 1, 0], [-12, 306.5, 0, 1], [0, 306.5, 0, 1], [12, 306.5, 0, 1]]) { const [wx, wz] = HW(lx, lz); C.slots.push({ x: wx, z: wz, y: yR, nx, nz, f: 2, b: null, used: false, fox: true, roof: true, p: [wx + nx * 0.25, wz + nz * 0.25], h: [wx - nx * 0.9, wz - nz * 0.9], grp: 'R' }); }
+  { const [mx, mz] = HW(...HM_MAST); C.syFlag = flag(mx, mz, 'sy', 9, Math.PI * 0.4); C.syFlag.position.y = yR; }
+  // the roof's edge, looking out over the rings: the Syrians fire down from it while the rings are fought for
+  for (const [lx, lz, nx, nz] of [[-15, 281.5, 0, -1], [0, 281.5, 0, -1], [16, 281.5, 0, -1], [-20.5, 287, -1, 0], [-20.5, 301, -1, 0], [20.5, 287, 1, 0], [-9, 306.5, 0, 1], [0, 306.5, 0, 1], [9.5, 306.5, 0, 1]]) { const [wx, wz] = HW(lx, lz); C.slots.push({ x: wx, z: wz, y: yR, nx, nz, f: 2, b: null, used: false, fox: true, roof: true, p: [wx + nx * 0.25, wz + nz * 0.25], h: [wx - nx * 0.9, wz - nz * 0.9], grp: 'R' }); }
   // the sangars in the yard between the inner ring and the bunker, facing out at the ring
   const sangar = (lx, lz, fx, fz, grp, k, hi = 0) => { const l = Math.hypot(fx, fz) || 1; fx /= l; fz /= l; const [wx, wz] = HW(lx, lz), y = groundAt(wx, wz) + hi, a0 = Math.atan2(fx, fz); for (let s = -95; s <= 95; s += 19) { const t = a0 + THREE.MathUtils.degToRad(s); stone.push([wx + Math.sin(t) * 1.35, wz + Math.cos(t) * 1.35, 0.35 + r() * 0.2, r() * 6, hmRock(r), 0.25, 0.6]); } addCover(wx - fx * 0.3, wz - fz * 0.3, fx, fz, 0.7);
     const s = { x: wx, z: wz, y: y - 0.05, nx: fx, nz: fz, f: 0, b: null, used: false, fox: true, p: [wx + fx * 0.2, wz + fz * 0.2], h: [wx - fx * 0.3, wz - fz * 0.3], grp, k }; C.slots.push(s); if (hi) stone.push([wx, wz, hi * 0.9, r() * 6, hmRock(r), 0.3, 0.72]); return s; };
   for (const [lx, lz, fx, fz] of [[0, 314, 0, 1], [-18, 313, -0.4, 0.92], [-8, 266, -0.3, -0.95], [16, 267, 0.3, -0.95], [-33, 296, -0.9, 0.3], [33, 284, 0.9, -0.3]]) { const s0 = sangar(lx, lz, fx, fz, 'Y', 0), l = Math.hypot(fx, fz), sx = -fz / l * 0.8, sz = fx / l * 0.8; C.slots.push({ ...s0, x: s0.x + sx, z: s0.z + sz, p: [s0.p[0] + sx, s0.p[1] + sz], h: [s0.h[0] + sx, s0.h[1] + sz] }); }
-  // ---- the cable-car station on the road: a concrete building, the pylon, the cable climbing to the summit, a stuck gondola ----
+  // ---- the cable-car station on the road: a concrete building, the pylon, the cable climbing to the summit ----
   { const [cx, cz] = HM_CABLE, gy = groundAt(...HW(cx, cz)) - 0.2, wl = (ax, az, bx, bz, g = []) => K.wall(ax, az, bx, bz, gy, gy + 3.2, g, 0.3);
     wl(cx - 6, cz - 4, cx + 6, cz - 4, [[2.6, 3.8], [8.4, 9.6]]); wl(cx - 6, cz + 4, cx + 6, cz + 4, [[5, 7]]); wl(cx - 6, cz - 4, cx - 6, cz + 4, [[3.4, 4.6]]); wl(cx + 6, cz - 4, cx + 6, cz + 4); wl(cx, cz - 4, cx, cz + 4, [[3.4, 4.6]]);
     K.slab(cx - 6.3, cx + 6.3, cz - 4.3, cz + 4.3, gy + 3.5, 0.3); const [wx, wz] = HW(cx, cz); K.con.push([boxUV(wx - 6, wx + 6, gy - 0.02, gy + 0.02, wz - 4, wz + 4, 2, 2), 0x8e8a82]);
-    for (const [lx, lz, f] of [[cx - 3, cz + 1.5, 'store'], [cx + 3, cz - 1.5, 'radio']]) { const top = K.fm('f_table_wood', lx, lz, gy, 0, true, 1, K.mdlC); const [ax, az] = HW(lx, lz - 0.8); COVER.push({ x: ax, z: az, nx: 0, nz: -1, h: 0.9, by: null }); const [tx, tz] = HW(lx, lz); propsOn('hermon', f === 'store' ? ['jerry', 'cans', 'ammo', 'lamp'] : ['radioBig', 'phone', 'cups', 'papers'], tx, tz, top, 1.5, 0.7, 0, 77, gy); }
-    { const [tx, tz] = HW(cx - 4.5, cz - 2.5); propAdd('hermon', 'crateS', tx, gy, tz, 0.3, gy); propAdd('hermon', 'bottles', tx, gy + 0.33, tz, 0, gy); const [ux, uz] = HW(cx + 4.8, cz + 2.8); propAdd('hermon', 'sack', ux, gy, uz, 0.5, gy); propAdd('hermon', 'jerry', ux + 0.6, gy, uz - 0.4, 0.2, gy); propAdd('hermon', 'helmet', ux - 0.5, gy, uz + 0.5, 0.9, gy); }
+    const M = K.mdlC;
+    for (const [lx, lz, f] of [[cx - 3, cz + 1.5, 'store'], [cx + 3, cz - 1.5, 'radio']]) { const top = K.fm('f_table_wood', lx, lz, gy, 0, true, 1, M); const [ax, az] = HW(lx, lz - 0.8); COVER.push({ x: ax, z: az, nx: 0, nz: -1, h: 0.9, by: null });
+      if (f === 'store') { K.fm('jerry', lx - 0.5, lz, top, 0.3, false, 1, M); K.fm('f_lamp_k', lx + 0.1, lz + 0.1, top, 0, false, 1, M); K.ft('akms', lx + 0.45, lz - 0.1, top, 1.4, 0, Math.PI / 2, false, M); }
+      else { K.fm('f_radio_set', lx - 0.3, lz + 0.12, top, Math.PI, false, 1, M); K.fm('f_radio_set', lx + 0.35, lz + 0.15, top, Math.PI + 0.2, false, 1, M); K.fm('f_chair', lx, lz - 0.75, gy, 0.2, false, 1, M); } }
+    K.pile(cx - 4.5, cz - 2.5, gy, 0.3, 2, 1, 2, true, M); K.fm('drum', cx + 4.8, cz + 2.8, gy, 0.5, true, 1, M); K.fm('jerry', cx + 4.2, cz + 2.4, gy, 0.2, false, 1, M); K.ft('f_chair', cx - 1.5, cz - 2.2, gy, 2.1, -Math.PI / 2, 0, false, M);
     const [px, pz] = HW(cx + 9, cz + 12), py = groundAt(px, pz); for (const [ox, oz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) K.prop.push([G.cyl(0.1, 0.14, 14, 5), 0x7e7e78, M4(px + ox * 0.8, py + 7, pz + oz * 0.8)]); K.prop.push([G.box(4.5, 0.4, 0.6), 0x6e6e68, M4(px, py + 14, pz)], [G.cyl(0.9, 0.9, 0.3, 16), 0x3a3a36, M4(px - 2, py + 14.3, pz, Math.PI / 2, 0, 0)]);
-    const [tx, tz] = HW(28, 304), ty = HM_PY + 12, cab = new THREE.CatmullRomCurve3([V3(px - 2, py + 14.2, pz), V3((px + tx) / 2, (py + ty) / 2 + 2, (pz + tz) / 2), V3(tx, ty, tz)]); K.prop.push([new THREE.TubeGeometry(cab, 40, 0.04, 4, false), 0x1a1a1a]); const gp = cab.getPoint(0.3); K.prop.push([G.box(1.6, 1.8, 1.4), 0xb8402a, M4(gp.x, gp.y - 2.2, gp.z)], [G.cyl(0.03, 0.03, 1.2, 4), 0x1a1a1a, M4(gp.x, gp.y - 0.7, gp.z)]); }
+    const [tx, tz] = HW(28, 304), ty = HM_PY + 12, cab = new THREE.CatmullRomCurve3([V3(px - 2, py + 14.2, pz), V3((px + tx) / 2, (py + ty) / 2 + 2, (pz + tz) / 2), V3(tx, ty, tz)]); K.prop.push([new THREE.TubeGeometry(cab, 40, 0.04, 4, false), 0x1a1a1a]); }
   // Syrian sangars on the slopes and commandos lying by the road: stone half-rings and hollows among the rocks
   for (let k = 0; k < HM_GATES0.length - 1; k++) { const A = HM_GATES0[k], B = HM_GATES0[k + 1], ddx = B[0] - A[0], ddz = B[1] - A[1], l = Math.hypot(ddx, ddz) || 1;
     for (let j = 0; j < 4; j++) { const t = 0.25 + j * 0.18, px = lerp(A[0], B[0], t), pz = lerp(A[1], B[1], t), sd = j % 2 ? 1 : -1, off = j < 2 ? rand(4, 7) : rand(10, 21); const [sx, sz] = corr(HM_ROAD, px - ddz / l * off * sd, pz + ddx / l * off * sd, 22, 3.5); sangar(sx, sz, -ddx / l, -ddz / l, j < 2 ? 'A' : 'S', k, j === 3 && k % 2 ? 1.6 : 0); } }
   // ---- dress the mountain ----
   const okS = (x, z) => { const [lx, lz] = L(x, z); return distPolyline(lx, lz, HM_ROAD_S) > 5 && distPolyline(lx, lz, HM_RING_O) > 3.6 && distPolyline(lx, lz, HM_RING_I) > 3.6 && hmDist(lx, lz) > 4.8 && Math.hypot(lx - HM_CABLE[0], lz - HM_CABLE[1]) > 9 && !HM_SPURS.some((s) => s && distPolyline(lx, lz, s) < 3.4) && !C.slots.some((s) => Math.hypot(s.x - x, s.z - z) < 2.2); };
   const X0 = HM.o.x - 225, X1 = HM.o.x + 225, Z0 = HM.o.z - 205, Z1 = HM.o.z + 340;
-  for (let k = 0; k < 16; k++) { const d = densify(HM_ROAD, 12), [x, z] = d[Math.floor(r() * d.length)], a = r() * 6, [wx, wz] = HW(x + (r() - 0.5) * 12, z + (r() - 0.5) * 12); if (okS(wx, wz)) hmProps(K.prop, K.wood, wx, wz, groundAt(wx, wz), a, r, [0, 1, 2, 7, 8][Math.floor(r() * 5)]); }
-  for (const [x, z, rr] of [[30, -70, 0.8], [-12, 70, 2.4]]) { const [wx, wz] = HW(x, z); vehicle(TRUCK_BURNT, wx, wz, rr, 3.3, 1.2, 2.6); }
+  for (let k = 0; k < 16; k++) { const d = densify(HM_ROAD, 12), [x, z] = d[Math.floor(r() * d.length)], a = r() * 6, [wx, wz] = HW(x + (r() - 0.5) * 12, z + (r() - 0.5) * 12); if (okS(wx, wz)) hmTrenchProp(K, wx, wz, groundAt(wx, wz), a, [0, 1, 3, 4][Math.floor(r() * 4)]); }
+  // the burnt-out wrecks on the road up: Syrian jeeps shot up on the way, and two of our tanks from the attempts before
+  for (const [x, z, rr] of [[30, -70, 0.8], [-12, 70, 2.4]]) { const [wx, wz] = HW(x, z); hmJeepWreck(wx, wz, rr); }
   for (const [x, z, b] of [[10, -40, 30], [-6, 130, 200]]) { const [wx, wz] = HW(x, z); placeTank(wx, wz, b, TANK_BURNT); }
   roadRibbon(HM_ROAD.map(([x, z]) => HW(x, z)), 6.5, 'asphalt');
   roadPoles(HM_ROAD.map(([x, z]) => HW(x, z)), 24, 6);
   { const fence = [[-14, 222], [-68, 230], [-76, 290], [-68, 350], [-14, 358], [14, 358], [68, 350], [76, 290], [68, 230], [14, 222]]; wireFence(fence.map(([x, z]) => HW(x, z)), 3); for (const [x, z] of densify(fence, 2.2)) { const [wx, wz] = HW(x + (x > 0 ? 1.6 : -1.6) * (Math.abs(x) > 40 ? 1 : 0), z + (z > 300 ? 1.6 : -1.6)); K.prop.push([G.tor(0.45, 0.02, 4, 16), 0x5a5a56, M4(wx, groundAt(wx, wz) + 0.4, wz, 0, Math.random() * 3, 0)]); } }
   { const [wx, wz] = HW(12, 226); fieldSign(wx, wz, 'מוצב החרמון', Math.PI, 1.5); const [a, b] = HW(48, 34); fieldSign(a, b, 'רכבל החרמון', 0.6, 1.3); }
   { const pt = plasterTex(2214, '#b4b0a6'); scene.add(SH(onLayer1(new THREE.Mesh(build(K.con), new THREE.MeshStandardMaterial({ vertexColors: true, map: pt, bumpMap: bumpOf(pt), bumpScale: 0.8, roughness: 0.95 }))))); }
+  // inside: the paint over a fine plaster, the screed floors, the board floors, the bulbs
+  { const pt = plasterTex(2215, '#f3f0e8'); scene.add(SH(onLayer1(new THREE.Mesh(build(K.skin), new THREE.MeshStandardMaterial({ vertexColors: true, map: pt, bumpMap: LITE ? null : bumpOf(pt), bumpScale: 0.45, roughness: 0.9 }))), false, true)); }
+  { const gt = TX.grime; if (K.floorC.length) scene.add(SH(onLayer1(new THREE.Mesh(build(K.floorC), new THREE.MeshStandardMaterial({ vertexColors: true, map: gt, bumpMap: LITE ? null : bumpOf(gt), bumpScale: 0.6, roughness: 0.96 }))), false, true));
+    const pk = !!MDL_TEX['props/plank/map'], wm = new THREE.MeshStandardMaterial({ vertexColors: true, map: pk ? mdlTex('props/plank/map') : plankTex(), roughness: 0.85 }); if (pk && !LITE && MDL_TEX['props/plank/nmap']) { wm.normalMap = mdlTex('props/plank/nmap', false); wm.normalScale.set(0.7, 0.7); }
+    if (K.floorW.length) scene.add(SH(onLayer1(new THREE.Mesh(build(K.floorW), wm)), false, true));
+    // a harder floor in the offices and the kitchen: polished screed, its fine aggregate showing (the road's grain, lightened), worn and cracked
+    if (K.floorT.length) scene.add(SH(onLayer1(new THREE.Mesh(build(K.floorT), new THREE.MeshStandardMaterial({ vertexColors: true, map: MAT.asphalt.map, roughness: 0.62, color: 0xdedbd4 }))), false, true)); }
+  if (K.bulb.length) scene.add(onLayer1(new THREE.Mesh(build(K.bulb), new THREE.MeshBasicMaterial({ vertexColors: true }))));
   scene.add(SH(onLayer1(new THREE.Mesh(build(K.prop), MAT.vc))));
   scene.add(SH(onLayer1(new THREE.Mesh(build(K.wood), new THREE.MeshStandardMaterial({ vertexColors: true, map: TX.wood, roughness: 0.92 })))));
   // the furniture models: all the copies of each in one draw; indoors under concrete, none casts a shadow. The post's can only be seen from close by:
   // both levels of detail are built and hmUpd shows the full models inside the post, the lighter ones from the yard and none from further out
   C.furn = [[], []]; for (const n in K.mdl) for (let l = 0; l < 2; l++) for (const m of mdlInst(n, l, K.mdl[n], null, false)) { m.visible = false; m.userData.dyn = true; C.furn[l].push(m); }
   for (const n in K.mdlC) mdlInst(n, LITE ? 1 : 0, K.mdlC[n], null, false);
+  for (const n in K.mdlT) mdlInst(n, 1, K.mdlT[n], null, false);   // along the trenches: the lighter models, seen from a few metres at the nearest
   if (K.gab.length) scene.add(SH(onLayer1(new THREE.Mesh(mergeGeometries(K.gab, false), MAT.gabion))));
-  // warm bulbs in the rooms: only a few real lights, the rest are glowing bulbs
-  for (const [lx, lz, y] of K.lamps.filter((_, i) => i % 4 === 0).slice(0, 3)) { const lt = new THREE.PointLight(0xffd9a0, 70, 14, 2); const [wx, wz] = HW(lx, lz); lt.position.set(wx, y, wz); scene.add(lt); }
+  // warm bulbs in the rooms: three real lights, moved to the bulbs nearest the eye (hmUpd); the rest only glow
+  C.lamps = K.lamps; C.plights = [0, 1, 2].map(() => { const lt = new THREE.PointLight(0xffd9a0, 0, 13, 2); lt.userData.dyn = true; scene.add(lt); return lt; }); C.plT = 0;
+  // the wall hangings: the staff maps of the radio room, the intelligence room and the commander's, a portrait, the clocks
+  { const W = (k, lx, yy, lz, ry, sd = 1) => { const [x, z] = HW(lx, lz); propWall('hermon', k, x, yy, z, ry, sd, 'e'); }, yl = y0, yu = y1, E = Math.PI / 2, Wf = -Math.PI / 2, N = Math.PI;
+    // each hangs a few centimetres off the painted face of its wall
+    W('map', 6.5, yl + 1.65, 296.24, 0, 3); W('map', 12.76, yl + 1.6, 301.5, Wf, 9); W('clock', 1.5, yl + 2.2, 296.24, 0); W('calendar', 0.24, yl + 1.5, 302.5, E, 1);
+    W('map', 18.2, yl + 1.65, 284.24, 0, 4); W('portrait', 21.4, yl + 1.75, 284.24, 0, 6); W('clock', 13.24, yl + 2.1, 300.0, E); W('calendar', 25.635, yl + 1.5, 295.0, Wf, 2);
+    W('portrait', 10.5, yl + 1.75, 272.365, 0, 5); W('clock', -6.5, yl + 2.2, 283.76, N); W('calendar', -25.635, yl + 1.6, 279.0, E, 1); W('clock', -19.5, yl + 2.2, 272.365, 0);
+    W('map', -2.5, yu + 1.65, 280.315, 0, 10); W('map', -21.685, yu + 1.6, 296.8, E, 11); W('portrait', -15.0, yu + 1.75, 294.24, 0, 7); W('map', 2.0, yu + 1.7, 294.24, 0, 12); W('clock', 12.76, yu + 2.2, 288.0, Wf); W('calendar', -9.24, yu + 1.6, 290.0, Wf, 2); }
   instScatter(ROCK_G, stone.concat(scatterIn(LITE ? 1400 : 3600, X0, X1, Z0, Z1, 2211, okS, (x, z, rr) => [x, z, 0.25 + rr() ** 2.5 * 1.5, rr() * 6, hmRock(rr), 0.2, 0.5]), scatterNear(HM_ROAD.map(([x, z]) => HW(x, z)), LITE ? 400 : 900, 5, 26, 2212, okS, (x, z, rr) => [x, z, 0.3 + rr() ** 2 * 1.3, rr() * 6, hmRock(rr), 0.2, 0.5])));
   { const bl = scatterNear(HM_ROAD.map(([x, z]) => HW(x, z)), LITE ? 70 : 160, 7, 24, 2213, okS, (x, z, rr) => [x, z, 1.1 + rr() * 1.8, rr() * 6, hmRock(rr), 0.3, 0.6]).concat(scatterIn(LITE ? 110 : 260, X0, X1, Z0, Z1, 2214, okS, (x, z, rr) => [x, z, 1.4 + rr() * 2.6, rr() * 6, hmRock(rr), 0.3, 0.55])); instScatter(BOULDER_G, bl); boulders(bl); }
   instScatter(BUSH_G, scatterIn(LITE ? 400 : 1000, X0, X1, Z0, Z1, 2215, okS, (x, z, rr) => [x, z, 0.25 + rr() * 0.4, rr() * 6, rr() < 0.5 ? 0x4a5038 : rr() < 0.5 ? 0x6e6650 : 0x5c5a48, -0.2, 0.45]));
@@ -352,6 +513,11 @@ function hmBuild() {
   for (const [x, z, s] of [[-600, 400, 40], [500, 200, 30], [-300, -500, 50]]) { const [wx, wz] = HW(x, z); smokeColumn(wx, wz, s, false); }
   BATCH.bag = sv; if (BAGS.length) scene.add(bagMesh(BAGS)); C.covers = COVER.slice(k0); for (const c of C.covers) if (c.floor === undefined) c.y = groundAt(c.x, c.z);
   hmPano();
+}
+// a Syrian jeep burnt out on the road: the modelled jeep in their paint, broken and on fire (the rules of the post: tanks and jeeps only)
+function hmJeepWreck(x, z, rot) {
+  if (typeof VEH_DATA === 'undefined' || !VEH_DATA.jeep) return; const rec = vehModel('jeep', 'e'), m = rec.g, g0 = groundAt(x, z); vehDamage(rec, true); rec.dead = true;
+  m.position.set(x, g0, z); m.rotation.y = rot; wreckTilt(m, rng(Math.round(x * 7 + z * 3) >>> 0)); scene.add(SH(onLayer1(m))); addCollider(x, z, 2.05, 0.95, rot, g0 + 2.0); coverBox(x, z, 2.05, 0.95, rot, 2.0); wreckFire(m, VEH_FIRE.jeep, 0.85);
 }
 /* ---------- the view from the top: the Golan, the Hula valley and the Galilee, Lebanon, the Damascus plain, all spread out below, 360 degrees ----------
    A far terrain sixty kilometres in radius round the post, heights in metres below it (the post stands at 2,070 m; the main summit, 2,814 m, is
@@ -422,37 +588,29 @@ function hmPano() {
   m.onAfterRender = (rr) => rr.clearDepth();
   sky.renderOrder = -1001; scene.add(m);
 }
-/* ---------- props for the trenches ---------- */
-function hmProps(parts, wood, x, z, y, a, r, kind) {
-  const R = (dx, dz) => [x + Math.cos(a) * dx - Math.sin(a) * dz, z + Math.sin(a) * dx + Math.cos(a) * dz];
-  const P = (geo, col, dx, dy, dz, rx = 0, ry = 0, rz = 0, list = parts) => { const [px, pz] = R(dx, dz); list.push([geo, col, M4(px, y + dy, pz, rx, -a + ry, rz)]); };
-  if (kind === 0) { for (let k = 0; k < 3; k++) P(G.box(0.62, 0.3, 0.32), 0x4d5a34, 0, 0.15 + k * 0.31, (k % 2) * 0.05, 0, (k - 1) * 0.12); P(G.box(0.63, 0.04, 0.12), 0xd8c84a, 0, 0.32, 0.17); }
-  else if (kind === 1) { for (let k = 0; k < 2; k++) P(G.box(0.36, 0.48, 0.17), 0x435033, k * 0.4, 0.24, 0, 0, r() * 0.4); }
-  else if (kind === 2) { P(G.sph(0.15, 10, 6, 0, Math.PI * 2, 0, Math.PI * 0.55), 0x4f5638, 0, 0.02, 0, Math.PI, 0, 0); P(G.box(0.08, 0.06, 1.05), 0x2b2a26, 0.4, 0.5, 0, 0.6, 0, 0.1); }
-  else if (kind === 3) { P(G.box(0.48, 0.34, 0.32), 0x56603c, 0, 0.2, 0); P(G.cyl(0.006, 0.006, 1.6, 4), 0x1a1a1a, 0.18, 1.1, 0.1); }
-  else if (kind === 4) { P(G.cyl(0.03, 0.03, 2.1, 6), 0x6b5a3e, 0, 0.12, -0.25, 0, 0, Math.PI / 2); P(G.cyl(0.03, 0.03, 2.1, 6), 0x6b5a3e, 0, 0.12, 0.25, 0, 0, Math.PI / 2); P(G.box(1.8, 0.02, 0.5), 0x6a6a52, 0, 0.13, 0); }
-  else if (kind === 5) { P(G.box(0.7, 0.42, 0.5), 0x8a6e48, 0, 0.21, 0, 0, 0, 0, wood); P(G.box(0.55, 0.32, 0.42), 0x7d6442, 0.1, 0.58, 0.02, 0, 0.3, 0, wood); }
-  else if (kind === 6) { for (let k = 0; k < 3; k++) P(G.tor(0.42, 0.02, 4, 18), 0x5a5a56, k * 0.3, 0.42, 0, 0, Math.PI / 2, 0); }
-  else if (kind === 7) { P(G.cap(0.16, 0.45, 4, 8), 0x55603c, 0, 0.18, 0, 0, 0, Math.PI / 2); P(G.cap(0.12, 0.6, 4, 8), 0x6a6248, 0.05, 0.42, 0.06, 0, 0.4, Math.PI / 2); }
-  else if (kind === 8) { for (let k = 0; k < 9; k++) P(G.cyl(0.012, 0.012, 0.06, 6), 0xc8a24a, (r() - 0.5) * 0.7, 0.02, (r() - 0.5) * 0.5, Math.PI / 2, r() * 3, 0); P(G.box(0.3, 0.18, 0.22), 0x6e5a3a, 0.2, 0.09, 0.1, 0, 0, 0, wood); }
-  else { P(G.cyl(0.18, 0.18, 0.12, 12), 0x3a3a34, 0, 0.06, 0, Math.PI / 2, 0, 0); P(G.box(0.2, 0.22, 0.12), 0x3f4a2f, 0.3, 0.11, 0); }
-}
 /* ---------- the advance, bound by bound ---------- */
 const HM_GATES0 = (() => { const d = densify(HM_ROAD.slice(4), 1), out = [d[0]]; let acc = 0; for (let i = 1; i < d.length; i++) { acc += Math.hypot(d[i][0] - d[i - 1][0], d[i][1] - d[i - 1][1]); if (acc >= 50) { out.push(d[i]); acc = 0; } } const e = d[d.length - 1]; if (Math.hypot(out[out.length - 1][0] - e[0], out[out.length - 1][1] - e[1]) > 30) out.push(e); else out[out.length - 1] = e; return out; })();
-/* the gate points of each stage of the post, in local coordinates (a third number is the floor height the player must be on) */
+/* the gate points of each stage of the post, in local coordinates (a third number is the floor height the player must be on; a fourth and fifth,
+   a point to face when the stage starts there). Inside, a point is a step through each door into the room it opens: bound k is room k */
 const HM_G = {
   1: [[5, 238], [-44, 252], [-60, 290], [-44, 328], [0, 342], [44, 328], [60, 290], [44, 252], [28, 246.3]],
   2: [[28, 246.3], [24, 264.8], [30, 266], [42, 290], [30, 314], [0, 320], [-30, 314], [-42, 290], [-30, 266], [0, 260], [6.5, 270, HM_L0 + 0.6]],
-  3: [[6.5, 273.5, HM_L0], [6.5, 280, HM_L0], [-6, 290, HM_L0], [-20, 290, HM_L0], [20, 290, HM_L0], [3.6, 284, HM_L0 + 0.4]],
-  4: [[11.8, 284, HM_PY], [0, 280, HM_PY], [-15, 295.5, HM_PY], [-3, 296.5, HM_PY], [10.5, 297, HM_PY], [23.9, 289.5, HM_PY]],
-  5: [[23.9, 289.5, HM_PY], [23.9, 301.5, HM_RY], [8, 300.5, HM_RY], [-4, 297, HM_RY], [-16, 300.5, HM_RY]],
+  3: [[6.5, 270.4, HM_L0 + 0.3, 6.5, 280], [-1.6, 281, HM_L0], [-14.6, 275, HM_L0], [-22, 297.6, HM_L0], [-11.4, 303, HM_L0], [1.6, 299, HM_L0], [14.6, 304, HM_L0], [11.4, 291.5, HM_L0], [1.2, 285.9, HM_L0]],
+  4: [[0.9, 285.9, HM_L0, 8, 285.9], [-1.6, 291, HM_PY], [-10.6, 283, HM_PY], [-19, 295.6, HM_PY], [-7.4, 304, HM_PY], [14.6, 298, HM_PY], [20.1, 296.6, HM_RY]],
+  5: [[20.1, 296.4, HM_RY, 20.1, 285], [14, 282.2, HM_RY], [5, 305.8, HM_RY], [-4, 282.2, HM_RY], [-13, 305.8, HM_RY], [-17.5, 294.6, HM_RY]],
 };
-const HM_LABEL = { 1: 'עמדה', 2: 'עמדה', 3: 'נקודה', 4: 'נקודה', 5: 'עמדה' };
-function hmRoomEnemy(f, lx, lz, tag, kind = 'rifle') { const [x, z] = HW(lx, lz), e = spawnEnemy(x, z, kind === 'rifle' ? (Math.random() < 0.45 ? 'smg' : 'rifle') : kind, null, null); if (!e) return null; e.pos.y = hmY(f); e.sz = 'room'; e.state = 'sz'; e.floor = f; e.cov = null; e.patience = rand(0, 4); e.cyc = rand(0.5, 1.5); e.peek = false; e.meleeCd = 0.5; e.sq = tag; e.sync(); return e; }
-/* ---------- who stands where: every position of a stage is manned when the stage begins and waits hidden ----------
-   a man wakes when his bound opens or the player comes within his waking distance; the roof fires down at the rings from far off */
+const HM_LABEL = { 1: 'עמדה', 2: 'עמדה', 3: 'חדר', 4: 'חדר', 5: 'עמדה' };
+const hmDiff = () => Math.max(0, DIFF.indexOf(diff));
+/* ---------- who stands where: every position of a stage is manned before the player can see it and waits hidden ----------
+   outside, a man wakes when his bound opens or the player comes within his waking distance; the roof fires down at the rings from far off.
+   Inside, the room being taken and the one behind the next shut door are manned, each man at his own place facing the door; the room
+   wakes as the player comes through its door */
+function hmPlaceRoom(f, k) {
+  const C = CHAP.hermon, D = hmDiff(), grp = f === 2 ? 'R2' : 'IN';
+  for (const s of C.slots) if (s.grp === grp && (f === 2 || s.fl === f) && s.room === k && !s.used && s.dmin <= D) fSlotPlace(s, s.kind === 'lmg' && D === 0 ? 'rifle' : s.kind, 'g' + k, { wakeG: k, wakeR: 3.5 });
+}
 function hmPlace(st, g0 = 0) {
-  const C = CHAP.hermon, pts = HM_G[st], seg = (lx, lz) => gateSegOf(pts, lx, lz), L = (s) => [s.x - HM.o.x, s.z - HM.o.z];
+  const C = CHAP.hermon, pts = HM_G[st], seg = (lx, lz) => gateSegOf(pts, lx, lz);
   const put = (s, kind, k, wakeR) => (k < g0 ? null : fSlotPlace(s, kind, 'g' + k, { wakeG: k, wakeR }));
   if (st === 1 || st === 2) {
     const ring = st === 1 ? 'o' : 'i', bays = [...new Set(C.slots.filter((s) => s.grp === 'T' && s.ring === ring).map((s) => s.bay))];
@@ -460,22 +618,7 @@ function hmPlace(st, g0 = 0) {
     C.slots.filter((s) => s.grp === 'B' && s.ring === ring && !s.used).forEach((s) => put(s, s.door ? 'rifle' : 'lmg', seg(...s.at), 30));   /* the trench bunkers: a machine gun at the slit, a rifleman at the door */
     { let n = 0; for (const s of C.slots) if (s.grp === 'R' && !s.used && n < (st === 1 ? 4 : 5)) { if (fSlotPlace(s, n === 1 ? 'lmg' : 'rifle', 'roof', { wakeR: 70 })) n++; } }   /* the roof over the rings: they fire down, and nobody goes up there */
   }
-  if (st === 3) {
-    const { z0, z1 } = HM_F, [c0, c1] = HM_CORR;
-    const R = (a, b, zA, zB, nz, k, n) => { if (k < g0) return; const far = nz > 0 ? zB - 3 : zA + 3, spots = [[a + 2.8, far], [b - 2.8, far], [(a + b) / 2 + 1.6, (zA + zB) / 2 + nz * 1.5]]; for (let i = 0; i < n; i++) hmRoomEnemy(0, spots[i][0], spots[i][1], 'g' + k, i === 2 ? 'lmg' : 'rifle'); };
-    if (g0 <= 0) { hmRoomEnemy(0, 1.6, 281, 'g0', 'smg'); hmRoomEnemy(0, 11.6, 281, 'g0', 'rifle'); hmRoomEnemy(0, 12.2, 273.8, 'g0', 'rifle'); }
-    R(0, 13, c1, z1, 1, 1, 3); R(-13, 0, c1, z1, 1, 1, 3); R(-13, 0, z0, c0, -1, 1, 3); if (g0 <= 1) hmRoomEnemy(0, -2.3, 288.6, 'g1', 'rifle');
-    R(-26, -13, c1, z1, 1, 2, 3); R(-26, -13, z0, c0, -1, 2, 3); if (g0 <= 2) hmRoomEnemy(0, -15.3, 291.4, 'g2', 'lmg');
-    R(13, 26, c1, z1, 1, 3, 3); R(13, 26, z0, c0, -1, 3, 3); if (g0 <= 3) hmRoomEnemy(0, 18.7, 291.4, 'g3', 'lmg');
-  }
-  if (st === 4) {
-    const U = HM_U; let i = 0;
-    for (const s of C.slots) if (s.grp === 'T2' && !s.used && i < 10) { fSlotPlace(s, i++ % 3 === 1 ? 'lmg' : 'rifle', 'g0', { dormant: false }); }
-    let n = 0; for (const s of C.slots) if (s.grp === 'R' && s.nz < -0.5 && !s.used && n < 3) { if (fSlotPlace(s, 'rifle', 'roof', { wakeR: 45 })) n++; }
-    const R = (a, b, k, n2) => { if (k < g0) return; const spots = [[a + 2.8, U.z1 - 3], [b - 2.8, U.z1 - 3], [(a + b) / 2 + 1.6, (U.z0 + U.z1) / 2 + 1.5], [(a + b) / 2 - 3, U.z0 + 4]]; for (let j = 0; j < n2; j++) hmRoomEnemy(1, spots[j][0], spots[j][1], 'g' + k, j === 2 ? 'lmg' : 'rifle'); };
-    R(U.x0, -8, 1, 3); R(-8, 8, 2, 4); R(8, U.x1, 3, 3);
-  }
-  if (st === 5) { let i = 0; const R2 = C.slots.filter((s) => s.grp === 'R2' && !s.used).sort((a, b) => b.x - a.x); for (const s of R2) { if (i >= 16) break; const [lx, lz] = L(s); put(s, i++ % 4 === 1 ? 'lmg' : 'rifle', Math.max(1, seg(lx, lz)), 14); } }
+  if (st >= 3) { const f = st - 3; hmPlaceRoom(f, g0); hmPlaceRoom(f, g0 + 1); }
 }
 /* a bound opens: a word on the radio, and two or three men come down the trench from two bounds ahead (or out of a door), in plain sight */
 function hmRunners(ring, pts, k, n, tag) {
@@ -484,36 +627,57 @@ function hmRunners(ring, pts, k, n, tag) {
   const path = d.slice(i1, i2 + 1).reverse();
   for (let j = 0; j < n; j++) DIRQ.push({ at: GAME.t + 1.5 + j * 1.4, spawn: true, gate: k, fn: () => { const [sx, sz] = path[0]; const e = fSpawnStreet(sx + rand(-0.5, 0.5), sz + rand(-0.5, 0.5), path.slice(1), 'rifle'); if (e) e.sq = tag; } });
 }
+const HM_SAY = {
+  3: ['חדר השמירה! רימון פנימה, ואז נכנסים!', 'המגורים! הם בין המיטות!', 'חדר האוכל - שולחנות הפוכים, הם מאחוריהם!', 'המטבח! לנקות!', 'המחסן! מאחורי הארגזים - ולא לירות לתוך התחמושת!', 'חדר הקשר! לא לתת להם לשדר!', 'מגורי הקצינים! שורת ארונות באמצע - חלק מהם מעבר לה!', 'האולם! שקי חול מול המדרגות - הקו האחרון שלהם למטה!'],
+  4: ['הם מעל המדרגות! רימון דרך הפתח, ואז למעלה!', 'חדר המודיעין!', 'עוד חדר מגורים, מלא!', 'החדר של המ״פ שלהם!', 'אולם התצפית! הם מאחורי השולחנות, מול החלונות!', 'המחסן! המדרגות לגג בקצה!'],
+  5: ['על הגג! קירות של סלסלות אבנים - דרך אחת, עד התורן!', 'מעבר לפינה! עוד שלושה מאחורי הגביונים!', 'השורה הבאה! רימונים!', 'עוד מעבר אחד!', 'התורן! העמדה האחרונה שלהם!'],
+};
 function hmWake(st, k) {
   const C = CHAP.hermon, pts = HM_G[st], tag = 'g' + k, last = pts.length - 2;
   if (k > 0 && k % 3 === 0 && k < last) { C.cpG = k; CP.stats = { ...STATS }; feed('נקודת שמירה', 'good'); }
   if (st === 1) { hmRunners(HM_RING_O, pts, k, 2 + (k >= 4 ? 1 : 0), tag); if (k > 0) radio('מ״פ', pick(['העמדה הבאה בתעלה! רימון מעבר למחסום!', 'יורים עליכם מהגג, ראש למטה!', 'הם רצים אלינו בתעלה! לחסל!', 'קסדות מעל שקי החול - לצלוף לפני שמתקרבים!']), 2.4); }
   if (st === 2) { if (k >= 1 && k < last) hmRunners(HM_RING_I, pts.slice(1), k - 1, 2, tag); if (k === last) { for (let j = 0; j < 3; j++) DIRQ.push({ at: GAME.t + 1 + j * 1.3, spawn: true, gate: k, fn: () => { const [sx, sz] = HW(6.5 + rand(-1, 1), 277); const e = fSpawnStreet(sx, sz, [HW(6.5, 270.5), HW(2 + rand(-1, 1), 263)], 'smg'); if (e) e.sq = tag; } }); radio('מ״פ', 'הם יוצאים מהבונקר! לירות! אחר כך, פנימה בעקבותיהם!', 3); } else if (k > 0) radio('צנחן', pick(['סנגר בחצר, מימין!', 'הטבעת הפנימית מאוישת - עמדה אחרי עמדה!', 'הם על הגג, מעלינו!', 'רימון לתוך העמדה!']), 2.2); }
-  if (st === 3) { if (k === 1) radio('לוחם', 'חדרים משני הצדדים! רימון, ואז נכנסים!', 2.4); if (k === 2) radio('לוחם', 'מקלע מאחורי שקי החול במסדרון!', 2.2); if (k === 3) radio('מ״פ', 'הזרוע המזרחית! עוד שני חדרים, ואז חזרה למדרגות!', 2.6); if (k === 4) { radio('מ״פ', 'הקומה נקייה. למדרגות שבאולם הכניסה - למעלה!', 2.6); hint('hm-up', 'המדרגות למרפסת נמצאות באולם הכניסה (◆). למעלה מחכות עמדות גביונים מול היציאה - רימון קודם.', 7); } }
-  if (st === 4) { if (k === 0) { for (let j = 0; j < 2; j++) DIRQ.push({ at: GAME.t + 2.5 + j * 1.5, spawn: true, gate: 0, fn: () => { const [sx, sz] = HW(j ? 15 : -15, 294.3); const e = fSpawnStreet(sx, sz, [HW(j ? 13 : -7, 285)], 'smg'); if (e) { e.pos.y = HM_PY; e.sq = 'g0'; } } }); radio('מ״פ', 'על המרפסת! גביונים מולכם ואש מהגג - מהר למחסה!', 2.8); } if (k === 1) radio('לוחם', 'חדר התצפית, משמאל!', 2); if (k === 3) radio('לוחם', 'החדר האחרון! ואז המדרגות החיצוניות, בצד המזרחי!', 2.6); if (k === 4) hint('hm-roof', 'המדרגות החיצוניות לגג בפינה המזרחית של המרפסת (◆). על הגג עיקר ההתנגדות: מחסום אחרי מחסום.', 7); }
-  if (st === 5) { if (k === 1) radio('מ״פ', 'הגג! הם מאחורי סלסלות האבנים, שורה אחרי שורה! רימונים!', 3); if (k === 2) for (let j = 0; j < 2; j++) DIRQ.push({ at: GAME.t + 1 + j * 1.2, spawn: true, gate: 2, fn: () => { const [sx, sz] = HW(-19 + j, 300.5 + (j ? 2 : -2)); const e = fSpawnStreet(sx, sz, [HW(-2, 300.5)], 'smg'); if (e) { e.pos.y = HM_RY; e.sq = 'g2'; } } }); if (k === 3) radio('מ״פ', 'העמדה האחרונה! לקצה הגג, ולהביא את הדגל!', 2.6); }
+  if (st >= 3) {
+    // the room is entered: its men are up, and counted from now (each is behind something solid, and a bound that has seen none of its men for
+    // a few seconds is taken as clear); the room behind the next door is manned
+    for (const e of UNITS.enemies) if (e.alive && e.sq === tag) { e.seenAt = GAME.t; e.dormant = false; }
+    hmPlaceRoom(st - 3, k + 1); if (k > 0 || st === 5) radio(k % 2 ? 'לוחם' : 'מ״פ', HM_SAY[st][k], 2.4);
+    if (st === 3 && k === 1) hint('hm-door', 'כל דלת בבונקר <b>נעולה</b> עד שהחדר שלפניה נקי - ואז נפתחת. כשהיא נפתחת, מאחוריה כבר מחכים: עמדו בצד הפתח, רימון פנימה, ואז נכנסים.', 8);
+    if (st === 5 && k === 0) hint('hm-lane', 'על הגג אין לאן לברוח: בין קירות הגביונים יש <b>מסלול אחד</b> שמתפתל מהפתח עד התורן. בכל קטע עמדה מחכה מול המעבר.', 7);
+  }
 }
 /* ---------- stages ---------- */
 function hmSetup(stage) {
   const C = CHAP.hermon; fieldSetupCommon(C, stage); resetTrail(); HM.msgs = {};
   if (C.syFlag) { C.syFlag.children[1].visible = true; C.syFlag.children[1].position.y = 8.2; } if (C.ilFlag) C.ilFlag.children[1].visible = false; C.lower = 0; C.raise = 0;
   P.mode = 'rifle'; vm.visible = true; if (TANK.g) TANK.g.visible = false;
-  const g0 = stage ? Math.min(C.cpG || 0, HM_G[stage].length - 2) : 0, pts = stage ? HM_G[stage] : HM_GATES0, at = pts[g0], nx = pts[Math.min(g0 + 1, pts.length - 1)], [x, z] = HW(at[0], at[1]);
+  const g0 = stage ? Math.min(C.cpG || 0, HM_G[stage].length - 2) : 0, pts = stage ? HM_G[stage] : HM_GATES0, at = pts[g0], nx = at[3] !== undefined ? [at[3], at[4]] : pts[Math.min(g0 + 1, pts.length - 1)], [x, z] = HW(at[0], at[1]);
   P.pos.set(x, at[2] !== undefined ? hAt(x, z, at[2] + 0.3) : groundAt(x, z), z); P.yaw = Math.atan2(-(nx[0] - at[0]), -(nx[1] - at[1])); P.pitch = 0.02;
-  const fw = [-Math.sin(P.yaw), -Math.cos(P.yaw)];
-  fieldFriends(HM_NAMES.map((name, i) => (i < 8 ? { name, x: P.pos.x - fw[0] * (2.2 + i * 1.3) + (i % 2 ? 0.8 : -0.8) * fw[1], z: P.pos.z - fw[1] * (2.2 + i * 1.3) - (i % 2 ? 0.8 : -0.8) * fw[0], y: stage >= 3 ? P.pos.y : undefined, state: 'follow', fi: i } : null)));
+  hmDoorsSet(stage, g0);
+  // the squad behind him, each man where he can stand: inside the post a spot behind him that is not in a wall, else at his heels
+  const fw = [-Math.sin(P.yaw), -Math.cos(P.yaw)], spot = (i) => { const b = 2.2 + i * 1.3, sd = i % 2 ? 0.8 : -0.8, cand = [[b, sd], [b, 0], [b * 0.6, sd], [b * 0.4, 0], [1.2, sd * 0.5]];
+    for (const [bb, s] of cand) { const px = P.pos.x - fw[0] * bb + s * fw[1], pz = P.pos.z - fw[1] * bb - s * fw[0], y = stage >= 3 ? hAt(px, pz, P.pos.y + 0.3) : groundAt(px, pz); if (stage < 3 || (!blocked(px, pz, 0.35, y) && Math.abs(y - P.pos.y) < 1.2)) return [px, pz, stage >= 3 ? y : undefined]; }
+    return [P.pos.x + (i % 3 - 1) * 0.4, P.pos.z + 0.3, stage >= 3 ? P.pos.y : undefined]; };
+  fieldFriends(HM_NAMES.map((name, i) => { if (i >= 8) return null; const [px, pz, py] = spot(i); return { name, x: px, z: pz, y: py, state: 'follow', fi: i }; }));
   hmStage(stage, g0);
 }
 function hmStage(i, g0 = 0) {
   const C = CHAP.hermon; fieldStage(C, i); HM.stage = i; C.t = 0; C.cpG = g0;
   fieldDespawn((e) => !!e.sz);
-  const go = (st, done, r = 6.5) => { const pts = HM_G[st].map(([x, z, y]) => [...HW(x, z), y]); gateStart(pts, (k) => { if (k >= g0) hmWake(st, k); }, done, HM_LABEL[st], r, st === 1 ? 1.45 : st === 2 ? [1.45, [HW(36, 249.1), ...pts.map((q) => [q[0], q[1]])]] : 0);   /* the inner stage's lane takes in the end of the outer trench, where the player stands when it begins */ if (g0) { GATE.i = g0; GATE.t = 0; GATE.clear = false; hmWake(st, g0); } };
+  // once inside, the men left on the roof edge over the rings are gone: the roof is fought for in its turn, along its own lane
+  if (i >= 3) for (const e of UNITS.enemies) if (e.alive && e.sq === 'roof') { e.alive = false; e.rig.root.visible = false; e.tag.visible = false; if (e.slot) { e.slot.used = false; e.slot = null; } }
+  // the last stage's survivors fight on where they are, but their bound numbers belong to the old stage: they no longer hold a bound of this one;
+  // and the men it still had on their way in (queued to run down a trench) are not sent - they would arrive tagged for a bound of this stage
+  for (const e of UNITS.enemies) if (e.alive && e.sq && e.sq !== 'roof') e.sq = 'was' + e.sq;
+  for (let j = DIRQ.length - 1; j >= 0; j--) if (DIRQ[j].spawn) DIRQ.splice(j, 1);
+  hmDoorsSet(i, g0);
+  const go = (st, done, r = 6.5) => { const pts = HM_G[st].map(([x, z, y]) => [...HW(x, z), y]); gateStart(pts, (k) => { if (k >= g0) hmWake(st, k); }, done, HM_LABEL[st], r, st === 1 ? 1.45 : st === 2 ? [1.45, [HW(36, 249.1), ...pts.map((q) => [q[0], q[1]])]] : 0);   /* the inner stage's lane takes in the end of the outer trench, where the player stands when it begins; inside the walls and the shut doors are the lane */ if (g0) { GATE.i = g0; GATE.t = 0; GATE.clear = false; hmWake(st, g0); } };
   if (i === 0) DIRQ.push({ at: GAME.t + 0.3, fn: () => hmIntroFilm() });
   if (i === 1) { hmPlace(1, g0); radio('מ״פ', 'הגענו לגדר! לתוך התעלה החיצונית, ומתקדמים בה סביב המוצב - עמדה אחרי עמדה, עד תעלת הקשר פנימה. לא יוצאים מהתעלה!', 4.6); hint('hm-ring', 'כל העמדות בתעלה <b>מאוישות מראש</b>: חפשו קסדות מעל שקי החול וצלפו מרחוק. העמדה הבאה מסומנת ב־◆; מי שרץ אליכם בתעלה - בא משתי עמדות קדימה.', 9); go(1, () => { feed('הטבעת החיצונית נקייה', 'good'); hmStage(2); }); }
   if (i === 2) { hmPlace(2, g0); radio('מ״פ', 'הטבעת החיצונית שלנו! בתעלת הקשר פנימה, מנקים את הטבעת הפנימית והסנגרים בחצר, ואז דלת הבונקר בדרום!', 4.4); go(2, () => { feed('החצר נקייה · לדלת הבונקר', 'good'); hmStage(3); }); }
-  if (i === 3) { hmPlace(3, g0); radio('מ״פ', 'נכנסים לבונקר! אולם כניסה, מסדרון ושמונה חדרים - כולם מלאים. רימון לפני כל דלת, ואף אחד לא נשאר מאחור.', 4.2); hint('hm-cqb', 'בתוך הבונקר יורים מטווח מטרים ספורים. עצרו לפני כל דלת, זרקו רימון, וכנסו רק אחרי הפיצוץ. קודם הזרוע המערבית של המסדרון, אחר כך המזרחית, ואז המדרגות באולם.', 9); go(3, () => { feed('הקומה התחתונה נקייה · למדרגות', 'good'); hmStage(4); }, 3.4); }
-  if (i === 4) { hmPlace(4, g0); radio('מ״פ', 'למעלה! המרפסת, ואז חדר התצפית, חדר הקשר וחדר המפקד!', 3.2); go(4, () => { feed('הקומה העליונה נקייה · למדרגות לגג', 'good'); hmStage(5); }, 3.4); }
-  if (i === 5) { hmPlace(5, g0); radio('מ״פ', 'הגג! במדרגות החיצוניות, ושם הם התבצרו - עמדה אחרי עמדה עד הדגל!', 3.4); go(5, () => { feed('המוצב בידינו', 'good'); radio('מ״פ', 'המוצב שלנו! להביא את הדגל!', 3.5); DIRQ.push({ at: GAME.t + 2, fn: hmEndFilm }); }, 3.4); }
+  if (i === 3) { hmPlace(3, g0); radio('מ״פ', 'נכנסים לבונקר! אין כאן מסדרון - חדר שנפתח לחדר, עד האולם עם המדרגות באמצע. חדר אחרי חדר, ואף אחד לא נשאר מאחור.', 4.4); hint('hm-cqb', 'בתוך הבונקר יורים מטווח מטרים ספורים. כל מגן יושב מאחורי משהו מוצק ומול הדלת: עצרו בצד הפתח, זרקו רימון, וכנסו רק אחרי הפיצוץ.', 9); go(3, () => { feed('הקומה התחתונה נקייה · למדרגות', 'good'); hmStage(4); }, 2.4); }
+  if (i === 4) { hmPlace(4, g0); if (!g0) radio('מ״פ', HM_SAY[4][0], 3); go(4, () => { feed('הקומה העליונה נקייה · לגג', 'good'); hmStage(5); }, 2.4); }
+  if (i === 5) { hmPlace(5, g0); go(5, () => { feed('המוצב בידינו', 'good'); radio('מ״פ', 'המוצב שלנו! להביא את הדגל!', 3.5); DIRQ.push({ at: GAME.t + 2, fn: hmEndFilm }); }, 3.0); }
 }
 function hmGate0(k) {
   const C = CHAP.hermon, N = HM_GATES0.length - 1, tag = 'g' + k;
@@ -529,9 +693,17 @@ function hmGate0(k) {
 function hmUpd(dt) {
   const C = CHAP.hermon; C.t += dt; if (Math.floor(C.t * 2) !== Math.floor((C.t - dt) * 2)) szEnemyCleanup();
   for (let i = DIRQ.length - 1; i >= 0; i--) if (DIRQ[i] && GAME.t >= DIRQ[i].at) { const q = DIRQ.splice(i, 1)[0]; q.fn(); }
-  updTrail(dt); gateUpd(dt);
+  // inside and on the roof every man of the room being taken counts until he is down, seen or not (one behind the wardrobes still holds the
+  // door shut; the marker leads to him); the framework's time limits on a bound still apply
+  if (HM.stage >= 3 && GATE.on) { const tag = 'g' + GATE.i; for (const e of UNITS.enemies) if (e.alive && e.sq === tag) e.seenAt = GAME.t; }
+  updTrail(dt); gateUpd(dt); hmDoorsUpd(dt);
   // the post's furniture: the full models inside the post (the lighter ones in the light setting), the lighter ones within 40 m of it, none further out
-  if (C.furn) { const d = hmDist(camera.position.x - HM.o.x, camera.position.z - HM.o.z), l = d < 4 && !LITE ? 0 : d < 40 ? 1 : -1; C.furn.forEach((list, k) => { for (const m of list) m.visible = k === l; }); }
+  const cd = hmDist(camera.position.x - HM.o.x, camera.position.z - HM.o.z);
+  if (C.furn) { const l = cd < 4 && !LITE ? 0 : cd < 40 ? 1 : -1; C.furn.forEach((list, k) => { for (const m of list) m.visible = k === l; }); }
+  // the three real lights go to the bulbs nearest the eye on its own floor; out of the post they are off
+  if (C.plights && (C.plT -= dt) <= 0) { C.plT = 0.3; const c = camera.position, fl = c.y < HM_PY - 0.2 ? 0 : 1, inside = cd < 1 && c.y < HM_RY;
+    const near = inside ? C.lamps.map((q) => [q, Math.hypot(q[0] - c.x, q[2] - c.z) + (q[3] === fl ? 0 : 60)]).sort((a, b) => a[1] - b[1]) : [];
+    C.plights.forEach((lt, i) => { const q = near[i]; if (q && q[1] < 22) { lt.position.set(q[0][0], q[0][1], q[0][2]); lt.intensity = 55; } else lt.intensity = 0; }); }
   if (!CINE.on && HM.stage === 0) { C.airT = (C.airT ?? 14) - dt; if (C.airT <= 0) { C.airT = rand(30, 44); const g = HM_GATES0[Math.min(GATE.i + 3, HM_GATES0.length - 1)], [tx, tz] = HW(g[0] + rand(-30, 30), g[1] + rand(10, 40)); sndJet(1.8); radio('קשר', pick(['סקייהוקים בדרך, מכים בעמדות מעליכם!', 'סיוע אווירי על הפסגה!']), 2.4); for (let k = 0; k < 3; k++) DIRQ.push({ at: GAME.t + 2.2 + k * 0.3, fn: () => { const p = V3(tx + rand(-12, 12), 0, tz + rand(-10, 10)); p.y = groundAt(p.x, p.z); fxExplosion(p, 2.4); sndBoom(p, 2.2); } }); } }
   if (C.lower && C.syCloth) { C.lower += dt; C.syCloth.position.y = lerp(8.2, 1.1, smooth(0, 3.4, C.lower)); }
   if (C.raise && C.ilCloth) { C.raise += dt; C.ilCloth.position.y = lerp(1.1, 8.2, smooth(0, 4.4, C.raise)); }
@@ -558,18 +730,19 @@ function hmIntroFilm() {
   });
 }
 function hmEndFilm() {
-  const C = CHAP.hermon, [mx, mz] = HW(-16, 300.5), my = HM_RY, mast = V3(mx, my, mz);
+  const C = CHAP.hermon, [mx, mz] = HW(...HM_MAST), my = HM_RY, mast = V3(mx, my, mz);
   for (const e of UNITS.enemies) if (e.alive) killEnemy(e, false);
   // the Syrian flag comes down the mast, ours goes up it: one pole, two cloths
   C.syCloth = C.syFlag.children[1]; C.syCloth.visible = true; C.syCloth.position.y = 8.2;
   if (!C.ilFlag) { C.ilFlag = flag(mx, mz, 'il', 9, Math.PI * 0.4); C.objs.push(C.ilFlag); C.ilFlag.children[0].visible = false; } C.ilFlag.position.y = my; C.ilCloth = C.ilFlag.children[1]; C.ilCloth.visible = false; C.ilCloth.position.y = 1.1; C.lower = 0; C.raise = 0;
-  FRIENDS.slice(0, 8).forEach((f, i) => { const u = f.unit; if (!u.rig.root.visible) return; f.state = 'post'; f.target = null; const [x, z] = HW(-11 + (i % 4) * 2.4, 297.5 + Math.floor(i / 4) * 2.6); u.place(x, z, HM_RY + 0.3); u.heading = Math.atan2(mx - x, mz - z); u.sync(); });
-  { const f = FRIENDS[0], u = f.unit; if (u.rig.root.visible) { f.state = 'bunker'; const [x, z] = HW(-15.1, 299.7); u.place(x, z, HM_RY + 0.3); u.heading = Math.atan2(mx - x, mz - z); u.rig.pose('idle', 0); const R = u.rig; R.sR.rotation.set(-2.7, 0, 0.15); R.eR.rotation.set(-0.5, 0, 0); R.sL.rotation.set(-2.3, 0, -0.15); R.eL.rotation.set(-0.7, 0, 0); R.gun.visible = false; u.sync(); } }   // the one at the halyard
+  // the squad round the mast, in the last stretch of the roof's lane (its walls stand on either side)
+  FRIENDS.slice(0, 8).forEach((f, i) => { const u = f.unit; if (!u.rig.root.visible) return; f.state = 'post'; f.target = null; const [x, z] = HW(HM_MAST[0] - 2.8 + (i % 4) * 1.7, HM_MAST[1] + 3.2 + Math.floor(i / 4) * 2.2); u.place(x, z, HM_RY + 0.3); u.heading = Math.atan2(mx - x, mz - z); u.sync(); });
+  { const f = FRIENDS[0], u = f.unit; if (u.rig.root.visible) { f.state = 'bunker'; const [x, z] = HW(HM_MAST[0] + 0.9, HM_MAST[1] - 0.8); u.place(x, z, HM_RY + 0.3); u.heading = Math.atan2(mx - x, mz - z); u.rig.pose('idle', 0); const R = u.rig; R.sR.rotation.set(-2.7, 0, 0.15); R.eR.rotation.set(-0.5, 0, 0); R.sL.rotation.set(-2.3, 0, -0.15); R.eL.rotation.set(-0.7, 0, 0); R.gun.visible = false; u.sync(); } }   // the one at the halyard
   playCine({ vid: 'hm_end',
     title: 'מוצב החרמון · 22 באוקטובר 1973 · 11:00',
     shots: [
-      { d: 4.2, cam: (u) => ({ p: mast.clone().add(V3(5.5, 1.7, -4.2)), l: mast.clone().add(V3(0, 7.2 - u * 4.5, 0)), fov: 44 }) },
-      { d: 5.0, cam: (u) => ({ p: mast.clone().add(V3(6.5 - u * 1.2, 1.3, -5.5)), l: mast.clone().add(V3(0, 2.6 + u * 5.2, 0)), fov: 42 }) },
+      { d: 4.2, cam: (u) => ({ p: mast.clone().add(V3(2.6, 1.7, 5.6)), l: mast.clone().add(V3(0, 7.2 - u * 4.5, 0)), fov: 46 }) },
+      { d: 5.0, cam: (u) => ({ p: mast.clone().add(V3(-2.4 + u * 1.2, 1.3, 7.0)), l: mast.clone().add(V3(0, 2.6 + u * 5.2, 0)), fov: 44 }) },
       { d: 9.4, cam: camOrbit(() => mast.clone().add(V3(0, 4, 0)), 30, 0.6, 4.4, 9, 60) },
     ],
     ev: [[0.4, () => { C.lower = 0.001; }], [4.2, () => { C.syCloth.visible = false; C.ilCloth.visible = true; C.raise = 0.001; }]],
@@ -577,18 +750,21 @@ function hmEndFilm() {
     end: () => { C.ilCloth.position.y = 8.2; DIRQ.push({ at: GAME.t + 0.3, fn: () => endGame(true) }); },
   });
 }
-function hmObj() { const en = ['קומנדו סורי', 'סורי בתעלה', 'סורי בחצר', 'סורי בחדר', 'סורי במרפסת', 'סורי על הגג'][HM.stage], pt = ['הסלע הבא', 'העמדה הבאה', 'העמדה הבאה', 'הנקודה הבאה', 'הנקודה הבאה', 'העמדה הבאה'][HM.stage]; return gateObj(en, pt); }
+function hmObj() { const en = ['קומנדו סורי', 'סורי בתעלה', 'סורי בחצר', 'סורי בחדר', 'סורי בחדר', 'סורי על הגג'][HM.stage], pt = ['הסלע הבא', 'העמדה הבאה', 'העמדה הבאה', 'החדר הבא', 'החדר הבא', 'המעבר הבא'][HM.stage]; return gateObj(en, pt); }
 function hmItems(items) { const S = HM_STAGES[HM.stage]; items.push(['go', S.goal || S.sub]); gateItem(items); const n = FRIENDS.filter((f) => f.state === 'follow').length; items.push([n < 3 ? 'warn' : '', `לוחמי גולני איתכם: ${n}`]); }
 function hmHints() { if (HM.stage === 0 && GATE.on && GATE.i >= 1) hint('hm-snip', 'הקומנדו הסורי כבר שוכב בעמדות לפניכם וקם כשאתם קרובים. סרקו את צדי הדרך, וצלפו קסדות מרחוק לפני שאתם מתקדמים.', 7); }
 function hmMini(g, X, poly, dot, k) {
-  const W = (pts) => pts.map(([x, z]) => HW(x, z)), { x0, x1, z0, z1 } = HM_F, U = HM_U;
-  miniField(g, X, poly, dot, k, { bg: 'rgba(158,154,142,.92)', polys: [[W([[x0, z0], [x1, z0], [x1, z1], [x0, z1]]), 'rgba(214,210,200,.95)'], [W([[U.x0, U.z0], [U.x1, U.z0], [U.x1, U.z1], [U.x0, U.z1]]), 'rgba(190,186,176,.95)'], [W([[HM_CABLE[0] - 6, HM_CABLE[1] - 4], [HM_CABLE[0] + 6, HM_CABLE[1] - 4], [HM_CABLE[0] + 6, HM_CABLE[1] + 4], [HM_CABLE[0] - 6, HM_CABLE[1] + 4]]), 'rgba(214,210,200,.95)']], lines: [[W(HM_ROAD), 4, 'rgba(120,104,84,.95)'], [W(HM_RING_O), 2.5, 'rgba(70,60,50,.95)'], [W(HM_RING_I), 2.5, 'rgba(70,60,50,.95)'], ...HM_SPURS.filter(Boolean).map((s) => [W(s), 2.5, 'rgba(70,60,50,.95)'])] });
+  const W = (pts) => pts.map(([x, z]) => HW(x, z)), { x0, x1, z0, z1 } = HM_F, U = HM_U, fl = HM.stage === 3 ? 0 : HM.stage === 4 ? 1 : -1;
+  // inside, the rooms of the floor the player is on, each outlined, so the chain from door to door can be read
+  const rooms = fl < 0 ? [] : HM_RM[fl].map((r) => [W([[r.x0, r.z0], [r.x1, r.z0], [r.x1, r.z1], [r.x0, r.z1], [r.x0, r.z0]]), 1.2, 'rgba(60,54,46,.9)']);
+  const walls = fl === 1 ? [] : HM_RW.map((x, i) => [W(i % 2 === 0 ? [[x, U.z0 + 3.5], [x, U.z1 - 0.9]] : [[x, U.z0 + 0.9], [x, U.z1 - 3.5]]), 1.6, 'rgba(92,86,76,.9)']);
+  miniField(g, X, poly, dot, k, { bg: 'rgba(158,154,142,.92)', polys: [[W([[x0, z0], [x1, z0], [x1, z1], [x0, z1]]), 'rgba(214,210,200,.95)'], [W([[U.x0, U.z0], [U.x1, U.z0], [U.x1, U.z1], [U.x0, U.z1]]), 'rgba(190,186,176,.95)'], [W([[HM_CABLE[0] - 6, HM_CABLE[1] - 4], [HM_CABLE[0] + 6, HM_CABLE[1] - 4], [HM_CABLE[0] + 6, HM_CABLE[1] + 4], [HM_CABLE[0] - 6, HM_CABLE[1] + 4]]), 'rgba(214,210,200,.95)']], lines: [[W(HM_ROAD), 4, 'rgba(120,104,84,.95)'], [W(HM_RING_O), 2.5, 'rgba(70,60,50,.95)'], [W(HM_RING_I), 2.5, 'rgba(70,60,50,.95)'], ...HM_SPURS.filter(Boolean).map((s) => [W(s), 2.5, 'rgba(70,60,50,.95)']), ...(fl < 0 && HM.stage >= 5 ? walls : []), ...rooms] });
 }
 function hmEnd(win, why) {
   const stats = [[STATS.kills, 'אויבים נפגעו'], [FRIENDS.filter((f) => f.state === 'follow' || f.state === 'post').length, 'לוחמים איתכם בסוף'], [HM.stage + 1, 'השלב שהגעתם אליו']];
   if (win) return ['החרמון שלנו', 'בלילה שבין 21 ל־22 באוקטובר 1973 עלו לוחמי גולני ממג׳דל שמס להחזיר את המוצב בחרמון, שנכבש בידי קומנדו סורי ביום הראשון למלחמה. הם נלחמו על הדרך, בסלעים, במבני הרכבל, בתעלות המוצב ובתוך הבונקר עצמו, ובאחת עשרה בבוקר הניפו עליו את הדגל. 55 מלוחמי גולני נפלו בקרב.', stats];
   return ['נפגעת', HM.stage >= 3 ? 'בתוך הבונקר יורים מטווח מטרים. עצרו לפני כל פינה, זרקו רימון, ותנו ללוחמים להיכנס איתכם.' : 'העמדות מאוישות מראש - צלפו את הקסדות מרחוק לפני שאתם מתקרבים, ואל תעלו על הסוללה מול הגג.', stats];
 }
-CHAP.hermon = { stages: HM_STAGES, st: () => HM.stage, dbg: () => ({ py: HM_PY, l0: HM_L0, ry: HM_RY }), cp: () => CHAP.hermon.cpN || 0, upd: hmUpd, obj: hmObj, hints: hmHints, items: hmItems, mini: hmMini, restore: fieldRestore, end: hmEnd, tank: false, dry: true, cloth: 0xf0eee6,
+CHAP.hermon = { stages: HM_STAGES, st: () => HM.stage, dbg: () => ({ py: HM_PY, l0: HM_L0, ry: HM_RY }), cp: () => CHAP.hermon.cpN || 0, upd: hmUpd, snapAfter: () => hmDoorsSet(HM.stage, GATE.on ? GATE.i : 0), obj: hmObj, hints: hmHints, items: hmItems, mini: hmMini, restore: fieldRestore, end: hmEnd, tank: false, dry: true, cloth: 0xf0eee6,
   tod: () => [7 * 60 + 40, 8 * 60 + 35, 9 * 60, 9 * 60 + 25, 9 * 60 + 50, 10 * 60 + 25][HM.stage] - START_MIN + CHAP.hermon.t / 6,
   build: () => chapterBuild(CHAP.hermon, hmBuild), setup: hmSetup, clock: '22.10.1973 · החרמון', toast: ['22 באוקטובר 1973 · לפנות בוקר', 'גולני עולים להחזיר את החרמון'], start: () => fieldStart('hermon') };
