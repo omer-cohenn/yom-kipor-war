@@ -930,21 +930,22 @@ function gabionRow(x, z, rot, n, rows, y0) {
   const c = Math.cos(rot), s = Math.sin(rot);
   for (let r = 0; r < rows; r++) for (let i = 0; i < n; i++) { const o = i - (n - 1) / 2; const px = x + c * o, pz = z - s * o; BATCH.gab.push([px, (y0 ?? groundAt(px, pz) - 0.35) + r + 0.5, pz, rot]); }
 }
+const BAG_LH = 0.21;   // a layer of sandbags (the bags a size larger than they were, the walls a little higher)
 function bagWall(pts, layers, baseY = null, collide = true) {
   if (collide && layers >= 3) for (let i = 0; i < pts.length - 1; i++) {
     const a = pts[i], b = pts[i + 1], dx = b[0] - a[0], dz = b[1] - a[1], L = Math.hypot(dx, dz); if (L < 0.2) continue; const mx = (a[0] + b[0]) / 2, mz = (a[1] + b[1]) / 2;
-    const top = (baseY ?? groundAt(mx, mz) - 0.05) + layers * 0.19 + 0.05; addCollider(mx, mz, L / 2 + 0.12, 0.22, Math.atan2(-dz, dx), top);
-    if (layers >= 4 && L > 1.1) { const nx = -dz / L, nz = dx / L, ns = Math.max(1, Math.round(L / 2.6)); for (let k = 0; k < ns; k++) { const t = (k + 0.5) / ns, px = a[0] + dx * t, pz = a[1] + dz * t; addCover(px + nx * 0.75, pz + nz * 0.75, -nx, -nz, layers * 0.19); addCover(px - nx * 0.75, pz - nz * 0.75, nx, nz, layers * 0.19); } }
+    const top = (baseY ?? groundAt(mx, mz) - 0.05) + layers * BAG_LH + 0.05; addCollider(mx, mz, L / 2 + 0.12, 0.22, Math.atan2(-dz, dx), top);
+    if (layers >= 4 && L > 1.1) { const nx = -dz / L, nz = dx / L, ns = Math.max(1, Math.round(L / 2.6)); for (let k = 0; k < ns; k++) { const t = (k + 0.5) / ns, px = a[0] + dx * t, pz = a[1] + dz * t; addCover(px + nx * 0.75, pz + nz * 0.75, -nx, -nz, layers * BAG_LH); addCover(px - nx * 0.75, pz - nz * 0.75, nx, nz, layers * BAG_LH); } }
   }
   const d = densify(pts, 0.56);
   for (let i = 0; i < d.length - 1; i++) {
     const a = d[i], b = d[i + 1]; const dx = b[0] - a[0], dz = b[1] - a[1], L = Math.hypot(dx, dz) || 1; const mx = (a[0] + b[0]) / 2, mz = (a[1] + b[1]) / 2; const rot = Math.atan2(-dz, dx);
     const y0 = baseY ?? groundAt(mx, mz) - 0.05;
-    for (let l = 0; l < layers; l++) { const off = l % 2 ? 0.14 : -0.14; BATCH.bag.push([mx + dx / L * off, y0 + 0.1 + l * 0.19, mz + dz / L * off, rot]); }
+    for (let l = 0; l < layers; l++) { const off = l % 2 ? 0.14 : -0.14; BATCH.bag.push([mx + dx / L * off, y0 + 0.11 + l * BAG_LH, mz + dz / L * off, rot]); }
   }
 }
 function pillowGeo() {
-  const g = new THREE.SphereGeometry(0.5, LITE ? 10 : 16, LITE ? 6 : 10); const p = g.attributes.position; const f = (v, e) => Math.sign(v) * Math.pow(Math.abs(v), e);
+  const g = new THREE.SphereGeometry(0.5, LITE ? 10 : 16, LITE ? 6 : 10).scale(1.1, 1.1, 1.1); const p = g.attributes.position; const f = (v, e) => Math.sign(v) * Math.pow(Math.abs(v), e);
   for (let i = 0; i < p.count; i++) { let x = p.getX(i) * 2, y = p.getY(i) * 2, z = p.getZ(i) * 2; const px = f(x, 0.32), pz = f(z, 0.5); const py = f(y, 0.62) * (1 - 0.22 * px * px); p.setXYZ(i, px * 0.5, py * 0.5, pz * 0.5); }
   g.computeVertexNormals(); return g;
 }
@@ -2800,7 +2801,7 @@ for (const ev of ['pointerdown', 'pointermove', 'wheel', 'keydown', 'touchmove',
 function facesIdle() { if (!FACEQ.length) return; if (!LD.busy && !document.hidden && performance.now() - FACEIDLE.last > 800) facePaint(FACEQ.shift()); setTimeout(facesIdle, 250); }
 { const F = { f: FACES.f.map((_, v) => faceSlot('f', v)), e: FACES.e.map((_, v) => faceSlot('e', v)) }; MAT.faces = { f: F.f.map((x) => x[0]), e: F.e.map((x) => x[0]) }; MAT.facesShut = { f: F.f.map((x) => x[1]), e: F.e.map((x) => x[1]) }; }
 /* soldiers stand out: slightly larger, with a coloured rim light (red enemies, blue friends) and a marker over the head */
-const US = 1.14;
+const US = 1.18;
 function rimMat(hex, k) {
   const m = MAT.cloth.clone(); const col = new THREE.Color(hex).multiplyScalar(k);
   m.onBeforeCompile = (sh) => { sh.uniforms.uRim = { value: col }; sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform vec3 uRim;').replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n  { float rr = 1.0 - clamp(abs(dot(normalize(vNormal), normalize(vViewPosition))), 0.0, 1.0); totalEmissiveRadiance += uRim * rr * rr * rr * rr; }'); };
@@ -4169,44 +4170,53 @@ function mapGrassTick() {
    stacked shells, each keeping only the spots where a blade reaches that high - close up a field of separate blades thinning to their tips,
    further off a soft even pile, fading out at the patch's edge. ok(x, z) is 0 where there is none (roads, trenches, floors). It takes the
    scene's light and shadows like the ground under it */
-const GRASS = { mode: null, ok: null, mesh: null, cx: 1e9, cz: 1e9, N: LITE ? 37 : 57, S: LITE ? 0.8 : 0.65, L: LITE ? 8 : 14, H: 0.21, uT: { value: 0 } };
-function grassCarpet(mode, ok) { GRASS.mode = mode; GRASS.ok = ok; GRASS.cx = 1e9; if (!GRASS.mesh) grassBuild(); }
+const GRASS = { by: {}, cur: null, mesh: null, cx: 1e9, cz: 1e9, N: LITE ? 37 : 57, S: LITE ? 0.8 : 0.65, L: LITE ? 8 : 14, uT: { value: 0 }, uH: { value: 0.21 }, uDen: { value: 0.62 },
+  uBase: { value: new THREE.Color() }, uTipA: { value: new THREE.Color() }, uTipB: { value: new THREE.Color() } };
+/* the grass of each chapter's map: where (ok) and what (height in m, how sparse - the share of empty blade cells - and its colours, linear) */
+const GRASS_KIND = {
+  green: { h: 0.21, den: 0.62, base: [0.07, 0.12, 0.035], a: [0.3, 0.5, 0.1], b: [0.55, 0.53, 0.18] },   // a watered field, the mountain in the rains
+  farm: { h: 0.2, den: 0.6, base: [0.07, 0.11, 0.035], a: [0.27, 0.44, 0.09], b: [0.5, 0.48, 0.17] },
+  dry: { h: 0.2, den: 0.8, base: [0.12, 0.1, 0.05], a: [0.5, 0.47, 0.18], b: [0.7, 0.6, 0.27] },      // the desert's dry grass, straw and olive, in tufts with sand between
+};
+function grassCarpet(map, ok, kind = 'green') { GRASS.by[map] = { ok, k: GRASS_KIND[kind] || GRASS_KIND.green }; GRASS.cur = null; if (!GRASS.mesh) grassBuild(); }
 function grassBuild() {
   const N = GRASS.N, base = new THREE.PlaneGeometry(1, 1, N - 1, N - 1); base.rotateX(-Math.PI / 2);
   const g = new THREE.InstancedBufferGeometry(); g.index = base.index; g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(N * N * 3), 3)); g.setAttribute('normal', base.attributes.normal);
   g.setAttribute('aMask', new THREE.BufferAttribute(new Float32Array(N * N), 1));
   const sh = new Float32Array(GRASS.L); for (let i = 0; i < GRASS.L; i++) sh[i] = (i + 1) / GRASS.L; g.setAttribute('aShell', new THREE.InstancedBufferAttribute(sh, 1)); g.instanceCount = GRASS.L;
   const mat = new THREE.MeshLambertMaterial({ color: 0xffffff });
-  mat.onBeforeCompile = (sh2) => { sh2.uniforms.uT = GRASS.uT; sh2.uniforms.uH = { value: GRASS.H };
+  mat.onBeforeCompile = (sh2) => { Object.assign(sh2.uniforms, { uT: GRASS.uT, uH: GRASS.uH, uDen: GRASS.uDen, uBase: GRASS.uBase, uTipA: GRASS.uTipA, uTipB: GRASS.uTipB });
     sh2.vertexShader = 'attribute float aShell;\nattribute float aMask;\nuniform float uH;\nuniform float uT;\nvarying float vS;\nvarying float vM;\nvarying vec3 vGW;\n' + sh2.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
       transformed.y += aShell * uH;
       transformed.xz += vec2(sin(uT * 1.7 + position.x * 0.37 + position.z * 0.23), cos(uT * 1.3 + position.z * 0.31 + position.x * 0.11)) * 0.028 * aShell * aShell;
       vS = aShell; vM = aMask; vGW = transformed;`);
-    sh2.fragmentShader = 'varying float vS;\nvarying float vM;\nvarying vec3 vGW;\nfloat gH(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }\n' + sh2.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+    sh2.fragmentShader = 'uniform float uDen;\nuniform vec3 uBase;\nuniform vec3 uTipA;\nuniform vec3 uTipB;\nvarying float vS;\nvarying float vM;\nvarying vec3 vGW;\nfloat gH(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }\n' + sh2.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
       if (vM < 0.03) discard;
       float dC = length(vGW - cameraPosition), th = 0.0, r2 = 0.5; bool hit = false;
       vec2 gq = vGW.xz / 3.5, gi = floor(gq), gf = fract(gq); gf = gf * gf * (3.0 - 2.0 * gf);
       float pat = mix(mix(gH(gi), gH(gi + vec2(1.0, 0.0)), gf.x), mix(gH(gi + vec2(0.0, 1.0)), gH(gi + vec2(1.0, 1.0)), gf.x), gf.y);
-      if (gH(floor(gl_FragCoord.xy) + 0.37) < smoothstep(9.0, 16.0, dC)) discard;   // past ~12 m the blades are finer than a pixel: the green ground under them stands for them
+      if (gH(floor(gl_FragCoord.xy) + 0.37) < smoothstep(6.5, 12.0, dC)) discard;   // past ~12 m the blades are finer than a pixel: the green ground under them stands for them
       for (int L = 0; L < 2; L++) {
-        vec2 qq = L == 0 ? vGW.xz * 24.0 : mat2(0.8, -0.6, 0.6, 0.8) * vGW.xz * 28.0 + 13.7, c = floor(qq) + float(L) * 57.0, f = fract(qq) - 0.5;
-        if (gH(c) < 0.62 - 0.4 * pat) continue;   // clumps: denser where the patch noise is high
+        vec2 qq = L == 0 ? mat2(0.92, -0.39, 0.39, 0.92) * vGW.xz * 21.0 : mat2(0.39, -0.92, 0.92, 0.39) * vGW.xz * 25.0 + 13.7, c = floor(qq) + float(L) * 57.0, f = fract(qq) - 0.5;   // two grids at odd angles: no lattice, no moire along the axes
+        if (gH(c) < uDen - 0.4 * pat) continue;   // clumps: denser where the patch noise is high
         float hb = (0.3 + 0.7 * gH(c + 11.3)) * (0.55 + 0.55 * pat) * vM; if (vS > hb) continue;
         vec2 o = (vec2(gH(c + 3.1), gH(c + 7.7)) - 0.5) * 0.75;
         if (length(f - o) < (0.12 + 0.16 * gH(c + 5.5)) * (1.0 - vS / hb) + 0.035) { hit = true; th = vS / hb; r2 = gH(c + 17.31) * 0.45 + pat * 0.55; }
       }
       if (!hit) discard;
-      diffuseColor.rgb = mix(vec3(0.07, 0.12, 0.035), mix(vec3(0.3, 0.5, 0.1), vec3(0.55, 0.53, 0.18), smoothstep(0.4, 0.95, r2)), 0.25 + 0.75 * th);`); };
+      diffuseColor.rgb = mix(uBase, mix(uTipA, uTipB, smoothstep(0.4, 0.95, r2)), 0.25 + 0.75 * th);`); };
   mat.customProgramCacheKey = () => 'grasscarpet';
   const m = GRASS.mesh = new THREE.Mesh(g, mat); m.frustumCulled = false; m.castShadow = false; m.receiveShadow = true; m.userData.dyn = true; m.visible = false; scene.add(m);
 }
 function grassTick() {
-  const m = GRASS.mesh; if (!m) return; const on = GROUND && MODE === GRASS.mode && GRASS.ok; m.visible = !!on; if (!on) return;
+  const m = GRASS.mesh; if (!m) return; const map = MAP_OF[MODE], g = GROUND && GRASS.by[map]; m.visible = !!g; if (!g) return;
+  if (GRASS.cur !== map) { GRASS.cur = map; GRASS.cx = 1e9; const k = g.k; GRASS.uH.value = k.h; GRASS.uDen.value = k.den; GRASS.uBase.value.setRGB(...k.base); GRASS.uTipA.value.setRGB(...k.a); GRASS.uTipB.value.setRGB(...k.b); }
   GRASS.uT.value = performance.now() / 1000;
   const S = GRASS.S, N = GRASS.N, cam = camera.position, cx = Math.round(cam.x / S), cz = Math.round(cam.z / S); if (Math.abs(cx - GRASS.cx) + Math.abs(cz - GRASS.cz) < 2) return; GRASS.cx = cx; GRASS.cz = cz;
   const P = m.geometry.attributes.position.array, Mk = m.geometry.attributes.aMask.array, h = (N - 1) / 2, R = h * S;
   for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) { const k = j * N + i, x = (cx + i - h) * S, z = (cz + j - h) * S, d = Math.hypot(i - h, j - h) * S;
-    P[k * 3] = x; P[k * 3 + 1] = groundAt(x, z); P[k * 3 + 2] = z; Mk[k] = d > R ? 0 : GRASS.ok(x, z) * (1 - smooth(R * 0.6, R, d)); }
+    const y = groundAt(x, z); P[k * 3] = x; P[k * 3 + 1] = y; P[k * 3 + 2] = z;
+    Mk[k] = d > R || !g.ok(x, z) || (groundAt(x + 1.4, z) + groundAt(x - 1.4, z) + groundAt(x, z + 1.4) + groundAt(x, z - 1.4)) / 4 - y > 0.35 ? 0 : 1 - smooth(R * 0.6, R, d); }   // none in a cut: a trench, a ditch, a pit
   m.geometry.attributes.position.needsUpdate = true; m.geometry.attributes.aMask.needsUpdate = true;
 }
 { const prev = scene.onBeforeRender; scene.onBeforeRender = function (...a) { prev.apply(this, a); mapGrassTick(); grassTick(); }; }
@@ -4300,6 +4310,8 @@ function resetPlayer() {
 function camForward(out = V3()) { return out.set(-Math.sin(P.yaw) * Math.cos(P.pitch), Math.sin(P.pitch), -Math.cos(P.yaw) * Math.cos(P.pitch)); }
 function playerEye() { return V3(P.pos.x, P.pos.y + (P.ride && P.ride.eye ? P.ride.eye : P.mode === 'carry' ? 1.45 : P.crouch ? 1.05 : 1.65), P.pos.z); }
 /* riding (the jeep's gun, a rubber boat): a wide view, wide enough on a phone held upright to see the road or the far bank on both sides */
+/* on foot: a lens of about 92 degrees across, as in the shooters of the kind (it was 72 tall, 104 across on a wide screen - the enemy small and far, the edges stretched); never wider than 72 tall on a narrow screen */
+function footFov() { const a = camera.aspect || 1.6; return clamp(2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(46)) / a) * 180 / Math.PI, 55, 72); }
 function rideFov() { const a = camera.aspect || 1.6, v = 2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(35)) / a) * 180 / Math.PI; return clamp(v, 80, 104); }
 
 /* ================= raycasting ================= */
@@ -5436,7 +5448,7 @@ function updPlayer(dt) {
   // ads & fov
   const wantAds = (INPUT.ads || k.KeyQ || INPUT.tAds) && ((P.mode === 'rifle' && P.reloadT <= 0 && !P.sprint) || P.mode === 'mag' || !!(P.ride && P.ride.mg));
   P.ads = clamp(P.ads + (wantAds ? 1 : -1) * dt * 7, 0, 1);
-  const fov = P.mode === 'mag' ? lerp(62, P.post && P.post.mag && P.post.mag.big ? 24 : 30, P.ads) : lerp(P.ride ? rideFov() : 72, P.ride && P.ride.mg ? 30 : FIELDM() ? 32 : 40, P.ads);   /* the guns on the rampart have their sight too: twice as close, the men in the boats plain to see */ if (Math.abs(camera.fov - fov) > 0.05) { camera.fov = fov; camera.updateProjectionMatrix(); }
+  const fov = P.mode === 'mag' ? lerp(62, P.post && P.post.mag && P.post.mag.big ? 24 : 30, P.ads) : lerp(P.ride ? rideFov() : footFov(), P.ride && P.ride.mg ? 30 : FIELDM() ? 32 : 40, P.ads);   /* the guns on the rampart have their sight too: twice as close, the men in the boats plain to see */ if (Math.abs(camera.fov - fov) > 0.05) { camera.fov = fov; camera.updateProjectionMatrix(); }
   // viewmodel
   // the rifle has inertia: it lags a little behind a turn of the head, swings with the stride and settles into the sprint carry over a few frames
   { const dy = wrapPi(P.yaw - (P.pyaw ?? P.yaw)), dp = P.pitch - (P.ppitch ?? P.pitch); P.pyaw = P.yaw; P.ppitch = P.pitch; const kq = 1 - Math.exp(-dt * 9);
@@ -7706,7 +7718,7 @@ function makeGround(d) {
   const XS = ax(d.x0, d.x1, d.fineX), ZS = ax(d.z0, d.z1, d.fineZ), NX = XS.length, NZ = ZS.length, HG = new Float32Array(NX * NZ);
   const pos = new Float32Array(NX * NZ * 3), col = new Float32Array(NX * NZ * 3), uv = new Float32Array(NX * NZ * 2), K = 1 / 0.787;
   for (let j = 0; j < NZ; j++) for (let i = 0; i < NX; i++) {
-    const x = XS[i], z = ZS[j], k = j * NX + i; const h = d.h(x, z); HG[k] = h;
+    const x = XS[i], z = ZS[j], k = j * NX + i; const h = d.h(x, z); HG[k] = h; if (d.tint && (d.grassOk || d.vegOk || (() => 1))(x, z)) mixIn(d.tint[0], d.tint[1]);   // the ground under the grass
     pos[k * 3] = x; pos[k * 3 + 1] = h; pos[k * 3 + 2] = z; col[k * 3] = lin(COL[0]) * K; col[k * 3 + 1] = lin(COL[1]) * K; col[k * 3 + 2] = lin(COL[2]) * K; uv[k * 2] = x / 3.3; uv[k * 2 + 1] = z / 3.3;
   }
   const idx = new Uint32Array((NX - 1) * (NZ - 1) * 6); let p = 0;
@@ -7715,6 +7727,7 @@ function makeGround(d) {
   const Mp = d.map ? MAPS[d.map] : null, mesh = new THREE.Mesh(geo, Mp ? mapTerrainMat(Mp) : terrainMat()); mesh.receiveShadow = !LITE; scene.add(mesh);
   const G = { mesh, at(x, z) { const i = findIdx(XS, x), j = findIdx(ZS, z); const tx = clamp((x - XS[i]) / (XS[i + 1] - XS[i]), 0, 1), tz = clamp((z - ZS[j]) / (ZS[j + 1] - ZS[j]), 0, 1); const k = j * NX + i; return lerp(lerp(HG[k], HG[k + 1], tx), lerp(HG[k + NX], HG[k + NX + 1], tx), tz); } };
   if (Mp) G.veg = mapVeg(Mp, G.at, d.vegOk);   // the map's own plants, standing on this ground
+  if (d.grass && d.map) grassCarpet(d.map, d.grassOk || d.vegOk || (() => 1), d.grass);   // the short grass round the camera (4g_maps.js)
   return G;
 }
 function showWorld(mode) {
@@ -8981,7 +8994,7 @@ const RS_GROUPS = {
 };
 function rsArc(x) { let best = 0, bd = 1e9, acc = 0; for (let i = 0; i < RS_TRACK.length - 1; i++) { const a = RS_TRACK[i], b = RS_TRACK[i + 1], L = Math.hypot(b[0] - a[0], b[1] - a[1]); for (let u = 0; u <= 1; u += 0.02) { const px = lerp(a[0], b[0], u); if (Math.abs(px - x) < bd) { bd = Math.abs(px - x); best = acc + L * u; } } acc += L; } return best; }
 function rsBuild() {
-  const C = CHAP.rescue; C.ground = makeGround({ x0: RS.o.x - 780, x1: RS.o.x + 760, z0: RS.o.z - 330, z1: RS.o.z + 330, step: 3.2, h: mapH('rescue', rsNat, rsCarve), map: 'rescue', vegOk: (x, z) => distPolyline(x - RS.o.x, z - RS.o.z, RS_TRACK_S) > 7 }); GROUND = C.ground;
+  const C = CHAP.rescue; C.ground = makeGround({ x0: RS.o.x - 780, x1: RS.o.x + 760, z0: RS.o.z - 330, z1: RS.o.z + 330, step: 3.2, h: mapH('rescue', rsNat, rsCarve), map: 'rescue', vegOk: (x, z) => distPolyline(x - RS.o.x, z - RS.o.z, RS_TRACK_S) > 7, grass: 'dry' }); GROUND = C.ground;
   const BAGS = [], sv = BATCH.bag; BATCH.bag = BAGS; const k0 = COVER.length; C.slots = []; C.nestBush = []; C.fires = [];
   { const r = rng(4242); for (const id of ['A', 'B', 'C', 'D']) { const g = RS_GROUPS[id], cx = g.at ?? g.pts[0][0]; if (g.extra) continue; g.extra = true; for (let k = 0; k < 5; k++) { const sd = k % 2 ? 1 : -1; g.pts.push([cx + (r() - 0.5) * 200, sd * (70 + r() * 120)]); g.kinds.push(['rifle', 'rpg', 'rifle', 'rifle', 'atgm'][k]); } } }
   for (const [id, g] of Object.entries(RS_GROUPS)) g.pts.forEach(([x0, z0], i) => { const lane = id === 'W' ? RS_WEST : id === 'S' ? RS_SOUTH : RS_TRACK, [x, z] = corr(lane, x0, z0, 23, id === 'W' || id === 'S' ? 4 : 12); const [wx, wz] = RW(x, z); let tx = x, tz = 0; { let bd = 1e9; for (const p of id === 'W' || id === 'S' ? [RS_MEET2, [-560, -66]] : densify(RS_TRACK, 10)) { const d = Math.hypot(p[0] - x, p[1] - z); if (d < bd) { bd = d; tx = p[0]; tz = p[1]; } } } const dx = tx - x, dz = tz - z, l = Math.hypot(dx, dz) || 1; const s = foxhole(wx, wz, dx / l, dz / l, C.slots); s.grp = id; s.kind = g.kinds[i]; if (g.bush) for (let k = 0; k < 6; k++) { const a = Math.atan2(dx, dz) + rand(-2.4, 2.4), d = rand(1.6, 3.4); C.nestBush.push([wx + Math.sin(a) * d, wz + Math.cos(a) * d, rand(0.9, 1.6), rand(0, 6), greenBush(Math.random)]); } });
@@ -9912,7 +9925,7 @@ function crWreckT55(lx, lz, hd, r) {
   scene.add(SH(onLayer1(m))); wreckTilt(m, r); wreckFire(m, VEH_FIRE.t55, 1.4); addCollider(x, z, 3.4, 1.8, m.rotation.y, groundAt(x, z) + 2.3); coverBox(x, z, 3.4, 1.8, m.rotation.y, 2.1); return m;
 }
 function crBuild() {
-  const C = CHAP.cross; C.ground = makeGround({ x0: CR.o.x - 440, x1: CR.o.x + 345, z0: CR.o.z - 160, z1: CR.o.z + 450, step: 1.9, h: mapH('cross', crNat, crCarve), map: 'cross', vegOk: (x, z) => { const lx = x - CR.o.x, lz = z - CR.o.z; return Math.abs(lx) > 106 && Math.abs(lz) > 5 && Math.abs(lz - CR_PB_Z) > 6 && Math.abs(lx - CR_BRIDGE) > 12 && !crInVillage(lx, lz, 6) && !(lx > -158 && lx < -94 && Math.abs(lz) < 27); } }); GROUND = C.ground;
+  const C = CHAP.cross; C.ground = makeGround({ x0: CR.o.x - 440, x1: CR.o.x + 345, z0: CR.o.z - 160, z1: CR.o.z + 450, step: 1.9, h: mapH('cross', crNat, crCarve), map: 'cross', vegOk: (x, z) => { const lx = x - CR.o.x, lz = z - CR.o.z; return Math.abs(lx) > 106 && Math.abs(lz) > 5 && Math.abs(lz - CR_PB_Z) > 6 && Math.abs(lx - CR_BRIDGE) > 12 && !crInVillage(lx, lz, 6) && !(lx > -158 && lx < -94 && Math.abs(lz) < 27); }, grass: 'farm', grassOk: (x, z) => { const lx = x - CR.o.x, lz = z - CR.o.z; return Math.abs(lx) > 106 && Math.abs(lz - CR_PB_Z) > 6 && Math.abs(lx - CR_BRIDGE) > 12 && !crInVillage(lx, lz, 1.5); }, tint: [[0.36, 0.43, 0.22], 0.4] }); GROUND = C.ground;
   const BAGS = [], sv = BATCH.bag; BATCH.bag = BAGS; const k0 = COVER.length; C.slots = [];
   // the trench on the rampart between the bridges: sandbag lips, traverses, bunkers, the Egyptian flag
   { const line = []; for (let lz = CR_TZ0; lz <= CR_TZ1; lz += 2.5) line.push([crTX(lz), lz]); const W = (dx) => line.map(([x, z]) => CW(x + dx, z));
@@ -10580,7 +10593,7 @@ function arBuild() {
   const C = CHAP.army; AR.base = mapH('army', arNat);
   const fineX = AR_PITL.map((p) => [AR.o.x + p[0] - 10, AR.o.x + p[0] + 10, 1.1]), fineZ = AR_PITL.map((p) => [AR.o.z + p[1] - 10, AR.o.z + p[1] + 10, 1.1]);
   const nearWork = (lx, lz) => AR_PITL.some((p) => Math.hypot(lx - p[0], lz - p[1]) < 13);
-  C.ground = makeGround({ x0: AR.o.x - 520, x1: AR.o.x + 980, z0: AR.o.z - 1180, z1: AR.o.z + 620, step: 3.6, fineX, fineZ, h: mapH('army', arNat, arCarve), map: 'army', vegOk: (x, z) => { const lx = x - AR.o.x, lz = z - AR.o.z; return Math.abs(lz - AR_ROAD) > 7 && lz < coastZ(lx) - 6 && Math.min(distPolyline(lx, lz, AR_ROUTE0_S), distPolyline(lx, lz, AR_ROUTE2_S)) > 5 && !nearWork(lx, lz); } }); GROUND = C.ground;
+  C.ground = makeGround({ x0: AR.o.x - 520, x1: AR.o.x + 980, z0: AR.o.z - 1180, z1: AR.o.z + 620, step: 3.6, fineX, fineZ, h: mapH('army', arNat, arCarve), map: 'army', vegOk: (x, z) => { const lx = x - AR.o.x, lz = z - AR.o.z; return Math.abs(lz - AR_ROAD) > 7 && lz < coastZ(lx) - 6 && Math.min(distPolyline(lx, lz, AR_ROUTE0_S), distPolyline(lx, lz, AR_ROUTE2_S)) > 5 && !nearWork(lx, lz); }, grass: 'dry' }); GROUND = C.ground;
   const BAGS = [], sv = BATCH.bag; BATCH.bag = BAGS; const k0 = COVER.length; C.slots = []; C.walls = [];
   const face = (x, z, tx, tz) => { const dx = tx - x, dz = tz - z, l = Math.hypot(dx, dz) || 1; return [dx / l, dz / l]; };
   // the lines: a foxhole for each man, facing the firing position the column halts at; parapets of sandbags (cover for the reserve too)
@@ -10961,7 +10974,7 @@ function amWreck(name, x, z, rot, seed) {
   addCollider(x, z, hx, hz, rot, g0 + h); coverBox(x, z, hx, hz, rot, Math.min(2.2, h)); wreckFire(m, VEH_FIRE[name], name === 'jeep' ? 0.85 : 1.4); return m;
 }
 function amBuild() {
-  const C = CHAP.armor; C.ground = makeGround({ x0: AM.o.x - 1150, x1: AM.o.x + 260, z0: AM.o.z - 220, z1: AM.o.z + 920, step: 3.2, h: mapH('armor', amNat, amCarve), map: 'armor', vegOk: (x, z) => { const lx = x - AM.o.x, lz = z - AM.o.z; return !AM_Z.some((Z) => Math.hypot(lx - Z.x, lz - Z.z) < 36) && Math.abs(lz - 366) > 6; } }); GROUND = C.ground;
+  const C = CHAP.armor; C.ground = makeGround({ x0: AM.o.x - 1150, x1: AM.o.x + 260, z0: AM.o.z - 220, z1: AM.o.z + 920, step: 3.2, h: mapH('armor', amNat, amCarve), map: 'armor', vegOk: (x, z) => { const lx = x - AM.o.x, lz = z - AM.o.z; return !AM_Z.some((Z) => Math.hypot(lx - Z.x, lz - Z.z) < 36) && Math.abs(lz - 366) > 6; }, grass: 'dry', grassOk: (x, z) => Math.abs(z - AM.o.z - 366) > 6 }); GROUND = C.ground;
   const BAGS = [], sv = BATCH.bag; BATCH.bag = BAGS; const k0 = COVER.length; C.slots = [];
   const L = (x, z) => [x - AM.o.x, z - AM.o.z], inZone = (lx, lz) => AM_Z.some((Z) => Math.hypot(lx - Z.x, lz - Z.z) < 22), ok = (x, z) => { const [lx, lz] = L(x, z); return !inZone(lx, lz) && !C.slots.some((s) => Math.hypot(s.x - x, s.z - z) < 5); };
   // Sagger and bazooka nests in front of the northern positions
@@ -11582,7 +11595,7 @@ function hmTrenchProp(K, x, z, y, a, kind) {
   else K.ft('akms', ...at(0, 0), y, ry, 0, Math.PI / 2, false, T);
 }
 function hmBuild() {
-  grassCarpet('hermon', hmGrassOk); const C = CHAP.hermon; C.ground = makeGround({ x0: HM.o.x - 230, x1: HM.o.x + 230, z0: HM.o.z - 210, z1: HM.o.z + 345, step: 1.6, ext: 1500, h: mapH('hermon', hmOuter, hmCarve), map: 'hermon', vegOk: (x, z) => { const lx = x - HM.o.x, lz = z - HM.o.z; return distPolyline(lx, lz, HM_ROAD_S) > 5 && hmDist(lx, lz) > 70; } }); GROUND = C.ground;
+  grassCarpet('hermon', hmGrassOk, 'green'); const C = CHAP.hermon; C.ground = makeGround({ x0: HM.o.x - 230, x1: HM.o.x + 230, z0: HM.o.z - 210, z1: HM.o.z + 345, step: 1.6, ext: 1500, h: mapH('hermon', hmOuter, hmCarve), map: 'hermon', vegOk: (x, z) => { const lx = x - HM.o.x, lz = z - HM.o.z; return distPolyline(lx, lz, HM_ROAD_S) > 5 && hmDist(lx, lz) > 70; } }); GROUND = C.ground;
   const BAGS = [], sv = BATCH.bag; BATCH.bag = BAGS; const k0 = COVER.length; C.slots = [];
   const K = hmBuildKit(), r = rng(2210), stone = [], L = (x, z) => [x - HM.o.x, z - HM.o.z], y0 = HM_L0, y1 = HM_PY, yR = HM_RY;
   const { x0, x1, z0, z1 } = HM_F, [dx] = HM_DOOR, U = HM_U, ST = HM_STAIR, RS = HM_RSTAIR;
@@ -12643,7 +12656,7 @@ function fmBlocksBuild() {
 }
 /* ---------- building the battlefield ---------- */
 function fmBuild() {
-  const C = CHAP.farm; C.ground = makeGround({ x0: FM.o.x - 660, x1: FM.o.x + 720, z0: FM.o.z - 880, z1: FM.o.z + 460, step: 4, h: mapH('farm', fmNat, fmCarve), map: 'farm', vegOk: (x, z) => { const lx = x - FM.o.x, lz = z - FM.o.z; return !fmInFarm(lx, lz, 4) && Math.abs(lx - FM_CANAL.x) > FM_CANAL.hw + 3 && Math.abs(lx - FM_LEX) > 6 && Math.abs(lz - FM_TIR) > 6 && distPolyline(lx, lz, FM_AKAVISH) > 6 && !(lz > FM_YARD.z0 - 6 && lz < FM_YARD.z1 + 6 && lx > FM_YARD.x0 - 10 && lx < FM_YARD.x1 + 6); },
+  const C = CHAP.farm; C.ground = makeGround({ x0: FM.o.x - 660, x1: FM.o.x + 720, z0: FM.o.z - 880, z1: FM.o.z + 460, step: 4, h: mapH('farm', fmNat, fmCarve), map: 'farm', vegOk: (x, z) => { const lx = x - FM.o.x, lz = z - FM.o.z; return !fmInFarm(lx, lz, 4) && Math.abs(lx - FM_CANAL.x) > FM_CANAL.hw + 3 && Math.abs(lx - FM_LEX) > 6 && Math.abs(lz - FM_TIR) > 6 && distPolyline(lx, lz, FM_AKAVISH) > 6 && !(lz > FM_YARD.z0 - 6 && lz < FM_YARD.z1 + 6 && lx > FM_YARD.x0 - 10 && lx < FM_YARD.x1 + 6); }, grass: 'farm', grassOk: (x, z) => { const lx = x - FM.o.x, lz = z - FM.o.z; return Math.abs(lx - FM_CANAL.x) > FM_CANAL.hw + 3 && Math.abs(lx - FM_LEX) > 6 && Math.abs(lz - FM_TIR) > 6 && distPolyline(lx, lz, FM_AKAVISH) > 6 && !(lz > FM_YARD.z0 - 6 && lz < FM_YARD.z1 + 6 && lx > FM_YARD.x0 - 10 && lx < FM_YARD.x1 + 6); }, tint: [[0.38, 0.43, 0.23], 0.38],
     fineX: [[FM_FARM.x0 - 9, FM_FARM.x0 + 13, 1.25], [FM_FARM.x1 - 13, FM_FARM.x1 + 9, 1.25]].map(([a, b, s]) => [FM.o.x + a, FM.o.x + b, s]),
     fineZ: [[FM_FARM.z0 - 9, FM_FARM.z0 + 13, 1.25], [FM_FARM.z1 - 13, FM_FARM.z1 + 9, 1.25]].map(([a, b, s]) => [FM.o.z + a, FM.o.z + b, s]) }); GROUND = C.ground;
   const BAGS = [], sv = BATCH.bag; BATCH.bag = BAGS; const k0 = COVER.length; C.slots = []; C.shelters = []; C.fires = [];
@@ -13523,7 +13536,7 @@ function rgJeep(lx, lz, rot, paint, parent = null) {
   addCollider(x, z, 2.05, 0.95, rot, y + 1.5); coverBox(x, z, 2.05, 0.95, rot, 1.3); return r;
 }
 function rgBuild() {
-  const C = CHAP.range, O = RG.o; C.ground = makeGround({ x0: O.x - 240, x1: O.x + 240, z0: O.z - 260, z1: O.z + 200, step: 3, h: mapH('range', rgNat, rgCarve), map: 'range', vegOk: (x, z) => { const lx = x - RG.o.x, lz = z - RG.o.z; return !(Math.abs(lx) < 46 && Math.abs(lz - 44) < 14) && rgPondD(lx, lz) > 1.3 && !(Math.abs(lx + 58) < 14 && Math.abs(lz - 18) < 44); } }); GROUND = C.ground;
+  const C = CHAP.range, O = RG.o; C.ground = makeGround({ x0: O.x - 240, x1: O.x + 240, z0: O.z - 260, z1: O.z + 200, step: 3, h: mapH('range', rgNat, rgCarve), map: 'range', vegOk: (x, z) => { const lx = x - RG.o.x, lz = z - RG.o.z; return !(Math.abs(lx) < 46 && Math.abs(lz - 44) < 14) && rgPondD(lx, lz) > 1.3 && !(Math.abs(lx + 58) < 14 && Math.abs(lz - 18) < 44); }, grass: 'dry' }); GROUND = C.ground;
   const BAGS = [], sv = BATCH.bag; BATCH.bag = BAGS; const k0 = COVER.length; C.slots = [];
   // the firing line: a sandbag wall with gaps, the three guns in it, a flag
   for (const [a, b] of [[-38, -25.5], [-18.5, -3.4], [3.4, 18.5], [25.5, 38]]) bagWall([RGW(a, 40), RGW(b, 40)], 4);
