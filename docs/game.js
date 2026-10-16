@@ -2005,9 +2005,9 @@ const TRUCK_GEO = build(truckParts({ B: 0x68674a, D: 0x5d5c42, K: 0x1f1e1b, C: 0
 const TRUCK_BURNT = build(truckParts({ B: 0x2c2926, D: 0x25221f, K: 0x151412, C: 0x2a2724 }).filter((p, i) => i !== 5));
 /* a vehicle standing in the scene. The tanks and trucks of the old set give way to the modelled ones: a Magach for our tank, a jeep for
    every truck and half-track (the burnt-out trucks become burnt-out jeeps: in their paint, broken, and on fire) */
-function vehicle(geo, x, z, rot, hx, hz, h) {
+function vehicle(geo, x, z, rot, hx, hz, h, jeepOnly = false) {   // jeepOnly: a burnt-out truck is always a burnt-out jeep (no lorry wrecks)
   // about half the burnt-out trucks are the modelled wrecks of a lorry or a tanker, sooted over: their own size for the collider and the cover
-  if (geo === TRUCK_BURNT && mdlHas('w_truck') && Math.random() < 0.55) {
+  if (geo === TRUCK_BURNT && !jeepOnly && mdlHas('w_truck') && Math.random() < 0.55) {
     const nm = mdlHas('w_tanker') && Math.random() < 0.4 ? 'w_tanker' : 'w_truck', b = mdlBox(nm), g0 = groundAt(x, z), m = mdlLOD(nm, mdlMats(nm, { color: 0x8a7e74 }, 'burnt'), LITE ? [0, 22, 70] : [0, 40, 120]);
     m.position.set(x, g0 - 0.04, z); m.rotation.y = rot; scene.add(SH(onLayer1(m))); addCollider(x, z, b[0] / 2, b[2] / 2, rot, g0 + b[1]); coverBox(x, z, b[0] / 2, b[2] / 2, rot, Math.min(2.2, b[1])); return m;
   }
@@ -2029,7 +2029,7 @@ function freeSpots(n, test, seed, gen) { const r = rng(seed), out = []; for (let
 function yardClutter() {
   const inYard = (x, z) => inPoly(x, z, YARD) && !blocked(x, z, 1.8, groundAt(x, z)) && onTrench(x, z) > 3.5 && nearRoad(x, z) > 1.5 && Math.hypot(x - DOORS.aid.x, z - DOORS.aid.z) > 5;
   scatterInst(CRATER_GEO, MAT.vc, freeSpots(26, inYard, 71, (r) => [-70 + r() * 125, -85 + r() * 170]), 0.7, 1.5, 72);
-  vehicle(TRUCK_GEO, 29, -32, 0.35, 3.3, 1.2, 3.0);
+  vehicle(JEEP_GEO, 29, -32, 0.35, 3.3, 1.2, 3.0);   // a jeep, not the old box-built lorry: no vehicle in the game but the tank and the jeep
   mortarPit(20, 31); mortarPit(-28, -71);
   { const mm = new THREE.Matrix4(), q = new THREE.Quaternion(); const rails = new THREE.InstancedMesh(new THREE.BoxGeometry(6, 0.14, 0.12), MAT.rust, 18); let k = 0; for (let l = 0; l < 3; l++) for (let i = 0; i < 6; i++) rails.setMatrixAt(k++, mm.compose(V3(40, groundAt(40, -10) + 0.08 + l * 0.15, -11.5 + i * 0.5 + (l % 2) * 0.2), q.setFromAxisAngle(V3(0, 1, 0), 0.05 * l), V3(1, 1, 1))); scene.add(SH(onLayer1(rails))); addCollider(40, -10, 3, 1.5, 0, groundAt(40, -10) + 0.5); }
   for (const [x, z, n] of [[-20, 12, 5], [22, 60, 4], [-50, 44, 6], [40, 51, 5], [-34, -30, 4], [30, -66, 5]]) propPile(Math.abs(x) % 2 ? 'jerry' : 'crate', x, z, n, 0.6, 2);
@@ -2045,7 +2045,7 @@ function outsideClutter() {
   for (const [x, z, rot] of [[-8, -118, 0.1], [14, -124, -0.3], [-2, -136, 0.2], [22, -150, 0.1], [2, 118, 0.2], [-12, 126, -0.2], [10, 140, 0.1], [-6, 156, 0.3], [16, 170, -0.1]]) pile(x, z, rot, 2.2);
   const approach = (x, z) => groundAt(x, z) > 0.5 && !inPoly(x, z, MAOZ) && !blocked(x, z, 1.5, groundAt(x, z));
   scatterInst(CRATER_GEO, MAT.vc, [...freeSpots(30, approach, 84, (r) => [-40 + r() * 110, -300 + r() * 180]), ...freeSpots(30, approach, 85, (r) => [-40 + r() * 100, 110 + r() * 200])], 0.8, 1.8, 86);
-  vehicle(TRUCK_BURNT, 24, -186, 0.5, 3.3, 1.2, 2.6); vehicle(TRUCK_BURNT, 30, 250, -0.3, 3.3, 1.2, 2.6);
+  vehicle(TRUCK_BURNT, 24, -186, 0.5, 3.3, 1.2, 2.6, true); vehicle(TRUCK_BURNT, 30, 250, -0.3, 3.3, 1.2, 2.6, true);   // burnt-out jeeps, never a lorry's wreck
   const poles = [...densify([[6, -110], [30, -150], [48, -250], [52, -330]], 24).map(([x, z]) => [x + 7, z]), ...densify([[4, 110], [12, 200], [20, 320]], 24).map(([x, z]) => [x + 8, z])];
   const pm = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.1, 0.13, 7, 7).translate(0, 3.5, 0), MAT.wood, poles.length), cm = new THREE.InstancedMesh(new THREE.BoxGeometry(1.4, 0.1, 0.1), MAT.wood, poles.length), mm = new THREE.Matrix4(), q = new THREE.Quaternion();
   poles.forEach(([x, z], i) => { const g = groundAt(x, z); pm.setMatrixAt(i, mm.compose(V3(x, g, z), q.identity(), V3(1, 1, 1))); cm.setMatrixAt(i, mm.compose(V3(x, g + 6.6, z), q.identity(), V3(1, 1, 1))); });
@@ -2068,7 +2068,7 @@ function buildStronghold() {
   waterTower(46, -24);
   mast(-17, -52, 15); mast(-2, -54, 11);
   flag(-4, -68, 'il', 9, 0.4);
-  halftrack(-40, -58, 30); camoNet(-40, -58, 7.4, 5, 2.7, -THREE.MathUtils.degToRad(30) + Math.PI / 2);
+  vehicle(HT_GEO, -40, -58, -THREE.MathUtils.degToRad(30) + Math.PI / 2, 3.0, 1.2, 2.0); camoNet(-40, -58, 7.4, 5, 2.7, -THREE.MathUtils.degToRad(30) + Math.PI / 2);   // under the net a jeep, where the box-built half-track stood
   jeep(-25, -32, 0.7);
   const gen = new THREE.Mesh(GEO.boxUp, MAT.concrete); gen.scale.set(4, 2.3, 3); gen.position.set(48, groundAt(48, 32) - 0.1, 32); scene.add(SH(onLayer1(gen))); addCollider(48, 32, 2.1, 1.6, 0, groundAt(48, 32) + 2.2);
   placeTank(4, 20, 270); placeTank(-14, -12, 350); placeTank(8, -82, 0); placeTank(9, 76, 180);
@@ -4138,6 +4138,17 @@ const DIFF = [
   { name: 'ותיק', cap: 1.9, seats: 6, extra: 1.35, boats: 1.3, acc: 0.11, accF: 0.032, dmg: [25, 36], bleed: 90, art: [15, 25], boat: 11.5, fgun: 1.25, fAcc: 0.6, fSmart: 0, regenD: 5, regenCap: 60, react: 0.4, storm: 0.75, gren: 1.6, aware: 30, cp: 0, gren0: 3, foeMap: false },
 ];
 let diff = DIFF[1];
+/* the first chapter has to leave the player sure that he can win: on top of the level, the stronghold eases its own war (survival keeps the
+   level as it is). acc / dmg: how often an Egyptian round finds the player and what any hit costs him; gren: the share of the grenades still
+   thrown; art: the shellings that much further apart; regen: [seconds without a hit before he heals, points a second, up to]; fAcc / fHit:
+   the squad's fire that much deadlier, the Egyptians' fire at the squad that much weaker; boats / boatV: fewer boats, slower oars; cap: the
+   capture meter that much slower; react: a man who has just seen the player waits that much longer before he fires */
+const MZ_EASE = [
+  { acc: 0.4, dmg: 0.5, gren: 0, art: 1.8, regen: [1.2, 38, 100], fAcc: 2, fHit: 0.4, boats: 0.7, boatV: 0.85, cap: 0.5, react: 1.6 },
+  { acc: 0.42, dmg: 0.55, gren: 0.3, art: 1.5, regen: [1.6, 34, 100], fAcc: 1.8, fHit: 0.5, boats: 0.7, boatV: 0.88, cap: 0.6, react: 1.4 },
+  { acc: 0.6, dmg: 0.72, gren: 0.6, art: 1.25, regen: [2.8, 28, 85], fAcc: 1.45, fHit: 0.7, boats: 0.85, boatV: 0.94, cap: 0.75, react: 1.2 },
+];
+const mzEase = () => (MODE === 'mezach' && !SURV.on ? MZ_EASE[Math.max(0, DIFF.indexOf(diff))] : null);
 const GAME = { state: 'loading', t: 0, stats: null };
 
 /* ================= audio ================= */
@@ -4363,7 +4374,7 @@ function updFriend(f, dt, time) {
         let pHit = (isMag ? 0.0018 : FIELDM() ? 0.013 : 0.0045) * rangeF;
         // close in he rarely misses: an Egyptian at the wire or in the trench is shot by the friends round him; a man behind cover is hard to hit
         if (f.target.u) { const tu = f.target.u; pHit *= (1 + clamp(1 - d / 35, 0, 1) * (isMag ? 3 : 8)) * (tu.stance === 'hide' ? 0.35 : tu.stance === 'crouch' ? 0.6 : 1) * (tu.state === 'trench' || tu.inside ? 1.5 : 1); }
-        if (f.target.boat) pHit *= 0.15; pHit *= diff.fAcc;
+        if (f.target.boat) pHit *= 0.15; pHit *= diff.fAcc * (mzEase() ? mzEase().fAcc : 1);
         const hit = Math.random() < pHit; const end = tp.clone(); if (!hit) end.add(V3(rand(-1.5, 1.5), rand(-0.6, 1.2), rand(-1.5, 1.5)));
         if (isMag && Math.random() < 0.4) fxTracer(from, end, false);
         if (hit) { if (f.target.u) killEnemy(f.target.u, false); else killSeat(f.target.boat, f.target.seat); } else fxDust(V3(end.x, surfAt(end.x, end.z) + 0.2, end.z), groundAt(end.x, end.z) < 0);
@@ -4440,13 +4451,13 @@ function targetsFor(e) {
 const WPN = { rifle: { burst: [2, 5], gap: 0.12, pause: [1.4, 2.8], acc: 1, dmg: 1, range: 320, snd: 'ak' }, smg: { burst: [5, 9], gap: 0.07, pause: [1.0, 2.0], acc: 0.65, dmg: 0.7, range: 110, snd: 'smg' }, lmg: { burst: [7, 13], gap: 0.085, pause: [1.8, 3.2], acc: 0.8, dmg: 1, range: 360, snd: 'lmg', tracer: 0.8 }, sniper: { burst: [1, 1], gap: 0, pause: [2.4, 3.8], acc: 2.4, dmg: 1.9, range: 520, snd: 'svd' }, rpg: { burst: [2, 4], gap: 0.13, pause: [1.6, 3.0], acc: 0.9, dmg: 1, range: 300, snd: 'ak' }, flame: { burst: [2, 4], gap: 0.13, pause: [1.6, 3.0], acc: 0.8, dmg: 1, range: 200, snd: 'ak' } };
 const wpnOf = (e) => WPN[e.kind] || WPN.rifle, wBurst = (e) => { const b = wpnOf(e).burst; return Math.floor(rand(b[0], b[1] + 1) * (e.wild ? 1.7 : 1)); }, wGap = (e, k = 1) => wpnOf(e).gap * k, wPause = (e, k = 1) => { const p = wpnOf(e).pause; return rand(p[0], p[1]) * k * (e.wild ? 0.3 : 1); };
 function enemyFire(e) {
-  const from = e.muzzle(); const tgt = e.target; if (!tgt) return; if (tgt.player) { e.shotT = GAME.t; if (MODE === 'suez') szFireAt(e, from); } const W = wpnOf(e);
+  const mz = mzEase(), from = e.muzzle(); const tgt = e.target; if (!tgt) return; if (tgt.player) { e.shotT = GAME.t; if (MODE === 'suez') szFireAt(e, from); } const W = wpnOf(e);
   const tp = tgt.player ? playerEye() : tgt.f.unit.chest(); const d = from.distanceTo(tp); const rangeF = clamp(1 - d / W.range, 0.25, 1) * (W.range < 200 && d > W.range * 0.6 ? 0.3 : 1);
   fxMuzzle(from, W.snd === 'lmg'); sndShot(W.snd, from);
   let hit = false; const eye = e.eye(); const wt = segHitT(eye.x, eye.y, eye.z, tp.x, tp.y, tp.z, FIELDM() ? 0.25 : 0.7);
   if (wt >= 0) { const wp = V3(lerp(eye.x, tp.x, wt), lerp(eye.y, tp.y, wt), lerp(eye.z, tp.z, wt)); if (Math.random() < 0.5) fxTracer(from, wp, true); fxDust(wp); e.scanCd = 0; return; }
-  if (tgt.player) { let p = W.acc * (FIELDM() ? (CH().hard || 0.7) : 1) * (SURV.on ? SURV.acc : 1) * diff.acc * rangeF * (d < 12 ? 2 : 1) * (P.mode === 'tank' ? 0.45 : 1) * (P.crouch ? 0.55 : 1) * (moving() ? 0.7 : 1) * (P.post ? 0.8 : 1) * (e.stance === 'crouch' ? 1.1 : 1) * (FIELDM() && P.mode === 'rifle' && inConceal(P.pos.x, P.pos.z) ? 0.45 : 1) * (e.wild ? 0.3 : 1); hit = Math.random() < p; if (hit && P.mode === 'tank' && P.crouch) { hit = false; fxDust(tp.clone().add(V3(rand(-0.6, 0.6), rand(-0.3, 0.3), rand(-0.6, 0.6)))); } if (hit) hurtPlayer(rand(diff.dmg[0], diff.dmg[1]) * W.dmg, from); else if (d < 60 && Math.random() < 0.35) sndWhiz(); }
-  else { hit = Math.random() < diff.accF * rangeF * (FIELDM() ? 0.45 : 1) * (tgt.f.duckT > 0 ? 0.25 : 1); if (hit) woundFriend(tgt.f, Math.random() < 0.18); else tgt.f.supp = (tgt.f.supp || 0) + 1; }
+  if (tgt.player) { let p = W.acc * (FIELDM() ? (CH().hard || 0.7) : 1) * (SURV.on ? SURV.acc : 1) * diff.acc * rangeF * (d < 12 ? 2 : 1) * (P.mode === 'tank' ? 0.45 : 1) * (P.crouch ? 0.55 : 1) * (moving() ? 0.7 : 1) * (P.post ? 0.8 : 1) * (e.stance === 'crouch' ? 1.1 : 1) * (FIELDM() && P.mode === 'rifle' && inConceal(P.pos.x, P.pos.z) ? 0.45 : 1) * (e.wild ? 0.3 : 1) * (mz ? mz.acc * (SCENES[Math.max(0, D.scene)].acc || 1) : 1); hit = Math.random() < p; if (hit && P.mode === 'tank' && P.crouch) { hit = false; fxDust(tp.clone().add(V3(rand(-0.6, 0.6), rand(-0.3, 0.3), rand(-0.6, 0.6)))); } if (hit) hurtPlayer(rand(diff.dmg[0], diff.dmg[1]) * W.dmg, from); else if (d < 60 && Math.random() < 0.35) sndWhiz(); }
+  else { hit = Math.random() < diff.accF * rangeF * (FIELDM() ? 0.45 : 1) * (tgt.f.duckT > 0 ? 0.25 : 1) * (mz ? mz.fHit : 1); if (hit) woundFriend(tgt.f, Math.random() < 0.18); else tgt.f.supp = (tgt.f.supp || 0) + 1; }
   const end = tp.clone(); if (!hit) end.add(V3(rand(-1.4, 1.4), rand(-0.4, 1.4), rand(-1.4, 1.4)));
   if (Math.random() < ((CH() && CH().tracers) || W.tracer || 0.5)) fxTracer(from, end, true);
   if (!hit && Math.random() < 0.4) fxDust(V3(end.x, groundAt(end.x, end.z) + 0.2, end.z));
@@ -4480,7 +4491,7 @@ function updEnemy(e, dt) {
   if (e.state === 'dead') { if (e.deadAt !== undefined && GAME.t - e.deadAt > 30) { e.rig.root.visible = false; if (e.tag) e.tag.visible = false; } return; }   /* a body is cleared away half a minute after he fell */
   if (e.state === 'film') { e.sync(); return; }
   e.inside = inPoly(e.pos.x, e.pos.z, YARD);
-  e.scanCd -= dt; if (e.scanCd <= 0) { e.scanCd = rand(0.5, 0.9); const was = !!(e.target && e.target.player); e.target = targetsFor(e); if (!was && e.target && e.target.player) e.fireCd = Math.max(e.fireCd, diff.react * rand(0.8, 1.2)); }   /* a man who has just seen the player needs a moment before he fires: longer on the easy level */
+  e.scanCd -= dt; if (e.scanCd <= 0) { e.scanCd = rand(0.5, 0.9); const was = !!(e.target && e.target.player); e.target = targetsFor(e); if (!was && e.target && e.target.player) e.fireCd = Math.max(e.fireCd, diff.react * rand(0.8, 1.2) * (mzEase() ? mzEase().react : 1)); }   /* a man who has just seen the player needs a moment before he fires: longer on the easy level */
   const g = e.group;
   if (e.state === 'jump') {
     const u = clamp(e.t / 0.7, 0, 1); e.pos.lerpVectors(e.j0, e.j1, u); e.pos.y += Math.sin(u * Math.PI) * 0.6; e.face(e.j1.x + 1, e.j1.z);
@@ -4514,7 +4525,9 @@ function updEnemy(e, dt) {
   }
   if (e.target && e.gCd <= 0 && GAME.gCd <= 0 && e.state !== 'trench' && e.state !== 'plan' && e.sz !== 'win' && P.mode !== 'tank') {
     const tp = e.target.p; const d = Math.hypot(tp.x - e.pos.x, tp.z - e.pos.z);
-    if (d > 7 && d < 26 && (Math.random() < 0.5 || e.state === 'hold' || e.state === 'cover')) {
+    const mz = mzEase(), skip = mz && Math.random() >= mz.gren;   /* the stronghold's easing: fewer grenades (none on the easy level) */
+    if (skip) e.gCd = rand(22, 35);
+    else if (d > 7 && d < 26 && (Math.random() < 0.5 || e.state === 'hold' || e.state === 'cover')) {
       e.gCd = diff.gren > 0 ? rand(22, 35) / diff.gren : 1e9; GAME.gCd = rand(2.5, 5); const T = d / 13; const from = e.eye().add(V3(0, 0.4, 0)); const dy = tp.y - 1 - from.y;
       throwGrenade(from, V3((tp.x - from.x) / T + rand(-1, 1), (dy + 0.5 * 9.8 * T * T) / T, (tp.z - from.z) / T + rand(-1, 1)), 'e'); e.throwT = 0.5;
     }
@@ -4617,6 +4630,7 @@ function aimedAt(e) {
 }
 function playerBusy() { return P.reloadT > 0 || P.throwT > 0 || P.mode === 'carry' || P.hold > 0 || (P.mode === 'mag' && P.post && P.post.mag.reload > 0); }
 function lobGrenade(e, tp) {
+  { const mz = mzEase(); if (mz && Math.random() >= mz.gren) { e.gCd = rand(13, 21); GAME.gCd = rand(2, 4); return; } }   /* the stronghold's easing: this one is not thrown */
   const from = e.eye().add(V3(0, 0.45, 0)), d = Math.hypot(tp.x - from.x, tp.z - from.z), T = clamp(d / 11, 0.7, 1.8), dy = tp.y - 0.9 - from.y;
   throwGrenade(from, V3((tp.x - from.x) / T + rand(-0.7, 0.7), (dy + 0.5 * 9.8 * T * T) / T, (tp.z - from.z) / T + rand(-0.7, 0.7)), 'e');
   e.face(tp.x, tp.z); e.throwT = 0.5; e.gCd = rand(13, 21); GAME.gCd = rand(3.5, 6);
@@ -4671,7 +4685,7 @@ function planStep(e, dt, shoot, aimPitch) {
   }
 }
 function enterTrench(e) {
-  Object.assign(e, { state: 'trench', plan: null, k: trK(e.pos.x, e.pos.z)[0], tcov: null, tcovCd: 0, inCov: false, usedTrav: new Set(), meleeCd: 0.5, fireCd: rand(0.3, 0.9), burst: 0, speed: rand(4.4, 5.0), patience: 0, rush: false, moving: false, cside: Math.random() < 0.5 ? 1 : -1, sideT: 0, gCd: rand(4, 9) });
+  Object.assign(e, { state: 'trench', plan: null, k: trK(e.pos.x, e.pos.z)[0], stX: e.pos.x, stZ: e.pos.z, stT: 0, tcov: null, tcovCd: 0, inCov: false, usedTrav: new Set(), meleeCd: 0.5, fireCd: rand(0.3, 0.9), burst: 0, speed: rand(4.4, 5.0), patience: 0, rush: false, moving: false, cside: Math.random() < 0.5 ? 1 : -1, sideT: 0, gCd: rand(4, 9) });
   if (GAME.t - (D.trenchMsg || -99) > 25) { D.trenchMsg = GAME.t; radio(pick(['יוסי', 'דודו', 'רפי']), pick(['הם בתעלה! הם בתעלה!', 'מצרים קפצו לתעלה! תשמרו על הגב!', 'יש להם רגל בתעלה! לחסל אותם!']), 3.2); }
 }
 function initLanes() {
@@ -4698,6 +4712,11 @@ function tokFree(dir, e) { const t = D.tok[dir]; return !t || t === e || !t.aliv
 function sideStep(e, dt, speed) { e.sideT -= dt; if (e.sideT <= 0) { e.cside = -(e.cside || 1); e.sideT = rand(0.8, 1.6); } const p = TR.pts[e.k], n = TR.n[e.k]; steer(e, p[0] + n[0] * e.cside * 0.55, p[1] + n[1] * e.cside * 0.55, speed, dt); }
 function trenchStep(e, dt, shoot, aimPitch) {
   separate(e); e.k = trNear(e.k, e.pos.x, e.pos.z);
+  // a man wedged against a sandbag traverse where the trench floor climbs steeply (the north-west corner) never reaches the cover he is
+  // making for, and stood there out of sight for good, holding the stage open: after a few seconds of running on the spot he gives that
+  // cover up and steps back onto the middle of the trench
+  if (Math.hypot(e.pos.x - e.stX, e.pos.z - e.stZ) > 0.6) { e.stX = e.pos.x; e.stZ = e.pos.z; e.stT = 0; }
+  else if ((e.stT += dt) > 3.5 && e.moving) { if (e.tcov) { e.usedTrav.add(e.tcov); releaseCov(e); } const q = TR.pts[clamp(e.k + (TR.pK >= e.k ? 1 : -1), 0, TR.pts.length - 1)]; if (!blocked(q[0], q[1], 0.3, groundAt(q[0], q[1]))) e.pos.set(q[0], groundAt(q[0], q[1]), q[1]); e.stT = 0; }
   const dk = TR.pK - e.k, dir = dk >= 0 ? 1 : -1, dP = Math.hypot(P.pos.x - e.pos.x, P.pos.z - e.pos.z), seesP = !!(e.target && e.target.player);
   for (const f of FRIENDS) if (f.state === 'post' && f.unit.pos.distanceTo(e.pos) < 2.2 && Math.random() < dt * 0.5) woundFriend(f, Math.random() < 0.4);
   e.meleeCd -= dt; e.patience += dt;
@@ -4762,7 +4781,7 @@ function trenchStep(e, dt, shoot, aimPitch) {
    soldiers and the rowers - and all of them come ashore. near [d0, step]: the wave is already on the water, the first boat d0 metres from
    the beach and each next one step metres further out */
 function boatWave(z0, z1, n, t0, gap, seats, rpg = 0, flame = 0, hp, near) {
-  const N = Math.max(2, Math.round(n * diff.boats * (LITE ? 0.8 : 1))), r = rng(4400 + Math.round(z0 * 7 + z1 * 3) + Math.max(0, D.scene) * 131);
+  const N = Math.max(2, Math.round(n * diff.boats * (LITE ? 0.8 : 1) * (mzEase() ? mzEase().boats : 1))), r = rng(4400 + Math.round(z0 * 7 + z1 * 3) + Math.max(0, D.scene) * 131);
   for (let i = 0; i < N; i++) { const z = lerp(z0, z1, (i * 0.618034) % 1) + (r() - 0.5) * 2.5, b = launchBoat(z, t0 + i * gap + r() * gap * 0.6, seats, i < rpg ? 1 : 0, i === Math.floor(N / 2) && flame ? 1 : 0); if (hp) b.hp = hp;
     if (near) { const left = Math.min(b.len * 0.95, near[0] + i * near[1] + r() * near[1] * 0.4); b.t = (b.len - left) / b.speed; } }
 }
@@ -4773,10 +4792,12 @@ function boatSnap() {
     men: b.seats.filter((q) => !q.rower && q.alive && !q.gone).length, rowers: b.seats.filter((q) => q.rower).length, spread: b.spread, rpg: b.seats.filter((q) => q.kind === 'rpg' && q.alive).length, flame: b.seats.filter((q) => q.kind === 'flame' && q.alive).length }));
 }
 function boatRestore(list) { for (const o of list) { const b = launchBoat(o.z, 0, 8, o.rpg, o.flame, o.men, o.spread, o.rowers); b.t = o.t; b.hp = o.hp; if (o.wave !== undefined) b.wave = o.wave; } }
+/* the oars' pace: the level's, eased in the stronghold, and slower still where a stage asks for it (boatV: the great wave) */
+const boatSpd = () => { const mz = mzEase(), S = SCENES[Math.max(0, D.scene)]; return diff.boat * 0.34 * (!mz ? 1 : S.boatV ? S.boatV[Math.max(0, DIFF.indexOf(diff))] : mz.boatV); };
 function launchBoat(zLand, delay, n, rpg = 0, flame = 0, men, spread = 90, rowers) {
   const seed = 9001 + Math.round(zLand * 13) + Math.max(0, D.scene) * 7919, r = rng(seed);
   const to = [tongueWestX(zLand) - 4.5, zLand]; const from = [nearX(-400), clamp(zLand + (r() - 0.5) * spread, -380, 380)];   // from just off the Port Tewfik quays
-  const bt = new Boat(from, to, men ?? (SURV.on ? Math.max(2, Math.ceil(n * 0.55)) : 8), diff.boat * 0.34, delay, rowers); /* a full boat (survival keeps its own count); a heavy rowboat: about three metres a second, a minute and a half across */ bt.zLand = zLand; bt.state = 'wait'; bt.seed = seed; bt.spread = spread;
+  const bt = new Boat(from, to, men ?? (SURV.on ? Math.max(2, Math.ceil(n * 0.55)) : 8), boatSpd(), delay, rowers); /* a full boat (survival keeps its own count); a heavy rowboat: about three metres a second, a minute and a half across */ bt.zLand = zLand; bt.state = 'wait'; bt.seed = seed; bt.spread = spread; bt.mine = MODE === 'mezach' && !SURV.on && !!SCENES[Math.max(0, D.scene)].mines;
   const ns = bt.seats.length;   // the boat carries fewer men than the wave counts: never index past its seats (that froze the game)
   for (let i = 0; i < rpg && i < ns; i++) bt.seats[i].kind = 'rpg';
   for (let i = 0; i < flame && ns - 1 - i > rpg - 1 && i < ns; i++) bt.seats[ns - 1 - i].kind = 'flame';
@@ -4800,7 +4821,7 @@ function boatFire(bt, dt, x, z) {
     const wp = V3(lerp(from.x, aim.x, wt), lerp(from.y, aim.y, wt), lerp(from.z, aim.z, wt)); fxTracer(from, wp, true); fxDust(wp); if (d < 70 && Math.random() < 0.25) sndWhiz();
     if (Math.random() < 0.3) bagBurst(wp, 1); return;
   }
-  const p = 0.42 * diff.acc * rangeF * (SURV.on ? SURV.acc : 1) * (P.crouch ? 0.5 : 1) * (moving() ? 0.7 : 1) * (P.post ? 0.8 : 1) * (d < 25 ? 1.6 : 1);
+  const p = 0.42 * diff.acc * (mzEase() ? mzEase().acc : 1) * rangeF * (SURV.on ? SURV.acc : 1) * (P.crouch ? 0.5 : 1) * (moving() ? 0.7 : 1) * (P.post ? 0.8 : 1) * (d < 25 ? 1.6 : 1);
   const hit = Math.random() < p; if (hit) hurtPlayer(rand(diff.dmg[0], diff.dmg[1]) * 0.85, from); else if (d < 80 && Math.random() < 0.35) sndWhiz();
   const end = aim.clone(); if (!hit) end.add(V3(rand(-1.8, 1.8), rand(-0.9, 1.1), rand(-1.8, 1.8)));
   fxTracer(from, end, true);
@@ -4837,6 +4858,7 @@ function updBoats(dt) {
       if (!bt.filmHide && !bt.lodOn) bt.row(dt);   // in the drone's film the oars are put away: up close the rowing does not look right
       if (Math.random() < dt * 4) fxDust(V3(x + Math.sin(bt.heading) * 4.2 + Math.cos(bt.heading) * rand(-0.8, 0.8), 0.12 + wt.h, z + Math.cos(bt.heading) * 4.2 - Math.sin(bt.heading) * rand(-0.8, 0.8)), true);
       boatFire(bt, dt, x, z);
+      if (bt.mine && bt.len - bt.t * bt.speed <= bt.speed * MZ_MINE_T) { mzMineBoat(bt); continue; }
       if (u >= 1) { bt.state = 'landed'; bt.landT = 0; bt.setLod(false); }
       if (bt.hp <= 0 || bt.aliveCount() === 0) { if (bt.hp <= 0) { bt.seats.forEach((s, i) => { if (s.alive) killSeat(bt, i); }); feed('סירה נפגעה וטבעה', 'good'); } bt.state = 'sinking'; bt.sinkT = 0; }
     } else if (bt.state === 'sinking') { bt.sinkT += dt; bt.g.position.y -= dt * 0.5; bt.g.rotation.z += dt * 0.3; if (bt.sinkT > 4) bt.dispose(); }
@@ -4852,6 +4874,23 @@ function updBoats(dt) {
     }
   }
 }
+/* the great wave does not reach the shore yet: a second before each boat would ground it runs onto the mines laid along the waterline and goes
+   up with everyone in it (the user's call: no one lands in that wave). Their dead are the mines', not the player's */
+const MZ_MINE_T = 1;
+function mzMineBoat(bt) {
+  // a boat put past the line in one jump (a skipped film) still goes up on it, not on the sand
+  const u = Math.max(0, 1 - bt.speed * MZ_MINE_T / bt.len); bt.t = Math.min(bt.t, u * bt.len / bt.speed); bt.g.position.x = lerp(bt.from[0], bt.to[0], u); bt.g.position.z = lerp(bt.from[1], bt.to[1], u); bt.g.updateMatrixWorld();
+  const p = bt.g.position.clone(); p.y = 0.1; bt.mined = true; bt.intact = false; bt.setLod(false); bt.hp = 0;
+  for (const s of bt.seats) { if (s.alive && !s.gone) { s.alive = false; s.m.visible = false; } if (s.oar) s.oar.visible = false; } for (const m of bt.filmExtra || []) m.visible = false;
+  fxExplosion(p, 1.7); sndBoom(p, 1.5); FX.shake = Math.max(FX.shake, clamp(1.3 - camera.position.distanceTo(p) / 40, 0, 0.8));
+  // a column of white water and, in it, the boat's planks thrown up and falling back
+  for (let i = 0; i < 12; i++) fxDust(p.clone().add(V3(rand(-1.8, 1.8), 0.3 + i * 0.9, rand(-1.8, 1.8))), true);
+  for (let i = 0; i < 9; i++) { const q = FX.dust.get(); q.life = 1.8; const vx = rand(-6, 6), vz = rand(-6, 6); let vy = rand(9, 17); q.s.position.copy(p); q.s.material.color.set(0x4a3a28);
+    q.upd = (o, u, d2) => { vy -= 16 * d2; o.s.position.x += vx * d2; o.s.position.y = Math.max(0.05, o.s.position.y + vy * d2); o.s.position.z += vz * d2; o.s.scale.setScalar(0.35 + u * 0.4); o.s.material.opacity = 0.95 * (1 - u * u); }; }
+  bt.state = 'sinking'; bt.sinkT = 0; bt.g.rotation.z += 0.35;
+  feed('סירה עלתה על מוקש לפני החוף', 'good');
+  if (!CINE.on && !D.mineMsg) { D.mineMsg = true; radio('תצפית', 'סירה עלתה על מוקש בקו המים! אף אחד מהם לא יצא ממנה!', 4); }
+}
 /* the great wave, in waves: when the player has the gun again one boat is on the beach and two more are ten seconds out; behind them, every
    few seconds (9 on the easy level), a wave of six pushes off from the quays - two rows of three, the second row in the gaps of the first, a
    few metres behind it, the rows zigzagging one wave to the next. A boat is put on the water only when it is due to leave the quays; while
@@ -4861,8 +4900,8 @@ function rowsStart(o) { Object.assign(ROWS, { on: true, q: [], j: 0, men: 0, shi
 const ROW_MEN = 6, ROW_OARS = 4, ROW_LOAD = () => ROW_MEN + ROW_OARS;   /* a boat of the great wave: ten men, six soldiers and four at the oars - a wave of six boats is sixty */
 function rowsWave() {   // the next wave's boats: where each lands on the beach and when
   const j = ROWS.j++, r = ROWS.r, out = [], zc = (ROWS.z0 + ROWS.z1) / 2, d = (ROWS.z1 - ROWS.z0) / 3.4, cl = (z) => clamp(z, ROWS.z0, ROWS.z1);
-  const boat = (land, z, back = false) => out.push({ land: land + rand(-0.5, 0.5), z: cl(z + (r() - 0.5) * 4), wave: j, back, rpg: r() < 0.3 ? 1 : 0, flame: j > 2 && r() < 0.12 ? 1 : 0 });
-  if (j === 0) boat(ROWS.aLand, zc + (r() - 0.5) * 8);
+  const boat = (land, z, back = false, jit = 0.5) => out.push({ land: land + rand(-jit, jit), z: cl(z + (r() - 0.5) * 4), wave: j, back, rpg: r() < 0.3 ? 1 : 0, flame: j > 2 && r() < 0.12 ? 1 : 0 });
+  if (j === 0) boat(ROWS.aLand, zc + (r() - 0.5) * 8, false, 0);   // to the frame: the boats film shows this one go up on the mines
   else if (j === 1) { boat(ROWS.ctrl + 10, zc - d * 0.9); boat(ROWS.ctrl + 10.8, zc + d * 0.9); }
   else { const L = ROWS.ctrl + 10 + ROWS.every * (j - 1), c = zc + (r() - 0.5) * 8, sg = j % 2 ? 1 : -1;
     for (const k of [-1, 0, 1]) boat(L, c + k * d); for (const k of [-1, 0, 1]) boat(L + 2.6, c + sg * d / 2 + k * d, true); }
@@ -4875,7 +4914,7 @@ function rowsUpd(dt) {
   if (CINE.on && CINE.def && CINE.def.boatFilm) { ROWS.shift += dt; return; }   /* a film of the boats stops the battle: the waves behind wait it out at the quays */
   const maxOut = LITE ? 26 : 32; /* far off a boat is one piece to draw (Boat.setLod), so the canal can hold this many */ let out = 0, holding = false; for (const b of BOATS) if (!b.dead && (b.state === 'wait' || b.state === 'cross')) { out++; if (b.holding) holding = true; }
   if (out >= maxOut || holding) { ROWS.shift += dt; return; }   // the canal is full, or the boats ahead are held off the beach: the waves behind wait at the quays
-  const sp = diff.boat * 0.34, cross = (tongueWestX(20) - 4.5 - nearX(-400)) / sp;
+  const sp = boatSpd(), cross = (tongueWestX(20) - 4.5 - nearX(-400)) / sp;
   for (;;) {
     if (!ROWS.q.length) { if (ROWS.men >= ROWS.total) break; rowsWave(); }
     const e = ROWS.q[0], land = e.land + ROWS.shift; if (land - cross > GAME.t + 1.5) break;   // not due to push off yet
@@ -4884,13 +4923,18 @@ function rowsUpd(dt) {
   }
   if (!ROWS.q.length && ROWS.men >= ROWS.total) ROWS.on = false;
 }
-function northGroup(n, delay, kinds = []) {
+function northGroup(n, delay, kinds = [], i0 = 0) {   // i0: the first man's number in the whole force, so each squad has its own starts and its own routes
   for (let i = 0; i < n; i++) {
-    const k = kinds[i] || 'rifle';
-    const r = rng(77 + i * 31), go = () => { const e = spawnEnemy(30 + (r() - 0.5) * 14, -176 + (r() - 0.5) * 12, varyKind(k, i * 3.7, delay), null, null); if (!e) { DIRQ.push({ at: GAME.t + 1, spawn: true, fn: go }); return; } e.plan = northPlan(e, i); e.state = 'plan'; };
+    const k = kinds[i] || 'rifle', j = i + i0;
+    const r = rng(77 + j * 31), go = () => { const e = spawnEnemy(30 + (r() - 0.5) * 14, -176 + (r() - 0.5) * 12, varyKind(k, j * 3.7, delay), null, null); if (!e) { DIRQ.push({ at: GAME.t + 1, spawn: true, fn: go }); return; } e.plan = northPlan(e, j); e.state = 'plan'; };
     DIRQ.push({ at: GAME.t + delay + i * 0.9, spawn: true, fn: go });
   }
 }
+/* the commando from the north comes in squads, one behind the other down the Lexicon road: far more men to stop than the one small group
+   there was (the user: too few there), but never all of them at once, and only a couple of RPGs - more targets, not more fire. Per level:
+   the men in each squad; a squad sets off MZ_CMD_GAP seconds after the one before it */
+const MZ_CMD = [[6, 6, 7], [7, 7, 8], [8, 8, 8, 6]], MZ_CMD_GAP = 24;
+function mzCommando() { let t = 5, i0 = 0; MZ_CMD[Math.max(0, DIFF.indexOf(diff))].forEach((n, k) => { northGroup(n, t, k === 0 ? ['rpg'] : k === 2 ? ['rifle', 'rifle', 'rpg'] : [], i0); i0 += n; t += MZ_CMD_GAP; }); }
 const DIRQ = [];
 const BARRAGE_AT = 4, BARRAGE_LEN = 16;   // twenty seconds in the covered trench, then out to the guns
 const D = { scene: -1, phase: 'alert', phaseT: 0, introLen: 0, artT: 12, inside: 0, barT: 0, launched: false, r2: false, jets: false, smoke: [], capture: 0, capWarn: false, chargeMsg: -99, objDone: false, trenchMsg: -99, inTrench: 0, tok: { 1: null, '-1': null } };
@@ -4914,17 +4958,18 @@ function corridorHas(C, x, z) {
 /* the mission is one trench: each stage opens the next stretch, sandbag barricades close everything else */
 const SCENES = [
   { title: 'סירות על המים', sub: 'שתיים אחרי הצהריים. מעבר לתעלה, מתוך העשן, יוצאות סירות עץ בשורה — עשרות חיילים בכל אחת, חותרים ישר אלינו. המא״ג המערבי הוא כל מה שעומד בינם לבין הסוללה.', goal: 'ירו בסירות מהמא״ג המערבי. מי שעלה לתעלה — הרגו אותו בתוכה', open: [136, 176], spawn: () => trenchAt(-1.0), face: 345, focus: w2Focus,
-    entries: [-20, -14, -8, -2, 3, 8.5], radio: ['מ״פ', 'סירות במים ממערב! המא״ג המערבי שלך!'], cap: [1, 2, 2], start() { boatWave(-21, 10, 18, 3, 1.8, diff.seats, 0, 0, 150); } },
+    entries: [-20, -14, -8, -2, 3, 8.5], radio: ['מ״פ', 'סירות במים ממערב! המא״ג המערבי שלך!'], cap: [1, 1, 2], start() { boatWave(-21, 10, 18, 3, 1.8, diff.seats, 0, 0, 150); } },
   { title: 'הפרצה בצפון', sub: 'המחסום הצפוני נפתח, ובקצה הסוללה, ליד עמדה 1, כבר מטפסים הראשונים שצלחו. בתעלה הצרה פוגשים אותם פנים אל פנים, שק חול אחרי שק חול.', goal: 'התקדמו צפונה בתעלה ונקו אותה מהצולחים', open: [96, 176], spawn: () => TR.pts[140], face: 0, focus: trFocus(-38, 'עמדה מערבית 1'),
-    entries: [-55, -50, -39.5, -27], radio: ['יוסי', 'הם עולים עליי מצפון! תביאו תגבורת לתעלה!'], cap: [1, 1, 2], pre(len) { boatWave(-57, -33, 5, 0, 0, diff.seats, 2, 0, undefined, [22 + diff.boat * 0.34 * len, 14]); }, start() {} },   // the boats are on the water from the moment the stage is called: when the player gets there they are landing
+    entries: [-55, -50, -39.5, -27], radio: ['יוסי', 'הם עולים עליי מצפון! תביאו תגבורת לתעלה!'], cap: [1, 1, 2], pre(len) { boatWave(-57, -33, 5, 0, 0, diff.seats, 2, 0, undefined, [22 + boatSpd() * len, 14]); }, start() {} },   // the boats are on the water from the moment the stage is called: when the player gets there they are landing
   { title: 'קומנדו בשער', sub: 'מכביש לכסיקון, מצפון, רץ כוח קומנדו ישר אל השער. הם מכירים את המוצב מתצלומי האוויר, ויודעים שהתעלה הצפונית היא הדרך פנימה.', goal: 'עצרו את הקומנדו בתעלה הצפונית, עד הפינה — והחזיקו אותה', open: [0, 176], spawn: () => TR.pts[100], face: 0, focus: postFocus('N1', 'עמדה צפונית'),
-    radio: ['תצפית', 'כוח קומנדו בכביש מצפון! הם רצים לתעלה הצפונית!'], start() { northGroup(Math.round(9 * diff.extra), 5, ['rpg', 'rifle', 'rifle', 'rpg']); } },
+    radio: ['תצפית', 'כוח קומנדו בכביש מצפון! הם רצים לתעלה הצפונית!'], acc: 0.8, start: mzCommando },   // acc: running men firing on the move: more of them, each one less deadly
   { title: 'חובש!', sub: 'ההרעשה חזרה. פגז נכנס ישר לעמדה הדרומית, ובתעלה שוכבים חברים שצועקים לחובש. התאג״ד חפור בדופן התעלה, ומי שנחבש בזמן חוזר לעמדה.', goal: 'עזרה ראשונה לפצועים בתעלה הדרומית (להחזיק F) — הם חוזרים להילחם', medevac: true, open: [136, 222], spawn: () => trenchAt(-6), face: 180,
     focus: () => { const w = nearestWounded(); return w ? [w.unit.pos.x, w.unit.pos.y, w.unit.pos.z, `פצוע · ${w.name}`] : null; },
     entries: [12, 24, 35, 46], radio: ['דודו', 'פגיעה ישירה בעמדה! יש פצועים בתעלה הדרומית!'], start: medevacStart },
-  { title: 'הגל הגדול', sub: 'לפנות ערב הם זורקים את הכול: סירות לכל אורך הסוללה המערבית, מקצה לקצה, והשמש השוקעת מאחוריהם. המוצב הקטן הזה הוא כל מה שנשאר מהקו.', goal: 'החזיקו את התעלה המערבית כולה, עד המצרי האחרון', open: [96, 250], spawn: () => trenchAt(-2), face: 338, focus: w2Focus,
-    entries: [-50, -27, -14, 8.5, 24, 46, 56, 68], radio: ['מ״פ', 'גל גדול של סירות! כולם לסוללה המערבית!'], waveRoom: [20, 26, 32], pre(len) { const lv = Math.max(0, DIFF.indexOf(diff)), film = !D.boatsFilm, ctrl = GAME.t + len;   // the film stops the battle (boatsFreeze): the player has the gun again with the boats where they were as it began - but for its own boat, which grounds 14.4 s into it
-      rowsStart({ z0: -25, z1: 63, total: [240, 360, 480][lv], every: [9, 8, 7][lv], ctrl, aLand: film ? ctrl + 14.4 : ctrl - 6 }); }, start() { mzBoatsFilm(); } },   // the great wave: some six hundred men, row after row
+  { title: 'הגל הגדול', sub: 'לפנות ערב הם זורקים את הכול: סירות לכל אורך הסוללה המערבית, מקצה לקצה, והשמש השוקעת מאחוריהם. המוצב הקטן הזה הוא כל מה שנשאר מהקו.', goal: 'ירו בסירות מהמא״ג המערבי. אל תתנו להן להגיע לחוף', open: [96, 250], spawn: () => trenchAt(-2), face: 338, focus: w2Focus,
+    entries: [-50, -27, -14, 8.5, 24, 46, 56, 68], radio: ['מ״פ', 'גל גדול של סירות! כולם לסוללה המערבית!'], waveRoom: [20, 26, 32], mines: true, boatV: [0.55, 0.58, 0.62],
+    pre(len) { const lv = Math.max(0, DIFF.indexOf(diff)), film = !D.boatsFilm, ctrl = GAME.t + len; D.mineMsg = false;   // the film stops the battle (boatsFreeze): the player has the gun again with the boats where they were as it began - but for its own boat, which reaches the mines 14.9 s into it
+      rowsStart({ z0: -25, z1: 63, total: [120, 180, 240][lv], every: [20, 18, 16][lv], ctrl, aLand: film ? ctrl + 14.9 + MZ_MINE_T : ctrl + 4 }); }, start() { mzBoatsFilm(); } },   // the great wave: 120 men on the easy level, row after row, slowly - and not one of them lands (mines)
 ];
 function scCorr(i) {
   const S = SCENES[i]; if (S._c) return S._c; const [a, b] = S.open;
@@ -5049,7 +5094,7 @@ function updDirector(dt) {
     if (!D.r2 && D.phaseT > 7.5) { D.r2 = true; radio('מ״פ', 'כשההרעשה נגמרת, המא״ג המערבי לידך הוא שלך! הסירות כבר במים.', 5.5); }
     if (D.phaseT > BARRAGE_LEN) { friendsToPosts(); TUT.step = 'toMag'; introScene(0, 0.01); for (const j of STRAFE) j.quiet = true; for (const b of AIR.bombs) scene.remove(b.m); AIR.bombs.length = 0; }   // the barrage is over, and so is the air attack: nothing more falls from the sky
   } else if (D.phase === 'intro') {
-    if (D.phaseT >= D.introLen) { if (!corridorHas(scCorr(D.scene), P.pos.x, P.pos.z)) moveToScene(D.scene); D.phase = 'scene'; D.phaseT = 0; if (!(D.scene === 0 && D.launched)) SCENES[D.scene].start(); D.artT = rand(diff.art[0], diff.art[1]); }
+    if (D.phaseT >= D.introLen) { if (!corridorHas(scCorr(D.scene), P.pos.x, P.pos.z)) moveToScene(D.scene); D.phase = 'scene'; D.phaseT = 0; if (!(D.scene === 0 && D.launched)) SCENES[D.scene].start(); D.artT = rand(diff.art[0], diff.art[1]) * (mzEase() ? mzEase().art : 1); }
   } else if (D.phase === 'scene') {
     if (sceneClear()) D.clearT = (D.clearT || 0) + dt; else D.clearT = 0;
     if (D.clearT > 2.5) {
@@ -5058,10 +5103,10 @@ function updDirector(dt) {
       feed('השלב הושלם', 'good'); radio('מ״פ', 'השטח נקי. משלימים תחמושת, יש עוד עבודה.'); introScene(D.scene + 1, 11); return;
     }
     D.artT -= dt;
-    if (D.artT <= 0) { D.artT = rand(diff.art[0], diff.art[1]) * (SCENES[D.scene].medevac ? 0.55 : 1); const n = Math.floor(rand(3, 6)); for (let i = 0; i < n; i++) DIRQ.push({ at: GAME.t + i * rand(0.6, 1.4), fn: incomingShell }); }
+    if (D.artT <= 0) { D.artT = rand(diff.art[0], diff.art[1]) * (SCENES[D.scene].medevac ? 0.55 : 1) * (mzEase() ? mzEase().art : 1); const n = Math.floor(rand(3, 6)); for (let i = 0; i < n; i++) DIRQ.push({ at: GAME.t + i * rand(0.6, 1.4), fn: incomingShell }); }
   }
   let inside = 0, inTr = 0; for (const e of UNITS.enemies) if (e.alive) { if (e.inside) inside++; else if (e.state === 'trench') inTr++; } D.inside = inside; D.inTrench = inTr;
-  if (inside + inTr > 0) { D.capture = Math.min(100, D.capture + (inside + inTr * 0.25) * diff.cap * dt); if (!D.capWarn && inside > 0) { D.capWarn = true; radio('מ״פ', 'הם בתוך המוצב! לנקות את החצר!'); } } else { D.capture = Math.max(0, D.capture - 5 * dt); if (D.capture <= 0) D.capWarn = false; }
+  if (inside + inTr > 0) { D.capture = Math.min(100, D.capture + (inside + inTr * 0.25) * diff.cap * (mzEase() ? mzEase().cap : 1) * dt); if (!D.capWarn && inside > 0) { D.capWarn = true; radio('מ״פ', 'הם בתוך המוצב! לנקות את החצר!'); } } else { D.capture = Math.max(0, D.capture - 5 * dt); if (D.capture <= 0) D.capWarn = false; }
   if (D.capture >= 100) endGame(false, 'breach');
 }
 function incomingShell() {
@@ -5081,7 +5126,7 @@ function explode(p, size, radius, dmg, src) {
   if (own) for (const v of VEH) { if (v.mode !== MODE || v.side !== 'e' || !v.alive || !v.g.visible) continue; const dv = Math.hypot(v.g.position.x - p.x, v.g.position.z - p.z); if (dv < radius * 0.9 + 2.5) vehHit(v, src === 'cannon' || size >= 2.5 ? 200 : v.heavy ? 12 : 60, p); }
   if (own || src === 'shell') for (const e of UNITS.enemies) { if (!e.alive) continue; const de = e.pos.distanceTo(p); if (src === 'shell' && de >= radius && de < radius * 2.4 && e.sz === 'win') { e.peek = false; e.cyc = rand(2.2, 3.6); } if (FIELDM() && de > 1.2 && src !== 'shell') { const c = e.chest(); if (segHitT(p.x, p.y + 0.4, p.z, c.x, c.y, c.z, 0.1) >= 0) continue; } if (de < radius * 0.75 || (de < radius && Math.random() < 0.5)) { killEnemy(e, false); hitmark(true); } }
   if (own) for (const bt of BOATS) { if (bt.dead || !bt.g.visible) continue; bt.seats.forEach((s, i) => { if (s.alive && !s.gone && bt.seatWorld(i).distanceTo(p) < radius * 0.7) killSeat(bt, i); }); if (bt.g.position.distanceTo(p) < radius * 0.6) bt.hp -= 300; }
-  for (const f of FRIENDS) { if (f.state !== 'post' && f.state !== 'follow') continue; const df = f.unit.pos.distanceTo(p); if (FIELDM() && df > 1.2) { const c = f.unit.chest(); if (segHitT(p.x, p.y + 0.4, p.z, c.x, c.y, c.z, 0.1) >= 0) continue; } if (df < radius * 0.55 && Math.random() < (FIELDM() ? 0.3 : 0.8)) woundFriend(f, df < radius * (FIELDM() ? 0.1 : 0.2)); }
+  for (const f of FRIENDS) { if (f.state !== 'post' && f.state !== 'follow') continue; const df = f.unit.pos.distanceTo(p); if (FIELDM() && df > 1.2) { const c = f.unit.chest(); if (segHitT(p.x, p.y + 0.4, p.z, c.x, c.y, c.z, 0.1) >= 0) continue; } if (df < radius * 0.55 && Math.random() < (FIELDM() ? 0.3 : 0.8 * (mzEase() ? mzEase().fHit : 1))) woundFriend(f, df < radius * (FIELDM() ? 0.1 : 0.2)); }
 }
 const _tw = V3();
 function updProjectiles(dt) {
@@ -5115,6 +5160,7 @@ function updProjectiles(dt) {
 function moving() { const k = INPUT.keys; return !!(k.KeyW || k.KeyA || k.KeyS || k.KeyD || k.ArrowUp || k.ArrowDown || k.ArrowLeft || k.ArrowRight || Math.hypot(INPUT.joy.x, INPUT.joy.y) > 0.2); }
 function hurtPlayer(dmg, from, splash = false) {
   if (!P.alive || GAME.state !== 'play' || CINE.on) return;
+  { const mz = mzEase(); if (mz) dmg *= mz.dmg; }
   if (!GOD()) P.hp -= dmg; P.lastHit = GAME.t; sndHurt(); $('#flashHit').style.opacity = String(clamp(dmg / 40, 0.2, 0.8));
   showDmgDir(from);
   if (P.hp <= 0) { P.hp = 0; P.alive = false; endGame(false, 'dead'); }
@@ -5244,7 +5290,8 @@ function updPlayer(dt) {
   if (P.throwT > 0) P.throwT -= dt;
   if (P.mode === 'mag' && P.post.mag.reload > 0) { P.post.mag.reload -= dt; if (P.post.mag.reload <= 0) P.post.mag.belt = P.post.mag.cap || 200; }
   if (P.mode === 'mag' && P.post.mag.beltM) { const m = P.post.mag; if (m.feedT > 0 || m.beltShown !== m.belt) { m.feedT = Math.max(0, m.feedT - dt / (m.heavy ? 0.1 : 0.07)); m.beltShown = m.feedT > 0 ? -1 : m.belt; beltPose(m); } }   // the belt feeding, and shortening over the last twenty rounds
-  if (GAME.t - P.lastHit > diff.regenD + (FIELDM() ? 0 : 0.5) && P.hp < diff.regenCap) P.hp = Math.min(diff.regenCap, P.hp + (FIELDM() ? 30 : 24) * dt);   /* healing: sooner and all the way on the easy level, later and only to 60 on the hard one */
+  { const mz = mzEase(), rd = mz ? mz.regen[0] : diff.regenD + (FIELDM() ? 0 : 0.5), rr = mz ? mz.regen[1] : FIELDM() ? 30 : 24, rc = mz ? mz.regen[2] : diff.regenCap;   /* healing: sooner and all the way on the easy level, later and only to 60 on the hard one (the stronghold heals faster) */
+    if (GAME.t - P.lastHit > rd && P.hp < rc) P.hp = Math.min(rc, P.hp + rr * dt); }
   aimMagnet(dt);
   if (INPUT.fire) { if (P.mode === 'mag' || INPUT.fireEdge || (P.ride && P.ride.mg)) playerShoot(); INPUT.fireEdge = false; }
   // hold F
@@ -5353,7 +5400,7 @@ function tutorialTriggers() {
   if (P.mode === 'carry') hint('carry', `סחבו אותו בתעלת הקשר לתאג״ד הקדמי (◆) ולחצו ${K('E')} ליד האלונקות.`, 6);
   if (P.mode === 'rifle' && P.reserve < 40) hint('ammo', `<b>תחמושת אוזלת!</b> ארגזי תחמושת בכל עמדה לאורך התעלה - ${K('E')} ליד הארגז.`, 7);
   if (P.hp < 45 && D.phase !== 'alert') hint('hp', `<b>אתם מדממים!</b> מחסה - שקי חול או חומה - וכריעה. כמה שניות בלי פגיעה והכוח חוזר.`, 7);
-  if (D.phase === 'intro' && D.scene > 0) hint('cp', `<b>שלב הושלם ✓</b> נקודת שמירה. מחסניות מלאות. קדימה בתעלה אל ה־◆.`, 8);
+  if (D.phase === 'intro' && D.scene > 0) hint('cp', `<b>שלב הושלם ✓</b> נקודת שמירה: חיים ותחמושת מלאים. קדימה בתעלה אל ה־◆.`, 8);
   if (D.phase === 'scene' && SCENES[D.scene].medevac) hint('medevac', `שני לוחמים נפגעו. השלב נגמר רק כשכל הפצועים בתאג״ד וכל המצרים מתים.`, 7);
 }
 const OBJ = { on: false, p: V3(), label: '', el: null, marker: null, beam: null };
@@ -5532,13 +5579,22 @@ function clearBattle() {
   Object.assign(D, { capture: 0, capWarn: false, inside: 0, inTrench: 0, chargeMsg: -99, clearT: 0, trenchMsg: -99, tok: { 1: null, '-1': null } }); for (const c of COVER) c.by = null;
 }
 function placeFriendAtPost(f) { f.post.occupant = f; f.state = 'post'; f.bleed = 0; f.target = null; f.burst = 0; f.marker.visible = false; const u = f.unit; u.alive = true; u.fall = -1; u.stance = 'stand'; u.place(f.post.stand[0], f.post.stand[1]); u.heading = Math.atan2(f.post.fx, f.post.fz); u.rig.root.visible = true; u.sync(); }
+/* a checkpoint gives everything back (the user's rule, on every chapter): on reaching one - a stage begins (snapRequest) - and on coming back
+   to it after a death. Full health, a full magazine, the reserve, the grenades and the smoke, the machine-gun belts, and the tank he fights from */
+function cpRefill() {
+  if (SURV.on) return;
+  P.hp = 100; P.lastHit = -99; P.mag = Math.max(P.mag, 20); P.reserve = Math.max(P.reserve, 160); P.gren = Math.max(P.gren, diff.gren0); if (P.smokeMax) P.smoke = Math.max(P.smoke || 0, P.smokeMax);
+  for (const p of POSTS) if (p.mag) { p.mag.belt = p.mag.cap || 200; p.mag.reload = 0; }
+  if (P.mode === 'tank' && TANK.alive) { TANK.hp = 100; TANK.gunT = 0; }
+}
 function restoreCheckpoint() {
-  if (FIELDM()) return CH().restore();
+  if (FIELDM()) { CH().restore(); cpRefill(); return; }
   if (CP.scene < 0) { startGame(); return; }
   clearBattle(); Object.assign(STATS, CP.stats); resetTutorial(); for (const k of ['start', 'left', 'run', 'mag', 'man', 'cp']) TUT.seen[k] = true;
   FRIENDS.forEach((f, i) => { if (CP.friends[i] === 'post') placeFriendAtPost(f); });
   resetPlayer(); P.alive = true; const S = SCENES[CP.scene], sp = S.spawn(); P.pos.set(sp[0], groundAt(sp[0], sp[1]), sp[1]); P.yaw = -THREE.MathUtils.degToRad(S.face);
   const snap = CP.boats || []; D.launched = CP.scene === 0 && snap.length > 0; D.droneFilm = false; D.phase = 'intro'; introScene(CP.scene, 5); boatRestore(snap); CP.boats = snap;   // back at the start of the boats: their film comes again when the gun is taken (it can be skipped)
+  cpRefill();
   GAME.state = 'play'; $('#app').classList.add('play'); for (const m of ['#mBrief', '#mPause', '#mEnd', '#mOps', '#mSet']) $(m).hidden = true; initAudio(); lockPointer();
 }
 function resetGame() {
@@ -5554,7 +5610,7 @@ function resetGame() {
   DRUMFIRE.on = false; LIGHTS.fire.intensity = 0; LIGHTS.boom.intensity = 0; LIGHTS.wreck.intensity = 0;
   for (const j of STRAFE) scene.remove(j.m); STRAFE.length = 0;
   AIR.mirage = false; AIR.ev = null; AIR.next = 30; AIR.magT = 0; for (const b of AIR.bombs) scene.remove(b.m); AIR.bombs.length = 0; if (AIR.models) { AIR.models.m.g.visible = false; AIR.models.m.wingR.visible = false; AIR.models.mig.visible = false; AIR.models.chute.visible = false; }
-  Object.assign(D, { filmDone: false, boatsFilm: false, droneFilm: false, s2: false, s3: false, capture: 0, capWarn: false, chargeMsg: -99, scene: -1, objDone: false, introLen: 0, phase: 'alert', phaseT: 0, artT: 12, breachT: 0, inside: 0, barT: 0, launched: false, r2: false, jets: false, smoke: [] });
+  Object.assign(D, { mineMsg: false, filmDone: false, boatsFilm: false, droneFilm: false, s2: false, s3: false, capture: 0, capWarn: false, chargeMsg: -99, scene: -1, objDone: false, introLen: 0, phase: 'alert', phaseT: 0, artT: 12, breachT: 0, inside: 0, barT: 0, launched: false, r2: false, jets: false, smoke: [] });
   Object.assign(STATS, { kills: 0, heads: 0, treated: 0, saved: 0, kia: 0, shots: 0 });
   GAME.t = 0; GAME.gCd = 0; resetPlayer(); P.alive = true; resetFriends(); setTimeOfDay(0); resetTutorial();
   $('#feed').innerHTML = ''; FEED.length = 0;
@@ -5829,14 +5885,16 @@ async function loadMission(m, go) {
    tank is hit, the crew bails out with the paratroopers, takes the corner building floor
    by floor and holds it until dark.  (local coordinates: +x east, -z north, origin = CITY centre)
    ===================================================================================== */
-const SZ_GUN = [-59, -19.6, 0.82];   // the anti-tank gun in its pit at the mouth of the north street: x, z (local), heading of the barrel
+const SZ_GUN = [-58, -27.6, 0.725];   // the anti-tank gun in its pit at the mouth of the north street, in their line across it: x, z (local), heading of the barrel (at the end of the avenue)
 const SZ = { built: false, objs: [], mezObjs: [], covers: [], slots: [], foot: [], blocks: [], tb: null, stage: 0, t: 0, cp: 0, wave: 0, holdT: 0, msgs: {}, groups: [] };
 const LX = (x) => CITY.cx + x, LZ = (z) => CITY.cz + z, CHH = CITY.h, FLH = 4.25;   // a storey: rooms a third higher than they were, so the fight indoors has air over it
 const SZ_MIN = 10 * 60 + 40;
 
 /* ---------- textures ---------- */
-function facadeTile(seed, plaster, shut, ground) {
+function facadeTile(seed, plaster, shut, ground, plain = false) {
   const W = 256, H = 128, c = canvas(W * 2, H * 2), g = c.getContext('2d'), r = rng(seed); g.scale(2, 2);
+  if (plain === 'res') return szFacadeRes(g, c, W, H, r, plaster, shut);
+  if (plain) return szFacadePlain(g, c, W, H, r, plaster);
   g.fillStyle = plaster; g.fillRect(0, 0, W, H);
   for (let i = 0; i < 900; i++) { g.fillStyle = r() < 0.5 ? 'rgba(80,66,48,0.10)' : 'rgba(255,250,235,0.10)'; g.fillRect(r() * W, r() * H, 2 + r() * 6, 1 + r() * 4); }
   if (ground) {
@@ -5865,6 +5923,61 @@ function facadeTile(seed, plaster, shut, ground) {
   if (r() < 0.5) { g.fillStyle = 'rgba(20,18,14,0.5)'; for (let i = 0; i < 18; i++) { const x = r() * W, y = r() * H; g.beginPath(); g.arc(x, y, 1 + r() * 2.5, 0, 6.28); g.fill(); } }
   facadeWeather(g, W, H, r, ground, plaster);
   const t = tex(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; return t;
+}
+/* the faces that carry real frames and shutters: the same plaster, but the windows painted only as openings - the dark room behind a casement
+   of two glazed leaves - with no painted shutters or sills, since the 3D ones stand round them (szWinGeo, the shutter panels) */
+function szFacadePlain(g, c, W, H, r, plaster) {
+  g.fillStyle = plaster; g.fillRect(0, 0, W, H);
+  for (let i = 0; i < 900; i++) { g.fillStyle = r() < 0.5 ? 'rgba(80,66,48,0.10)' : 'rgba(255,250,235,0.10)'; g.fillRect(r() * W, r() * H, 2 + r() * 6, 1 + r() * 4); }
+  for (const x0 of [34, 162]) {
+    const w = 60, h = 78, y0 = 22, k = r(), gr = g.createLinearGradient(0, y0, 0, y0 + h); gr.addColorStop(0, '#0d0b09'); gr.addColorStop(1, '#241e18'); g.fillStyle = gr; g.fillRect(x0, y0, w, h);
+    if (k < 0.8) { g.strokeStyle = '#4e4032'; g.lineWidth = 2.4; g.strokeRect(x0 + 2, y0 + 2, w - 4, h - 4); g.beginPath(); g.moveTo(x0 + w / 2, y0 + 2); g.lineTo(x0 + w / 2, y0 + h - 2); g.moveTo(x0 + 2, y0 + h * 0.28); g.lineTo(x0 + w - 2, y0 + h * 0.28); g.stroke();
+      g.fillStyle = 'rgba(160,178,186,0.16)'; g.fillRect(x0 + 5, y0 + h * 0.28 + 3, w / 2 - 8, h * 0.62); if (k < 0.5) g.fillRect(x0 + w / 2 + 3, y0 + h * 0.28 + 3, w / 2 - 8, h * 0.62); }
+    const st = g.createLinearGradient(0, y0 + h, 0, H); st.addColorStop(0, 'rgba(70,60,46,0.3)'); st.addColorStop(1, 'rgba(70,60,46,0)'); g.fillStyle = st; g.fillRect(x0 + 8, y0 + h + 4, w - 16, H - y0 - h);
+  }
+  facadeWeather(g, W, H, r, false, plaster);
+  const t = tex(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; return t;
+}
+// the ground floor of a house on an alley: no shops - a stone plinth, two small windows behind iron bars, a plank door
+function szFacadeRes(g, c, W, H, r, plaster, shut) {
+  g.fillStyle = plaster; g.fillRect(0, 0, W, H);
+  for (let i = 0; i < 900; i++) { g.fillStyle = r() < 0.5 ? 'rgba(80,66,48,0.10)' : 'rgba(255,250,235,0.10)'; g.fillRect(r() * W, r() * H, 2 + r() * 6, 1 + r() * 4); }
+  g.fillStyle = 'rgba(120,108,90,0.75)'; g.fillRect(0, H - 22, W, 22); g.fillStyle = 'rgba(60,52,42,0.4)'; for (let x = 0; x < W; x += 18) g.fillRect(x, H - 22, 1.5, 22); g.fillRect(0, H - 22, W, 1.5);
+  for (const x0 of [26, 96]) { g.fillStyle = 'rgba(70,58,44,0.35)'; g.fillRect(x0 - 4, 48, 48, 50); g.fillStyle = '#14110e'; g.fillRect(x0, 52, 40, 42); g.fillStyle = '#2c2a26'; for (let x = x0 + 4; x < x0 + 40; x += 6) g.fillRect(x, 52, 1.6, 42); g.fillRect(x0, 64, 40, 1.6); g.fillRect(x0, 80, 40, 1.6); g.fillStyle = 'rgba(30,26,20,0.5)'; g.fillRect(x0 - 5, 94, 50, 4); }
+  { const x0 = 170, w = 50; g.fillStyle = 'rgba(70,58,44,0.4)'; g.fillRect(x0 - 6, 50, w + 12, H - 50); g.fillStyle = shut; g.fillRect(x0, 56, w, H - 56); g.fillStyle = 'rgba(0,0,0,0.28)'; for (let x = x0 + 5; x < x0 + w; x += 8) g.fillRect(x, 56, 1.5, H - 56); g.fillRect(x0 + w / 2 - 0.8, 56, 1.6, H - 56); g.fillStyle = '#c8b070'; g.fillRect(x0 + w / 2 + 4, 92, 3, 3); }
+  facadeWeather(g, W, H, r, true, plaster);
+  const t = tex(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; return t;
+}
+// louvred wooden shutters: slats in light and shade inside a stile frame (white: tinted per copy)
+function szLouverTex() {
+  const c = canvas(64, 192), g = c.getContext('2d'); g.fillStyle = '#d8d8d8'; g.fillRect(0, 0, 64, 192);
+  for (let y = 10; y < 182; y += 7) { g.fillStyle = '#9a9a9a'; g.fillRect(6, y, 52, 3); g.fillStyle = '#f2f2f2'; g.fillRect(6, y + 3, 52, 1.5); }
+  g.strokeStyle = '#8a8a8a'; g.lineWidth = 5; g.strokeRect(3, 3, 58, 186); g.fillStyle = '#b8b8b8'; g.fillRect(6, 92, 52, 6);
+  const t = tex(c); return t;
+}
+// a flat city roof: cement screed in panels, tar along the cracks and seams, stains where the tanks drip
+function szRoofTex() {
+  const W = 256, c = canvas(W), g = c.getContext('2d'), r = rng(919); g.fillStyle = '#b4ab9a'; g.fillRect(0, 0, W, W);
+  tileBlotches(g, W, r, 40, 10, 60, 'rgba(90,82,70,0.16)', 'rgba(240,234,220,0.14)', 0.6);
+  g.strokeStyle = 'rgba(40,36,32,0.55)'; g.lineWidth = 2; for (let k = 0; k <= W; k += 64) { g.beginPath(); g.moveTo(k, 0); g.lineTo(k, W); g.moveTo(0, k); g.lineTo(W, k); g.stroke(); }
+  g.lineCap = 'round'; for (let k = 0; k < 9; k++) { let x = r() * W, y = r() * W; g.strokeStyle = `rgba(30,28,26,${0.3 + r() * 0.4})`; g.lineWidth = 1 + r() * 2; g.beginPath(); g.moveTo(x, y); for (let j = 0; j < 6; j++) { x += (r() - 0.5) * 30; y += (r() - 0.5) * 30; g.lineTo(x, y); } g.stroke(); }
+  for (let k = 0; k < 5; k++) { const gr = g.createRadialGradient(0, 0, 0, 0, 0, 30); gr.addColorStop(0, 'rgba(60,56,48,0.3)'); gr.addColorStop(1, 'rgba(60,56,48,0)'); g.save(); g.translate(r() * W, r() * W); g.fillStyle = gr; g.fillRect(-30, -30, 60, 60); g.restore(); }
+  const t = tex(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; return t;
+}
+// a shell hole in a facade (alpha): the broken plaster round it, the brick showing, the dark room inside, soot sprayed out from it
+function szHoleTex() {
+  const S = 128, c = canvas(S), g = c.getContext('2d'), r = rng(311); g.clearRect(0, 0, S, S);
+  const blob = (R, j) => { g.beginPath(); for (let a = 0; a <= 6.3; a += 0.35) { const k = R * (1 - j + r() * j * 2); g.lineTo(64 + Math.cos(a) * k, 64 + Math.sin(a) * k); } g.closePath(); };
+  { const gr = g.createRadialGradient(64, 64, 10, 64, 64, 62); gr.addColorStop(0, 'rgba(20,16,12,0.85)'); gr.addColorStop(1, 'rgba(20,16,12,0)'); g.fillStyle = gr; g.fillRect(0, 0, S, S); }
+  g.fillStyle = 'rgba(150,140,124,1)'; blob(40, 0.3); g.fill(); g.fillStyle = 'rgba(132,76,52,1)'; blob(31, 0.3); g.fill();
+  g.fillStyle = 'rgba(70,40,28,0.9)'; for (let y = 34; y < 96; y += 6) for (let x = 30; x < 98; x += 12) if (Math.hypot(x - 64, y - 64) < 30) g.fillRect(x + ((y / 6) | 0) % 2 * 6, y, 1.5, 6);
+  g.fillStyle = 'rgba(8,6,5,1)'; blob(21, 0.35); g.fill();
+  const t = tex(c); return t;
+}
+// soot licked up a wall from a window that burned
+function szSootTex() {
+  const c = canvas(64, 128), g = c.getContext('2d'), gr = g.createLinearGradient(0, 128, 0, 0); gr.addColorStop(0, 'rgba(14,12,10,0.85)'); gr.addColorStop(0.55, 'rgba(14,12,10,0.4)'); gr.addColorStop(1, 'rgba(14,12,10,0)');
+  g.fillStyle = gr; g.beginPath(); g.moveTo(8, 128); g.quadraticCurveTo(0, 50, 22, 0); g.lineTo(44, 0); g.quadraticCurveTo(64, 50, 56, 128); g.closePath(); g.fill(); return tex(c);
 }
 // what twenty-five years of sun, rain and neglect do to a plastered wall
 function facadeWeather(g, W, H, r, ground, plaster) {
@@ -5897,7 +6010,8 @@ function plasterTex(seed, base) {
   const t = tex(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; return t;
 }
 
-/* ---------- building blocks: facade boxes merged per material ---------- */
+/* ---------- building blocks: the walls in the facade material (a dressed face in a plain one, under real frames and shutters), the roof in its
+   own, and round every block the plaster work of a Suez apartment house of the fifties: a plinth, a band at each floor, a cornice, a coped parapet ---------- */
 function boxUV(x0, x1, y0, y1, z0, z1, tw, th) {
   const g = new THREE.BoxGeometry(x1 - x0, y1 - y0, z1 - z0); g.translate((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2);
   const uv = g.attributes.uv, n = g.attributes.normal;
@@ -5908,32 +6022,59 @@ function boxUV(x0, x1, y0, y1, z0, z1, tw, th) {
   }
   return g;
 }
+// a facade box without its top and bottom faces (the roof is laid in its own material); faces: the sides kept (0 +x, 1 -x, 4 +z, 5 -z: BoxGeometry's order)
+function szWallBox(x0, x1, y0, y1, z0, z1, tw, th, faces = [0, 1, 4, 5]) { const g = boxUV(x0, x1, y0, y1, z0, z1, tw, th), ix = g.index.array, keep = []; for (const f of faces) for (let k = 0; k < 6; k++) keep.push(ix[f * 6 + k]); g.setIndex(keep); g.clearGroups(); return g; }
 // the shade a wall carries: darker where it meets the pavement and under the slab or parapet above it (baked into the vertex colours)
 function aoBox(g, y0, y1, bottomK, topK) {
   const p = g.attributes.position, col = new Float32Array(p.count * 3);
   for (let i = 0; i < p.count; i++) { const y = p.getY(i), k = lerp(bottomK, 1, smooth(y0, y0 + 1.4, y)) * lerp(1, topK, smooth(y1 - 0.9, y1, y)); col[i * 3] = k; col[i * 3 + 1] = k; col[i * 3 + 2] = k; }
   g.setAttribute('color', new THREE.BufferAttribute(col, 3)); return g;
 }
-function cityBuilding(b, mats, lists) {
-  // b: {x0,x1,z0,z1,fl (floors), v (variant), solid}
-  const X0 = LX(b.x0), X1 = LX(b.x1), Z0 = LZ(b.z0), Z1 = LZ(b.z1), top = CHH + b.fl * FLH;
-  lists.ground[b.v % lists.ground.length].push(aoBox(boxUV(X0, X1, CHH - 0.3, CHH + FLH, Z0, Z1, 7, FLH + 0.3), CHH - 0.3, CHH + FLH, 0.62, 0.88));
-  if (b.fl > 1) lists.upper[b.v % lists.upper.length].push(aoBox(boxUV(X0, X1, CHH + FLH, top, Z0, Z1, 7, FLH), CHH + FLH, top, 0.9, 0.84));
-  // roof: parapet, water tank, stair hut, antenna
-  const rr = rng(Math.round(b.x0 * 13 + b.z0 * 7) >>> 0), par = lists.roof;
-  for (const [a0, a1, c0, c1] of [[X0, X1, Z0, Z0 + 0.25], [X0, X1, Z1 - 0.25, Z1], [X0, X0 + 0.25, Z0, Z1], [X1 - 0.25, X1, Z0, Z1]]) par.push([boxUV(a0, a1, top, top + 0.9, c0, c1, 4, 1), 0xcfc3a8]);
-  if (rr() < 0.7) { const tx = lerp(X0 + 2, X1 - 2, rr()), tz = lerp(Z0 + 2, Z1 - 2, rr()); par.push([new THREE.CylinderGeometry(0.8, 0.8, 1.4, 12).translate(tx, top + 1.6, tz), 0x8b8a84]); for (const s of [-1, 1]) par.push([new THREE.BoxGeometry(0.1, 0.9, 0.1).translate(tx + s * 0.5, top + 0.45, tz), 0x4a4640]); }
-  if (rr() < 0.6) { const hx = lerp(X0 + 2.2, X1 - 2.2, rr()), hz = lerp(Z0 + 2.2, Z1 - 2.2, rr()); par.push([boxUV(hx - 1.3, hx + 1.3, top, top + 2.3, hz - 1.4, hz + 1.4, 3, 2.3), 0xd8ccb2]); }
-  if (rr() < 0.5) par.push([new THREE.CylinderGeometry(0.03, 0.03, 4, 5).translate(lerp(X0 + 1, X1 - 1, rr()), top + 2, lerp(Z0 + 1, Z1 - 1, rr())), 0x2a2a28]);
+const SZ_FACE_IX = (f) => (f[0] > 0 ? 0 : f[0] < 0 ? 1 : f[1] > 0 ? 4 : 5);
+const szFaces = (b) => (b.f2 ? [b.face, b.f2] : [b.face]);
+// the plasters of the facade tiles (as hex, for the parapets), the trims, and the paints of the shutters
+const SZ_PL = [0xe8dcc0, 0xd8bf8c, 0xe6c9b8, 0xcdd2c6, 0xece4d2, 0xc9b27e], SZ_TRIM = [0xe9e2d0, 0xd9cdb4, 0xb9a98a, 0xe2d8c2], SZ_SHUT = [0x3f6b4e, 0x5b4630, 0x3d5b6b, 0x6d6248, 0x2f4f3a, 0x6b3a2a, 0x7a7466, 0x4a5a6a];
+function szRoofPlane(X0, X1, Z0, Z1, y) { const g = new THREE.PlaneGeometry(X1 - X0, Z1 - Z0); g.rotateX(-Math.PI / 2); g.translate((X0 + X1) / 2, y, (Z0 + Z1) / 2); const uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, (uv.getX(i) * (X1 - X0) + X0) / 6, (uv.getY(i) * (Z1 - Z0) + Z0) / 6); return g; }
+/* the shell of a block: the roof, the parapet with its coping, the cornice and its lip under it, a band at each floor line and the plinth. The bands are
+   slabs a little larger than the block, so only their edge shows. rich: the whole set; a far block keeps the roof, the parapet and the cornice */
+function szShell(X0, X1, Z0, Z1, top, fl, pl, trim, L, rich, par = true) {
+  L.roofTop.push(szRoofPlane(X0, X1, Z0, Z1, top + 0.012));
+  const T = 0.25, P = top + 0.9, ring = (y0, y1, o, c) => L.trim.push([boxUV(X0 - o, X1 + o, y0, y1, Z0 - o, Z1 + o, 3, 1), c]);
+  if (par) for (const [a0, a1, c0, c1] of [[X0, X1, Z0, Z0 + T], [X0, X1, Z1 - T, Z1], [X0, X0 + T, Z0 + T, Z1 - T], [X1 - T, X1, Z0 + T, Z1 - T]]) L.trim.push([boxUV(a0, a1, top, P, c0, c1, 3, 1), pl]);
+  ring(top - 0.42, top - 0.12, 0.15, trim); ring(top - 0.12, top, 0.27, trim);
+  if (!rich) return;
+  const o = 0.05; if (par) for (const [a0, a1, c0, c1] of [[X0 - o, X1 + o, Z0 - o, Z0 + T + o], [X0 - o, X1 + o, Z1 - T - o, Z1 + o], [X0 - o, X0 + T + o, Z0 + T + o, Z1 - T - o], [X1 - T - o, X1 + o, Z0 + T + o, Z1 - T - o]]) L.trim.push([boxUV(a0, a1, P, P + 0.08, c0, c1, 3, 1), trim]);
+  for (let f = 1; f < fl; f++) ring(CHH + f * FLH - 0.09, CHH + f * FLH + 0.09, 0.07, trim);
+  if (fl) ring(CHH - 0.3, CHH + 0.55, 0.035, 0xa89a80);
+}
+// what stands on a Suez roof: water tanks on steel stands, the stair hut with its door, the TV aerials. full: a street house (more of everything)
+function szRoofLife(X0, X1, Z0, Z1, top, rr, R2, full) {
+  if (X1 - X0 < 4 || Z1 - Z0 < 4) return;
+  const rx = () => lerp(X0 + 1.4, X1 - 1.4, rr()), rz = () => lerp(Z0 + 1.4, Z1 - 1.4, rr()), nT = (full ? 1 : 0) + Math.floor(rr() * (full ? 3 : 2));
+  for (let i = 0; i < nT; i++) { const x = rx(), z = rz(), r = 0.5 + rr() * 0.3, h = 1.0 + rr() * 0.5, c = [0x8b8a84, 0x6e6a60, 0x9c9a92, 0x5e5044][Math.floor(rr() * 4)], y0 = top + 0.9;
+    R2.push([G.cyl(r, r, h, full && !LITE ? 12 : 8), c, M4(x, y0 + h / 2, z)], [G.cyl(r * 0.3, r * 0.3, 0.12, 8), c, M4(x, y0 + h + 0.06, z)], [G.box(r * 2 + 0.12, 0.07, r * 2 + 0.12), 0x3e3a34, M4(x, y0 - 0.02, z)], [G.cyl(0.03, 0.03, 0.9 + h * 0.5, 5), 0x4a4640, M4(x + r + 0.05, top + 0.45 + h * 0.25, z)]);
+    for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) R2.push([G.box(0.06, 0.9, 0.06), 0x3e3a34, M4(x + sx * r * 0.8, top + 0.45, z + sz * r * 0.8)]); }
+  if (X1 - X0 > 6 && Z1 - Z0 > 6 && rr() < (full ? 0.7 : 0.45)) { const hx = lerp(X0 + 2.2, X1 - 2.2, rr()), hz = lerp(Z0 + 2.2, Z1 - 2.2, rr()); R2.push([boxUV(hx - 1.3, hx + 1.3, top, top + 2.4, hz - 1.4, hz + 1.4, 3, 2.4), 0xd2c6ac], [G.box(2.9, 0.12, 3.1), 0xb8ac94, M4(hx, top + 2.46, hz)], [G.box(0.9, 1.95, 0.06), 0x4a3a2a, M4(hx, top + 0.98, hz + 1.42)]); }
+  if (rr() < (full ? 0.75 : 0.4)) { const ax = rx(), az = rz(); R2.push([G.cyl(0.025, 0.025, 3.2, 5), 0x2a2a28, M4(ax, top + 1.6, az)]); for (let j = 0; j < 3; j++) R2.push([G.box(1.3 - j * 0.3, 0.025, 0.025), 0x2a2a28, M4(ax, top + 2.4 + j * 0.35, az, 0, rr() * 3, 0)]); }
+}
+function cityBuilding(b, lists) {
+  // b: {x0, x1, z0, z1, fl (floors), v (plaster), face, f2 (a second dressed face), solid}
+  const X0 = LX(b.x0), X1 = LX(b.x1), Z0 = LZ(b.z0), Z1 = LZ(b.z1), top = CHH + b.fl * FLH, v = b.v % 6, dec = szFaces(b).map(SZ_FACE_IX), pl = [0, 1, 4, 5].filter((f) => !dec.includes(f));
+  // the faces on an alley have houses' ground floors, the others shops
+  const al = (b.alley || []).map((fi) => SZ_FACE_IX(szFaces(b)[fi])), sh = [0, 1, 4, 5].filter((f) => !al.includes(f));
+  lists.ground[v].push(aoBox(szWallBox(X0, X1, CHH - 0.3, CHH + FLH, Z0, Z1, 7, FLH + 0.3, sh), CHH - 0.3, CHH + FLH, 0.62, 0.88)); if (al.length) lists.groundR[v].push(aoBox(szWallBox(X0, X1, CHH - 0.3, CHH + FLH, Z0, Z1, 7, FLH + 0.3, al), CHH - 0.3, CHH + FLH, 0.62, 0.88));
+  if (b.fl > 1) { if (pl.length) lists.upper[v].push(aoBox(szWallBox(X0, X1, CHH + FLH, top, Z0, Z1, 7, FLH, pl), CHH + FLH, top, 0.9, 0.84)); lists.upperD[v].push(aoBox(szWallBox(X0, X1, CHH + FLH, top, Z0, Z1, 7, FLH, dec), CHH + FLH, top, 0.9, 0.84)); }
+  szShell(X0, X1, Z0, Z1, top, b.fl, SZ_PL[v], SZ_TRIM[b.v % 4], lists, true, !b.ruin);
+  if (!b.ruin) szRoofLife(X0, X1, Z0, Z1, top, rng(Math.round(b.x0 * 13 + b.z0 * 7) >>> 0), lists.roof, true);
   if (b.solid !== false) { addCollider((X0 + X1) / 2, (Z0 + Z1) / 2, (X1 - X0) / 2, (Z1 - Z0) / 2, 0, top + 0.9); SZ.blocks.push([X0, X1, Z0, Z1, top]); }
 }
-/* window centres along a building's street face (they match the facade texture: two windows per 7 m tile) */
-function faceInfo(b) {
-  const [fx, fz] = b.face, horiz = fz !== 0, fc = horiz ? (fz > 0 ? b.z1 : b.z0) : (fx > 0 ? b.x1 : b.x0);
+/* window centres along a building's face (they match the facade texture: two windows per 7 m tile) */
+function faceInfo(b, face = b.face) {
+  const [fx, fz] = face, horiz = fz !== 0, fc = horiz ? (fz > 0 ? b.z1 : b.z0) : (fx > 0 ? b.x1 : b.x0);
   const lo = horiz ? b.x0 : b.z0, hi = horiz ? b.x1 : b.z1, org = horiz ? (fz > 0 ? b.x0 : b.x1) : (fx > 0 ? b.z1 : b.z0), dir = horiz ? (fz > 0 ? 1 : -1) : (fx > 0 ? -1 : 1);
   const at = (offs) => { const out = []; for (let k = 0; k < 40; k++) for (const o of offs) { const a = org + dir * (7 * k + o); if (a > lo + 0.9 && a < hi - 0.9) out.push(a); } return out.sort((p, q) => p - q); };
   const P = (a, out) => (horiz ? [LX(a), LZ(fc) + fz * out] : [LX(fc) + fx * out, LZ(a)]);
-  return { fx, fz, horiz, fc, lo, hi, wins: at([1.75, 5.25]), shops: at([1.86, 5.14]), P, rot: horiz ? 0 : Math.PI / 2, face: Math.atan2(fx, fz), span: hi - lo, mid: (lo + hi) / 2 };
+  return { fx, fz, horiz, fc, lo, hi, org, dir, wins: at([1.75, 5.25]), shops: at([1.86, 5.14]), P, rot: horiz ? 0 : Math.PI / 2, face: Math.atan2(fx, fz), span: hi - lo, mid: (lo + hi) / 2 };
 }
 function railTex() {
   const c = canvas(128, 128), g = c.getContext('2d'); g.clearRect(0, 0, 128, 128); g.fillStyle = '#fff';
@@ -5953,87 +6094,128 @@ function balconyRun(F, a, w, y, D, rr, laundry) {
   if (laundry || rr() < 0.3) { const n = 2 + Math.floor(rr() * 4); for (let i = 0; i < n; i++) { const o = (i - (n - 1) / 2) * Math.min(0.7, w / n); const [cx, cz] = F.P(a + o, 1.12); D.cloth.push([planeAt(0.5 + rr() * 0.3, 0.55 + rr() * 0.4, cx, y + 0.72, cz, F.face), CLOTHC[Math.floor(rr() * CLOTHC.length)]]); } }
   if (rr() < 0.35) for (let i = 0; i < 2; i++) { const [px, pz] = F.P(a + (i ? 0.7 : -0.7) * w / 2.4, 0.85); D.trim.push([G.cyl(0.13, 0.1, 0.28, 8), 0x8a4a2c, M4(px, y + 0.2, pz)], [G.sph(0.2, 8, 6), 0x4f6b35, M4(px, y + 0.45, pz)]); }
 }
+/* a window: a moulded frame round the painted opening, the sill on two corbels, and over it (kind) nothing more, a little cornice on brackets, or a
+   pediment. Drawn as instances (one mesh per kind for the whole city) at the sill's middle on the wall, turned to face out */
+const SZW = { w: 1.64, h: 2.59, y: 0.93 };   // the painted opening of every window tile: its width and height, and its sill above the floor
+function szWinGeo(kind) {
+  const w = SZW.w, h = SZW.h, C = 0xffffff;
+  const P = [[G.box(0.13, h + 0.13, 0.09), C, M4(-(w / 2 + 0.065), h / 2, 0.045)], [G.box(0.13, h + 0.13, 0.09), C, M4(w / 2 + 0.065, h / 2, 0.045)], [G.box(w + 0.26, 0.13, 0.09), C, M4(0, h + 0.065, 0.045)],
+    [G.box(w + 0.42, 0.08, 0.22), C, M4(0, -0.04, 0.11)], [G.box(0.12, 0.15, 0.13), C, M4(-w / 2 + 0.06, -0.155, 0.065)], [G.box(0.12, 0.15, 0.13), C, M4(w / 2 - 0.06, -0.155, 0.065)]];
+  if (kind === 1) P.push([G.box(w + 0.62, 0.1, 0.27), C, M4(0, h + 0.21, 0.135)], [G.box(w + 0.42, 0.09, 0.18), C, M4(0, h + 0.3, 0.09)], [G.box(0.14, 0.24, 0.16), C, M4(-(w / 2 + 0.2), h + 0.04, 0.08)], [G.box(0.14, 0.24, 0.16), C, M4(w / 2 + 0.2, h + 0.04, 0.08)]);
+  if (kind === 2) { const half = (w + 0.6) / 2, L = half / Math.cos(0.3); for (const s of [-1, 1]) P.push([G.box(L, 0.11, 0.22), C, M4(s * half / 2, h + 0.2 + Math.tan(0.3) * half / 2, 0.11, 0, 0, -s * 0.3)]); P.push([G.box(w + 0.64, 0.09, 0.24), C, M4(0, h + 0.17, 0.12)]); }
+  return build(P);
+}
+// one shutter leaf on a window frame: lx, lz in the window's frame, turned ry about its upright
+function szPanel(D, Mw, lx, lz, ry, c) { D.sh.push([Mw.clone().multiply(M4(lx, SZW.h / 2, lz, 0, ry, 0)), c]); }
+function szInst(geo, mat, list, cast = true) {
+  const m = new THREE.InstancedMesh(geo, mat, list.length), c = new THREE.Color();
+  list.forEach(([M, col], i) => { m.setMatrixAt(i, M); m.setColorAt(i, c.setHex(col)); });
+  m.instanceMatrix.needsUpdate = true; m.instanceColor.needsUpdate = true; m.computeBoundingSphere(); scene.add(SH(onLayer1(m), cast)); return m;
+}
+// the doorway of the house: a stone surround, plaster either side of a double wooden door with a fanlight over it, a step (over one painted shop front)
+function szEntrance(D, F, a, trimC, pl) {
+  const [x, z] = F.P(a, 0), M0 = M4(x, CHH, z, 0, F.face, 0), B = (w, h, d, lx, ly, lz, c) => D.trim.push([G.box(w, h, d), c, M0.clone().multiply(M4(lx, ly, lz))]);
+  B(1.5, 2.95, 0.03, 0, 1.47, 0.015, 0x1c1814); for (const s of [-1, 1]) B(0.84, 3.05, 0.05, s * 1.17, 1.52, 0.04, pl);
+  B(0.7, 2.3, 0.06, -0.36, 1.15, 0.05, 0x5a3e26); B(0.7, 2.3, 0.06, 0.36, 1.15, 0.05, 0x5a3e26); B(1.4, 0.5, 0.04, 0, 2.58, 0.04, 0x2a2622);
+  B(0.3, 3.1, 0.16, -0.9, 1.55, 0.08, trimC); B(0.3, 3.1, 0.16, 0.9, 1.55, 0.08, trimC); B(2.1, 0.32, 0.2, 0, 3.12, 0.1, trimC); B(2.4, 0.15, 0.6, 0, 0.075, 0.3, 0xa39b8c);
+}
 function decorate(b, D, rr, lists) {
-  const F = faceInfo(b), trimC = [0xe9e2d0, 0xd9cdb4, 0xb9a98a, 0xe2d8c2][b.v % 4], top = CHH + b.fl * FLH;
-  for (let f = 1; f <= b.fl; f++) { const y = CHH + f * FLH, last = f === b.fl, [x, z] = F.P(F.mid, last ? 0.17 : 0.06); D.trim.push([G.box(F.span + (last ? 0.45 : 0.08), last ? 0.4 : 0.13, last ? 0.38 : 0.13), trimC, M4(x, y - (last ? 0.06 : 0.02), z, 0, F.rot, 0)]); }
-  for (let f = 1; f < b.fl; f++) for (const a of F.wins) {
-    const y = CHH + f * FLH, [x, z] = F.P(a, 0.09); D.trim.push([G.box(1.95, 0.09, 0.2), trimC, M4(x, y + 0.64, z, 0, F.rot, 0)]);
-    if (b.style === 1) { const [x2, z2] = F.P(a, 0.12); D.trim.push([G.box(2.15, 0.18, 0.26), trimC, M4(x2, y + 2.78, z2, 0, F.rot, 0)], [G.box(1.5, 0.1, 0.16), trimC, M4(x2, y + 2.95, z2, 0, F.rot, 0)]); }
-  }
-  if (b.style === 1) for (const a of [F.lo + 0.32, F.hi - 0.32]) { const [x, z] = F.P(a, 0.07); D.trim.push([G.box(0.6, b.fl * FLH - 0.2, 0.15), trimC, M4(x, CHH + b.fl * FLH / 2, z, 0, F.rot, 0)]); }
-  if (b.style === 2) { for (let f = 1; f < b.fl; f++) balconyRun(F, F.mid, F.span - 0.7, CHH + f * FLH, D, rr, rr() < 0.5); }
-  else for (let f = 1; f < b.fl; f++) for (let i = 0; i < F.wins.length; i += 2) if (rr() < 0.35) balconyRun(F, (F.wins[i] + (F.wins[i + 1] ?? F.wins[i])) / 2, F.wins[i + 1] ? 5.0 : 2.4, CHH + f * FLH, D, rr, false);
-  // canvas awnings over the shops
-  for (const a of F.shops) if (rr() < 0.6) {
-    const k = Math.floor(rr() * D.awn.length), [x, z] = F.P(a, 0.72); const g = new THREE.BoxGeometry(2.9, 0.03, 1.5); const uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * 3, uv.getY(i));
-    g.rotateX(-0.36); g.rotateY(F.face + Math.PI); g.translate(x, CHH + 2.18, z); D.awn[k].push(g);
-    const [vx, vz] = F.P(a, 1.43); D.awn[k].push(planeAt(2.9, 0.28, vx, CHH + 1.82, vz, F.face, 0, 0.35, 1));
-  }
-  // rooftop life: TV antennas, pigeon coops, laundry lines, a room on the roof
-  const R2 = lists.roof, X0 = LX(b.x0), X1 = LX(b.x1), Z0 = LZ(b.z0), Z1 = LZ(b.z1), rx = () => lerp(X0 + 1.5, X1 - 1.5, rr()), rz = () => lerp(Z0 + 1.5, Z1 - 1.5, rr());
-  for (let i = 0; i < 1 + Math.floor(rr() * 2); i++) { const ax = rx(), az = rz(); R2.push([G.cyl(0.025, 0.025, 3.2, 5), 0x2a2a28, M4(ax, top + 1.6, az)]); for (let j = 0; j < 3; j++) R2.push([G.box(1.3 - j * 0.3, 0.025, 0.025), 0x2a2a28, M4(ax, top + 2.4 + j * 0.35, az, 0, rr() * 3, 0)]); }
+  const trimC = SZ_TRIM[b.v % 4], pl = SZ_PL[b.v % 6], top = CHH + b.fl * FLH, wk = b.style === 1 ? 1 : b.style === 2 ? 0 : rr() < 0.4 ? 2 : 0, shc = SZ_SHUT[(b.v * 3 + Math.floor(rr() * 3)) % SZ_SHUT.length];
+  szFaces(b).forEach((face, fi) => {
+    const F = faceInfo(b, face);
+    // every window framed, most with their shutters - folded back, closed, one of each, or one swinging - and a few burnt out, the soot up the wall over them
+    for (let f = 1; f < b.fl; f++) for (const a of F.wins) {
+      const [x, z] = F.P(a, 0), y = CHH + f * FLH + SZW.y, Mw = M4(x, y, z, 0, F.face, 0), fort = !!(b.fortSet && b.fortSet.has(fi + ':' + f + ':' + a.toFixed(2)));
+      D.win[wk].push([Mw, trimC]);
+      const s = fort ? (rr() < 0.6 ? 0 : 0.95) : rr(), c = rr() < 0.75 ? shc : SZ_SHUT[Math.floor(rr() * SZ_SHUT.length)];
+      if (s < 0.34) { szPanel(D, Mw, -1.35, 0.03, 0, c); szPanel(D, Mw, 1.35, 0.03, 0, c); }
+      else if (s < 0.56) { szPanel(D, Mw, -0.41, 0.025, 0, c); szPanel(D, Mw, 0.41, 0.025, 0, c); }
+      else if (s < 0.72) { szPanel(D, Mw, -1.35, 0.03, 0, c); szPanel(D, Mw, 0.41, 0.025, 0, c); }
+      else if (s < 0.85) { const al = Math.PI * (0.45 + rr() * 0.2); szPanel(D, Mw, -0.82 + 0.39 * Math.cos(al), 0.03 + 0.39 * Math.sin(al), -al, c); szPanel(D, Mw, 1.35, 0.03, 0, c); }
+      else if (!fort && rr() < 0.45) { const [sx, sz] = F.P(a, 0.03); D.soot.push(planeAt(1.8, 2.8, sx, y + SZW.h + 1.15, sz, F.face)); }
+    }
+    if (b.style === 1) for (const a of [F.lo + 0.32, F.hi - 0.32]) { const [x, z] = F.P(a, 0.07); D.trim.push([G.box(0.6, b.fl * FLH - 0.2, 0.15), trimC, M4(x, CHH + b.fl * FLH / 2, z, 0, F.rot, 0)]); }
+    // the classical houses carry their cornice on a row of small brackets
+    if (b.style === 1 && !b.ruin) for (let a = F.lo + 0.7; a < F.hi - 0.6; a += 0.9) { const [x, z] = F.P(a, 0.1); D.trim.push([G.box(0.13, 0.24, 0.2), trimC, M4(x, top - 0.55, z, 0, F.rot, 0)]); }
+    if (b.style === 2) { for (let f = 1; f < b.fl; f++) balconyRun(F, F.mid, F.span - 0.7, CHH + f * FLH, D, rr, rr() < 0.5); }
+    else for (let f = 1; f < b.fl; f++) for (let i = 0; i < F.wins.length; i += 2) if (rr() < 0.3 && !(b.fortSet && b.fortSet.has(fi + ':' + f + ':' + F.wins[i].toFixed(2)))) balconyRun(F, (F.wins[i] + (F.wins[i + 1] ?? F.wins[i])) / 2, F.wins[i + 1] ? 5.0 : 2.4, CHH + f * FLH, D, rr, false);
+    // the shop fronts: pilasters between them and a cornice over their signs, the doorway of the house in the middle, canvas awnings over the rest (none on an alley: houses there)
+    if (!(b.alley && b.alley.includes(fi))) {
+    for (let k = 0; k < 40; k++) { const a = F.org + F.dir * 3.5 * k; if (a < F.lo - 0.1 || a > F.hi + 0.1) break; if (a < F.lo + 0.2 || a > F.hi - 0.2) continue; const [x, z] = F.P(a, 0.05); D.trim.push([G.box(0.42, FLH - 0.15, 0.1), trimC, M4(x, CHH - 0.3 + (FLH - 0.15) / 2, z, 0, F.rot, 0)]); }
+    { const [x, z] = F.P(F.mid, 0.09); D.trim.push([G.box(F.span + 0.1, 0.16, 0.18), trimC, M4(x, CHH + 3.86, z, 0, F.rot, 0)]); }
+    const ent = F.shops.length && fi === 0 ? F.shops.reduce((p, q) => (Math.abs(q - F.mid) < Math.abs(p - F.mid) ? q : p)) : null;
+    for (const a of F.shops) {
+      if (a === ent) { szEntrance(D, F, a, trimC, pl); continue; }
+      // now and then a sign hung out over the pavement on a bracket, read from along the street
+      if (fi === 0 && !(b.alley && b.alley.includes(fi)) && rr() < 0.22) { const [x, z] = F.P(a - F.dir * 1.2, 0.62), k = Math.floor(rr() * D.blade.length); D.blade[k].push(new THREE.BoxGeometry(0.07, 0.62, 1.0).rotateY(F.face).translate(x, CHH + 3.45, z)); const [bx, bz] = F.P(a - F.dir * 1.2, 0.5); D.trim.push([G.box(0.04, 0.04, 1.0), 0x2a2a28, M4(bx, CHH + 3.8, bz, 0, F.face, 0)]); }
+      if (rr() < (b.alley && b.alley.includes(fi) ? 0.12 : 0.55)) { const k = Math.floor(rr() * D.awn.length), [x, z] = F.P(a, 0.72); const g = new THREE.BoxGeometry(2.9, 0.03, 1.5); const uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * 3, uv.getY(i));
+        g.rotateX(-0.36); g.rotateY(F.face + Math.PI); g.translate(x, CHH + 2.86, z); D.awn[k].push(g); const [vx, vz] = F.P(a, 1.43); D.awn[k].push(planeAt(2.9, 0.28, vx, CHH + 2.5, vz, F.face, 0, 0.35, 1)); }
+    } }
+    // a shell hole or two between the windows, the plaster and brick of it on the pavement below
+    if (b.fl > 1 && rr() < 0.32) { const n = 1 + (rr() < 0.3 ? 1 : 0); for (let j = 0; j < n; j++) { const f = 1 + Math.floor(rr() * (b.fl - 1)), k = Math.floor(rr() * Math.max(1, F.span / 7)), a = F.org + F.dir * (7 * k + 3.5);
+      if (a > F.lo + 1.4 && a < F.hi - 1.4) { const s = 1.3 + rr() * 1.3, [x, z] = F.P(a, 0.025); D.holes.push(planeAt(s, s, x, CHH + f * FLH + 2.15, z, F.face)); const [rx, rz] = F.P(a, 1.1); D.rub.push([rx, rz, s]); } } }
+  });
+  // rooftop life over the street face: pigeon coops, washing lines, a room on the roof
+  const F = faceInfo(b), R2 = lists.roof, X0 = LX(b.x0), X1 = LX(b.x1), Z0 = LZ(b.z0), Z1 = LZ(b.z1), rx = () => lerp(X0 + 1.5, X1 - 1.5, rr()), rz = () => lerp(Z0 + 1.5, Z1 - 1.5, rr());
+  if (b.ruin || X1 - X0 < 5 || Z1 - Z0 < 5) return;
   if (rr() < 0.3) { const cx = rx(), cz = rz(); R2.push([G.box(1.8, 1.5, 1.6), 0x8a6b48, M4(cx, top + 1.55, cz)], [G.box(2.0, 0.08, 1.8), 0x6a5038, M4(cx, top + 2.35, cz)]); for (const [ox, oz] of [[-0.8, -0.7], [0.8, -0.7], [-0.8, 0.7], [0.8, 0.7]]) R2.push([G.box(0.07, 0.8, 0.07), 0x5a4430, M4(cx + ox, top + 0.4, cz + oz)]); for (let j = 0; j < 4; j++) R2.push([G.box(1.82, 0.04, 0.03), 0x3a2c1e, M4(cx, top + 1.0 + j * 0.35, cz + 0.81)]); }
   if (rr() < 0.55) { const a0 = rx(), z0 = rz(), len = 3 + rr() * 3; R2.push([G.box(len, 0.012, 0.012), 0x1a1a1a, M4(a0, top + 1.7, z0)]); for (const s of [-1, 1]) R2.push([G.box(0.05, 1.7, 0.05), 0x4a4a46, M4(a0 + s * len / 2, top + 0.85, z0)]); for (let j = 0; j < 4; j++) D.cloth.push([planeAt(0.55, 0.7, a0 - len / 2 + 0.5 + j * (len - 1) / 3, top + 1.33, z0, rr() * 0.4), CLOTHC[Math.floor(rr() * CLOTHC.length)]]); }
   if (b.fl >= 3 && rr() < 0.3) { const w = F.span * 0.45, [x, z] = F.P(F.mid, -3.2); const g = boxUV(x - (F.horiz ? w / 2 : 1.6), x + (F.horiz ? w / 2 : 1.6), top, top + 2.8, z - (F.horiz ? 1.6 : w / 2), z + (F.horiz ? 1.6 : w / 2), 7, FLH); lists.upper[(b.v + 1) % lists.upper.length].push(aoBox(g, top, top + 2.8, 0.9, 0.86)); R2.push([G.box(F.horiz ? w + 0.3 : 3.5, 0.25, F.horiz ? 3.5 : w + 0.3), trimC, M4(x, top + 2.9, z)]); }
 }
-function balcony(x, z, nx, nz, y, list) {
-  const tx = -nz, tz = nx, rot = Math.atan2(nx, nz), w = 2.6;
-  list.push([new THREE.BoxGeometry(w, 0.16, 1.0).rotateY(rot).translate(x + nx * 0.5, y, z + nz * 0.5), 0xbdb3a0]);
-  list.push([new THREE.BoxGeometry(w, 0.05, 0.05).rotateY(rot).translate(x + nx * 0.98, y + 0.95, z + nz * 0.98), 0x2a2a28]);
-  for (let a = -w / 2; a <= w / 2 + 0.01; a += 0.22) list.push([new THREE.BoxGeometry(0.025, 0.9, 0.025).translate(x + nx * 0.98 + tx * a, y + 0.5, z + nz * 0.98 + tz * a), 0x2a2a28]);
-  for (const s of [-1, 1]) list.push([new THREE.BoxGeometry(0.05, 0.95, 1.0).rotateY(rot).translate(x + tx * s * w / 2 + nx * 0.5, y + 0.5, z + tz * s * w / 2 + nz * 0.5), 0x2a2a28]);
+/* a house whose top floor was shot away on one side: the walls of that floor stand in broken stubs along the edge, the rubble of it on the slab */
+function szRuinTop(b, lists, rr, rub) {
+  const X0 = LX(b.x0), X1 = LX(b.x1), Z0 = LZ(b.z0), Z1 = LZ(b.z1), top = CHH + b.fl * FLH, T = 0.3;
+  for (const [a0, a1, c0, c1, alongX] of [[X0, X1, Z0, Z0 + T, 1], [X0, X1, Z1 - T, Z1, 1], [X0, X0 + T, Z0, Z1, 0], [X1 - T, X1, Z0, Z1, 0]]) {
+    const L = alongX ? a1 - a0 : c1 - c0; let s = 0; while (s < L) { const w = 0.6 + rr() * 1.6, h = rr() < 0.3 ? 0.1 : 0.4 + rr() * 2.6; const e = Math.min(L, s + w);
+      lists.trim.push([alongX ? boxUV(a0 + s, a0 + e, top, top + h, c0, c1, 3, 3) : boxUV(a0, a1, top, top + h, c0 + s, c0 + e, 3, 3), SZ_PL[b.v % 6]]); s = e; } }
+  for (let i = 0; i < 26; i++) rub.push([new THREE.DodecahedronGeometry(0.3 + rr() * 0.6, 0).translate(lerp(X0 + 1, X1 - 1, rr()), top + 0.2, lerp(Z0 + 1, Z1 - 1, rr())), rr() < 0.5 ? 0xb9ad94 : 0x8d8473]);
 }
 
-/* ---------- vehicles and street props ---------- */
-const CAR_GEO = (burnt) => build([
-  [G.box(1.75, 0.55, 4.2), burnt ? 0x6a4630 : 0x7d6d4f, M4(0, 0.6, 0)], [G.box(1.6, 0.5, 2.1), burnt ? 0x553726 : 0x6b5d44, M4(0, 1.12, -0.2)],   // burnt: the paint gone to rust, not black
-  [G.box(1.5, 0.42, 0.06), burnt ? 0x0d0c0b : 0x23292c, M4(0, 1.12, 0.86, -0.5, 0, 0)], [G.box(1.5, 0.4, 0.06), burnt ? 0x0d0c0b : 0x23292c, M4(0, 1.12, -1.26, 0.4, 0, 0)],
-  ...[[-0.8, 1.3], [0.8, 1.3], [-0.8, -1.3], [0.8, -1.3]].map(([x, z]) => [G.cyl(0.34, 0.34, 0.24, 12), 0x161616, M4(x, burnt ? 0.22 : 0.34, z, 0, 0, Math.PI / 2)]),
-]);
-const BUS_GEO = build([[G.box(2.5, 2.4, 10.5), 0x3a332c, M4(0, 1.6, 0)], [G.box(2.45, 0.9, 10.3), 0x141210, M4(0, 2.15, 0)], ...[-3.8, 3.4].flatMap((z) => [-1.15, 1.15].map((x) => [G.cyl(0.5, 0.5, 0.3, 12), 0x111111, M4(x, 0.4, z, 0, 0, Math.PI / 2)]))]);
+/* ---------- street props. No car, bus or lorry in this city: the only vehicles in it are the tanks and the jeeps (theirs burnt out in the street) ---------- */
 const KIOSK_GEO = build([[G.box(2.2, 2.3, 1.8), 0x6f8a6a, M4(0, 1.15, 0)], [G.box(2.6, 0.15, 2.2), 0x4f5f4a, M4(0, 2.4, 0)], [G.box(1.6, 1.0, 0.06), 0x161412, M4(0, 1.35, 0.92)]]);
 function addProp(geo, x, z, rot, coll, h = 1.5, col = MAT.vc) {
-  // the burnt bus is the modelled wreck where its data is there: its own size for the collider
-  if (geo === BUS_GEO && mdlHas('w_bus')) { const b = mdlBox('w_bus'), m = mdlLOD('w_bus', mdlMats('w_bus', { color: 0x9a8a7a }, 'burnt'), LITE ? [0, 25, 80] : [0, 45, 130]); m.position.set(LX(x), CHH - 0.03, LZ(z)); m.rotation.y = rot; scene.add(SH(onLayer1(m))); SZ.objs.push(m); addCollider(LX(x), LZ(z), b[0] / 2, b[2] / 2, rot, CHH + b[1]); return m; }
   const m = new THREE.Mesh(geo, col); m.position.set(LX(x), CHH, LZ(z)); m.rotation.y = rot; scene.add(SH(onLayer1(m))); SZ.objs.push(m);
   if (coll) { addCollider(LX(x), LZ(z), coll[0], coll[1], rot, CHH + h); }
   return m;
 }
 function coverAround(x, z, hx, hz, rot, h) { const k0 = COVER.length; coverBox(LX(x), LZ(z), hx, hz, rot, h); for (let i = k0; i < COVER.length; i++) { COVER[i].y = CHH; SZ.covers.push(COVER[i]); } }
+// an Egyptian jeep shot up in the street: the modelled jeep in their paint, broken, and burning (fire) - cover for whoever is behind it
+function szWreck(x, z, r, fire = true) {
+  let m; if (typeof VEH_DATA !== 'undefined' && VEH_DATA.jeep) { const rec = vehModel('jeep', 'e'); vehDamage(rec, true); rec.dead = true; m = rec.g; m.position.set(LX(x), CHH, LZ(z)); m.rotation.y = r - Math.PI / 2; scene.add(SH(onLayer1(m))); SZ.objs.push(m); if (fire) wreckFire(m, VEH_FIRE.jeep, 0.9); }
+  else m = addProp(JEEP_GEO, x, z, r - Math.PI / 2, null);
+  addCollider(LX(x), LZ(z), 0.95, 2.05, r, CHH + 2.0); coverAround(x, z, 0.95, 2.05, r, 1.9); return m;
+}
+// a line no man walks over - its top is 1.4 m, beyond the highest jump - that bullets still pass above (a barricade, a sandbag wall, the wire on it)
+function szBar(x0, z0, x1, z1, hw = 0.35, h = 1.4) { const L = Math.hypot(x1 - x0, z1 - z0); return addCollider(LX((x0 + x1) / 2), LZ((z0 + z1) / 2), L / 2 + 0.15, hw, Math.atan2(-(z1 - z0), x1 - x0), CHH + h); }
+// concertina wire along a line: coils side by side, seen edge-on from the side
+function szWire(ws, x0, z0, x1, z1, y = 0.45) { const dx = x1 - x0, dz = z1 - z0, L = Math.hypot(dx, dz), n = Math.max(2, Math.round(L / 0.55)), a = Math.atan2(dz, -dx); for (let i = 0; i <= n; i++) ws.push(SZ.coil.clone().rotateY(a).translate(LX(x0 + dx * i / n), CHH + y, LZ(z0 + dz * i / n))); }
+// a fighting position on the ground: he crouches behind the cover in front of him (n points over it, at his enemy) and rises at it to fire
+function szGSlot(x, z, nx, nz, y = CHH) { const L = Math.hypot(nx, nz) || 1; nx /= L; nz /= L; const X = LX(x), Z = LZ(z); return { x: X, z: Z, y, nx, nz, f: 0, b: null, used: false, ground: true, p: [X + nx * 0.25, Z + nz * 0.25], h: [X - nx * 0.15, Z - nz * 0.15] }; }
+function szRubble(list, x, z, n, s, rr, y = CHH) { for (let i = 0; i < n; i++) { const k = rr(), sz = (0.25 + rr() * 0.5) * s, g = k < 0.65 ? new THREE.DodecahedronGeometry(sz, 0) : new THREE.BoxGeometry(sz * 2.2, sz * 0.5, sz * 1.4).rotateY(rr() * 3).rotateZ((rr() - 0.5) * 0.6); list.push([g.translate(LX(x + (rr() - 0.5) * 2.6 * s), y + sz * 0.35, LZ(z + (rr() - 0.5) * 2.6 * s)), [0xb9ad94, 0x8d8473, 0xa89c84, 0x9a5a40][Math.floor(rr() * 4)]]); } }
 
-/* ---------- street dressing: barricades, drums, blocks, wrecks, burning tyres, poles and wires, stalls, signs, craters ---------- */
+/* ---------- the dressing of the streets and the square: barricades, drums, blocks, wrecks, burning tyres, poles and wires, stalls, signs, craters; the
+   alleys of the flanking route with everything that blocks them where they must not be walked, and the Egyptian positions along them ---------- */
 function cityDressing(rr) {
-  const parts = [], wood = [], k0 = COVER.length;
+  const parts = [], wood = [], k0 = COVER.length, ws = [], rub = [];
   const coverHere = () => { for (let i = k0; i < COVER.length; i++) if (!SZ.covers.includes(COVER[i])) { COVER[i].y = CHH; SZ.covers.push(COVER[i]); } };
   const bag = (pts, layers) => bagWall(pts.map(([x, z]) => [LX(x), LZ(z)]), layers, CHH - 0.05, true);
-  // chicanes of sandbags across the north lane; the tank lane (z 2..6) stays open
-  bag([[143, -8.4], [138, -1.2]], 5); bag([[79, -0.8], [75, -8.4]], 4); bag([[12, -8.4], [10, -2.5], [6, -2.2]], 4); bag([[-30, 17], [-30, 21.5]], 5); bag([[-46, -27], [-42, -26]], 4);
-  // oil-drum barricades
-  // the packed drum where its data is there (3_world.js propSet: dl its matrices, standing on its base where the old cylinder was centred, dt its tints)
+  // chicanes of sandbags across the north lane of the avenue; the tank lane (z 2..6) stays open
+  bag([[143, -8.4], [138, -1.2]], 5); bag([[79, -0.8], [75, -8.4]], 4); bag([[12, -8.4], [10, -2.5], [6, -2.2]], 4);
+  // oil-drum barricades: the packed drum where its data is there (3_world.js propSet: dl its matrices, standing on its base where the old cylinder was centred, dt its tints)
   const dl = mdlHas('drum') ? [] : null, dt = [], half = new THREE.Matrix4().makeTranslation(0, -0.44, 0);
-  const drums = (x0, z0, x1, z1) => { const L = Math.hypot(x1 - x0, z1 - z0), n = Math.max(2, Math.round(L / 0.62)); for (let i = 0; i < n; i++) { const u = i / (n - 1), x = LX(lerp(x0, x1, u)), z = LZ(lerp(z0, z1, u));
-      const lie = rr() < 0.18, col = [0x2f4a3a, 0x6b3a26, 0x3d4652, 0x7a6a3a][Math.floor(rr() * 4)], M = lie ? M4(x, CHH + 0.29, z, Math.PI / 2, rr() * 3, 0) : M4(x, CHH + 0.44, z), top = rr() < 0.25 && !lie;
-      if (dl) { dl.push(M.multiply(half)); dt.push(drumTint(col)); if (top) { dl.push(M4(x, CHH + 1.32, z).multiply(half)); dt.push(drumTint(0x2f4a3a)); } }
-      else { parts.push([G.cyl(0.29, 0.29, 0.88, 12), col, M]); if (top) parts.push([G.cyl(0.29, 0.29, 0.88, 12), 0x2f4a3a, M4(x, CHH + 1.32, z)]); } }
-    const mx = (x0 + x1) / 2, mz = (z0 + z1) / 2; addCollider(LX(mx), LZ(mz), L / 2 + 0.3, 0.35, Math.atan2(-(z1 - z0), x1 - x0), CHH + 0.9); coverBox(LX(mx), LZ(mz), L / 2 + 0.3, 0.35, Math.atan2(-(z1 - z0), x1 - x0), 0.9); };
-  drums(96, -7.6, 92.5, -1.5); drums(-34, 11.5, -34, 16); drums(-84, -5.5, -84, 5.5); drums(160, 9.2, 165, 9.2); drums(-62, 48, -55, 47);
-  if (dl) propSet('drum', dl, dt);
+  const drum = (x, z, col, lie, top, r = rr() * 3) => { const M = lie ? M4(x, CHH + 0.29, z, Math.PI / 2, r, 0) : M4(x, CHH + 0.44, z, 0, r, 0);
+    if (dl) { dl.push(M.multiply(half)); dt.push(drumTint(col)); if (top) { dl.push(M4(x, CHH + 1.32, z).multiply(half)); dt.push(drumTint(0x2f4a3a)); } }
+    else { parts.push([G.cyl(0.29, 0.29, 0.88, 12), col, M]); if (top) parts.push([G.cyl(0.29, 0.29, 0.88, 12), 0x2f4a3a, M4(x, CHH + 1.32, z)]); } };
+  const DC = [0x2f4a3a, 0x6b3a26, 0x3d4652, 0x7a6a3a];
+  const drums = (x0, z0, x1, z1, block = true) => { const L = Math.hypot(x1 - x0, z1 - z0), n = Math.max(2, Math.round(L / 0.62)); for (let i = 0; i < n; i++) { const u = i / (n - 1); drum(LX(lerp(x0, x1, u)), LZ(lerp(z0, z1, u)), DC[Math.floor(rr() * 4)], rr() < 0.18, rr() < 0.25); }
+    const mx = (x0 + x1) / 2, mz = (z0 + z1) / 2; if (block) { addCollider(LX(mx), LZ(mz), L / 2 + 0.3, 0.35, Math.atan2(-(z1 - z0), x1 - x0), CHH + 0.9); coverBox(LX(mx), LZ(mz), L / 2 + 0.3, 0.35, Math.atan2(-(z1 - z0), x1 - x0), 0.9); } };
+  drums(96, -7.6, 92.5, -1.5); drums(160, 9.2, 165, 9.2);
   // concrete anti-tank blocks
   const blocks = (pts) => { for (const [x, z, r] of pts) { parts.push([G.box(1.15, 1.0, 1.15), 0xa39b8c, M4(LX(x), CHH + 0.5, LZ(z), 0, r, 0)], [G.box(0.85, 0.12, 0.85), 0x958e80, M4(LX(x), CHH + 1.06, LZ(z), 0, r, 0)]); addCollider(LX(x), LZ(z), 0.62, 0.62, r, CHH + 1.1); coverBox(LX(x), LZ(z), 0.62, 0.62, r, 1.05); } };
-  blocks([[40, -7.4, 0.2], [42, -4.2, 0.5], [-64, -48, 0.3], [-59.5, -49, 0.7], [-53, -47.5, 0.1], [-63, 50, 0.4], [-56, 51.5, 0.8], [-52.5, 49, 0.2], [120, 9.2, 0.6]]);
-  // wrecks: a burnt truck, a car on its side, a burning car
-  { const truck = build([[G.box(2.3, 2.0, 2.0), 0x221d19, M4(0, 1.5, 2.6)], [G.box(2.4, 0.3, 5.4), 0x1d1915, M4(0, 1.0, -1.1)], [G.box(0.08, 0.9, 5.2), 0x2a231d, M4(1.15, 1.6, -1.1)], [G.box(0.08, 0.9, 5.2), 0x2a231d, M4(-1.15, 1.6, -1.1)], ...[[-1.0, 2.6], [1.0, 2.6], [-1.0, -2.4], [1.0, -2.4]].map(([x, z]) => [G.cyl(0.48, 0.48, 0.35, 12), 0x0f0f0f, M4(x, 0.42, z, 0, 0, Math.PI / 2)])]);
-    // the burnt-out army trucks are the modelled jeeps now: in their paint, broken, and burning
-    const wreck = (x, z, r) => { if (typeof VEH_DATA === 'undefined' || !VEH_DATA.jeep) { addProp(truck, x, z, r, [1.25, 3.9], 2.4); coverAround(x, z, 1.25, 3.9, r, 2.2); return; }
-      const rec = vehModel('jeep', 'e'); vehDamage(rec, true); rec.dead = true; const m = rec.g; m.position.set(LX(x), CHH, LZ(z)); m.rotation.y = r - Math.PI / 2; scene.add(SH(onLayer1(m))); SZ.objs.push(m);
-      addCollider(LX(x), LZ(z), 0.95, 2.05, r, CHH + 2.0); coverAround(x, z, 0.95, 2.05, r, 1.9); wreckFire(m, VEH_FIRE.jeep, 0.9); };
-    wreck(183, -4.6, Math.PI / 2 + 0.15); smokeColumn(LX(183), LZ(-4.6), 5, true);
-    // the positions of the straw through the square, one for each bound and facing its front: a burnt truck short of the monument (west), another at the
-    // mouth of the west street (west), and a sandbag wall on the west side facing the north street and the corner building (north)
-    for (const [x, z, r] of [[-55.5, 14.5, 0.06], [-68.5, 6.0, -0.05]]) wreck(x, z, r); }
-  bag([[-76.5, -6.5], [-69.5, -6.5]], 6);
-  { const m = addProp(CAR_GEO(true), 148, 9.0, 0.2, [1.0, 2.2], 1.8); m.rotation.z = Math.PI / 2; m.position.y = CHH + 0.85; coverAround(148, 9.0, 1.0, 2.2, 0.2, 1.7); }
-  { const m = addProp(CAR_GEO(true), -70, 16, 2.5, [0.95, 2.15], 1.4); smokeColumn(LX(-70), LZ(16), 4, true); coverAround(-70, 16, 0.95, 2.15, 2.5, 1.3); }
+  blocks([[40, -7.4, 0.2], [42, -4.2, 0.5], [-64.8, -64, 0.3], [-51.2, -65, 0.7], [-64.9, 52, 0.4], [-51.1, 50.5, 0.8], [120, 9.2, 0.6], [-48.4, 3.2, 0.3], [-46.9, 2.6, 0.9], [64, -5, 0.4], [-8, -5.5, 0.2], [170, -6, 0.7], [171.3, -4.9, 0.2]]);
+  // the wrecks: burnt-out Egyptian jeeps along the avenue (where the shot-up cars stood) and in the square - every one of them cover
+  szWreck(183, -4.6, Math.PI / 2 + 0.15); smokeColumn(LX(183), LZ(-4.6), 5, true); szWreck(118, -5.5, 0.12, false); szWreck(30, -6, 0.3, false);
+  szWreck(-52, 13, 0.4); szWreck(-79, 7.5, -0.3, false); smokeColumn(LX(-52), LZ(13), 4, true);
   // burning tyres in the street
   for (const [x, z] of [[70, -2.5], [-4, -7]]) { for (let i = 0; i < 7; i++) parts.push([G.tor(0.36, 0.13, 6, 12), 0x141414, M4(LX(x) + (rr() - 0.5) * 1.2, CHH + 0.13 + Math.floor(i / 3) * 0.24, LZ(z) + (rr() - 0.5) * 1.2, Math.PI / 2, 0, rr())]); smokeColumn(LX(x), LZ(z), 3, true); }
   // power poles along the south pavement with wires sagging between them and across the avenue
@@ -6042,6 +6224,9 @@ function cityDressing(rr) {
     if (prev) for (const o of [-0.8, 0.8]) { const a = prev.clone().add(V3(0, 0, o)), b = tip.clone().add(V3(0, 0, o)), m = a.clone().lerp(b, 0.5); m.y -= 0.9; wires.push(new THREE.TubeGeometry(new THREE.QuadraticBezierCurve3(a, m, b), 10, 0.012, 3)); }
     if (rr() < 0.6) { const b = V3(px + rr() * 4 - 2, CHH + 7.2, LZ(-11)), m = tip.clone().lerp(b, 0.5); m.y -= 1.4; wires.push(new THREE.TubeGeometry(new THREE.QuadraticBezierCurve3(tip, m, b), 12, 0.012, 3)); }
     prev = tip; }
+  // the wires strung across the alleys, from wall to wall, sagging
+  const span = (x0, z0, x1, z1, y, sag) => { const a = V3(LX(x0), y, LZ(z0)), b = V3(LX(x1), y, LZ(z1)), m = a.clone().lerp(b, 0.5); m.y -= sag; wires.push(new THREE.TubeGeometry(new THREE.QuadraticBezierCurve3(a, m, b), 8, 0.012, 3)); };
+  for (const z of [-13.5, -19, -23.5, -30.5]) span(-32, z, -27.5, z + 1.5, CHH + 7.5 + rr(), 0.6); for (const x of [-35, -41, -46.5]) span(x, -32, x - 1.2, -36.5, CHH + 7.8 + rr(), 0.5);
   if (wires.length) scene.add(onLayer1(new THREE.Mesh(mergeGeometries(wires, false), MAT.dark)));
   // market stalls, a bus stop, a fallen lamp post, street signs, posters
   const stall = (x, z, r, k) => { const c = [0x7a3a2a, 0x2f5a4a, 0x8a7a3a][k]; for (const [ox, oz] of [[-1.3, -0.8], [1.3, -0.8], [-1.3, 0.8], [1.3, 0.8]]) wood.push([G.box(0.07, 2.2, 0.07), 0x5a4430, M4(ox, 1.1, oz)]); wood.push([G.box(2.9, 0.06, 1.9), c, M4(0, 2.25, 0, 0.12, 0, 0)], [G.box(2.6, 0.75, 1.3), 0x6b5038, M4(0, 0.38, 0)]);
@@ -6050,25 +6235,72 @@ function cityDressing(rr) {
   stall(22, 9.7, 0, 0); stall(106, -9.7, Math.PI, 1); stall(-40, 21.5, 0.1, 2); stall(212, -9.7, Math.PI, 2);
   parts.push([G.box(3.6, 0.08, 1.6), 0x3a4a3a, M4(LX(204), CHH + 2.5, LZ(9.9))], [G.box(0.08, 2.5, 0.08), 0x2a2a28, M4(LX(202.4), CHH + 1.25, LZ(10.5))], [G.box(0.08, 2.5, 0.08), 0x2a2a28, M4(LX(205.6), CHH + 1.25, LZ(10.5))], [G.box(3.4, 0.45, 0.4), 0x6b5a40, M4(LX(204), CHH + 0.45, LZ(10.4))]);
   parts.push([G.cyl(0.08, 0.1, 7, 6), 0x4a4a46, M4(LX(35), CHH + 0.25, LZ(-9.2), 0, 0, Math.PI / 2 - 0.08)]);
+  // benches, bollards and street cabinets round the square and along the avenue
+  for (const [x, z, r] of [[-44, -21.6, 0], [-80.5, 21.6, Math.PI], [-46, 21.6, Math.PI], [52, 9.6, Math.PI], [140, -9.6, 0], [88, 9.6, Math.PI]]) { const c = Math.cos(r), s = Math.sin(r); parts.push([G.box(1.8, 0.06, 0.45), 0x6b5038, M4(LX(x), CHH + 0.45, LZ(z), 0, r, 0)], [G.box(1.8, 0.4, 0.05), 0x6b5038, M4(LX(x) + s * 0.22, CHH + 0.75, LZ(z) + c * 0.22, 0, r, 0)]); for (const o of [-0.8, 0.8]) parts.push([G.box(0.06, 0.45, 0.4), 0x2a2a28, M4(LX(x) + c * o, CHH + 0.22, LZ(z) - s * o, 0, r, 0)]); }
+  for (let x = -82; x <= -38; x += 4) for (const z of [-22.3, 22.3]) if (Math.abs(x + 58) > 9) parts.push([G.cyl(0.11, 0.13, 0.85, 8), 0x8a8478, M4(LX(x), CHH + 0.42, LZ(z))]);
+  for (const [x, z] of [[-35.5, -11.6], [0, 11.6], [100, -11.6], [176, 11.6]]) parts.push([G.box(0.8, 1.3, 0.45), 0x5a6a5e, M4(LX(x), CHH + 0.65, LZ(z))], [G.box(0.84, 0.06, 0.5), 0x4a564c, M4(LX(x), CHH + 1.33, LZ(z))]);
   const signTx = (t) => { const c = canvas(256, 96), g = c.getContext('2d'); g.fillStyle = '#1f4e8a'; g.fillRect(0, 0, 256, 96); g.strokeStyle = '#e8eef4'; g.lineWidth = 6; g.strokeRect(6, 6, 244, 84); g.fillStyle = '#f2f4f6'; g.font = 'bold 34px Arial'; g.textAlign = 'center'; g.direction = 'rtl'; g.fillText(t, 128, 60); return tex(c); };
-  for (const [x, z, t, r] of [[-35, -10.5, 'شارع الأربعين', 0], [-35, 10.5, 'شارع الأربعين', Math.PI], [97, -10.6, 'شارع الجيش', 0], [-51, -23.2, 'ميدان الأربعين', 0]]) {
+  for (const [x, z, t, r] of [[-35, 10.5, 'شارع الأربعين', Math.PI], [97, -10.6, 'شارع الجيش', 0], [-49, -23.2, 'ميدان الأربعين', 0], [-31.6, -10.6, 'حارة السوق', 0]]) {
     parts.push([G.cyl(0.04, 0.04, 2.8, 6), 0x3a3a38, M4(LX(x), CHH + 1.4, LZ(z))]); const m = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 0.42), new THREE.MeshStandardMaterial({ map: signTx(t), side: THREE.DoubleSide, roughness: 0.6 })); m.position.set(LX(x), CHH + 2.6, LZ(z)); m.rotation.y = r; scene.add(onLayer1(m)); }
   const posterTx = (seed) => { const c = canvas(128, 176), g = c.getContext('2d'), r = rng(seed); g.fillStyle = ['#d8c79a', '#c9d6c2', '#e3c2a8'][seed % 3]; g.fillRect(0, 0, 128, 176); g.fillStyle = ['#8a2a22', '#1f4e3a', '#2a2a2a'][seed % 3]; g.fillRect(8, 8, 112, 60); g.fillStyle = '#f4ecd8'; g.font = 'bold 22px Arial'; g.textAlign = 'center'; g.direction = 'rtl'; g.fillText(['مصر', 'العبور', 'النصر'][seed % 3], 64, 46); g.fillStyle = '#2a2420'; for (let i = 0; i < 6; i++) g.fillRect(14, 84 + i * 13, 100 * (0.5 + r() * 0.5), 5); g.fillStyle = 'rgba(80,60,40,0.25)'; g.fillRect(0, 150, 128, 26); return tex(c); };
-  for (const [x, z, r, sd] of [[30, -11.05, 0, 1], [33, -11.05, 0, 2], [88, 11.05, Math.PI, 3], [-50.5, -24.05, 0, 4], [150, -11.05, 0, 5]]) { const m = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 1.25), new THREE.MeshStandardMaterial({ map: posterTx(sd), roughness: 0.9 })); m.position.set(LX(x), CHH + 1.7, LZ(z) + (r ? -0.01 : 0.01)); m.rotation.y = r; scene.add(onLayer1(m)); }
+  for (const [x, z, r, sd] of [[30, -11.05, 0, 1], [33, -11.05, 0, 2], [88, 11.05, Math.PI, 3], [150, -11.05, 0, 5], [-31.95, -17.5, Math.PI / 2, 6], [-27.55, -22, -Math.PI / 2, 7], [-43, -31.95, 0, 8]]) { const m = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 1.25), new THREE.MeshStandardMaterial({ map: posterTx(sd), roughness: 0.9 })); const n = V3(Math.sin(r), 0, Math.cos(r)); m.position.set(LX(x) + n.x * 0.02, CHH + 1.7, LZ(z) + n.z * 0.02); m.rotation.y = r; scene.add(onLayer1(m)); }
   // shell craters and scorch on the asphalt
-  { const sm = new THREE.MeshStandardMaterial({ map: scorchTex(), transparent: true, depthWrite: false, roughness: 1 }); for (const [x, z, s] of [[130, -3, 3.2], [55, 1.5, 2.6], [14, -1.5, 3.0], [-48, -12, 3.4], [-62, 14, 2.8], [190, 3, 2.4], [-72, -4, 2.6]]) { const m = new THREE.Mesh(new THREE.PlaneGeometry(s, s), sm); m.rotation.x = -Math.PI / 2; m.rotation.z = rr() * 6; m.position.set(LX(x), CHH + 0.04, LZ(z)); m.renderOrder = 1; scene.add(onLayer1(m)); } }
-  // concertina wire across the alley mouths
-  { const coil = new THREE.TorusGeometry(0.45, 0.02, 4, 12), ws = []; for (const [x, z0, z1] of [[98.5, -12, -19], [130.5, 12, 19], [62.5, 12, 19], [160.5, -12, -19], [198.5, 12, 19]]) for (let z = z0; Math.abs(z - z1) > 0.3; z += Math.sign(z1 - z0) * 0.55) ws.push(coil.clone().rotateY(Math.PI / 2).translate(LX(x), CHH + 0.45, LZ(z)));
-    scene.add(SH(onLayer1(new THREE.Mesh(mergeGeometries(ws, false), MAT.wire)), true, false)); }
-  // an Egyptian anti-tank gun dug in at the mouth of the north street, aimed across the square at the end of the avenue
+  { const sm = new THREE.MeshStandardMaterial({ map: scorchTex(), transparent: true, depthWrite: false, roughness: 1 }); for (const [x, z, s] of [[130, -3, 3.2], [55, 1.5, 2.6], [14, -1.5, 3.0], [-48, -12, 3.4], [-62, 14, 2.8], [190, 3, 2.4], [-72, -4, 2.6], [-29.5, -17, 1.8], [-40, -34, 2.0], [-57, -36, 2.6]]) { const m = new THREE.Mesh(new THREE.PlaneGeometry(s, s), sm); m.rotation.x = -Math.PI / 2; m.rotation.z = rr() * 6; m.position.set(LX(x), CHH + 0.04, LZ(z)); m.renderOrder = 1; scene.add(onLayer1(m)); } }
+  // concertina wire across the alley mouths off the avenue
+  for (const [x, z0, z1] of [[98.5, -12, -19], [130.5, 12, 19], [62.5, 12, 19], [160.5, -12, -19], [198.5, 12, 19]]) { szWire(ws, x, z0, x, z1); szBar(x, z0, x, z1); }
+  // an Egyptian anti-tank gun dug in at the mouth of the north street, behind the square, aimed across it at the end of the avenue (it is the gun that stops the tank)
   { const gun = build([[G.box(0.5, 0.5, 1.1), 0x4a5038, M4(0, 0.85, 0)], [G.cyl(0.06, 0.07, 2.6, 10), 0x3a3e30, M4(0, 1.0, 1.6, Math.PI / 2, 0, 0)], [G.box(1.3, 0.9, 0.06), 0x4f5640, M4(0, 1.1, 0.35)], ...[-1, 1].map((sd) => [G.cyl(0.42, 0.42, 0.12, 12), 0x1a1a1a, M4(sd * 0.75, 0.42, 0, 0, 0, Math.PI / 2)]), ...[-1, 1].map((sd) => [G.box(0.08, 0.08, 2.2), 0x3a3e30, M4(sd * 0.35, 0.3, -1.2, 0, sd * 0.25, 0)])]);
-    addProp(gun, SZ_GUN[0], SZ_GUN[1], SZ_GUN[2], [0.8, 1.3], 1.4); }
-  // the square is one route now (the straw): the south street is shut by a burnt-out bus and concrete blocks, with two sandbagged positions in front of it facing the square
-  { addProp(BUS_GEO, -58.6, 31, Math.PI / 2 + 0.04, [1.3, 5.3], 3.0); for (const [x, z, r] of [[-52.6, 30.9, 0.3], [-51.1, 30.3, 0.8]]) { parts.push([G.box(1.15, 1.0, 1.15), 0xa39b8c, M4(LX(x), CHH + 0.5, LZ(z), 0, r, 0)]); addCollider(LX(x), LZ(z), 0.62, 0.62, r, CHH + 1.1); }
-    smokeColumn(LX(-60), LZ(31), 3, true); }
+    addProp(gun, SZ_GUN[0], SZ_GUN[1], SZ_GUN[2], [0.8, 1.3], 1.4); const arc = []; for (let t = 1.3; t <= 4.25; t += 0.25) arc.push([SZ_GUN[0] + Math.sin(t) * 2.1, SZ_GUN[1] - Math.cos(t) * 2.1]); bag(arc, 5); }
+  /* ---- the barricades that make the route one: nobody walks past any of them ---- */
+  // across the mouth of the square, where the avenue ends: concrete blocks, a burnt jeep, hedgehogs and wire. The tank halts at it, and from here on the square is a killing ground
+  { const x = -36.4; blocks([[x, -10.3, 0.1], [x, -8.9, 0.6], [x, 1.8, 0.3], [x, 3.3, 0.8], [x, 9.6, 0.2]]); szWreck(x - 0.4, -2.6, Math.PI / 2 + 0.25, false); smokeColumn(LX(x - 0.4), LZ(-2.6), 2.5, false); szWire(ws, x + 0.9, -11, x + 0.9, 11); szBar(x + 0.2, -11.2, x + 0.2, 11.2, 0.95);
+    if (mdlHas('hedgehog')) { const hm = []; for (const z of [5.3, 7.4, -6.6]) hm.push(M4(LX(x), CHH, LZ(z), 0, rr() * 3, 0)); for (const m of mdlInst('hedgehog', LITE ? 1 : 0, hm)) SZ.objs.push(m); } bag([[x - 0.4, 6.0], [x - 0.4, 8.6]], 5); }
+  // across the north street at the mouth of the square: their sandbag line facing the square (the gun pit is in it); the men behind it have their backs to the alley we come out of
+  bag([[-65.8, -26.3], [-60.4, -26.3]], 6); bag([[-55.6, -26.3], [-50.2, -26.3]], 6); szWire(ws, -66, -26.3, -50, -26.3, 1.55); szBar(-66, -26.3, -50, -26.3, 0.5);
+  // further up the north street: their line facing south, which the counterattack comes to
+  bag([[-65.8, -46.2], [-50.2, -46.2]], 6); szWire(ws, -66, -46.2, -50, -46.2, 1.55); szBar(-66, -46.2, -50, -46.2, 0.5);
+  // in the square, the cover the attackers of the last stages run to: a sandbag wall on the west side, a sandbagged position by the west street
+  bag([[-82, -6.5], [-75, -6.5]], 5); { const arc = []; for (let t = -1.2; t <= 1.21; t += 0.3) arc.push([-79 + Math.sin(t) * 1.7, 16 - Math.cos(t) * 1.7]); bag(arc, 4); }
+  // the light well behind the corner building is walled off from the street
+  parts.push([boxUV(LX(-66.3), LX(-66), CHH, CHH + 3.2, LZ(-39.6), LZ(-37.9), 3, 3), 0xc8bda4]); addCollider(LX(-66.15), LZ(-38.75), 0.15, 0.85, 0, CHH + 3.2);
+  /* ---- the flanking route: the alley north off the avenue (N1) and the one west from it to the north street (BA1) ---- */
+  // the Egyptian positions along it, each facing back down the alley at whoever comes: sandbags across part of it, crates and drums
+  bag([[-31.8, -25.0], [-30.1, -25.0]], 4); bag([[-31.4, -35.2], [-28.4, -35.2]], 4); bag([[-49.2, -36.4], [-49.2, -35.4]], 5);
+  if (mdlHas('f_crate_long') && mdlHas('f_crate_wood')) { const cm = [], cw = []; for (const [x, z, n, r] of [[-28.3, -27.6, 2, 0.1], [-42.5, -35.7, 3, Math.PI / 2], [-30.9, -14.6, 2, 0.4], [-52.2, -39.6, 2, Math.PI / 2 + 0.1]]) { for (let l = 0; l < n; l++) for (const o of [-0.15, 0.15]) cm.push(M4(LX(x) + Math.sin(r) * o, CHH + l * 0.26, LZ(z) + Math.cos(r) * o, 0, r + (rr() - 0.5) * 0.08, 0)); cw.push(M4(LX(x), CHH + n * 0.26, LZ(z), 0, r + 0.2, 0)); addCollider(LX(x), LZ(z), 0.62, 0.32, r, CHH + n * 0.26 + 0.23); coverBox(LX(x), LZ(z), 0.62, 0.32, r, n * 0.26 + 0.23); }
+    for (const m of mdlInst('f_crate_long', LITE ? 1 : 0, cm)) SZ.objs.push(m); for (const m of mdlInst('f_crate_wood', LITE ? 1 : 0, cw)) SZ.objs.push(m); }
+  drums(-42.5, -32.6, -42.5, -33.3); drums(-49.1, -32.3, -49.1, -33.1);
+  for (const [x, z] of [[-31.4, -18.2], [-28.0, -31.6], [-37.2, -32.5], [-46.5, -36.0]]) drum(LX(x), LZ(z), DC[Math.floor(rr() * 4)], false, false);
+  // a shot-up jeep of theirs nosed into the east side of the alley, and the rubble of a balcony that came down
+  szWreck(-28.6, -20.4, 0.06, false); szRubble(rub, -31.0, -29.5, 14, 0.7, rr); szRubble(rub, -39, -36.0, 10, 0.6, rr); szRubble(rub, -45.5, -32.4, 8, 0.5, rr);
+  // washing strung across the alleys between the balconies, with what was hung out on the last morning
+  { const cl = []; for (const [x0, z0, x1, z1, y] of [[-32, -15.5, -27.5, -16.0, 7.0], [-32, -27.8, -27.5, -27.2, 7.4], [-37.0, -32, -36.4, -36.5, 7.2], [-44.0, -32, -44.6, -36.5, 7.0]]) { const n = 4; for (let i = 0; i < n; i++) { const u = (i + 0.7) / (n + 0.4), x = lerp(x0, x1, u), z = lerp(z0, z1, u); cl.push([planeAt(0.5 + rr() * 0.3, 0.6 + rr() * 0.4, LX(x), CHH + y - 0.45 - Math.sin(u * Math.PI) * 0.35, LZ(z), Math.atan2(x1 - x0, z1 - z0) + Math.PI / 2), CLOTHC[Math.floor(rr() * CLOTHC.length)]]); } const L = Math.hypot(x1 - x0, z1 - z0); parts.push([G.box(L, 0.014, 0.014), 0x1a1a1a, M4(LX((x0 + x1) / 2), CHH + y - 0.2, LZ((z0 + z1) / 2), 0, Math.atan2(-(z1 - z0), x1 - x0), 0)]); }
+    if (cl.length) { const m = new THREE.Mesh(build(cl), new THREE.MeshStandardMaterial({ vertexColors: true, side: THREE.DoubleSide, roughness: 1, map: TX.fabric })); scene.add(onLayer1(m)); SZ.objs.push(m); } }
+  // lamps on brackets over the doors, and the doors themselves with their steps
+  for (const [x, z, r] of [[-31.95, -19.5, Math.PI / 2], [-27.55, -16.5, -Math.PI / 2], [-27.55, -31.5, -Math.PI / 2], [-40.5, -32.05, 0], [-46.0, -36.45, Math.PI], [-35.0, -36.45, Math.PI]]) { const s = Math.sin(r), c = Math.cos(r), X = LX(x), Z = LZ(z);
+    parts.push([G.box(0.06, 0.06, 0.5), 0x2a2a28, M4(X + s * 0.25, CHH + 3.3, Z + c * 0.25, 0, r, 0)], [G.cyl(0.11, 0.07, 0.18, 8), 0x3a3a36, M4(X + s * 0.5, CHH + 3.2, Z + c * 0.5)]);
+    parts.push([G.box(1.3, 2.3, 0.08), 0x4e3a28, M4(X + s * 0.04, CHH + 1.15, Z + c * 0.04, 0, r, 0)], [G.box(1.6, 0.18, 0.12), 0xd8ccb2, M4(X + s * 0.06, CHH + 2.4, Z + c * 0.06, 0, r, 0)], [G.box(1.5, 0.14, 0.45), 0xa39b8c, M4(X + s * 0.22, CHH + 0.07, Z + c * 0.22, 0, r, 0)]); }
+  SZ.ws = ws; SZ.rub = rub;
+  if (dl) propSet('drum', dl, dt);
   if (parts.length) { const m = new THREE.Mesh(build(parts), MAT.vc); scene.add(SH(onLayer1(m))); }
   coverHere();
 }
+/* the wreck of the platoon's second tank (2ג), hit at the junction behind us, across the avenue with the rubble of a balcony and the wire either side
+   of it: from the moment the crew bails out the way back is shut. Not there while the tank still drives (stages 0-1) */
+function szBuildAve() {
+  const g = new THREE.Group(), cols = [], rr = rng(77), rubP = [];
+  if (typeof VEH_DATA !== 'undefined' && VEH_DATA.magach) { const r = vehModel('magach', 'f'); r.g.position.set(LX(-19.5), CHH, LZ(1.2)); r.g.rotation.y = 0.85 - Math.PI / 2; r.g.userData.vl.dead = true; wreckTilt(r.g, rr); g.add(r.g); }
+  else { const m = new THREE.Mesh(TANK_GEO, MAT_BURNT); m.position.set(LX(-19.5), CHH, LZ(1.2)); m.rotation.y = 0.85 - Math.PI / 2; g.add(m); }
+  cols.push(addCollider(LX(-19.5), LZ(1.2), 1.9, 3.5, 0.85, CHH + 2.4), szBar(-19.3, -11.2, -19.3, -1.0, 1.6, 1.6), szBar(-19.6, 4.0, -19.6, 11.2, 0.6));
+  szRubble(rubP, -19.3, -8.5, 34, 1.15, rr); szRubble(rubP, -19.5, -3.5, 14, 0.8, rr);
+  const ws = []; szWire(ws, -19.6, 4.2, -19.6, 11.0); if (ws.length) g.add(new THREE.Mesh(mergeGeometries(ws, false), MAT.wire));
+  g.add(new THREE.Mesh(build(rubP), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, flatShading: true, map: TX.grime })));
+  if (mdlHas('hedgehog')) for (const z of [6.2, 9.0]) { const h = mdlMesh('hedgehog', LITE ? 1 : 0); h.position.set(LX(-20.4), CHH, LZ(z)); h.rotation.y = z; g.add(h); }
+  // it burnt out at the junction: smoke, no flames - a fire's light this close would outshine the afternoon
+  smokeColumn(LX(-19.5), LZ(1.2), 3, false);
+  SH(onLayer1(g)); g.visible = false; g.userData.dyn = true; scene.add(g); SZ.objs.push(g);
+  SZ.ave = { g, cols, tops: cols.map((k) => k.top) }; szAveOn(false);
+}
+function szAveOn(on) { const A = SZ.ave; if (!A) return; A.g.visible = on; A.cols.forEach((k, i) => { k.top = on ? A.tops[i] : -1e4; }); if (SZ.aveW) SZ.aveW.on = on; }
 
 /* ---------- the M48 Patton ("Magach") ---------- */
 const TANK = { g: null, turret: null, gun: null, hp: 100, s: 0, speed: 0, path: [], stops: [], stopI: 0, wait: 0, alive: true, burning: false, mg: 0, gunT: 0, recoil: 0, wheels: [], trackTex: null, fireT: 0, toW: (x, z) => [LX(x), LZ(z)], vmax: 4.2, driveOn: false, hdV: null };
@@ -6177,7 +6409,7 @@ function updTank(dt) {
   }
   if (TANK.burning) { TANK.fireT += dt; TANK.fireS.forEach((f, i) => { f.visible = true; f.position.set(rand(-0.6, 0.6), 1.9 + i * 0.5 + Math.sin(GAME.t * 7 + i) * 0.2, -2.2 + rand(-0.3, 0.3)); f.scale.setScalar(1.6 + i * 0.6 + Math.sin(GAME.t * 11 + i) * 0.3); });
     if (Math.random() < dt * 5) { const s = FX.smoke.get(); s.life = 6; s.s.position.set(TANK.g.position.x + rand(-1, 1), gy + 3, TANK.g.position.z + rand(-1, 1)); s.s.material.color.set(0x1a1816); s.upd = (q, u, dt2) => { q.s.position.y += 3 * dt2; q.s.scale.setScalar(2 + u * 9); q.s.material.opacity = 0.75 * (1 - u); }; }
-    LIGHTS.fire.position.set(TANK.g.position.x, gy + 3, TANK.g.position.z); LIGHTS.fire.intensity = 22000 * (0.8 + 0.2 * Math.sin(GAME.t * 13)); }
+    LIGHTS.fire.position.set(TANK.g.position.x, gy + 3, TANK.g.position.z); LIGHTS.fire.intensity = (MODE === 'suez' && SZ.stage >= 2 ? 90 : 22000) * (0.8 + 0.2 * Math.sin(GAME.t * 13)); }   // on foot in daylight, beside it: a glow, not a second sun
 }
 function tankHit(p, big = false, dmg = null) {
   fxExplosion(p, big ? 1.4 : camera.position.distanceTo(p) < 4.5 ? 0.4 : 0.9); sndBoom(p, big ? 1.4 : 0.9); FX.shake = Math.max(FX.shake, big ? 1.1 : 0.6);
@@ -6240,14 +6472,14 @@ function tankCamera(dt) {
 function bailOut() {
   if (SZ.stage !== 1 || SZ.bailed) return; SZ.bailed = true; TANK.alive = false; TANK.burning = true; TANK.hp = 0;
   const f = $('#fade'); f.style.transition = 'none'; f.style.opacity = '1'; P.crouch = false; P.mode = 'rifle'; P.ads = 0; INPUT.tAds = false; $('#tads').classList.remove('on');
-  const hd = TANK.g.rotation.y, px = TANK.g.position.x + Math.cos(hd) * 2.6 - Math.sin(hd) * 1.0, pz = TANK.g.position.z - Math.sin(hd) * 2.6 - Math.cos(hd) * 1.0;
-  P.pos.set(px, hAt(px, pz), pz); P.vy = 0; P.hp = Math.min(P.hp, 70); vm.visible = true; $('#tsight').classList.remove('on');
+  // the crew runs from the burning tank to the mouth of the alley while the screen is dark: that is where the flank starts
+  const [ax, az, ah] = SZ_START[2], px = LX(ax), pz = LZ(az); P.pos.set(px, hAt(px, pz), pz); P.vy = 0; P.yaw = -THREE.MathUtils.degToRad(ah); P.pitch = 0; P.hp = Math.min(P.hp, 70); vm.visible = true; $('#tsight').classList.remove('on');
   requestAnimationFrame(() => requestAnimationFrame(() => { f.style.transition = 'opacity 1.4s'; f.style.opacity = '0'; }));
-  radio('מ״פ', 'הטנק בוער! צאו ממנו! כולם לבניין הפינה!', 4); szStage(2);
+  radio('מ״פ', 'הטנק בוער! צאו ממנו! 2ג נפגע מאחורינו, הדרך חזרה חסומה. כולם לסמטה!', 4); szStage(2);
 }
 
 /* ---------- the corner building: three floors, a stairwell, real windows and doors ---------- */
-const TB = { x0: -82, x1: -66, z0: -38, z1: -24, sx1: -77.4, sz1: -29.3, lane: -79.7, door: [-77.3, -75.3], floors: 3, fN: -36.4, fS: -30.9 };
+const TB = { x0: -82, x1: -66, z0: -38, z1: -24, sx1: -77.4, sz1: -29.3, lane: -79.7, door: [-77.3, -75.3], ed: [-35.3, -33.7], floors: 3, fN: -36.4, fS: -30.9 };
 function rugTex(seed, a, b) { const c = canvas(128, 192), g = c.getContext('2d'), r = rng(seed); g.fillStyle = a; g.fillRect(0, 0, 128, 192); g.strokeStyle = b; g.lineWidth = 6; g.strokeRect(8, 8, 112, 176); g.lineWidth = 2; g.strokeRect(18, 18, 92, 156); for (let i = 0; i < 7; i++) { g.save(); g.translate(64, 30 + i * 22); g.rotate(Math.PI / 4); g.strokeRect(-7, -7, 14, 14); g.restore(); } g.fillStyle = 'rgba(0,0,0,0.12)'; for (let i = 0; i < 400; i++) g.fillRect(r() * 128, r() * 192, 2, 2); return tex(c); }
 function pictureTex(seed) { const c = canvas(96, 72), g = c.getContext('2d'), r = rng(seed); g.fillStyle = '#5a3a22'; g.fillRect(0, 0, 96, 72); const sky = g.createLinearGradient(0, 8, 0, 64); sky.addColorStop(0, ['#9cc0d8', '#e0b878', '#a8b8a0'][seed % 3]); sky.addColorStop(1, '#e8dcc0'); g.fillStyle = sky; g.fillRect(7, 7, 82, 58); g.fillStyle = ['#5a7a4a', '#8a6a3a', '#4a5a6a'][seed % 3]; g.beginPath(); g.moveTo(7, 65); for (let x = 7; x <= 89; x += 8) g.lineTo(x, 40 + r() * 18); g.lineTo(89, 65); g.fill(); return tex(c); }
 function buildCornerBuilding() {
@@ -6255,7 +6487,9 @@ function buildCornerBuilding() {
   const wall = (x0, x1, z0, z1, y0, y1, c) => { parts.push([boxUV(X(x0), X(x1), y0, y1, Z(z0), Z(z1), 3, 3), c]); addCollider(X((x0 + x1) / 2), Z((z0 + z1) / 2), Math.abs(x1 - x0) / 2, Math.abs(z1 - z0) / 2, 0, y1, y0); };
   const wallLine = (axis, c0, a0, a1, y0, ops, col) => {
     let cur = a0; const H = FLH; const seg = (s0, s1, yb, yt) => { if (s1 - s0 < 0.02 || yt - yb < 0.02) return; if (axis === 'x') wall(s0, s1, c0 - T / 2, c0 + T / 2, yb, yt, col); else wall(c0 - T / 2, c0 + T / 2, s0, s1, yb, yt, col); };
-    for (const [o0, o1, sill, head] of ops.sort((a, b) => a[0] - b[0])) { seg(cur, o0, y0, y0 + H); seg(o0, o1, y0, y0 + sill); seg(o0, o1, y0 + head, y0 + H); cur = o1; }
+    // a window gets a thin bar across it at 1.36-1.40 m: no jump clears it, so nobody leaves the building by a window, and it stops only the shots that pass through those 4 cm
+    const bar = (s0, s1) => (axis === 'x' ? addCollider(X((s0 + s1) / 2), Z(c0), (s1 - s0) / 2, T / 2 + 0.08, 0, y0 + 1.40, y0 + 1.36) : addCollider(X(c0), Z((s0 + s1) / 2), T / 2 + 0.08, (s1 - s0) / 2, 0, y0 + 1.40, y0 + 1.36));
+    for (const [o0, o1, sill, head] of ops.sort((a, b) => a[0] - b[0])) { seg(cur, o0, y0, y0 + H); seg(o0, o1, y0, y0 + sill); seg(o0, o1, y0 + head, y0 + H); if (sill > 0) bar(o0, o1); cur = o1; }
     seg(cur, a1, y0, y0 + H);
   };
   const win = (c) => [c - 0.65, c + 0.65, 0.95, 2.75], door = (a, b) => [a, b, 0, 2.6];
@@ -6263,7 +6497,7 @@ function buildCornerBuilding() {
     const y = FY(f), c = inC[f];
     wallLine('x', TB.z1, TB.x0, TB.x1, y, f === 0 ? [door(TB.door[0], TB.door[1]), win(-71), win(-68.3)] : [win(-80.5), win(-75.5), win(-71), win(-68.3)], wallC);
     wallLine('x', TB.z0, TB.x0, TB.x1, y, [win(-75), win(-70)], wallC);
-    wallLine('z', TB.x1, TB.z0, TB.z1, y, [win(-34.5), win(-27.2)], wallC);
+    wallLine('z', TB.x1, TB.z0, TB.z1, y, f === 0 ? [door(TB.ed[0], TB.ed[1]), win(-27.2)] : [win(-34.5), win(-27.2)], wallC);   // the side door on the north street, where the flank comes in
     wallLine('z', TB.x0, TB.z0, TB.z1, y, [win(-26.8)], wallC);
     // stairwell: east wall with the floor-1 door at the north landing; south wall with doors on the ground floor (lane A) and floor 2 (lane B)
     wallLine('z', TB.sx1, TB.z0 + T / 2, TB.sz1, y, f === 1 ? [door(-37.8, -36.5)] : [], c);
@@ -6274,7 +6508,7 @@ function buildCornerBuilding() {
     wallLine('x', TB.sz1, -71.6, TB.x1 - T / 2, y, [door(-70.2, -68.4)], c);
   }
   const RY = FY(3);
-  for (const [a, b, cc, d] of [[TB.x0, TB.x1, TB.z1 - 0.15, TB.z1 + 0.15], [TB.x0, TB.x1, TB.z0 - 0.15, TB.z0 + 0.15], [TB.x0 - 0.15, TB.x0 + 0.15, TB.z0, TB.z1], [TB.x1 - 0.15, TB.x1 + 0.15, TB.z0, TB.z1]]) wall(a, b, cc, d, RY, RY + 1.0, wallC);
+  for (const [a, b, cc, d] of [[TB.x0, TB.x1, TB.z1 - 0.15, TB.z1 + 0.15], [TB.x0, TB.x1, TB.z0 - 0.15, TB.z0 + 0.15], [TB.x0 - 0.15, TB.x0 + 0.15, TB.z0, TB.z1], [TB.x1 - 0.15, TB.x1 + 0.15, TB.z0, TB.z1]]) { wall(a, b, cc, d, RY, RY + 1.0, wallC); addCollider(X((a + b) / 2), Z((cc + d) / 2), Math.abs(b - a) / 2, Math.abs(d - cc) / 2, 0, RY + 1.40, RY + 1.36); }   // nobody jumps the parapet either
   wallLine('z', TB.sx1, TB.z0 + T / 2, TB.sz1, RY, [door(-37.8, -36.5)], wallC); wallLine('x', TB.sz1, TB.x0 + T / 2, TB.sx1, RY, [], wallC);
   parts.push([boxUV(X(TB.x0), X(TB.sx1 + 0.15), RY + FLH - 0.2, RY + FLH, Z(TB.z0), Z(TB.sz1 + 0.15), 3, 3), 0xb7ab92]);
   const slab = (x0, x1, z0, z1, y) => { addFloor(X(Math.min(x0, x1)), X(Math.max(x0, x1)), Z(Math.min(z0, z1)), Z(Math.max(z0, z1)), y); slabParts.push(boxUV(X(x0), X(x1), y - 0.22, y, Z(z0), Z(z1), 3, 3)); addCollider(X((x0 + x1) / 2), Z((z0 + z1) / 2), Math.abs(x1 - x0) / 2, Math.abs(z1 - z0) / 2, 0, y, y - 0.22); };
@@ -6296,7 +6530,7 @@ function buildCornerBuilding() {
   // framed, with a sill and a pair of open wooden shutters folded back against the wall
   { const out = (axis, c0, sg, a0, a1, y0, y1, d0, d1, col, list = parts) => { const f0 = c0 + sg * (T / 2 + d0), f1 = c0 + sg * (T / 2 + d1), lo = Math.min(f0, f1), hi = Math.max(f0, f1);
       list.push([axis === 'x' ? boxUV(X(a0), X(a1), y0, y1, Z(lo), Z(hi), 3, 3) : boxUV(X(lo), X(hi), y0, y1, Z(a0), Z(a1), 3, 3), col]); };
-    const FACES = [['x', TB.z1, 1, TB.x0, TB.x1, (f) => (f === 0 ? [-71, -68.3] : [-80.5, -75.5, -71, -68.3])], ['x', TB.z0, -1, TB.x0, TB.x1, () => [-75, -70]], ['z', TB.x1, 1, TB.z0, TB.z1, () => [-34.5, -27.2]], ['z', TB.x0, -1, TB.z0, TB.z1, () => [-26.8]]];
+    const FACES = [['x', TB.z1, 1, TB.x0, TB.x1, (f) => (f === 0 ? [-71, -68.3] : [-80.5, -75.5, -71, -68.3])], ['x', TB.z0, -1, TB.x0, TB.x1, () => [-75, -70]], ['z', TB.x1, 1, TB.z0, TB.z1, (f) => (f === 0 ? [-27.2] : [-34.5, -27.2])], ['z', TB.x0, -1, TB.z0, TB.z1, () => [-26.8]]];
     const BAND = 0xc6b898, TRIM = 0xe4dac4, SHUT = [0x5e4630, 0x4f5f49, 0x6b5238, 0x55606a], sr = rng(73);
     for (const [ax, c0, sg, a0, a1, wins] of FACES) {
       const e = ax === 'x' ? T / 2 + 0.14 : 0, b0 = a0 - e, b1 = a1 + e;
@@ -6304,6 +6538,8 @@ function buildCornerBuilding() {
       out(ax, c0, sg, b0 - (ax === 'x' ? 0.06 : 0), b1 + (ax === 'x' ? 0.06 : 0), RY + 0.84, RY + 1.06, 0, 0.18, BAND);
       if (ax === 'x' && sg > 0) { out(ax, c0, sg, b0, TB.door[0] - 0.12, CHH, CHH + 0.8, 0, 0.05, 0xa89a80); out(ax, c0, sg, TB.door[1] + 0.12, b1, CHH, CHH + 0.8, 0, 0.05, 0xa89a80);
         out(ax, c0, sg, TB.door[0] - 0.14, TB.door[1] + 0.14, CHH + 2.6, CHH + 2.8, 0, 0.1, TRIM); for (const d of [TB.door[0] - 0.14, TB.door[1]]) out(ax, c0, sg, d, d + 0.14, CHH, CHH + 2.6, 0, 0.08, TRIM); }
+      else if (ax === 'z' && sg > 0) { out(ax, c0, sg, b0, TB.ed[0] - 0.12, CHH, CHH + 0.8, 0, 0.05, 0xa89a80); out(ax, c0, sg, TB.ed[1] + 0.12, b1, CHH, CHH + 0.8, 0, 0.05, 0xa89a80);
+        out(ax, c0, sg, TB.ed[0] - 0.14, TB.ed[1] + 0.14, CHH + 2.6, CHH + 2.8, 0, 0.1, TRIM); for (const d of [TB.ed[0] - 0.14, TB.ed[1]]) out(ax, c0, sg, d, d + 0.14, CHH, CHH + 2.6, 0, 0.08, TRIM); }
       else out(ax, c0, sg, b0, b1, CHH, CHH + 0.8, 0, 0.05, 0xa89a80);
       for (let f = 0; f < 3; f++) { const y = FY(f); for (const c of wins(f)) {
         out(ax, c0, sg, c - 0.78, c + 0.78, y + 0.88, y + 0.95, 0, 0.15, TRIM); out(ax, c0, sg, c - 0.78, c + 0.78, y + 2.75, y + 2.92, 0, 0.08, TRIM);
@@ -6362,7 +6598,7 @@ function buildCornerBuilding() {
   crates(-76.75, -30.05, 2, TS, 0, 4); const cpB = crates(-67.2, -28.75, 2, TS, 2, 0); fm('f_typewriter', -67.2, -28.75, 2, TS, 0, cpB);
   fm('f_cabinet', -81.49, -28.85, 2, TE, 2); fm('f_bench_metal', -66.85, -24.29, 2, TS, 2); B(-76.0, FY(2) + 1.5, -29.17, 1.6, 1.0, 0.05, 0x1e2a22);
   // the roof: a sandbag position and the water tanks
-  bags(-74, -24.6, -70, -24.6, 3, 4); bags(-66.6, -30, -66.6, -27, 3, 4); B(-70.0, FY(3) + 0.9, -34.5, 1.6, 1.8, 1.6, 0x8b8a84);
+  bags(-74, -24.6, -70, -24.6, 3, 4); bags(-66.6, -30, -66.6, -27, 3, 4); B(-70.0, FY(3) + 0.9, -34.5, 1.6, 1.8, 1.6, 0x8b8a84); solid(-70.0, -34.5, 0.8, 0.8, 0, FY(3), 1.8, 3, true);
   // ceiling lamps and a few dropped things
   for (let f = 0; f < 3; f++) for (const [x, z] of [[-75, -34], [-69, -34], [-74, -26.8], [-68.5, -26.8]]) { B(x, FY(f + 1) - 0.45, z, 0.02, 0.6, 0.02, 0x2a2a28); deco(new THREE.SphereGeometry(0.13, 8, 6).translate(X(x), FY(f + 1) - 0.8, Z(z)), 0xfff2c8); }
   // the small things: on every table, counter and crate, and on the walls - the coffee house below, the family above, the command post over them
@@ -6376,7 +6612,7 @@ function buildCornerBuilding() {
   for (const [g, k] of soft) { const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ map: rugs[k], roughness: 1 })); scene.add(onLayer1(m)); SZ.objs.push(m); m.receiveShadow = !LITE; }
   for (const [g, k] of pics) { const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ map: pictureTex(k), roughness: 0.7 })); scene.add(onLayer1(m)); SZ.objs.push(m); }
   const sg = sign('عمارة الأربعين', 'plain', X(-76.3), CHH + 2.9, Z(TB.z1) + 0.2, 0, 1.4); SZ.objs.push(sg);
-  szAidBuild(FY);
+  szAidBuild(FY); szDoorsBuild(FY);
   SZ.tb = TB;
   // keep only room covers that stand on open floor inside the rooms (not in walls, furniture, the stair shaft or outside)
   for (let i = SZ.covers.length - 1; i >= 0; i--) { const c = SZ.covers[i]; if (c.floor === undefined) continue; const lx = c.x - CITY.cx, lz = c.z - CITY.cz;
@@ -6387,7 +6623,6 @@ function buildCornerBuilding() {
 const SZ_AID = { x0: -77.4, x1: -71.6, z0: -38, z1: -29.3, c: [-74.8, -33.6], door: [-76.6, -37.1], hall: [-73.7, -28.8] };
 const SZ_WOUNDED = [['יענקל׳ה', -73.0, -36.5], ['דני', -73.0, -34.8], ['מנחם', -73.0, -33.1], ['עופר', -75.0, -32.4], ['יורם', -75.0, -30.7]];   // friends 10-14, lying with their heads to the east wall
 const SZ_MEDIC = ['החובש', -76.6, -31.5];   // friend 15, on his feet between the wounded and the door
-const SZ_RAID = [[-76.3, -22.5, 0], [-76.3, -25.5, 0], [-80.8, -28.6, 0], [-80.8, -31.3, 0], [-80.8, -37.1, 1], [-76.6, -37.1, 1], [-75.0, -34.2, 1]];   // the way up the stairs and through the door of the aid post
 function szInAid(x, z) { const lx = x - CITY.cx, lz = z - CITY.cz; return lx > SZ_AID.x0 && lx < SZ_AID.x1 && lz > SZ_AID.z0 && lz < SZ_AID.z1; }
 function szAidBuild(FY) {
   const g = new THREE.Group(), y = FY(1), X = LX, Z = LZ, parts = [];
@@ -6401,6 +6636,43 @@ function szAidBuild(FY) {
   { const c = canvas(64, 64), q = c.getContext('2d'); q.fillStyle = '#efece4'; q.fillRect(0, 0, 64, 64); q.fillStyle = '#b4231a'; q.fillRect(24, 8, 16, 48); q.fillRect(8, 24, 48, 16); const m = new THREE.Mesh(new THREE.PlaneGeometry(1.25, 0.95), new THREE.MeshStandardMaterial({ map: tex(c), roughness: 0.95, side: THREE.DoubleSide })); m.position.set(X(-75.5), y + 0.42, Z(TB.z1) + 0.19); g.add(onLayer1(m)); }
   g.add(sign('תאג״ד', 'aid', X(-72.1), y + 2.0, Z(TB.sz1) + 0.17, 0, 0.9)); g.add(sign('תאג״ד', 'aid', X(TB.sx1) - 0.17, y + 2.0, Z(-35.9), -Math.PI / 2, 0.9));
   g.visible = false; g.userData.dyn = true; scene.add(g); SZ.objs.push(g); SZ.aidG = g;
+}
+/* ---------- the doors of the corner building: shut until the fight comes to them, so the building is taken in one order only (szCqUpd). A door is a
+   leaf on its hinge and a collider in its doorway, which stops men and bullets while it is shut; a barricade (sandbags and furniture across the
+   foot of a flight) is the same with no hinge. id: [axis of its wall ('x': along x at z = c, 'z': along z at x = c), c, a0, a1, floor, the way it swings] */
+const SZ_DOORS = { E: ['z', -66, -35.3, -33.7, 0, -1], P0: ['z', -71.6, -35.5, -33.8, 0, -1], W0: ['x', -29.3, -74.6, -72.8, 0, -1], S0: ['x', -29.3, -81.6, -79.95, 0, 1], A0: ['x', -29.3, -70.2, -68.4, 0, 1], FD: ['x', -24, -77.3, -75.3, 0, 1],
+  F1: ['z', -77.4, -37.8, -36.5, 1, 1], P1: ['z', -71.6, -35.5, -33.8, 1, 1], A1: ['x', -29.3, -70.2, -68.4, 1, -1], W1: ['x', -29.3, -74.6, -72.8, 1, 1],
+  S2: ['x', -29.3, -79.5, -77.65, 2, -1], W2: ['x', -29.3, -74.6, -72.8, 2, 1], P2: ['z', -71.6, -35.5, -33.8, 2, 1], A2: ['x', -29.3, -70.2, -68.4, 2, -1], RD: ['z', -77.4, -37.8, -36.5, 3, 1] };
+const SZ_BARR = { SB: [-79.7, -77.4, -36.45, -35.65, 1], SA: [-82, -79.7, -31.65, -30.85, 2] };   // the foot of the flight to floor 2 (at floor 1), and of the flight to the roof (at floor 2)
+const SZD = {};
+function szDoorsBuild(FY) {
+  const wm = new THREE.MeshStandardMaterial({ color: 0x7a5636, roughness: 0.8, map: TX.wood });
+  for (const id in SZ_DOORS) {
+    const [ax, c, a0, a1, f, sw] = SZ_DOORS[id], y = FY(f), w = a1 - a0, piv = new THREE.Group(), leaf = new THREE.Mesh(new THREE.BoxGeometry(w - 0.06, 2.52, 0.06), wm);
+    leaf.position.set(w / 2, 1.27, 0); piv.add(leaf); leaf.add(new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.05, 0.12), MAT.metal).translateX(w / 2 - 0.16));
+    const base = ax === 'x' ? 0 : -Math.PI / 2; if (ax === 'x') piv.position.set(LX(a0), y, LZ(c)); else piv.position.set(LX(c), y, LZ(a0)); piv.rotation.y = base;
+    const col = ax === 'x' ? addCollider(LX((a0 + a1) / 2), LZ(c), w / 2, 0.22, 0, y + 2.62, y - 0.1) : addCollider(LX(c), LZ((a0 + a1) / 2), 0.22, w / 2, 0, y + 2.62, y - 0.1);
+    scene.add(SH(onLayer1(piv))); SZ.objs.push(piv); SZD[id] = { piv, col, top: col.top, base, sw, open: false, x: ax === 'x' ? (a0 + a1) / 2 : c, z: ax === 'x' ? c : (a0 + a1) / 2, f };
+  }
+  for (const id in SZ_BARR) {
+    const [x0, x1, z0, z1, f] = SZ_BARR[id], y = FY(f), g = new THREE.Group(), parts = [], rr = rng(id.charCodeAt(1));
+    for (let l = 0; l < 7; l++) for (let i = 0; i < 4; i++) { const u = (i + (l % 2) * 0.5 + 0.25) / 4; if (u > 1) continue; parts.push([G.box(0.56, 0.2, 0.34), 0xb7a47c, M4(LX(lerp(x0, x1, u)), y + 0.1 + l * 0.2, LZ((z0 + z1) / 2 + (rr() - 0.5) * 0.12), 0, (rr() - 0.5) * 0.2, 0)]); }
+    parts.push([G.box(0.6, 1.9, 0.5), 0x5a4030, M4(LX((x0 + x1) / 2), y + 0.25, LZ(z0 - 0.1), Math.PI / 2 - 0.2, 0.3, 0)], [G.box(0.45, 0.05, 0.45), 0x6b5038, M4(LX(x0 + 0.4), y + 1.55, LZ(z1), 0.4, 0.5, 0.2)]);
+    g.add(new THREE.Mesh(build(parts), MAT.vc)); const col = addCollider(LX((x0 + x1) / 2), LZ((z0 + z1) / 2), (x1 - x0) / 2, (z1 - z0) / 2, 0, y + 2.0, y - 0.1);
+    g.userData.dyn = true; scene.add(SH(onLayer1(g))); SZ.objs.push(g); SZD[id] = { piv: g, col, top: col.top, bar: true, open: false, x: (x0 + x1) / 2, z: (z0 + z1) / 2, f };
+  }
+}
+function szDoor(id, open) { const d = SZD[id]; if (!d || d.open === open) return; d.open = open; d.col.top = open ? -1e4 : d.top; if (d.bar) d.piv.visible = !open; else d.piv.rotation.y = d.base + (open ? d.sw * 1.48 : 0); }
+// the doors as each stage begins: all shut before the building is entered; in the fight for it only the side door is open; in its defence all open but the
+// barricade to the floors above (the defence is fought from the first floor) and the doors to the street and to the stairwell below, which open only for
+// an Egyptian in them (szAutoDoor) - so the player stays on the first floor while the raiders can still get at the wounded
+const SZ_AUTO = ['S0', 'FD', 'E'];
+function szDoorsStage(i) { for (const id in SZD) szDoor(id, i >= 5 ? !['A0', 'SB', ...SZ_AUTO].includes(id) : i === 4 ? id === 'E' : false); }
+function szAutoDoor(dt) {
+  for (const id of SZ_AUTO) { const d = SZD[id]; if (!d) continue; const x = LX(d.x), z = LZ(d.z); let near = false;
+    for (const e of UNITS.enemies) if (e.alive && e.sz && Math.abs(e.pos.y - CHH) < 1.6 && Math.hypot(e.pos.x - x, e.pos.z - z) < 2.8) { near = true; break; }
+    if (near) { if (!d.open) { szDoor(id, true); sndBoom(V3(x, CHH + 1.2, z), 0.25); } d.autoT = 1.5; continue; }
+    d.autoT = (d.autoT || 0) - dt; if (d.open && d.autoT <= 0 && Math.hypot(P.pos.x - x, P.pos.z - z) > 1.4) szDoor(id, false); }
 }
 function szProps(FY) {
   const P = (kind, x, z, y, rot = 0, floor) => propAdd('suez', kind, LX(x), y, LZ(z), rot, floor), On = (kinds, x, z, y, w, d, seed, floor) => propsOn('suez', kinds, LX(x), LZ(z), y, w, d, 0, seed, floor);
@@ -6460,103 +6732,149 @@ function sandbagTex() {
   }
   const t = tex(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; return t;
 }
-function szFortWindows(B, nAve) {
-  const fr = rng(4173), bags = [], slabs = [];
-  B.forEach((b, bi) => {
-    const [fx, fz] = b.face, horiz = fz !== 0, fc = horiz ? (fz > 0 ? b.z1 : b.z0) : (fx > 0 ? b.x1 : b.x0), a0 = horiz ? b.x0 : b.z0, a1 = horiz ? b.x1 : b.z1, FI = faceInfo(b), sq = bi >= nAve;
-    const tx = horiz ? 1 : 0, tz = horiz ? 0 : 1;
-    for (let f = 1; f < Math.min(b.fl, 4); f++) {
-      const ws = FI.wins.filter(() => fr() < (sq ? 0.5 : 0.36)); if (!ws.length && FI.wins.length && fr() < 0.7) ws.push(FI.wins[Math.floor(fr() * FI.wins.length)]);
-      for (const a of ws) {
-        const X = LX(horiz ? a : fc), Z = LZ(horiz ? fc : a), y = CHH + f * FLH, W = (al, out) => [X + tx * al + fx * out, Z + tz * al + fz * out];
-        const ab = (al0, al1, o0, o1, y0, y1, tw, th) => { const [ax, az] = W(al0, o0), [bx, bz] = W(al1, o1); return boxUV(Math.min(ax, bx), Math.max(ax, bx), y0, y1, Math.min(az, bz), Math.max(az, bz), tw, th); };
-        const col = (al, out, ha, ho, top, bot) => { const [cx, cz] = W(al, out); addCollider(cx, cz, horiz ? ha : ho, horiz ? ho : ha, 0, top, bot); };
-        slabs.push([ab(-1.25, 1.25, 0, 1.18, y - 0.17, y + 0.01, 3, 3), 0xc9bea6]);
-        bags.push(ab(-1.14, 1.14, 0.74, 1.14, y, y + 0.95, 1.1, 0.95)); for (const sd of [-1, 1]) bags.push(ab(sd * 0.8, sd * 1.14, 0.12, 0.74, y, y + 0.95, 1.1, 0.95));
-        col(0, 0.94, 1.14, 0.2, y + 0.95, y - 0.25); for (const sd of [-1, 1]) col(sd * 0.97, 0.43, 0.17, 0.31, y + 0.95, y - 0.25);
-        const s = { x: X, z: Z, y, nx: fx, nz: fz, f, b, used: false, fort: true }; s.p = W(0, 0.5); s.h = W(0, 0.42); SZ.slots.push(s);
-      }
+function szFortWindows(B) {
+  const bags = [], slabs = [];
+  B.forEach((b) => {
+    const faces = szFaces(b);
+    for (const [fi, f, a, open] of b.fortL) {
+      const [fx, fz] = faces[fi], horiz = fz !== 0, fc = faceInfo(b, faces[fi]).fc, tx = horiz ? 1 : 0, tz = horiz ? 0 : 1;
+      const X = LX(horiz ? a : fc), Z = LZ(horiz ? fc : a), y = CHH + f * FLH, W = (al, out) => [X + tx * al + fx * out, Z + tz * al + fz * out];
+      const ab = (al0, al1, o0, o1, y0, y1, tw, th) => { const [ax, az] = W(al0, o0), [bx, bz] = W(al1, o1); return boxUV(Math.min(ax, bx), Math.max(ax, bx), y0, y1, Math.min(az, bz), Math.max(az, bz), tw, th); };
+      const col = (al, out, ha, ho, top, bot) => { const [cx, cz] = W(al, out); addCollider(cx, cz, horiz ? ha : ho, horiz ? ho : ha, 0, top, bot); };
+      // over a narrow alley a window has no sandbags (from the alley below they would hide him completely): a bare ledge, and he leans out of the window to fire
+      if (open) { slabs.push([ab(-1.1, 1.1, 0, 0.62, y - 0.15, y + 0.01, 3, 3), 0xc9bea6]); const s = { x: X, z: Z, y, nx: fx, nz: fz, f, b, used: false, open: true }; s.p = W(0, 0.42); s.h = W(0, 0.2); SZ.slots.push(s); continue; }
+      slabs.push([ab(-1.25, 1.25, 0, 1.18, y - 0.17, y + 0.01, 3, 3), 0xc9bea6]);
+      bags.push(ab(-1.14, 1.14, 0.74, 1.14, y, y + 0.95, 1.1, 0.95)); for (const sd of [-1, 1]) bags.push(ab(sd * 0.8, sd * 1.14, 0.12, 0.74, y, y + 0.95, 1.1, 0.95));
+      col(0, 0.94, 1.14, 0.2, y + 0.95, y - 0.25); for (const sd of [-1, 1]) col(sd * 0.97, 0.43, 0.17, 0.31, y + 0.95, y - 0.25);
+      const s = { x: X, z: Z, y, nx: fx, nz: fz, f, b, used: false, fort: true }; s.p = W(0, 0.5); s.h = W(0, 0.42); SZ.slots.push(s);
     }
     // the roof: behind the parapet (0.9 m), standing to fire over it, crouching behind it
+    if (b.ruin) return; const [fx, fz] = b.face, horiz = fz !== 0, fc = faceInfo(b).fc, a0 = horiz ? b.x0 : b.z0, a1 = horiz ? b.x1 : b.z1;
     for (let a = a0 + 2; a < a1 - 1.5; a += 5) { const px = horiz ? a : fc, pz = horiz ? fc : a; const s = { x: LX(px), z: LZ(pz), y: CHH + b.fl * FLH, nx: fx, nz: fz, f: b.fl, b, roof: true, used: false }; s.p = [s.x - fx * 0.62, s.z - fz * 0.62]; s.h = [s.x - fx * 0.8, s.z - fz * 0.8]; SZ.slots.push(s); }
   });
   if (slabs.length) { const m = new THREE.Mesh(build(slabs), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, map: TX.grime })); scene.add(SH(onLayer1(m))); }
   if (bags.length) { const t = sandbagTex(); const m = new THREE.Mesh(mergeGeometries(bags, false), new THREE.MeshStandardMaterial({ map: t, bumpMap: t, bumpScale: LITE ? 0.8 : 1.6, roughness: 0.97 })); scene.add(SH(onLayer1(m))); }
 }
+// the fortified window nearest a point of the plan on floor f (the scripted encounters name their windows by place)
+function szSlot(lx, lz, f) { let best = null, bd = 2.5; for (const s of SZ.citySlots || SZ.slots) { if (s.roof || s.ground || s.f !== f) continue; const d = Math.hypot(s.x - LX(lx), s.z - LZ(lz)); if (d < bd) { bd = d; best = s; } } return best; }
 
 /* ---------- the city ---------- */
+/* the square and the quarter round it (local). forts: the windows the Egyptians hold, [face (0 face, 1 f2), floor, window index, 'o': open - a bare ledge over an alley]; a block
+   without the list gets its fortified windows by lot. The flanking route runs through the quarter: the alley N1 north off the avenue
+   (x -32..-27.5) and the alley BA1 west from it to the north street (z -36.5..-32); every other way out of them is a wall */
+const SZ_QB = [
+  { x0: -50, x1: -32, z0: -32, z1: -24, fl: 4, v: 1, face: [0, 1], f2: [0, -1], forts: [[0, 1, 1], [0, 2, 3], [0, 3, 2], [1, 1, 1, 'o'], [1, 2, 0, 'o']], alley: [1] },   // the north-east corner of the square; its back on BA1
+  { x0: -36, x1: -32, z0: -24, z1: -11, fl: 3, v: 4, face: [-1, 0], f2: [1, 0], forts: [[0, 1, 1], [0, 2, 0]], alley: [1] },   // a narrow house between the square and N1
+  { x0: -50, x1: -36, z0: 24, z1: 40, fl: 3, v: 2, face: [0, -1] }, { x0: -84, x1: -66, z0: 24, z1: 40, fl: 4, v: 3, face: [0, -1] },   // the south side of the square
+  { x0: -98, x1: -82, z0: -24, z1: -9, fl: 3, v: 0, face: [1, 0] }, { x0: -98, x1: -82, z0: 9, z1: 24, fl: 5, v: 2, face: [1, 0] },   // the west side
+  { x0: -27.5, x1: -15, z0: -27, z1: -11, fl: 4, v: 2, face: [0, 1], f2: [-1, 0], forts: [[0, 1, 1], [0, 2, 0], [1, 2, 0, 'o']], alley: [1] },   // the first house of the avenue, on N1
+  { x0: -27.5, x1: -15, z0: -36.5, z1: -27, fl: 3, v: 5, face: [-1, 0], forts: [[0, 1, 0, 'o']], alley: [0] },   // on N1, behind it
+  { x0: -38, x1: -20, z0: -50, z1: -36.5, fl: 2, v: 0, face: [0, 1], forts: [[0, 1, 2], [0, 1, 0, 'o']], alley: [0] },   // shuts N1 at the bend
+  { x0: -50, x1: -38, z0: -58, z1: -36.5, fl: 3, v: 3, face: [0, 1], f2: [-1, 0], forts: [[0, 2, 1, 'o'], [0, 1, 0, 'o'], [1, 1, 3, 'o']], alley: [0] },   // on BA1 and the north street
+  { x0: -98, x1: -84, z0: -42, z1: -24, fl: 4, v: 1, face: [1, 0], forts: [] },   // west of the corner building, across the walled passage
+  { x0: -84, x1: -66, z0: -60, z1: -39.5, fl: 3, v: 4, face: [1, 0], forts: [[0, 1, 3, 'o'], [0, 2, 4, 'o']] },   // across the light well from the corner building, on the north street
+];
+const szNearRoute = (x, z) => Math.min(Math.abs(z) + (x < -36 ? -36 - x : x > 245 ? x - 245 : 0), Math.max(0, Math.abs(x + 58) - 8) + Math.max(0, Math.abs(z) - 105), Math.max(0, -84 - x, x + 36) + Math.max(0, Math.abs(z) - 24));
+function szFortPlan(B, nAve) {
+  const fr = rng(4173);
+  B.forEach((b, bi) => { b.fortL = []; b.fortSet = new Set();
+    szFaces(b).forEach((face, fi) => { const FI = faceInfo(b, face);
+      if (b.forts) { for (const [ffi, f, wi, o] of b.forts) if (ffi === fi && FI.wins[wi] !== undefined && f < b.fl) b.fortL.push([fi, f, FI.wins[wi], !!o]); }
+      else if (fi === 0) for (let f = 1; f < Math.min(b.fl, 4); f++) { const ws = FI.wins.filter(() => fr() < (bi >= nAve ? 0.5 : 0.36)); if (!ws.length && FI.wins.length && fr() < 0.7) ws.push(FI.wins[Math.floor(fr() * FI.wins.length)]); for (const a of ws) b.fortL.push([fi, f, a]); } });
+    for (const [fi, f, a] of b.fortL) b.fortSet.add(fi + ':' + f + ':' + a.toFixed(2)); });
+}
 function buildSuez() {
   if (SZ.built) return; SZ.built = true; const k0 = scene.children.length;
   const PL = ['#e8dcc0', '#d8bf8c', '#e6c9b8', '#cdd2c6', '#ece4d2', '#c9b27e'], SH_ = ['#3f6b4e', '#5b4630', '#3d5b6b', '#6d6248', '#2f4f3a', '#6b3a2a'];
-  const lists = { ground: [], upper: [], roof: [] }, gMats = [], uMats = [];
+  const lists = { ground: [], groundR: [], upper: [], upperD: [], roof: [], roofTop: [], trim: [] }, gMats = [], uMats = [], dMats = [], rMats = [];
   const wallMat = (t) => new THREE.MeshStandardMaterial({ map: t, bumpMap: bumpOf(t), bumpScale: LITE ? 0.8 : 1.4, roughness: 0.93, vertexColors: true });
-  for (let i = 0; i < 6; i++) { gMats.push(wallMat(facadeTile(300 + i, PL[(i + 3) % 6], SH_[i], true))); uMats.push(wallMat(facadeTile(400 + i, PL[i], SH_[(i + 1) % 6], false))); lists.ground.push([]); lists.upper.push([]); }
+  for (let i = 0; i < 6; i++) { gMats.push(wallMat(facadeTile(300 + i, PL[(i + 3) % 6], SH_[i], true))); uMats.push(wallMat(facadeTile(400 + i, PL[i], SH_[(i + 1) % 6], false))); dMats.push(wallMat(facadeTile(500 + i, PL[i], SH_[i], false, true))); rMats.push(wallMat(facadeTile(600 + i, PL[(i + 3) % 6], SH_[(i + 2) % 6], true, 'res'))); lists.groundR.push([]); lists.ground.push([]); lists.upper.push([]); lists.upperD.push([]); }
   const B = [], rr = rng(1973);
   const lotRow = (xA, xB, zIn, zOut, side, gaps) => { let x = xA; while (x < xB - 6) { const w = Math.min(xB - x, 12 + rr() * 9); if (gaps.some(([g0, g1]) => x < g1 && x + w > g0)) { x += 4; continue; } const d = 12 + rr() * 5; B.push({ x0: x, x1: x + w, z0: side < 0 ? zIn - d : zIn, z1: side < 0 ? zIn : zIn + d, fl: 2 + Math.floor(rr() * 5), v: Math.floor(rr() * 6), face: side < 0 ? [0, 1] : [0, -1] }); x += w + (rr() < 0.25 ? 5 : 0.2); } };
-  // the avenue (Sharia el-Arbaeen) from the east entrance to the square
-  lotRow(-36, 240, -11, 0, -1, [[96, 101], [158, 163]]); lotRow(-36, 240, 11, 0, 1, [[60, 65], [128, 133], [196, 201]]); const nAve = B.length;
-  // around the square: north side (west of the cross street is our building), south side, west side
-  B.push({ x0: -50, x1: -36, z0: -40, z1: -24, fl: 4, v: 1, face: [0, 1] }); B.push({ x0: -50, x1: -36, z0: 24, z1: 40, fl: 3, v: 2, face: [0, -1] }); B.push({ x0: -84, x1: -66, z0: 24, z1: 40, fl: 4, v: 3, face: [0, -1] });
-  B.push({ x0: -98, x1: -82, z0: -24, z1: -9, fl: 3, v: 0, face: [1, 0] }); B.push({ x0: -98, x1: -82, z0: 9, z1: 24, fl: 5, v: 2, face: [1, 0] });
-  // the cross street, north and south of the square
-  for (const [z0, z1] of [[-100, -82], [-80, -60], [-58, -40], [40, 58], [60, 80], [82, 100]]) { B.push({ x0: -84, x1: -66, z0, z1, fl: 2 + Math.floor(rr() * 3), v: Math.floor(rr() * 4), face: [1, 0] }); B.push({ x0: -50, x1: -32, z0, z1, fl: 2 + Math.floor(rr() * 3), v: Math.floor(rr() * 4), face: [-1, 0] }); }
-  // the rest of the city fills every block behind the streets, so no alley or gap looks out onto empty ground
+  // the avenue (Sharia el-Arbaeen) from the east entrance to the square; three of its houses lost their top floor to the shelling
+  lotRow(-15, 240, -11, 0, -1, [[96, 101], [158, 163]]); lotRow(-36, 240, 11, 0, 1, [[60, 65], [128, 133], [196, 201]]); const nAve = B.length;
+  for (const i of [3, 10, 17]) { const b = B[i]; if (b && b.fl >= 3) { b.fl--; b.ruin = true; } }
+  for (const q of SZ_QB) B.push({ ...q });
+  // the north street and the south street off the square
+  for (const [z0, z1] of [[-100, -82], [-80, -62], [40, 58], [60, 80], [82, 100]]) B.push({ x0: -84, x1: -66, z0, z1, fl: 2 + Math.floor(rr() * 3), v: Math.floor(rr() * 4), face: [1, 0] });
+  for (const [z0, z1] of [[-100, -82], [-80, -60], [40, 58], [60, 80], [82, 100]]) B.push({ x0: -50, x1: -32, z0, z1, fl: 2 + Math.floor(rr() * 3), v: Math.floor(rr() * 4), face: [-1, 0] });
+  const D = { trim: lists.trim, rail: [], cloth: [], awn: [[], [], []], win: [[], [], []], sh: [], holes: [], soot: [], rub: [], blade: [[], [], [], []] }, rub = [];
+  szFortPlan(B, nAve);
+  for (const b of B) { b.style = rr() < 0.3 ? 2 : rr() < 0.55 ? 1 : 0; cityBuilding(b, lists); decorate(b, D, rr, lists); if (b.ruin) szRuinTop(b, lists, rr, rub); }
+  /* the rest of the city fills every block behind the streets, so no alley or gap looks out onto empty ground: houses of two to six floors (now and
+     then a taller one), a third of them with a floor or two set back on the roof, each with its parapet and cornice, its water tanks and aerials.
+     A block out of sight of the streets keeps only the parapet and the cornice */
   { const occ = (x0, x1, z0, z1) => B.some((b) => x0 < b.x1 + 2.5 && x1 > b.x0 - 2.5 && z0 < b.z1 + 2.5 && z1 > b.z0 - 2.5) || (x1 > -112 && x0 < 252 && z0 < 12 && z1 > -12) || (x1 > -100 && x0 < -30 && z0 < 42 && z1 > -42) || (x1 > -70 && x0 < -46 && z0 < 120 && z1 > -120) || (x1 > -88 && x0 < -60 && z0 < -18 && z1 > -44);
-    for (let x = -262; x < 262; x += 24) for (let z = -262; z < 262; z += 24) { const w = 14 + rr() * 8, d = 14 + rr() * 8, x0 = x + rr() * 3, z0 = z + rr() * 3; if (occ(x0, x0 + w, z0, z0 + d)) continue; const fl = 2 + Math.floor(rr() * 4), v = Math.floor(rr() * 6), top = CHH + fl * FLH;
-      lists.upper[v].push(aoBox(boxUV(LX(x0), LX(x0 + w), CHH - 0.3, top, LZ(z0), LZ(z0 + d), 7, FLH), CHH - 0.3, top, 0.66, 0.86)); lists.roof.push([boxUV(LX(x0) - 0.1, LX(x0 + w) + 0.1, top, top + 0.7, LZ(z0) - 0.1, LZ(z0 + d) + 0.1, 4, 1), 0xcfc3a8]);
-      if (rr() < 0.5) lists.roof.push([new THREE.CylinderGeometry(0.7, 0.7, 1.3, 10).translate(LX(x0 + w * rr()), top + 1.2, LZ(z0 + d * rr())), 0x8b8a84]);
-      addCollider(LX(x0 + w / 2), LZ(z0 + d / 2), w / 2, d / 2, 0, top + 0.7); SZ.blocks.push([LX(x0), LX(x0 + w), LZ(z0), LZ(z0 + d), top]); } }
-  const D = { trim: [], rail: [], cloth: [], awn: [[], [], []] }, sv = rr;
-  for (const b of B) { b.style = rr() < 0.3 ? 2 : rr() < 0.55 ? 1 : 0; cityBuilding(b, null, lists); decorate(b, D, rr, lists); }
-  for (let i = 0; i < 6; i++) { if (lists.ground[i].length) { const m = new THREE.Mesh(mergeGeometries(lists.ground[i], false), gMats[i]); scene.add(SH(onLayer1(m))); } if (lists.upper[i].length) { const m = new THREE.Mesh(mergeGeometries(lists.upper[i], false), uMats[i]); scene.add(SH(onLayer1(m))); } }
+    // one house of the fill: its walls, its shell, a floor or two set back on its roof now and then, its roof clutter, its collider
+    const house = (x0, x1, z0, z1, fl, v, near) => { const w = x1 - x0, d = z1 - z0, top = CHH + fl * FLH, X0 = LX(x0), X1 = LX(x1), Z0 = LZ(z0), Z1 = LZ(z1);
+      lists.upper[v].push(aoBox(szWallBox(X0, X1, CHH - 0.3, top, Z0, Z1, 7, FLH), CHH - 0.3, top, 0.66, 0.86)); szShell(X0, X1, Z0, Z1, top, fl, SZ_PL[v], SZ_TRIM[v % 4], lists, near && !LITE);
+      let tt = top + 0.9;
+      if (w > 9 && d > 9 && rr() < 0.33 && fl < 7) { const k = 1 + Math.floor(rr() * 2), sx = w * (0.45 + rr() * 0.25), sd = d * (0.45 + rr() * 0.25), ax = x0 + 1 + rr() * (w - sx - 2), az = z0 + 1 + rr() * (d - sd - 2), t2 = top + k * FLH, v2 = (v + 2) % 6, A0 = LX(ax), A1 = LX(ax + sx), C0 = LZ(az), C1 = LZ(az + sd);
+        lists.upper[v2].push(aoBox(szWallBox(A0, A1, top, t2, C0, C1, 7, FLH), top, t2, 0.8, 0.86)); szShell(A0, A1, C0, C1, t2, 0, SZ_PL[v2], SZ_TRIM[v % 4], lists, false); if (near || rr() < 0.4) szRoofLife(A0, A1, C0, C1, t2, rr, lists.roof, false); tt = t2 + 0.9; }
+      if (near || rr() < 0.35) szRoofLife(X0, X1, Z0, Z1, top, rr, lists.roof, false);
+      addCollider((X0 + X1) / 2, (Z0 + Z1) / 2, w / 2, d / 2, 0, tt); SZ.blocks.push([X0, X1, Z0, Z1, top]); };
+    for (let x = -262; x < 262; x += 24) for (let z = -262; z < 262; z += 24) {
+      const w = 14 + rr() * 8, d = 14 + rr() * 8, x0 = x + rr() * 3, z0 = z + rr() * 3; if (occ(x0, x0 + w, z0, z0 + d)) continue;
+      const fl = 2 + Math.floor(rr() * 4) + (rr() < 0.1 ? 2 : 0), v = Math.floor(rr() * 6), near = szNearRoute(x0 + w / 2, z0 + d / 2) < 60;
+      // two out of five blocks are two houses back to back, of different heights and plasters, so the skyline steps
+      if (rr() < 0.4) { const u = 0.4 + rr() * 0.2, fl2 = clamp(fl + (rr() < 0.5 ? -1 : 2), 2, 7), v2 = (v + 1 + Math.floor(rr() * 4)) % 6;
+        if (w >= d) { const xm = x0 + w * u; house(x0, xm, z0, z0 + d, fl, v, near); house(xm, x0 + w, z0, z0 + d, fl2, v2, near); }
+        else { const zm = z0 + d * u; house(x0, x0 + w, z0, zm, fl, v, near); house(x0, x0 + w, zm, z0 + d, fl2, v2, near); } }
+      else house(x0, x0 + w, z0, z0 + d, fl, v, near); } }
+  for (let i = 0; i < 6; i++) for (const [L, M] of [[lists.ground[i], gMats[i]], [lists.groundR[i], rMats[i]], [lists.upper[i], uMats[i]], [lists.upperD[i], dMats[i]]]) if (L.length) { const m = new THREE.Mesh(mergeGeometries(L, false), M); scene.add(SH(onLayer1(m))); }
+  { const m = new THREE.Mesh(mergeGeometries(lists.roofTop, false), new THREE.MeshStandardMaterial({ map: szRoofTex(), roughness: 0.96 })); m.receiveShadow = !LITE; scene.add(onLayer1(m)); }
   { const m = new THREE.Mesh(build(lists.roof), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, map: TX.grime })); scene.add(SH(onLayer1(m))); }
-  { const m = new THREE.Mesh(build(D.trim), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.88, map: TX.grime })); scene.add(SH(onLayer1(m))); }
+  // the windows: frames and their shutters as instances, one draw for each kind over the whole city; the shell holes and the soot as decals on the walls
+  { const wm = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.86, map: TX.grime }); D.win.forEach((L, k) => { if (L.length) szInst(szWinGeo(k), wm, L); });
+    if (D.sh.length) szInst(new THREE.BoxGeometry(0.78, 2.5, 0.04), new THREE.MeshStandardMaterial({ map: szLouverTex(), roughness: 0.8 }), D.sh);
+    for (const [L, t] of [[D.holes, szHoleTex()], [D.soot, szSootTex()]]) if (L.length) { const m = new THREE.Mesh(mergeGeometries(L, false), new THREE.MeshStandardMaterial({ map: t, transparent: true, depthWrite: false, roughness: 1, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 })); m.renderOrder = 1; scene.add(onLayer1(m)); }
+    for (const [x, z, s] of D.rub) for (let i = 0; i < 6; i++) rub.push([new THREE.DodecahedronGeometry(0.12 + rr() * 0.22 * s, 0).translate(x + (rr() - 0.5) * s * 1.4, CHH + 0.08, z + (rr() - 0.5) * s * 0.9), rr() < 0.5 ? 0xb9ad94 : 0x9a5a40]); }
+  ['صيدلية', 'مكتبة', 'مطعم', 'فندق'].forEach((t, i) => { if (!D.blade[i].length) return; const c = canvas(128, 80), g = c.getContext('2d'); g.fillStyle = ['#2f5d4a', '#7a2e22', '#1f4e8a', '#8a6a2a'][i]; g.fillRect(0, 0, 128, 80); g.strokeStyle = '#e8e0cc'; g.lineWidth = 4; g.strokeRect(4, 4, 120, 72); g.fillStyle = '#f2ecdc'; g.font = 'bold 30px Arial'; g.textAlign = 'center'; g.direction = 'rtl'; g.fillText(t, 64, 52);
+    const m = new THREE.Mesh(mergeGeometries(D.blade[i], false), new THREE.MeshStandardMaterial({ map: tex(c), roughness: 0.7 })); scene.add(SH(onLayer1(m))); });
   if (D.rail.length) { const rt = railTex(); const m = new THREE.Mesh(mergeGeometries(D.rail, false), new THREE.MeshStandardMaterial({ map: rt, alphaTest: 0.5, side: THREE.DoubleSide, color: 0x2e2c28, roughness: 0.6, metalness: 0.4 })); scene.add(SH(onLayer1(m))); }
   if (D.cloth.length) { const m = new THREE.Mesh(build(D.cloth), new THREE.MeshStandardMaterial({ vertexColors: true, side: THREE.DoubleSide, roughness: 1, map: TX.fabric })); scene.add(SH(onLayer1(m))); }
   [['#2f6a4a', '#e9e2d0'], ['#9a2f26', '#ece4d4'], ['#2c4f7a', '#e6e0d0']].forEach(([a, c], i) => { if (!D.awn[i].length) return; const m = new THREE.Mesh(mergeGeometries(D.awn[i].map((g) => g.toNonIndexed()), false), new THREE.MeshStandardMaterial({ map: stripeTex(a, c), side: THREE.DoubleSide, roughness: 0.95 })); scene.add(SH(onLayer1(m))); });
   // where the defenders fight from: only the windows they have sandbagged (a ledge out from the wall with bags round its edge) and the roofs.
   // A man stands to fire over the bags or the parapet and crouches behind them to take cover - nobody ducks back into a wall
-  szFortWindows(B, nAve);
+  szFortWindows(B);
   const BAGS = [], svBag = BATCH.bag; BATCH.bag = BAGS;
   buildCornerBuilding();
-  // streets: asphalt for the avenue, the square and the cross street; kerbs and pavements
-  const road = (x0, x1, z0, z1, y = 0.02) => { const g = new THREE.PlaneGeometry(x1 - x0, z1 - z0); g.rotateX(-Math.PI / 2); g.translate(LX((x0 + x1) / 2), CHH + y, LZ((z0 + z1) / 2)); const uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * (x1 - x0) / 9, uv.getY(i) * (z1 - z0) / 9); colored(g, 0xffffff); const m = new THREE.Mesh(g, MAT.asphalt); m.receiveShadow = !LITE; scene.add(onLayer1(m)); };
-  road(-36, 245, -8, 8); road(-84, -36, -24, 24); road(-66, -50, -105, -24); road(-66, -50, 24, 105); road(-110, -84, -8, 8);
+  // streets: asphalt for the avenue, the square, the north and south streets and the west street; the alleys of the quarter; kerbs and pavements
+  const road = (x0, x1, z0, z1, y = 0.02, tint = 0xffffff) => { const g = new THREE.PlaneGeometry(x1 - x0, z1 - z0); g.rotateX(-Math.PI / 2); g.translate(LX((x0 + x1) / 2), CHH + y, LZ((z0 + z1) / 2)); const uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * (x1 - x0) / 9, uv.getY(i) * (z1 - z0) / 9); colored(g, tint); const m = new THREE.Mesh(g, MAT.asphalt); m.receiveShadow = !LITE; scene.add(onLayer1(m)); };
+  // the avenue's worn centre line and a zebra crossing short of the square
+  { const ml = []; for (let x = -8; x < 240; x += 9) ml.push(planeAt(3.2, 0.14, LX(x), CHH + 0.03, LZ(0), 0, -Math.PI / 2)); for (let k = 0; k < 9; k++) ml.push(planeAt(3.2, 0.6, LX(-10.5), CHH + 0.03, LZ(-7 + k * 1.75), 0, -Math.PI / 2)); const m = new THREE.Mesh(mergeGeometries(ml, false), new THREE.MeshStandardMaterial({ color: 0xd8d2c0, roughness: 0.9, map: TX.grime, transparent: true, opacity: 0.72, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1 })); m.renderOrder = 1; scene.add(onLayer1(m)); }
+  road(-36, 245, -8, 8); road(-84, -36, -24, 24); road(-66, -50, -105, -24); road(-66, -50, 24, 105); road(-110, -84, -8, 8); road(-32, -27.5, -36.5, -11, 0.025, 0xcfc6b4); road(-50, -32, -36.5, -32, 0.025, 0xcfc6b4);
   const kerb = []; const kb = (x0, x1, z0, z1) => kerb.push([boxUV(LX(x0), LX(x1), CHH, CHH + 0.16, LZ(z0), LZ(z1), 2, 2), 0xbdb6a6]);
-  kb(-36, 245, -11, -8); kb(-36, 245, 8, 11); kb(-84, -66, -24, -22.5); kb(-50, -36, -24, -22.5); kb(-84, -66, 22.5, 24); kb(-50, -36, 22.5, 24); kb(-84, -82.5, -24, -8); kb(-84, -82.5, 8, 24);
+  kb(-36, -32, -11, -8); kb(-27.5, 245, -11, -8); kb(-36, 245, 8, 11); kb(-84, -66, -24, -22.5); kb(-50, -36, -24, -22.5); kb(-84, -66, 22.5, 24); kb(-50, -36, 22.5, 24); kb(-84, -82.5, -24, -8); kb(-84, -82.5, 8, 24);
   { const m = new THREE.Mesh(build(kerb), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95, map: TX.grime })); m.receiveShadow = !LITE; scene.add(onLayer1(m)); }
   // the roundabout: a low wall, palms and a small monument
   { const ring = []; for (let a = 0; a < 6.28; a += 0.2) ring.push([LX(-58 + Math.cos(a) * 6), LZ(Math.sin(a) * 6)]); bagWall([...ring, ring[0]], 2, CHH, false);
     const mo = new THREE.Mesh(build([[G.box(1.6, 1.0, 1.6), 0xcfc4ac, M4(0, 0.5, 0)], [G.box(0.7, 5.2, 0.7), 0xd8cdb4, M4(0, 3.6, 0)], [G.cone(0.5, 1.0, 4), 0xc4b89c, M4(0, 6.7, 0, 0, Math.PI / 4, 0)]]), MAT.vc); mo.position.set(LX(-58), CHH, LZ(0)); scene.add(SH(onLayer1(mo))); addCollider(LX(-58), LZ(0), 0.8, 0.8, 0, CHH + 6); coverAround(-58, 0, 0.8, 0.8, 0, 1.6); }
   palms([[LX(-61), LZ(-3), 0.9, 1], [LX(-55), LZ(3), 1.0, 2], [LX(-60), LZ(4), 0.8, 4], ...[...Array(10)].map((_, i) => [LX(10 + i * 22), LZ(i % 2 ? 9.6 : -9.6), 0.85 + rr() * 0.3, rr() * 6])]);
-  // vehicles, kiosks, rubble: the street is a battlefield and every wreck is cover
-  const cars = [[118, -5.5, 0.12, 1], [64, -5, 3.0, 0], [30, -6, 0.3, 1], [-8, -5.5, 2.9, 0], [-45, 15, 1.4, 1], [-72, -14, 0.3, 1], [-52, -44, 0.15, 1], [-57, 45, 1.5, 0], [170, -6, 3.1, 1], [-40, -17, 2.7, 0], [-30, 19, 1.7, 1]];
-  const cg = [CAR_GEO(false), CAR_GEO(true)];
-  for (const [x, z, r, b] of cars) { addProp(cg[b], x, z, r, [0.95, 2.15], 1.4); coverAround(x, z, 0.95, 2.15, r, 1.3); }
-  addProp(BUS_GEO, -92, 0, 0.15, [1.3, 5.3], 3.0); addProp(KIOSK_GEO, -42, -12, 0.4, [1.15, 0.95], 2.3); coverAround(-42, -12, 1.15, 0.95, 0.4, 2.2);
-  addProp(KIOSK_GEO, 40, 9.8, Math.PI, [1.15, 0.95], 2.3);
-  const rub = []; const pile = (x, z, n, s) => { for (let i = 0; i < n; i++) rub.push([new THREE.DodecahedronGeometry(0.3 + rr() * 0.5 * s, 0).translate(LX(x + (rr() - 0.5) * 3 * s), CHH + 0.2 * s, LZ(z + (rr() - 0.5) * 3 * s)), rr() < 0.5 ? 0xb9ad94 : 0x8d8473]); };
-  for (const [x, z, n, s, cx, cz] of [[-58, -100, 30, 1.6, 9, 2], [-58, 100, 30, 1.6, 9, 2], [-100, 0, 18, 1.2, 1.5, 9], [99, -10, 8, 1, 2.5, 1.5], [160, 12, 8, 1, 2.5, 1.5], [62, 12.5, 8, 1, 2.5, 1.5]]) { pile(x, z, n, s); addCollider(LX(x), LZ(z), cx, cz, 0, CHH + 1.6); }
-  { const m = new THREE.Mesh(build(rub), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, flatShading: true, map: TX.grime })); scene.add(SH(onLayer1(m))); }
+  // kiosks; rubble across the far ends of the streets
+  addProp(KIOSK_GEO, -42, -12, 0.4, [1.15, 0.95], 2.3); coverAround(-42, -12, 1.15, 0.95, 0.4, 2.2); addProp(KIOSK_GEO, 40, 9.8, Math.PI, [1.15, 0.95], 2.3);
+  for (const [x, z, n, s, cx, cz] of [[-58, -100, 30, 1.6, 9, 2], [-102, 0, 18, 1.2, 1.5, 9], [99, -10, 8, 1, 2.5, 1.5], [160, 12, 8, 1, 2.5, 1.5], [62, 12.5, 8, 1, 2.5, 1.5]]) { szRubble(rub, x, z, n, s, rr); addCollider(LX(x), LZ(z), cx, cz, 0, CHH + 1.6); }
   // sandbagged Egyptian positions on the corners
-  for (const [x, z, r] of [[SZ_GUN[0], SZ_GUN[1], 2.32], [SZ_GUN[0], SZ_GUN[1], -2.25], [-80, 20, -0.6], [52, -10, 0.1], [-54.2, 27.4, 0], [-61.8, 27.4, 0], [-84, -30, -1.2]]) { const arc = []; for (let a = -70; a <= 70; a += 20) { const t = THREE.MathUtils.degToRad(a) + r; arc.push([LX(x) + Math.sin(t) * 1.6, LZ(z) - Math.cos(t) * 1.6]); } bagWall(arc, 4, CHH - 0.05); const k = COVER.length; for (let i = Math.max(0, k - 12); i < k; i++) if (!SZ.covers.includes(COVER[i])) { COVER[i].y = CHH; SZ.covers.push(COVER[i]); } }
-  // lamp posts and power lines along the avenue, a minaret on the skyline, smoke over the city
-  const lp = []; for (let x = -30; x < 240; x += 26) for (const s of [-1, 1]) lp.push([new THREE.CylinderGeometry(0.07, 0.1, 7, 6).translate(LX(x), CHH + 3.5, LZ(s * 9.4)), 0x4a4a46], [new THREE.BoxGeometry(0.1, 0.1, 1.6).translate(LX(x), CHH + 7, LZ(s * 8.7)), 0x4a4a46]);
+  for (const [x, z, r] of [[52, -10, 0.1]]) { const arc = []; for (let a = -70; a <= 70; a += 20) { const t = THREE.MathUtils.degToRad(a) + r; arc.push([LX(x) + Math.sin(t) * 1.6, LZ(z) - Math.cos(t) * 1.6]); } bagWall(arc, 4, CHH - 0.05); const k = COVER.length; for (let i = Math.max(0, k - 12); i < k; i++) if (!SZ.covers.includes(COVER[i])) { COVER[i].y = CHH; SZ.covers.push(COVER[i]); } }
+  // lamp posts along the avenue, a minaret on the skyline, smoke over the city
+  const lp = []; for (let x = -4; x < 240; x += 26) for (const s of [-1, 1]) lp.push([new THREE.CylinderGeometry(0.07, 0.1, 7, 6).translate(LX(x), CHH + 3.5, LZ(s * 9.4)), 0x4a4a46], [new THREE.BoxGeometry(0.1, 0.1, 1.6).translate(LX(x), CHH + 7, LZ(s * 8.7)), 0x4a4a46]);
   { const m = new THREE.Mesh(build(lp), MAT.vc); scene.add(SH(onLayer1(m))); }
   { const mi = new THREE.Mesh(build([[G.cyl(1.4, 1.7, 22, 10), 0xe6dccb, M4(0, 11, 0)], [G.cyl(2.1, 2.1, 0.5, 12), 0xd2c6b0, M4(0, 17, 0)], [G.cyl(1.0, 1.1, 6, 10), 0xe6dccb, M4(0, 25, 0)], [G.cone(1.1, 3, 10), 0x6b8a6a, M4(0, 29.5, 0)]]), MAT.vc); mi.position.set(LX(-160), CHH, LZ(-70)); scene.add(SH(onLayer1(mi)));
     const dome = new THREE.Mesh(new THREE.SphereGeometry(7, 20, 10, 0, 6.28, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0xcfc3a6, roughness: 0.8 })); dome.position.set(LX(-175), CHH + 8, LZ(-82)); scene.add(dome);
     const base = new THREE.Mesh(new THREE.BoxGeometry(20, 8, 20), new THREE.MeshStandardMaterial({ color: 0xe0d4bc, roughness: 0.9, map: TX.grime })); base.position.set(LX(-175), CHH + 4, LZ(-82)); scene.add(base); }
   for (const [x, z, s, f] of [[-130, -160, 22, 1], [80, -120, 16, 0], [-60, 180, 18, 1], [210, 60, 14, 0]]) smokeColumn(LX(x), LZ(z), s, f);
-  cityDressing(rr);
+  SZ.coil = new THREE.TorusGeometry(0.45, 0.02, 4, 12); cityDressing(rr);
+  if (SZ.ws.length) scene.add(SH(onLayer1(new THREE.Mesh(mergeGeometries(SZ.ws, false), MAT.wire)), true, false));
+  { const m = new THREE.Mesh(build([...rub, ...SZ.rub]), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, flatShading: true, map: TX.grime })); scene.add(SH(onLayer1(m))); }
   BATCH.bag = svBag; if (BAGS.length) scene.add(bagMesh(BAGS));
   flag(LX(-90), LZ(-24.5), 'eg', 7, 0);
-  tankModel();
+  tankModel(); szBuildAve();
   SZ.lead = addVeh({ mode: 'suez', side: 'f', kind: 'tank', geo: TANK_GEO, half: [3.4, 2.6, 1.9], guns: true, follow: { s: () => TANK.s + 30, lat: -4.5 } });
-  // the M3 half-track of the paratroopers, parked behind the tank's final position
-  { const ht = build([[G.box(2.2, 1.3, 5.8), 0x6b6a52, M4(0, 1.25, 0)], [G.box(2.0, 0.9, 1.6), 0x5d5c47, M4(0, 1.3, 3.3)], ...[-1, 1].map((s) => [G.box(0.5, 0.75, 3.4), 0x1e1d1a, M4(s * 0.95, 0.38, -1.0)]), ...[-1, 1].map((s) => [G.cyl(0.42, 0.42, 0.3, 12), 0x151515, M4(s * 0.95, 0.42, 3.4, 0, 0, Math.PI / 2)])]);
-    SZ.ht = addProp(ht, -24, 13, Math.PI / 2 + 0.2, [1.1, 2.9], 2.2); SZ.ht.visible = false; coverAround(-24, 13, 1.1, 2.9, Math.PI / 2 + 0.2, 2.0); }
-  // the rescue convoy of the last stage: a tank and two half-tracks, out of sight until they are called
-  SZ.conv = [['tank', TANK_GEO, [3.4, 2.6, 1.9], 14, 'הטנק המוביל'], ['jeep', HT_GEO, [3.0, 2.2, 1.2], 22, 'הזחל״ם הראשון'], ['jeep', HT_GEO, [3.0, 2.2, 1.2], 22, 'הזחל״ם השני']].map(([kind, geo, half, rpgHit, name]) => { const v = addVeh({ mode: 'suez', side: 'f', kind, geo, half, guns: true, vmax: 8, rpgHit, name }); v.g.visible = false; return v; });
+  // the paratroopers' jeep, parked behind the tank's last halt
+  if (typeof VEH_DATA !== 'undefined' && VEH_DATA.jeep) { const r = vehModel('jeep', 'f'); r.g.position.set(LX(-24.6), CHH, LZ(8.7)); r.g.rotation.y = -0.12; scene.add(SH(onLayer1(r.g))); SZ.ht = r.g; } else SZ.ht = addProp(JEEP_GEO, -24.6, 8.7, -0.12, null);
+  SZ.ht.visible = false; SZ.ht.userData.dyn = true; addCollider(LX(-24.6), LZ(8.7), 0.95, 2.05, Math.PI / 2 - 0.12, CHH + 2.0); coverAround(-24.6, 8.7, 0.95, 2.05, Math.PI / 2 - 0.12, 1.9);
+  // the rescue convoy of the last stage: a tank and two jeeps, out of sight until they are called
+  SZ.conv = [['tank', TANK_GEO, [3.4, 2.6, 1.9], 14, 'הטנק המוביל'], ['jeep', JEEP_GEO, [2.05, 2.0, 0.95], 22, 'הג׳יפ הראשון'], ['jeep', JEEP_GEO, [2.05, 2.0, 0.95], 22, 'הג׳יפ השני']].map(([kind, geo, half, rpgHit, name]) => { const v = addVeh({ mode: 'suez', side: 'f', kind, geo, half, guns: true, vmax: 8, rpgHit, name }); v.g.visible = false; return v; });
   for (let i = k0; i < scene.children.length; i++) if (!SZ.objs.includes(scene.children[i])) SZ.objs.push(scene.children[i]);
   SZ.cityCovers = SZ.covers; SZ.citySlots = SZ.slots; dimEnv(scene);
 }
@@ -6564,53 +6882,125 @@ function buildSuez() {
 /* ---------- director ---------- */
 const SZ_STAGES = [
   { title: 'הטור נכנס לעיר', sub: 'עשר וארבעים בבוקר. הטור נכנס לשדרה הראשית של סואץ, והעיר שקטה מדי. בחלונות ועל הגגות כבר מחכים צוותי הבזוקה — ולכם יש שנייה אחת לכל אחד מהם.', goal: 'תורידו את הבזוקות בחלונות ועל הגגות לפני שהן יורות. מקלע 0.5 (אש), תותח (רימון)' },
-  { title: 'הצומת', sub: 'בצומת אל־ארבעין נסגר המארב: אש משני הצדדים, מכל הקומות. מי שמפרק אותו ראשון — מפרק את הטור, או ניצל ממנו.', goal: 'פרקו את המארב בצומת לפני שהוא מפרק את הטור' },
-  { title: 'ברגל, ממחסה למחסה', sub: 'הטנק בוער. יוצאים ברגל אל הכיכר, מכונית שרופה אחרי מכונית שרופה, אל האנדרטה שבמרכזה. הצנחנים צמודים אליכם, ודרום הכיכר צריך להיות נקי.', goal: 'ממחסה למחסה עד האנדרטה, ונקו את דרום הכיכר' },
-  { title: 'התותח בפתח הרחוב', sub: 'מהאנדרטה ממשיכים מערבה ואז צפונה, לאורך הצד המערבי של הכיכר. מהרחוב המערבי יורים עליכם, ובפתח הרחוב הצפוני חפור תותח נ״ט. בסוף הדרך עומד בניין הפינה. זה הבית שבו נחזיק.', goal: 'נקו את פתח הרחוב המערבי, חסלו את צוות התותח, ופרצו לבניין הפינה' },
-  { title: 'קומה אחרי קומה', sub: 'בניין מגורים שהמצרים הפכו למעוז: בית קפה בקומת הקרקע, דירה של משפחה מעליו, וחמ״ל בקומה השנייה. רימון, פריצה, הבא — עד הגג.', goal: 'חדר אחרי חדר, רימון לפני כל דלת, עד הגג' },
-  { title: 'התאג״ד', sub: 'הבניין בידינו, והפצועים שוכבים על מזרנים בחדר הפנימי של הקומה הראשונה. זה התאג״ד שלנו עכשיו. המצרים יעלו במדרגות ישר אליו, ושיירת החילוץ עוד רחוקה.', goal: 'שמרו על דלת התאג״ד: שום מצרי לא מגיע לפצועים עד שהשיירה כאן' },
-  { title: 'השיירה', sub: 'מהשדרה נשמעים השרשראות: טנק ושני זחל״מים נכנסים לכיכר. מהחלונות שמסביב כבר יורים עליהם בבזוקות. אם השיירה לא מגיעה לדלת, אף פצוע לא יוצא מכאן.', goal: 'חסלו את הבזוקות בחלונות שמסביב לכיכר, ואז מעמיסים את הפצועים' },
+  { title: 'הצומת', sub: 'בצומת אל־ארבעין נסגר המארב: אש משני הצדדים, מכל הקומות. מחסום חוסם את הכניסה לכיכר, ומאחוריו, בפתח הרחוב הצפוני, חפור תותח נ״ט.', goal: 'פרקו את המארב בצומת לפני שהוא מפרק את הטור' },
+  { title: 'בסמטאות', sub: 'הטנק בוער מול המחסום, והכיכר היא שדה הריגה. לא חוצים אותה: מאגפים. צפונה בסמטת השוק שמצפון לשדרה, ואז מערבה בסמטה שמאחורי הכיכר, עד הרחוב הצפוני. כל עמדה שלהם מכוונת לאורך הסמטה, אליכם.', goal: 'קדימה בסמטה, עמדה אחרי עמדה: האויב תמיד לפניכם' },
+  { title: 'התותח מאחור', sub: 'מפי הסמטה רואים את גב עמדת התותח: הצוות מכוון לשדרה, לא אליכם. חסלו אותו, הדפו את ההתקפה שיורדת מצפון ברחוב, וחצו אל הדלת הצדדית של בניין הפינה.', goal: 'חסלו את צוות התותח מאחור, הדפו את ההתקפה מצפון, ופרצו בדלת הצדדית' },
+  { title: 'חדר אחרי חדר', sub: 'בית קפה בקומת הקרקע, דירה של משפחה מעליו וחמ״ל בקומה השנייה. כל הדלתות סגורות: מנקים חדר, והדלת הבאה נפתחת כשמגיעים אליה. רימון, פריצה, הבא — עד הגג.', goal: 'חדר אחרי חדר, דלת אחרי דלת, עד הגג' },
+  { title: 'התאג״ד', sub: 'הבניין בידינו, והפצועים שוכבים על מזרנים בחדר הפנימי של הקומה הראשונה. מגינים עליהם מהקומה הראשונה: המצרים יבואו בגלים, מהכיכר, מהסמטה שאגפנו בה ומהרחוב המערבי — אף פעם לא מיותר משני כיוונים בבת אחת.', goal: 'הגנו מהקומה הראשונה: אף מצרי לא מגיע לפצועים' },
+  { title: 'השיירה', sub: 'מהרחוב הדרומי נשמעות השרשראות: טנק ושני ג׳יפים נכנסים לכיכר. מהחלונות בדרום הכיכר כבר יורים עליהם בבזוקות. אם השיירה לא מגיעה לדלת, אף פצוע לא יוצא מכאן.', goal: 'חסלו את הבזוקות בחלונות שבדרום הכיכר, ואז מעמיסים את הפצועים' },
 ];
-const SZ_START = [null, null, [-41, 10, 229], [-59.5, 10.5, 293], [-76.3, -21.6, 0], [-75.5, -27.0, 180], [-75.5, -27.0, 180]];
-/* the straw through the junction: from the burning tank south-west to the wrecks, west to the monument, on west to the mouth of the west street, then
-   north along the west side to the door of the corner building. The route only turns, it never doubles back, and each bound has one front ahead */
-const SZ_LANE2 = [[-30, 5.5], [-48, 16], [-59, 9.5]], SZ_LANE3 = [[-48, 13], [-59, 9], [-72, 5], [-73, -9], [-75.6, -25.2]], SZ_LANE_HW = 11;
-const szWinIn = (s, x0, x1, nx, nz, z0 = -1e9, z1 = 1e9) => { const lx = s.x - CITY.cx, lz = s.z - CITY.cz; return s.nx === nx && s.nz === nz && lx >= x0 && lx <= x1 && lz >= z0 && lz <= z1; };
-/* the windows of a bound: men in the sandbagged windows in front of it, counted with the bound */
-function szGateWin(filter, tag, nRpg, nRifle) { for (let i = 0; i < nRpg + nRifle; i++) { const e = szSpawnSlot(i < nRpg ? 'rpg' : 'rifle', filter); if (e) { e.sq = tag; e.cyc = rand(0.3, 1.6); } } }
-const SZ_CONV_PATH = [[180, 4], [-20, 4], [-34, -4], [-48, -8], [-62, -16], [-70, -19.5], [-82, -20]];
+const SZ_START = [null, null, [-30.6, -8.8, 0], [-46, -34.25, 270], [-64.7, -34.5, 270], [-75.5, -27.0, 180], [-75.5, -27.0, 180]];
+const SZ_TANK_END = 262;   // the tank's last halt: short of the barricade across the mouth of the square, beside the mouth of the alley
+/* the flanking route, as gate points: stage 2 up the alley N1 and west along BA1 to the north street; stage 3 across the north street to the side door */
+const SZ_R2 = [[-30.6, -8.8], [-29.75, -20], [-29.75, -32.8], [-39, -34.25], [-46, -34.25]], SZ_R3 = [[-46, -34.25], [-51.5, -34.3], [-58, -34.5]], SZ_R4 = [[-51.5, -34.3], [-66.5, -34.5]];
+const SZ_LANE2 = SZ_R2, SZ_LANE3 = SZ_R3;   // the old names of the two routes (the test page still asks for them)
+/* the encounters along it, bound by bound: every man in a fixed place, facing back down the way the player comes.
+   g: a position on the ground [x, z, facing x, facing z, kind, from difficulty (0 easy), dormant]; w: a sandbagged window [x, z, floor, kind, from difficulty];
+   r: a runner [x, z, path, kind, delay, from difficulty, the position he runs to and fights from] */
+const SZ_ENC2 = [
+  { g: [[-31.4, -25.75, 0, 1, 'rifle', 0], [-30.5, -25.75, 0, 1, 'lmg', 1], [-28.3, -28.35, 0, 1, 'rifle', 0]], w: [[-27.5, -25.25, 2, 'rifle', 0]] },
+  { g: [[-30.8, -36.0, 0, 1, 'rifle', 0], [-29.2, -36.0, 0, 1, 'smg', 1]], w: [[-29.25, -36.5, 1, 'rifle', 0], [-27.5, -34.75, 1, 'rifle', 2]], r: [[-44, -34.25, [[-36, -34.25], [-33.4, -33.6]], 'rifle', 1.5, 0]] },
+  { g: [[-43.4, -35.65, 1, 0, 'rifle', 0], [-43.4, -32.75, 1, 0, 'rifle', 1]], w: [[-36.25, -36.5, 1, 'rifle', 0], [-44.25, -32, 1, 'smg', 2]] },
+  { g: [[-49.9, -32.95, 1, 0, 'rifle', 0], [-49.9, -35.65, 1, 0, 'rpg', 1]], w: [[-44.75, -36.5, 2, 'rifle', 0], [-47.75, -32, 2, 'rifle', 2]], r: [[-58, -40.5, [[-53.5, -35.5]], 'smg', 2, 0]] },
+];
+const SZ_ENC3 = [
+  // the gun crew and the men of their line across the north street, all facing the square - their backs to the mouth of the alley
+  { g: [[-59.7, -27.8, 0.66, 0.75, 'rifle', 0, 1], [-58.0, -29.4, 0.66, 0.75, 'rifle', 0, 1], [-59.4, -29.3, 0.66, 0.75, 'rpg', 1, 1], [-63.5, -27.25, 0, 1, 'rifle', 0, 1], [-52.5, -27.25, 0, 1, 'lmg', 1, 1]] },
+  // the counterattack: out of the door of the house across the street, behind their line, to the line; and the windows over it
+  { r: [[-65.3, -48.4, [[-62, -47.6]], 'rifle', 0.5, 0, [-62, -47.2, 0, 1]], [-65.3, -48.4, [[-63, -49.2], [-58, -47.6]], 'lmg', 2.2, 0, [-58, -47.2, 0, 1]], [-65.3, -48.4, [[-63, -49.4], [-54, -47.6]], 'rifle', 3.9, 1, [-54, -47.2, 0, 1]]], w: [[-66, -48.25, 1, 'rifle', 0], [-50, -45.75, 1, 'rpg', 2]] },
+];
+/* the corner building, taken in one order: the side door into the café's back room, its front room, the hall, the stairwell; up to the flat (its
+   salon, the bedroom, the hall); up to the command post (its hall, the map room, the radio room); the roof. Each door opens when the room before it is
+   clear and the player comes up to it (at: where he stands, floor). after: what opens once the room behind the door is clear - the way back and up */
+const SZ_CQB = [
+  { door: 'E', at: [-65.0, -34.5, 0], room: 0 }, { door: 'P0', at: [-70.6, -34.65, 0], room: 1 }, { door: 'W0', at: [-73.7, -30.2, 0], room: 2 }, { door: 'S0', at: [-80.8, -28.4, 0], room: -1 },
+  { door: 'F1', at: [-78.3, -37.15, 1], room: 3 }, { door: 'P1', at: [-72.5, -34.65, 1], room: 4 }, { door: 'A1', at: [-69.3, -30.2, 1], room: 5, after: ['W1', 'SB'] },
+  { door: 'S2', at: [-78.6, -30.2, 2], room: 6 }, { door: 'W2', at: [-73.7, -28.4, 2], room: 7 }, { door: 'P2', at: [-72.5, -34.65, 2], room: 8, after: ['A2', 'SA'] },
+  { door: 'RD', at: [-78.3, -37.15, 3], room: 9 },
+];
+// the men of each room: [x, z, kind, from difficulty] (on the roof, positions behind the sandbags: [x, z, kind, from difficulty, facing x, facing z])
+const SZ_ROOMS = [
+  [[-70.4, -37.0, 'rifle', 0], [-70.5, -30.3, 'smg', 0], [-68.0, -30.1, 'rifle', 2]],
+  [[-76.2, -30.2, 'rifle', 0], [-74.6, -36.5, 'smg', 1], [-76.4, -33.6, 'rifle', 0]],
+  [[-80.0, -25.4, 'rifle', 0], [-67.6, -25.6, 'rifle', 0], [-78.2, -27.8, 'smg', 1]],
+  [[-72.4, -30.2, 'rifle', 0], [-75.2, -30.0, 'smg', 1], [-72.4, -35.6, 'rifle', 2]],
+  [[-68.6, -30.2, 'rifle', 0], [-67.0, -34.4, 'smg', 1]],
+  [[-80.0, -26.6, 'rifle', 0], [-76.2, -25.2, 'rifle', 0], [-67.4, -25.2, 'smg', 1]],
+  [[-70.6, -25.3, 'rifle', 0], [-75.6, -25.4, 'smg', 0], [-68.4, -26.8, 'rpg', 2]],
+  [[-75.4, -36.2, 'rifle', 0], [-72.4, -33.0, 'smg', 1], [-76.6, -31.8, 'rifle', 2]],
+  [[-67.6, -35.6, 'rifle', 0], [-68.6, -30.4, 'smg', 1]],
+  [[-72.0, -25.35, 'rifle', 0, 0, 1], [-67.35, -28.5, 'lmg', 1, 1, 0], [-68.9, -34.5, 'rifle', 0, -1, 0]],
+];
+/* the defence, from the first floor: the three places the attacks come from - the square (out of the south street), the alleys we came by (out of N1
+   and along BA1 to the north street), the west street - and the waves: one place, then two, then the other two. A wave starts when the one before
+   it is down, so at no moment do they come from more than two places. Each man runs to a fixed position facing the building (slots), or for its
+   door and up the stairs to the wounded (climb, then raid: the way through the building) */
+const SZ_RAID = [[-76.3, -22.5, 0], [-76.3, -25.5, 0], [-80.8, -28.4, 0], [-80.8, -31.3, 0], [-80.8, -37.1, 1], [-76.6, -37.1, 1], [-75.0, -34.2, 1]];
+const SZ_RAID_E = [[-64.5, -34.5, 0], [-67.5, -34.6, 0], [-70.8, -34.65, 0], [-74.0, -32.0, 0], [-73.7, -30.0, 0], [-73.7, -28.4, 0], [-77.5, -28.0, 0], [-80.8, -28.4, 0], [-80.8, -31.3, 0], [-80.8, -37.1, 1], [-76.6, -37.1, 1], [-75.0, -34.2, 1]];
+const SZ_DEF = {
+  A: { name: 'מהכיכר', spawn: [[-58, 76], [-56.5, 78], [-59.5, 78], [-57.5, 80]], path: [[-60, 30]], slots: [[-51.3, 14.4, -0.51, -0.86], [-57.2, 1.5, -0.55, -0.83], [-47.2, 4.3, -0.6, -0.8, -45.5, 15], [-40.5, -11.4, -0.94, -0.35, -43.5, 15]], climb: [[-60, 30], [-66, 12], [-71, -10], [-76.3, -22.5]], raid: SZ_RAID, kinds: ['rifle', 'lmg', 'smg', 'rifle'], pos: [-75.5, -24.9, 'חלון לכיכר'] },
+  B: { name: 'מהסמטה', spawn: [[-29.75, -12.6], [-30.3, -11.6], [-29.0, -12.0]], path: [[-29.0, -14.0], [-30.9, -17.2], [-30.9, -22.6], [-28.9, -24.2], [-28.9, -25.8], [-30.6, -27.0], [-30.3, -31.2], [-33.5, -33.9], [-44, -34.35]], slots: [[-48.3, -32.95, -1, 0], [-48.3, -35.7, -1, 0], [-51.2, -39.6, -1, 0.15, -50.8, -34.6]], climb: [[-29.0, -14.0], [-30.9, -17.2], [-30.9, -22.6], [-28.9, -24.2], [-28.9, -25.8], [-30.6, -27.0], [-30.3, -31.2], [-33.5, -33.9], [-48, -34.35], [-64.5, -34.5]], raid: SZ_RAID_E, kinds: ['rifle', 'smg', 'rifle'], pos: [-66.9, -34.5, 'חלון לרחוב הצפוני'] },
+  C: { name: 'מהרחוב המערבי', spawn: [[-96, 2.5], [-96, -2.5], [-97, 0]], path: [[-86, 0]], slots: [[-80.5, -5.6, 0.1, -1], [-77, -5.6, 0, -1], [-78.8, 9.7, 0.1, -1, -82, 11], [-79, 16.0, 0.1, -1, -83, 13]], climb: [[-86, 0], [-83.2, -7.6], [-80, -8.8], [-77.5, -15], [-76.3, -22.5]], raid: SZ_RAID, kinds: ['rifle', 'rifle', 'lmg', 'smg'], pos: [-80.5, -24.9, 'חלון מערבי לכיכר'] },
+};
+// each wave: [place, men to positions by difficulty, men for the door by difficulty, the first of them a bazooka]
+const SZ_WAVES = [
+  [['A', [2, 3, 3], [1, 1, 2]]],
+  [['A', [1, 2, 2], [0, 0, 1], true], ['B', [2, 2, 3], [1, 1, 1]]],
+  [['B', [1, 2, 2], [0, 1, 1]], ['C', [2, 3, 3], [1, 1, 2]]],
+];
+// the convoy comes in from the south street, halts in the square under the bazookas, then drives to the door
+const SZ_CONV_PATH = [[-58, 104], [-58, 40], [-58.5, 26], [-63, 13], [-66, 0], [-70, -12], [-74.5, -19]];
 const SZ_STREET = {
   a1: [[160.5, -26, [[160.5, -12], [166, -7.5]]], [161, -28, [[160.5, -12], [155, -8]]], [130.5, 26, [[130.5, 12], [136, 9.5]], 'rpg', 1.5], [131, 28, [[130.5, 12], [126, 9.5]], 'rifle', 2]],
   a2: [[98.5, -26, [[98.5, -12], [94, -8.5]]], [99, -28, [[98.5, -12], [101, -8]], 'rpg', 1], [62.5, 26, [[62.5, 12], [66, 9.5]]], [63, 28, [[62.5, 12], [58, 9.6]], 'rifle', 1.5], [64, 30, [[62.5, 12], [70, 9.6]], 'rifle', 2.5]],
   a3: [[16, -9.8, [[13, -6.5]]], [20, -10, [[11, -4.5]]], [8, -9.6, [[7, -4]], 'rpg'], [4, 9.8, [[4, 9.6]]], [-2, 9.8, [[-2, 9.6]], 'rifle'], [-8, -9.8, [[-6, -7.5]]]],
-  j: [[-58, -62, [[-58, -30], [-52, -20]]], [-60, -64, [[-60, -30], [-66, -18]], 'rpg', 1], [-56, -66, [[-56, -30], [-46, -19]], 'rifle', 2], [-58, 62, [[-58, 30], [-50, 17]]], [-60, 64, [[-60, 30], [-66, 18]], 'rifle', 1.5], [-86, -3, [[-85, -2]]], [-86, 3, [[-85, 2.5]], 'rpg']],
+  // the junction: out of the south street and the west street into the square, and the men of their line across the north street
+  j: [[-58, 62, [[-58, 30], [-50, 17]]], [-60, 64, [[-60, 30], [-62, 18]], 'rifle', 1.5], [-56, 66, [[-56, 30], [-46, 19]], 'rpg', 2], [-86, -3, [[-85, -2]]], [-86, 3, [[-85, 2.5]], 'rpg'], [-63.5, -27.4, [[-63.5, -27.4]]], [-52.5, -27.4, [[-52.5, -27.4]], 'rifle', 1]],
 };
-const SZ_FRIENDS = [['אבנר', [-30, 5]], ['יגאל', [-38, 15.5]], ['מוטקה', [-46, 18]], ['אורי', [-28, 16]], ['ציון', [-33, 9]], ['רמי', [-41, 13]], ['שאול', [-50.5, 6]], ['גדי', [-36, -3]], ['חיים', [-48.5, 8]], ['אלי', [-38, -1.5]]];
-const SZ_POST4 = [[-70.5, -20.6, 0, -1], [-46.5, -18.5, -0.6, -0.8], [-68.4, -20.4, 0, -1], [-48.6, -18.2, -0.6, -0.8]], SZ_NF = 6;
+const SZ_FRIENDS = [['אבנר', [-31.2, -6.4]], ['יגאל', [-28.6, -6.6]], ['מוטקה', [-33.4, -4.6]], ['אורי', [-26.6, -4.8]], ['ציון', [-31.0, -2.0]], ['רמי', [-28.2, -1.8]], ['שאול', [-34.6, -9.3]], ['גדי', [-25.4, -9.4]], ['חיים', [-34.4, 7.5]], ['אלי', [-23.0, 6.0]]];
+// the four who give covering fire, by stage: [x, z, facing x, facing z]
+const SZ_COVERF = { 2: [[-34.6, -9.3, 0.4, -0.9], [-25.4, -9.4, -0.4, -0.9], [-34.4, 7.5, -0.7, -0.7], [-23.0, 6.0, -0.3, -1]], 3: [[-44.5, -33.0, -1, 0], [-44.5, -35.6, -1, 0], [-40.5, -33.2, -1, 0], [-40.5, -35.4, -1, 0]], 4: [[-61.5, -32.6, -1, 0.2], [-61.5, -36.4, -1, -0.2], [-52.5, -33.0, 0, -1], [-52.5, -36.0, 0, -1]] };
+// the paratroopers' places in the defence (floor 1 and 2), and where the player fights the raiders that come up the stairs
+const SZ_SPOTS5 = [[-80.5, -25.1, 2, 0, 1], [-71.0, -24.7, 1, 0, 1], [-66.7, -27.2, 1, 1, 0], [-68.3, -24.7, 2, 0, 1], [-70.0, -36.4, 2, 0, -1], [-75.5, -24.7, 2, 0, 1]], SZ_NF = 6;
+const szDi = () => Math.max(0, DIFF.indexOf(diff));
+// a window or roof position by lot - the lot drawn from the stage's own sequence, so the ambush is the same every time the stage is played
 function szSpawnSlot(kind, filter) {
   const c = SZ.slots.filter((s) => !s.used && filter(s)); if (!c.length) return null;
-  const s = c[Math.floor(Math.random() * c.length)]; const e = spawnEnemy(s.h[0], s.h[1], kind, null, null); if (!e) return null;
-  s.used = true; e.sz = 'win'; e.slot = s; e.state = 'sz'; e.pos.set(s.h[0], s.y, s.h[1]); e.cyc = rand(0.5, 2.5); e.peek = false; e.aimT = 0; e.rpgAim = 0; e.rpgCd = rand(7, 13); e.heading = Math.atan2(s.nx, s.nz); e.sync(); return e;
+  const s = c[Math.floor((SZ.rr ? SZ.rr() : 0.5) * c.length)]; const e = spawnEnemy(s.h[0], s.h[1], kind, null, null); if (!e) return null;
+  szSeat(e, s); e.cyc = 0.5 + (SZ.rr ? SZ.rr() : 0.5) * 2; e.rpgCd = 7 + (SZ.rr ? SZ.rr() : 0.5) * 6; return e;
 }
-function szSpawnRoom(f, x, z) { const e = spawnEnemy(LX(x), LZ(z), Math.random() < 0.15 ? 'rpg' : Math.random() < 0.5 ? 'smg' : 'rifle', null, null); if (!e) return null; e.pos.y = CHH + f * FLH; e.sz = 'room'; e.state = 'sz'; e.floor = f; e.cov = null; e.patience = 0; e.cyc = rand(0.5, 1.5); e.peek = false; e.meleeCd = 0.5; return e; }
-function szSpawnStreet(x, z, path, kind = 'rifle', climb = false) { const e = spawnEnemy(LX(x), LZ(z), varyKind(kind, x, z), null, null); if (!e) return null; e.sz = 'street'; e.state = 'sz'; e.path = path.map(([a, b]) => [LX(a), LZ(b)]); e.pi = 0; e.cov = null; e.patience = 0; e.climb = climb; e.cyc = 1; e.peek = false; e.meleeCd = 0.5; e.rpgCd = rand(7, 13); return e; }
+function szSeat(e, s) { s.used = true; e.sz = 'win'; e.slot = s; e.state = 'sz'; e.pos.set(s.h[0], s.y, s.h[1]); e.cyc = 0.8; e.peek = false; e.aimT = 0; e.rpgAim = 0; e.rpgCd = 6; e.heading = Math.atan2(s.nx, s.nz); e.guide = null; e.dormant = false; }
+// a man put in a position of the script; dormant: he has not seen the player yet, and watches the way he faces (the flank comes at his back)
+function szPlace(s, kind, tag, dormant = false) {
+  if (!s || s.used) return null; const e = spawnEnemy(s.h[0], s.h[1], kind, null, null); if (!e) return null;
+  szSeat(e, s); e.sq = tag; e.flankD = dormant; e.sync(); return e;
+}
+function szSpawnRoom(f, x, z, kind = 'rifle') { const e = spawnEnemy(LX(x), LZ(z), kind, null, null); if (!e) return null; e.pos.y = CHH + f * FLH; e.sz = 'room'; e.state = 'sz'; e.floor = f; e.cov = null; e.patience = 0; e.cyc = 0.8; e.peek = false; e.meleeCd = 0.5; return e; }
+function szSpawnStreet(x, z, path, kind = 'rifle', climb = false) { const e = spawnEnemy(LX(x), LZ(z), varyKind(kind, x, z), null, null); if (!e) return null; e.sz = 'street'; e.state = 'sz'; e.path = path.map(([a, b]) => [LX(a), LZ(b)]); e.pi = 0; e.cov = null; e.patience = 0; e.climb = climb; e.cyc = 1; e.peek = false; e.meleeCd = 0.5; e.rpgCd = 9; e.toSlot = null; e.raidP = null; return e; }
 function szAmbush(xMin, xMax, nRpg, nRifle, sides = [1, -1]) {
   const f = (s) => { const lx = s.x - CITY.cx; return lx > xMin && lx < xMax && (sides.includes(Math.sign(s.nz)) || s.nz === 0) && Math.abs(s.z - CITY.cz) < 45; };
   for (let i = 0; i < nRpg; i++) szSpawnSlot('rpg', f); for (let i = 0; i < nRifle; i++) szSpawnSlot('rifle', f);
 }
 function szAlive(pred = () => true) { let n = 0; for (const e of UNITS.enemies) if (e.alive && e.sz && pred(e)) n++; return n; }
+// the men of one bound of the flank, all in the places the script gives them
+function szEncounter(E, tag, k) {
+  const di = szDi(); if (!E) return;
+  for (const [x, z, nx, nz, kind, d, dorm] of E.g || []) if (di >= d) szPlace(szGSlot(x, z, nx, nz), kind, tag, !!dorm);
+  for (const [x, z, f, kind, d] of E.w || []) if (di >= d) szPlace(szSlot(x, z, f), kind, tag);
+  for (const [x, z, path, kind, delay, d, to] of E.r || []) if (di >= d) DIRQ.push({ at: GAME.t + delay, spawn: true, gate: k, fn: () => { const e = szSpawnStreet(x, z, path, kind); if (e) { e.sq = tag; if (to) e.toSlot = szGSlot(...to); } } });
+}
 function szSetFriends(stage) {
-  // friends 0-5 follow the player through the square and into the building; 6-9 give covering fire from the street
+  // friends 0-5 follow the player through the alleys and into the building; 6-9 give covering fire from behind him (in the defence they are out of sight)
   if (SZ.fresh || stage === 2 || stage === 5) resetTrail();
   const fw = [-Math.sin(P.yaw), -Math.cos(P.yaw)];
   FRIENDS.forEach((f, i) => {
-    const u = f.unit; if (i >= SZ_FRIENDS.length || stage < 2) { if (stage >= 5 && i >= 10 && i <= 15) return; f.state = 'bunker'; u.rig.root.visible = false; u.tag.visible = false; f.marker.visible = false; return; }
+    const u = f.unit; if (i >= SZ_FRIENDS.length || stage < 2 || (stage >= 5 && i >= SZ_NF)) { if (stage >= 5 && i >= 10 && i <= 15) return; f.state = 'bunker'; u.rig.root.visible = false; u.tag.visible = false; f.marker.visible = false; return; }
     const follow = i < SZ_NF && stage <= 4;
     if (!SZ.fresh && (['wounded', 'stable', 'saved', 'kia', 'carried'].includes(f.state) || (follow && f.state === 'follow'))) return;
-    const [name, [x, z]] = SZ_FRIENDS[i]; f.name = name; let px = LX(x), pz = LZ(z), py; let fx = -1, fz = -0.4;
-    if (stage >= 5 && i < 6) { const spots = [[-80.5, -24.7, 1, 0, 1], [-71.0, -24.7, 1, 0, 1], [-66.7, -27.2, 2, 1, 0], [-70.0, -36.4, 2, 0, -1], [-68.3, -24.7, 2, 0, 1], [-81.3, -26.8, 1, -1, 0]]; const sp = spots[i]; px = LX(sp[0]); pz = LZ(sp[1]); py = CHH + sp[2] * FLH; fx = sp[3]; fz = sp[4]; }
+    const [name, [x, z]] = SZ_FRIENDS[i]; f.name = name; let px = LX(x), pz = LZ(z), py; let fx = 0, fz = -1;
+    if (stage >= 5) { const sp = SZ_SPOTS5[i]; px = LX(sp[0]); pz = LZ(sp[1]); py = CHH + sp[2] * FLH; fx = sp[3]; fz = sp[4]; }
     else if (follow) { const back = 2.2 + i * 1.4, side = i % 2 ? 0.9 : -0.9; px = P.pos.x - fw[0] * back - fw[1] * side; pz = P.pos.z - fw[1] * back + fw[0] * side; py = P.pos.y; if (blocked(px, pz, 0.35, py)) { px = P.pos.x - fw[0] * 1.2; pz = P.pos.z - fw[1] * 1.2; } fx = fw[0]; fz = fw[1]; }
-    else if (stage >= 4) { const sp = SZ_POST4[(i - SZ_NF) % 4]; px = LX(sp[0]); pz = LZ(sp[1]); fx = sp[2]; fz = sp[3]; }
+    else { const sp = SZ_COVERF[Math.min(stage, 4)][(i - SZ_NF) % 4]; px = LX(sp[0]); pz = LZ(sp[1]); fx = sp[2]; fz = sp[3]; }
     u.rig.gun.visible = true; f.post = { id: 'SZ' + i, name: 'צנחנים', x: px, z: pz, fx, fz, mag: null, occupant: f, stand: [px, pz] }; f.state = follow ? 'follow' : 'post'; f.fi = i; f.ti = 0; f.stuck = 0; f.bleed = 0; f.target = null; f.marker.visible = false;
     u.alive = true; u.fall = -1; u.stance = 'stand'; u.place(px, pz, py === undefined ? undefined : py + 0.2); u.heading = Math.atan2(fx, fz); u.rig.root.visible = true; u.sync();
   });
@@ -6631,7 +7021,7 @@ function fSlotOf(f) {
 }
 /* in a trench (a lane only a few metres wide) the squad fights in a column: each man walks the player's own footsteps a couple of metres behind
    the one ahead of him, staggered from side to side where the trench is wide enough, so the file never leaves the trench or climbs its walls */
-const colMode = () => FIELDM() && MODE !== 'suez' && !!LANE.pts && LANE.hw <= 7;
+const colMode = () => FIELDM() && (MODE !== 'suez' || SZ.stage === 2) && !!LANE.pts && LANE.hw <= 7;
 function colRank(f) { if (SZ.colT !== GAME.t) { SZ.colT = GAME.t; SZ.colR = new Map(); FRIENDS.filter((o) => o.state === 'follow').sort((a, b) => a.fi - b.fi).forEach((o, i) => SZ.colR.set(o, i)); } return SZ.colR.get(f) ?? f.fi; }
 function colSlot(f) {
   const r = colRank(f), want = 2.3 + r * 2.1, tr = SZ.trail || [], lat = (r % 2 ? 1 : -1) * Math.min(0.75, LANE.hw * 0.3);
@@ -6686,53 +7076,55 @@ function szFollow0(f, dt) {
   u.stance = 'stand'; if (f.stuck > 0.35) u.rig.pose('idle', u.anim); else { u.anim += dt * 9; u.rig.pose('run', u.anim); } f.post.stand = [u.pos.x, u.pos.z]; return true;
 }
 function szSquad(list, tag, gate) {
-  // every man on the list leads a fire team: a runner brings two more behind him, a man in position has a second beside him
+  // every man on the list leads a fire team: a runner brings two more behind him, a man in position has a second beside him (their places drawn from the stage's own sequence)
+  const R = () => (SZ.rr ? SZ.rr() : 0.5);
   list.forEach(([x, z, path, kind, delay], li) => {
     const n = path.length > 1 || delay ? 3 : li % 2 ? 2 : 1;
-    for (let j = 0; j < n; j++) { const ox = j ? rand(-1.6, 1.6) : 0, oz = j ? rand(-1.6, 1.6) : 0, go = () => { const e = szSpawnStreet(x + ox, z + oz, j ? path.map(([a, b]) => [a + ox * 0.6, b + oz * 0.6]) : path, j && kind === 'rpg' ? 'rifle' : kind || 'rifle'); if (e) e.sq = tag; }; const dl = (delay || 0) + j * 0.7; if (dl) DIRQ.push({ at: GAME.t + dl, spawn: true, gate, fn: go }); else go(); }
+    for (let j = 0; j < n; j++) { const ox = j ? (R() - 0.5) * 3.2 : 0, oz = j ? (R() - 0.5) * 3.2 : 0, go = () => { const e = szSpawnStreet(x + ox, z + oz, j ? path.map(([a, b]) => [a + ox * 0.6, b + oz * 0.6]) : path, j && kind === 'rpg' ? 'rifle' : kind || 'rifle'); if (e) e.sq = tag; }; const dl = (delay || 0) + j * 0.7; if (dl) DIRQ.push({ at: GAME.t + dl, spawn: true, gate, fn: go }); else go(); }
   });
 }
+function szClearAll() { for (const e of UNITS.enemies) if (e.alive && e.sz) { e.alive = false; e.rig.root.visible = false; e.tag.visible = false; if (e.slot) { e.slot.used = false; e.slot = null; } } for (let k = DIRQ.length - 1; k >= 0; k--) if (DIRQ[k].spawn) DIRQ.splice(k, 1); }
+/* ---- the bounds of the flank: like the field chapters' gates (7_field.js gateUpd), but a bound is clear only when every man the script put in it is down,
+   seen or not - they wait in fixed places round the bends, out of sight until the player is on them ---- */
+const szGateLeft = () => (GATE.on ? szAlive((e) => e.sq === 'g' + GATE.i) + DIRQ.filter((q) => q.gate === GATE.i).length : 0);
+function szGateUpd(dt) {
+  if (!GATE.on || CINE.on) return; const i = GATE.i, n = GATE.pts.length - 1; GATE.t = (GATE.t || 0) + dt;
+  if (GATE.lane && LANE.pts && GATE.ls) { const ps = laneProj(P.pos.x, P.pos.z).s, tgt = i > 0 ? GATE.ls[i - 1] : GATE.back !== undefined ? GATE.ls[0] - GATE.back : 0; LANE.s0 = Math.max(GATE.s0m ?? -1e9, Math.min(tgt, ps - 1)); GATE.s0m = LANE.s0; LANE.s1 = GATE.ls[Math.min(i + 1, n)] + 1.5; }
+  const left = szGateLeft(); if (left > 0 && !(GATE.t > 100 && left <= 1)) { GATE.clear = false; return; }
+  if (!GATE.clear) { GATE.clear = true; fieldDespawn((e) => e.sq === 'g' + i); if (i >= n - 1) { GATE.on = false; GATE.done(); return; } radio('מ״פ צנחנים', pick(['נקי! קדימה לעמדה הבאה!', 'העמדה נקייה. מתקדמים, אחריי!', 'קדימה! לעמדה הבאה!']), 2.2); feed(`העמדה נקייה · ${GATE.label} ${i + 2}/${n + 1}`, 'good'); }
+  const [x, z, y] = GATE.pts[i + 1]; if (Math.hypot(P.pos.x - x, P.pos.z - z) < GATE.r && (y === undefined || Math.abs(P.pos.y - y) < 2.2)) { GATE.i++; GATE.clear = false; GATE.t = 0; if (GATE.i >= n) { GATE.on = false; GATE.done(); return; } feed(`${GATE.label} ${GATE.i + 1}/${n + 1}`); GATE.spawn(GATE.i); }
+}
+function szGateObj() {
+  if (szGateLeft() > 0) { const e = szNearest((q) => q.sq === 'g' + GATE.i); return e ? [e.pos.x, e.pos.y + 2.2, e.pos.z, 'מצרי', 'foe'] : null; }
+  const [x, z] = GATE.pts[GATE.i + 1]; return [x, CHH, z, 'העמדה הבאה'];
+}
+function szGateItem(items) { const n = GATE.pts.length - 1, left = szGateLeft(); items.push([left ? '' : 'next', left ? `${GATE.label} ${GATE.i + 1}/${n} · אויבים לפניכם: ${left}` : `העמדה נקייה · התקדמו ל${GATE.label} ${GATE.i + 2} (◆)`]); }
 function szStage(i, restore = false) {
-  SZ.stage = i; SZ.t = 0; SZ.cp = i; SZ.msgs = {}; CP.scene = i; CP.stats = { ...STATS }; GATE.on = false; snapRequest('stage');
+  SZ.stage = i; SZ.t = 0; SZ.cp = i; SZ.msgs = {}; CP.scene = i; CP.stats = { ...STATS }; GATE.on = false; snapRequest('stage'); SZ.rr = rng(9001 + i * 131);
   const S = SZ_STAGES[i]; toast(`שלב ${i + 1} מתוך ${SZ_STAGES.length} · ${S.title}`, S.sub); feed(`שלב ${i + 1}: ${S.title}`);
   if (i >= 2) { P.reserve = Math.max(P.reserve, 160); P.gren = Math.max(P.gren, diff.gren0); }
-  szSetFriends(i); SZ.fresh = false; if (SZ.ht) SZ.ht.visible = i >= 2;
+  szSetFriends(i); SZ.fresh = false; if (SZ.ht) SZ.ht.visible = i >= 2; szAveOn(i >= 2); szDoorsStage(i);
   if (i === 0) { radio('מג״ד', 'כל התחנות, כאן מג״ד. נכנסים לסואץ בטור. מפקדי טנקים, ראש בחוץ, עיניים לחלונות.', 5); TANK.stops = [80, 150, 210]; TANK.stopI = 0; TANK.holdAt = null; SZ.stopT = 0; }
-  if (i === 1) { radio('מג״ד', 'הצומת לפניכם. כל מה שזז בחלונות, אש!', 3.5); SZ.junction = false; }
+  if (i === 1) { radio('מג״ד', 'הצומת לפניכם, ומחסום חוסם את הכניסה לכיכר. כל מה שזז בחלונות, אש!', 3.5); SZ.junction = false; }
   if (i === 2) {
     // on foot only the bound in front fights: whatever was left of the ambush on the tank goes while the crew bails out (the screen is black then)
-    for (const e of UNITS.enemies) if (e.alive && e.sz) { e.alive = false; e.rig.root.visible = false; e.tag.visible = false; if (e.slot) { e.slot.used = false; e.slot = null; } }
-    for (let k = DIRQ.length - 1; k >= 0; k--) if (DIRQ[k].spawn) DIRQ.splice(k, 1);
-    // the straw, first half: from the burning tank to the wrecks on the south side (front: south), then west to the monument (front: west).
-    // Each bound's men stand in front of it - in positions, behind wrecks, in the sandbagged windows ahead - and the next opens only when it is clear
-    const segs = [
-      [[-54.2, 27.4, [[-54.2, 27.4]]], [-61.8, 27.4, [[-61.8, 27.4]], 'rpg'], [-50.8, 25.8, [[-50.8, 25.8]]], [-65, 36, [[-65, 29], [-60, 25.5]], 'rifle', 3], [-65, 38, [[-65, 29], [-55.5, 25]], 'rifle', 5.5], [-65, 40, [[-65, 29], [-63, 22]], 'rpg', 8]],
-      [[-78, 19, [[-77, 18]]], [-81, 13, [[-80, 12.5]]], [-69, 19.5, [[-68.5, 19.5]], 'rpg'], [-66.5, 4, [[-66.5, 4]]], [-90, 7.4, [[-84, 7.4], [-79, 8.5]], 'rifle', 2], [-90, -7.4, [[-84, -7.4], [-79, -4]], 'rifle', 3.5], [-90, 7.6, [[-84, 7.6], [-80, 11]], 'rifle', 6]],
-    ];
-    const W = [(s) => szWinIn(s, -50, -36, 0, -1, 23, 25), (s) => szWinIn(s, -84, -66, 0, -1, 23, 25) || szWinIn(s, -83, -81, 1, 0, 9, 24)];
-    gateStart([[P.pos.x, P.pos.z], [LX(-48), LZ(16)], [LX(-59), LZ(9.5)]], (k) => { szSquad(segs[k], 'g' + k, k); szGateWin(W[k], 'g' + k, 1, 2); }, () => { feed('דרום הכיכר נקי', 'good'); szStage(3); }, 'מחסה', 6.5, [SZ_LANE_HW, SZ_LANE2.map(([x, z]) => [LX(x), LZ(z)]), 3]);
-    hint('sz-gate', 'מתקדמים <b>ממחסה למחסה</b> בציר אחד: חסלו את המצרים מול המחסה הבא (העמדות המומלצות מסומנות בירוק), ואז הוא יסומן ב־◆. הצנחנים צמודים אליכם.', 8);
-    radio('מ״פ צנחנים', 'אבנר, יגאל, מוטקה, אורי, אחריי! קודם להריסות בדרום, משם לאנדרטה. אש על העמדות מול האוטובוס!', 4.5);
+    szClearAll();
+    const R = SZ_R2.map(([x, z]) => [LX(x), LZ(z)]);
+    gateStart(R, (k) => szEncounter(SZ_ENC2[k], 'g' + k, k), () => { feed('הסמטאות נקיות', 'good'); szStage(3); }, 'עמדה', 3.2, [3.0, R, 3]);
+    hint('sz-gate', 'מאגפים את הכיכר <b>בסמטאות</b>: צפונה בסמטת השוק, ואז מערבה. כל עמדה שלהם מכוונת לאורך הסמטה, אליכם — חסלו אותה, והנקודה הבאה תסומן ב־◆. הצנחנים צמודים אליכם.', 8);
+    radio('מ״פ צנחנים', 'הכיכר חסומה, והתותח שלהם מכסה אותה. לא חוצים! אחריי לסמטה, צפונה ואז מערבה, ונופלים עליהם מאחור.', 4.5);
   }
   if (i === 3) {
-    // the straw, second half: west to the mouth of the west street (front: west), north past the burnt car to the gun pit (front: north), and the
-    // counterattack down the north street while the player makes for the door (front: north)
-    const [gx, gz] = SZ_GUN;
-    const segs = [
-      [[-86, 3, [[-85.6, 2.5]], 'rpg'], [-86, -3, [[-85.6, -2]]], [-86.5, 0, [[-86.2, 0.2]]], [-96, 7.4, [[-90, 7.4], [-84, 7.6], [-79, 9]], 'rifle', 2], [-96, -7.4, [[-90, -7.4], [-84, -7.4], [-78, -6]], 'rifle', 4]],
-      [[-72, -16.8, [[-72, -16.8]]], [-79.5, -19.5, [[-79.5, -19.5]]], [gx - 0.9, gz - 1.6, [[gx - 0.9, gz - 1.6]]], [gx - 1.7, gz - 0.8, [[gx - 1.7, gz - 0.8]], 'rpg'], [gx + 0.8, gz - 1.3, [[gx + 0.8, gz - 1.3]]], [-60, -70, [[-61, -40], [-63, -26]], 'rifle', 3]],
-      [[-74.5, -18, [[-74.5, -18]]], [-58, -84, [[-58, -50], [-60, -32], [-62, -24]], 'rifle', 1.5], [-60, -86, [[-60, -50], [-63, -30], [-68, -23]], 'rpg', 3], [-56, -88, [[-56, -50], [-57, -30], [-60, -23]], 'rifle', 5]],
-    ];
-    const W = [(s) => szWinIn(s, -83, -81, 1, 0, -24, -9) || szWinIn(s, -83, -81, 1, 0, 9, 24), (s) => szWinIn(s, -50, -36, 0, 1, -25, -23), (s) => szWinIn(s, -67, -65, 1, 0, -60, -40) || szWinIn(s, -51, -49, -1, 0, -60, -40)];
-    gateStart([[P.pos.x, P.pos.z], [LX(-72), LZ(5)], [LX(-73), LZ(-9)], [LX(-74), LZ(-21)]], (k) => { szSquad(segs[k], 'g' + k, k); szGateWin(W[k], 'g' + k, k === 2 ? 0 : 1, 2); },
-      () => { LANE.s1 = 1e9; feed('הכיכר נקייה', 'good'); radio('מ״פ צנחנים', 'נקי! כולם לבניין הפינה, נכנסים!', 3); }, 'מחסה', 6.5, [SZ_LANE_HW, SZ_LANE3.map(([x, z]) => [LX(x), LZ(z)]), 3]);
-    radio('מ״פ צנחנים', 'ממשיכים מערבה ואז צפונה, לאורך הקיר המערבי. יש להם תותח נגד־טנקים בבור בפתח הרחוב הצפוני. שאול, גדי, חפו עלינו!', 5);
+    szClearAll(); const R = SZ_R3.map(([x, z]) => [LX(x), LZ(z)]);
+    gateStart(R, (k) => szEncounter(SZ_ENC3[k], 'g' + k, k), () => { feed('הרחוב נקי', 'good'); szStage(4); }, 'עמדה', 2.4, [4.5, R, 2]);
+    radio('מ״פ צנחנים', 'שקט... התותח שלהם בפתח הרחוב, הם מכוונים לשדרה ולא רואים אותנו. כשאני יורה - כולם יורים. אחר כך לדלת הצדדית של הבניין.', 5);
   }
-  if (i < 2 || i >= 4) laneOff();   // the straw runs through the square only; the tank and the building have walls of their own
-  if (i === 4) { for (const [f, x, z] of [[0, -79.5, -27.5], [0, -76.5, -34.2], [0, -70.3, -35.2], [0, -67.6, -28.3], [1, -75.5, -31.4], [1, -69.6, -32.0], [1, -78.6, -26.4], [1, -70.6, -26.9], [2, -76.5, -31.6], [2, -76.4, -35.6], [2, -68.6, -34.3], [2, -75.6, -26.6], [2, -68.6, -26.2], [3, -72.0, -27.2], [3, -68.2, -33.0], [3, -75.8, -33.4]]) szSpawnRoom(f, x, z); radio('צנחנים', 'נכנסים איתך! אתה ראשון, אנחנו צמודים מאחור. רימון לכל חדר.', 4.5); }
-  if (i >= 5) szAidSetup();
-  if (i === 5) { SZ.wave = 0; SZ.holdT = 150; SZ.nextWave = 3; radio('מ״פ צנחנים', 'הבניין בידינו. הפצועים בחדר הפנימי בקומה הראשונה - זה התאג״ד שלנו עכשיו. שיירת חילוץ בדרך אלינו. מחזיקים עד שהיא כאן, ואף מצרי לא עולה במדרגות.', 6); }
-  if (i === 6) { szConvStart(); radio('שיירה', 'כאן שיירת החילוץ. נכנסים לשדרה הראשית מהמזרח, שני זחל״מים וטנק. עוד שתי דקות אצלכם - תכינו את הפצועים.', 5); DIRQ.push({ at: GAME.t + 5.5, fn: () => radio('מ״פ צנחנים', 'כולם לחלונות שפונים לכיכר, או לגג! כשהשיירה תיכנס לכיכר הבזוקות מסביב יפתחו עליה - אנחנו מכסים אותה מלמעלה.', 5) }); }
+  if (i < 2 || i >= 4) laneOff();   // the lane runs through the alleys and across the street only; the tank and the building have walls of their own
+  if (i === 4) laneSet(SZ_R4.map(([x, z]) => [LX(x), LZ(z)]), 4.5, 0);   // across the north street to the side door: not back into the alley
+  if (i === 4) { szClearAll(); SZ.cq = 0; SZ.cqRoom = -1; SZ.cqClr = true; SZ.cqT = 0; radio('צנחנים', 'נכנסים איתך! אתה ראשון, אנחנו צמודים מאחור. כל דלת - רימון פנימה, ואז אנחנו.', 4.5); }
+  if (i >= 5) { szClearAll(); szAidSetup(); szDefSlots(); }
+  if (i === 5) { SZ.wave = -1; SZ.waveT = 4; SZ.srcOn = []; radio('מ״פ צנחנים', 'הבניין בידינו. הפצועים בחדר הפנימי בקומה הראשונה - זה התאג״ד שלנו. כולם לחלונות בקומה הראשונה! הם יבואו מהכיכר, מהסמטה ומהרחוב המערבי. אף מצרי לא עולה במדרגות.', 6); }
+  if (i === 6) { SZ.srcOn = []; szConvStart(); radio('שיירה', 'כאן שיירת החילוץ: טנק ושני ג׳יפים. נכנסים לכיכר מהרחוב הדרומי, עוד שתי דקות אצלכם - תכינו את הפצועים.', 5); DIRQ.push({ at: GAME.t + 5.5, fn: () => radio('מ״פ צנחנים', 'כולם לחלונות שפונים לכיכר! כשהשיירה תיכנס, הבזוקות בחלונות שבדרום הכיכר יפתחו עליה - אנחנו מכסים אותה מכאן.', 5) }); }
 }
 /* the aid post: five wounded on the mattresses and the medic on his feet. Set once when the building is taken, and again from a checkpoint */
 function szAidSetup() {
@@ -6749,7 +7141,7 @@ const szWoundedLeft = () => FRIENDS.slice(10, 15).filter((f) => f.aid && f.state
 /* a raider in the aid post shoots one of the wounded every few seconds, until the player gets to him */
 function szShootWounded(e) {
   const alive = FRIENDS.slice(10, 15).filter((f) => f.aid && f.state === 'saved'); if (!alive.length) return;
-  const f = pick(alive), u = f.unit; f.state = 'kia'; f.aidDead = true; u.alive = false; STATS.kia++;
+  const f = alive[0], u = f.unit; f.state = 'kia'; f.aidDead = true; u.alive = false; STATS.kia++;
   if (e) { e.face(u.pos.x, u.pos.z); const from = e.muzzle(); fxMuzzle(from, false); sndShot('ak', from); fxTracer(from, u.chest(), true); }
   feed(`${f.name} נורה בתאג״ד!`, 'bad'); radio('החובש', pick(['הם יורים בפצועים! תעזרו לנו!', 'הם בתוך התאג״ד! מהר!']), 2.6);
   if (!szWoundedLeft()) endGame(false, 'aid');
@@ -6762,9 +7154,44 @@ function szRaidUpd(dt) {
   SZ.raidT += dt; if (SZ.raidT > 0.6 && !SZ.raidWarn) { SZ.raidWarn = true; radio('החובש', 'הם בתאג״ד!! הם בפתח!', 2.2); }
   if (SZ.raidT > 4.5) { SZ.raidT = 0.6; szShootWounded(raider); }
 }
-/* the convoy: along the avenue, a halt at the mouth of the square while the bazookas in the windows fire at it, then up to the door */
+/* ---- the fight for the building: the doors open one at a time, each when the room before it is clear and the player comes up to it ---- */
+function szCqUpd(dt) {
+  if (SZ.cqRoom >= 0 && !SZ.cqClr) {
+    if (szAlive((e) => e.cqr === SZ.cqRoom) > 0) return;
+    SZ.cqClr = true; SZ.cqT = 0; const st = SZ_CQB[SZ.cq - 1]; if (st && st.after) for (const id of st.after) szDoor(id, true);
+    feed(SZ.cq >= SZ_CQB.length ? 'הגג נקי' : 'החדר נקי', 'good');
+    if (st && st.after) radio('צנחנים', st.after.includes('SA') ? 'הקומה נקייה! המדרגות לגג פנויות!' : 'הקומה נקייה! פינינו את המדרגות למעלה!', 2.6);
+  }
+  if (SZ.cq >= SZ_CQB.length) { SZ.cqT += dt; if (SZ.cqT > 2) { feed('הבניין נקי', 'good'); szStage(5); } return; }
+  const st = SZ_CQB[SZ.cq], [x, z, f] = st.at;
+  if (Math.hypot(P.pos.x - LX(x), P.pos.z - LZ(z)) < 2.4 && Math.abs(P.pos.y - (CHH + f * FLH)) < 1.6) {
+    szDoor(st.door, true); sndBoom(V3(LX(x), CHH + f * FLH + 1.2, LZ(z)), 0.22); FX.shake = Math.max(FX.shake, 0.15); SZ.cq++; SZ.cqRoom = st.room; SZ.cqClr = st.room < 0;
+    if (st.room >= 0) { const fl = st.room === 9 ? 3 : f, di = szDi(); for (const [mx, mz, k, d, nx, nz] of SZ_ROOMS[st.room]) if (di >= d) { const e = nx === undefined ? szSpawnRoom(fl, mx, mz, k) : szPlace(szGSlot(mx, mz, nx, nz, CHH + fl * FLH), k, 'room'); if (e) e.cqr = st.room; } }
+  }
+}
+/* ---- the defence: waves from at most two of the three places at a time ---- */
+function szDefSlots() { SZ.defSlots = {}; for (const k in SZ_DEF) SZ.defSlots[k] = SZ_DEF[k].slots.map(([x, z, nx, nz, vx, vz]) => Object.assign(szGSlot(x, z, nx, nz), { lx: x, lz: z, via: vx === undefined ? null : [vx, vz] })); }
+function szAttack(src, nShoot, nClimb, rpg, t0) {
+  const S = SZ_DEF[src], sl = SZ.defSlots[src]; for (const s of sl) s.claimed = s.used;
+  for (let k = 0; k < nShoot; k++) { const s = sl.find((q) => !q.claimed); if (!s) break; s.claimed = true; const sp = S.spawn[k % S.spawn.length], kind = rpg && k === 0 ? 'rpg' : S.kinds[k % S.kinds.length];
+    DIRQ.push({ at: GAME.t + t0 + k * 1.6, spawn: true, def: true, fn: () => { const e = szSpawnStreet(sp[0], sp[1], [...S.path, ...(s.via ? [s.via] : []), [s.lx, s.lz]], kind); if (e) { e.sq = 'def'; e.src = src; e.toSlot = s; } else s.claimed = false; } }); }
+  for (let k = 0; k < nClimb; k++) { const sp = S.spawn[(k + 1) % S.spawn.length]; DIRQ.push({ at: GAME.t + t0 + 5 + k * 3.5, spawn: true, def: true, fn: () => { const e = szSpawnStreet(sp[0], sp[1], S.climb, k % 2 ? 'smg' : 'rifle', true); if (e) { e.sq = 'def'; e.src = src; e.raidP = S.raid; } } }); }
+}
+function szWave(n) {
+  const W = SZ_WAVES[n], di = szDi(); if (!W) return; SZ.srcOn = W.map((g) => g[0]);
+  W.forEach(([src, ns, nc, rpg], gi) => szAttack(src, ns[di], nc[di], rpg, gi * 2.5));
+  const names = SZ.srcOn.map((k) => SZ_DEF[k].name).join(' ו');
+  radio('צנחנים', `גל ${n + 1}! הם באים ${names}!`, 3.2); feed(`גל ${n + 1} מתוך ${SZ_WAVES.length} · ${names}`, 'bad');
+}
+function szDefUpd(dt) {
+  if (szAlive((e) => e.sq === 'def') > 0 || DIRQ.some((q) => q.def)) { SZ.waveT = 4; return; }
+  if (SZ.wave >= 0 && SZ.waveT === 4) { feed(`גל ${SZ.wave + 1} נהדף`, 'good'); SZ.srcOn = []; }
+  SZ.waveT -= dt; if (SZ.waveT > 0) return;
+  SZ.wave++; if (SZ.wave >= SZ_WAVES.length) { szStage(6); return; } szWave(SZ.wave); SZ.waveT = 4;
+}
+/* the convoy: in from the south street, a halt in the square while the bazookas in the windows on its south side fire at it, then up to the door */
 function szConvStart() {
-  const path = SZ_CONV_PATH.map(([x, z]) => [LX(x), LZ(z)]), L = pathLen(path), s0 = pathLen(path.slice(0, 3));
+  const path = SZ_CONV_PATH.map(([x, z]) => [LX(x), LZ(z)]), L = pathLen(path), s0 = pathLen(path.slice(0, 4));
   Object.assign(SZ, { convS0: s0, convL: L, convAt: null, cv: false, cvDone: false, filmed: false, convMsgT: 0 });
   SZ.conv.forEach((v, i) => { vehRevive(v); v.path = path; v.s = -i * 9; v.stop = s0 - i * 8; v.stopEnd = L - i * 8; v.ended = false; v.hdV = null; v.hpSeen = 100; v.onDead = () => szConvDead(v); const [x, z, hd] = pathAt(path, 0); vehPose(v, x - Math.sin(hd) * i * 9, z - Math.cos(hd) * i * 9, hd); v.g.visible = true; });
 }
@@ -6772,33 +7199,27 @@ function szConvDead(v) {
   radio('שיירה', `${v.name} נפגע ובוער!`, 3); feed(`${v.name} הושמד`, 'bad');
   if (!SZ.conv[1].alive && !SZ.conv[2].alive) endGame(false, 'conv');
 }
+// the bazooka crews: in the sandbagged windows and on the roofs of the two blocks on the south side of the square, facing it - the ones the
+// convoy halts under. Taken in order along the face, every other one, so it is the same ambush every time
 function szCvAmbush() {
-  const f = (s) => { const lx = s.x - CITY.cx, lz = s.z - CITY.cz; return lx > -100 && lx < -34 && Math.abs(lz) < 42 && !(lz < -22 && lx < -64) && !(lz < 0 && lx > -52); };   // the blocks round the square that our windows look at
-  const tag = (e) => { if (e) { e.sq = 'cv'; e.rpgCd = rand(4, 12); e.cyc = rand(0.3, 1.5); } };
-  for (let i = 0; i < 4; i++) tag(szSpawnSlot('rpg', f)); for (let i = 0; i < 6; i++) tag(szSpawnSlot('rifle', f));
+  const f = (s) => { const lx = s.x - CITY.cx, lz = s.z - CITY.cz; return s.nz === -1 && Math.abs(lz - 24) < 0.5 && ((lx > -84 && lx < -66) || (lx > -50 && lx < -36)); };
+  const c = SZ.slots.filter((s) => !s.used && f(s)).sort((a, b) => a.x - b.x || a.y - b.y), di = szDi(), nR = [3, 4, 4][di], nF = [1, 2, 2][di];
+  const pickS = c.filter((_, i) => i % 2 === 0).concat(c.filter((_, i) => i % 2 === 1));
+  pickS.slice(0, nR + nF).forEach((s, i) => { const e = szPlace(s, i < nR ? 'rpg' : 'rifle', 'cv'); if (e) { e.rpgCd = 3 + i * 2.2; e.cyc = 0.4 + (i % 3) * 0.5; } });
 }
-function szRideUpd() { for (const f of FRIENDS) { const v = f.bed; if (!v || !f.aid || !f.bedAt) continue; const p = v.g.localToWorld(V3(f.bedAt[0], 2.1, f.bedAt[1])); f.unit.pos.set(p.x, p.y, p.z); f.unit.heading = v.hdV + Math.PI; } }
+const SZ_BEDY = 1.28;   // the wounded lie across the back of a jeep, at this height in its frame
+function szRideUpd() { for (const f of FRIENDS) { const v = f.bed; if (!v || !f.aid || !f.bedAt) continue; const p = v.g.localToWorld(V3(f.bedAt[0], SZ_BEDY, f.bedAt[1])); f.unit.pos.set(p.x, p.y, p.z); f.unit.heading = v.hdV + Math.PI; } }
 function szConvUpd(dt) {
   if (SZ.filmed) { szRideUpd(); return; }
   const C = SZ.conv; if (!C) return; const sMax = Math.max(...C.filter((v) => v.alive).map((v) => v.s), -1e9);
-  for (const v of C) { if (v.alive && v.hp < v.hpSeen - 1) { v.hpSeen = v.hp; if (GAME.t > SZ.convMsgT) { SZ.convMsgT = GAME.t + 4; radio('שיירה', pick(['בזוקה פגעה בזחל״ם! תורידו אותם מהחלונות!', 'אנחנו חוטפים כאן! הבזוקות בבניינים מסביב לכיכר!']), 2.8); } } }
-  // the ambush: the bazooka crews round the square open up on the halted convoy, and they are the objective until the last of them is down. The last wave (raiders for the aid post) comes in behind them
-  if (!SZ.cv && sMax > SZ.convS0 - 70) { SZ.cv = true; szCvAmbush(); radio('שיירה', 'כאן שיירת החילוץ, אנחנו בכניסה לכיכר. חוטפים בזוקות מהבניינים מסביב, לא יכולים להתקדם! תורידו אותם!', 5); hint('sz-cv', `השיירה תקועה בכניסה לכיכר. צוותי הבזוקה בחלונות שמסביב לכיכר (◆ על הקרוב): מהחלונות הדרומיים ומהגג יש אליהם קו ראייה. ${K('Q')} כוונת.`, 9); DIRQ.push({ at: GAME.t + 8, spawn: true, fn: () => szWave(3) }); }
+  for (const v of C) { if (v.alive && v.hp < v.hpSeen - 1) { v.hpSeen = v.hp; if (GAME.t > SZ.convMsgT) { SZ.convMsgT = GAME.t + 4; radio('שיירה', pick(['בזוקה פגעה בג׳יפ! תורידו אותם מהחלונות!', 'אנחנו חוטפים כאן! הבזוקות בחלונות שבדרום הכיכר!']), 2.8); } } }
+  // the ambush: the bazooka crews on the south side of the square open up on the halted convoy, and they are the objective until the last of them is down.
+  // Eight seconds in, the last attack of the day comes from the west street, for the door (the square and the west: two places, never three)
+  if (!SZ.cv && sMax > SZ.convS0 - 70) { SZ.cv = true; szCvAmbush(); SZ.srcOn = ['A']; radio('שיירה', 'כאן שיירת החילוץ, אנחנו בכיכר. חוטפים בזוקות מהחלונות שבדרום הכיכר, לא יכולים להתקדם! תורידו אותם!', 5); hint('sz-cv', `השיירה תקועה בכיכר. צוותי הבזוקה בחלונות ועל הגגות שבדרום הכיכר (◆ על הקרוב): מהחלונות הדרומיים של הקומה הראשונה יש אליהם קו ראייה. ${K('Q')} כוונת.`, 9);
+    DIRQ.push({ at: GAME.t + 8, spawn: true, fn: () => { const di = szDi(); szAttack('C', [1, 2, 2][di], [1, 1, 2][di], false, 0); SZ.srcOn = ['A', 'C']; radio('צנחנים', 'הם באים מהרחוב המערבי, לדלת! תשמרו על המדרגות!', 3.2); } }); }
   if (SZ.cv && !SZ.cvDone && szAlive((e) => e.sq === 'cv' && e.kind === 'rpg') === 0) { SZ.cvDone = true; for (const v of C) v.stop = v.stopEnd; feed('הבזוקות מול השיירה חוסלו', 'good'); radio('שיירה', 'הדרך פנויה, ממשיכים אליכם! תכינו את הפצועים למטה!', 4); hint('sz-cv2', 'השיירה בדרך לדלת. עכשיו שמרו על המדרגות ועל דלת התאג״ד: אף מצרי לא עולה עד שהפצועים למטה.', 7); }
   if (!SZ.convAt && SZ.cvDone && C.some((v) => v.alive && v.s >= v.stopEnd - 14)) { SZ.convAt = GAME.t; radio('שיירה', 'אנחנו בדלת! מורידים את הפצועים, מהר!', 3); }
   if (SZ.convAt && !SZ.filmed && szAlive((e) => inTB(e.pos.x, e.pos.z, 0.3)) === 0) szConvoyFilm();
-}
-function szWave(n) {
-  // every path keeps to the streets: the cross street (x -66..-50), the square (x -84..-36, z -24..24), the avenue and the west street (z -8..8)
-  const W = [
-    [[-58, -95, [[-58, -60], [-54, -42], [-57, -27]], 'rifle'], [-60, -96, [[-61, -60], [-62, -42], [-63, -26]], 'rpg'], [-56, -97, [[-57, -58], [-58, -40], [-62, -26], [-70, -21]], 'rifle', true], [-59, -98, [[-60, -56], [-60, -36]], 'rifle']],
-    [[-96, 4, [[-90, 6.5], [-81, 12], [-77, 18]], 'rifle'], [-96, -3, [[-88, -6.5], [-80, -10], [-76, -19]], 'rifle', true], [-96, 0, [[-88, -6], [-86, 3]], 'rpg'], [-58, 98, [[-61, 60], [-62, 44], [-58, 30], [-54, 26]], 'rifle'], [-60, 99, [[-61, 60], [-62, 40], [-64, 27]], 'rifle']],
-    [[-58, -96, [[-58, -60], [-55, -40], [-52, -27]], 'rpg'], [-60, -97, [[-60, -58], [-62, -40], [-66, -21], [-74, -21]], 'rifle', true], [-57, 97, [[-57, 58], [-52, 40], [-52, 26]], 'rifle'], [-96, 3, [[-90, 6.5], [-81, 10], [-78, 17]], 'rifle'], [-96, -2, [[-88, -6.5], [-81, -9], [-79, -20]], 'rifle', true], [-61, 98, [[-62, 58], [-64, 38], [-62, 27]], 'rpg']],
-    [[-58, -96, [[-58, -60], [-55, -40], [-60, -27], [-70, -21]], 'rifle', true], [-96, 2, [[-88, -6.5], [-81, -8], [-78, -19]], 'smg', true], [-57, 98, [[-57, 58], [-52, 40], [-52, 26]], 'rpg'], [-60, -98, [[-60, -56], [-60, -36]], 'rifle']],
-  ][n];
-  if (!W) return; radio('צנחנים', pick(n === 3 ? ['הם רואים את השיירה - הם מנסים להגיע לפצועים לפניה!', 'עוד גל, הפעם ישר לדלת שלנו! תשמרו על המדרגות!'] : ['הם באים מהרחוב הצפוני!', 'עוד גל! מכל הכיוונים!', 'הם נכנסים לבניין מלמטה! תשמרו על המדרגות!']), 3.5);
-  W.forEach(([x, z, p, k, c], i) => { for (let j = 0; j < 3; j++) { const ox = j ? rand(-1.5, 1.5) : 0, oz = j ? rand(-1.5, 1.5) : 0; DIRQ.push({ at: GAME.t + i * 1.4 + j * 0.6, spawn: true, fn: () => szSpawnStreet(x + ox, z + oz, j ? p.map(([a, b]) => [a + ox * 0.5, b + oz * 0.5]) : p, j && k === 'rpg' ? 'rifle' : k, !!c) }); } });
-  if (n === 1) szAmbush(-100, -30, 1, 4);
 }
 function updSuez(dt) {
   SZ.t += dt; if (Math.floor(SZ.t * 2) !== Math.floor((SZ.t - dt) * 2)) szEnemyCleanup(); for (let i = DIRQ.length - 1; i >= 0; i--) if (DIRQ[i] && GAME.t >= DIRQ[i].at) { const q = DIRQ.splice(i, 1)[0]; q.fn(); }
@@ -6809,25 +7230,23 @@ function updSuez(dt) {
     // the tank halts at each ambush and moves on only when the street ahead is clear
     const st = TANK.stops[TANK.stopI]; if (st !== undefined && TANK.holdAt === st) { SZ.stopT += dt; const sx = LX(tankAt(st)[0]); const inWin = (e) => e.sz === 'win' && e.pos.x < sx + 30 && e.pos.x > sx - 80, left = fieldLeft(inWin); if (holdDone(left, SZ.stopT)) { fieldDespawn(inWin); TANK.stopI++; TANK.holdAt = null; SZ.stopT = 0; radio('נהג', 'נקי. ממשיך בתנועה.', 2); if (TANK.stopI >= TANK.stops.length) szStage(1); } }
   } else if (SZ.stage === 1) {
-    if (!SZ.junction) { SZ.junction = true; TANK.stops = [272]; TANK.stopI = 0; TANK.holdAt = null; szAmbush(-100, -25, 4, 14); szSquad(SZ_STREET.j, 0); }
-    if (TANK.holdAt != null && !SZ.bigHit) { SZ.hitT = (SZ.hitT || 0) + dt; if (SZ.hitT > 9) { SZ.bigHit = true; const p = tankTurretWorld(); tankHit(p.add(V3(rand(-1, 1), 0.5, rand(-1, 1))), true); radio('נהג', 'פגיעה ישירה! הטנק בוער!', 2.5); DIRQ.push({ at: GAME.t + 2.2, fn: bailOut }); } }
-  } else if (SZ.stage === 2) {
-    gateUpd(dt); if (inTB(P.pos.x, P.pos.z, -0.2)) szStage(4);
-  } else if (SZ.stage === 3) {
-    gateUpd(dt); if (inTB(P.pos.x, P.pos.z, -0.2)) szStage(4);
+    if (!SZ.junction) { SZ.junction = true; TANK.stops = [SZ_TANK_END]; TANK.stopI = 0; TANK.holdAt = null; szAmbush(-100, -15, 4, 14); szSquad(SZ_STREET.j, 0); }
+    // nine seconds at the barricade, and the anti-tank gun in the mouth of the north street finds the tank
+    if (TANK.holdAt != null && !SZ.bigHit) { SZ.hitT = (SZ.hitT || 0) + dt; if (SZ.hitT > 9) { SZ.bigHit = true; const p = tankTurretWorld(), gm = V3(LX(SZ_GUN[0]) + Math.sin(SZ_GUN[2]) * 2.9, CHH + 1.0, LZ(SZ_GUN[1]) + Math.cos(SZ_GUN[2]) * 2.9); fxMuzzle(gm, true); sndBoom(gm, 1.1); fxTracer(gm, p.clone(), true); tankHit(p.add(V3(rand(-1, 1), 0.5, rand(-1, 1))), true); radio('נהג', 'פגיעה ישירה! תותח בפתח הרחוב! הטנק בוער!', 2.5); DIRQ.push({ at: GAME.t + 2.2, fn: bailOut }); } }
+  } else if (SZ.stage === 2 || SZ.stage === 3) {
+    szGateUpd(dt);
   } else if (SZ.stage === 4) {
-    if (szAlive((e) => e.sz === 'room') === 0 && SZ.t > 3) { SZ.clearT = (SZ.clearT || 0) + dt; if (SZ.clearT > 2) { SZ.clearT = 0; feed('הבניין נקי', 'good'); szStage(5); } }
+    if (LANE.pts && inTB(P.pos.x, P.pos.z, -0.6)) laneOff(); szCqUpd(dt);
   } else if (SZ.stage === 5) {
-    SZ.holdT -= dt; SZ.nextWave -= dt; if (SZ.nextWave <= 0 && SZ.wave < 3) { szWave(SZ.wave); SZ.wave++; SZ.nextWave = 42; }
-    szRaidUpd(dt); if (SZ.holdT <= 0) { szStage(6); return; }
+    szAutoDoor(dt); szDefUpd(dt); szRaidUpd(dt);
   } else if (SZ.stage === 6) {
-    szRaidUpd(dt); szConvUpd(dt);
+    szAutoDoor(dt); szRaidUpd(dt); szConvUpd(dt);
   }
   // the breadcrumb trail the followers walk
   if (SZ.stage >= 2 && SZ.stage <= 4 && P.alive && SZ.trail) updTrail(dt);
   szClarity(dt);
 }
-function szTimeOfDay() { const base = SZ_MIN - START_MIN; return SZ.stage === 5 ? lerp(16 * 60 + 35 - START_MIN, 17 * 60 + 22 - START_MIN, clamp(1 - SZ.holdT / 150, 0, 1)) : SZ.stage === 6 ? lerp(17 * 60 + 22 - START_MIN, 17 * 60 + 40 - START_MIN, clamp(SZ.t / 180, 0, 1)) : base + GAME.t / 6; }
+function szTimeOfDay() { const base = SZ_MIN - START_MIN; return SZ.stage === 5 ? lerp(16 * 60 + 35 - START_MIN, 17 * 60 + 22 - START_MIN, clamp((SZ.wave + 1 + (SZ.srcOn && SZ.srcOn.length ? 0.5 : 0)) / (SZ_WAVES.length + 0.5), 0, 1)) : SZ.stage === 6 ? lerp(17 * 60 + 22 - START_MIN, 17 * 60 + 40 - START_MIN, clamp(SZ.t / 180, 0, 1)) : base + GAME.t / 6; }
 
 /* ---------- enemy behaviour in the city ---------- */
 function szRpgTarget(e) {
@@ -6854,14 +7273,18 @@ function szPickCover(e, mode, dE) {
       sc -= (c.h > 1.5 ? 1.5 : 0) + (c.door ? 1 : 0); }
     if (sc - 1.5 >= bs) continue;
     const cy = c.y ?? e.pos.y; if (segHitT(e.pos.x, e.pos.y + 1.0, e.pos.z, c.x, cy + 1.0, c.z, 0.3) >= 0) continue;
-    sc += Math.random() * 1.5; if (sc < bs) { bs = sc; best = c; }
+    sc += (((c.x * 7.13 + c.z * 3.71) % 1) + 1) % 1 * 1.5; if (sc < bs) { bs = sc; best = c; }   // a fixed tie-break per place, not a roll: the same man takes the same cover every time
   }
   return best || (mode === 'storm' ? szPickCover(e, 'hold', dE) : null);
 }
 function suezEnemyStep(e, dt, shoot, aimPitch) {
   if (e.dormant && dormantStep(e, dt)) return;
   if (e.sz === 'win') {
-    const s = e.slot; e.cyc -= dt; const aimed = aimedAt(e);
+    const s = e.slot;
+    // a man of the flanked line has not seen the player: he watches the square, standing at his place, and turns only when the player is close or fires
+    if (e.flankD) { const dP = Math.hypot(P.pos.x - e.pos.x, P.pos.z - e.pos.z), heard = P.shotT !== undefined && GAME.t - P.shotT < 0.4 && dP < 45;
+      if (P.alive && !(dP < 6.5 || heard)) { e.pos.set(s.p[0], s.y, s.p[1]); e.heading = Math.atan2(s.nx, s.nz); e.stance = 'crouch'; e.rig.pose('crouch', e.anim, 0); return; } e.flankD = false; e.cyc = 0.6; e.peek = true; }
+    e.cyc -= dt; const aimed = aimedAt(e);
     if (e.guide) { e.peek = true; e.stance = 'crouch'; e.pos.x += (s.p[0] - e.pos.x) * 0.2; e.pos.z += (s.p[1] - e.pos.z) * 0.2; e.pos.y = s.y; const tp = e.guide.tgt ? e.guide.tgt() : tankTurretWorld(); e.face(tp.x, tp.z); e.rig.pose('crouch', e.anim, 0.05); return; }
     // a chapter may offer the Sagger crews another target (the rescue: Shaul's loaded tank); the missile then kills or damages that vehicle
     if (e.atgm && e.peek && e.rpgCd <= 0 && CH() && CH().atgmTarget) { const fn = CH().atgmTarget(e); if (fn) { const tp = fn(), mz = e.muzzle(); if (mz.distanceTo(tp) < 900 && losW(mz.x, mz.y + 0.3, mz.z, tp.x, tp.y, tp.z)) { e.face(tp.x, tp.z); const q = fireAtgm(e, fn); q.vt = true; e.rpgCd = rand(28, 38); return; } } }
@@ -6897,14 +7320,15 @@ function suezEnemyStep(e, dt, shoot, aimPitch) {
   if (e.sz === 'street') {
     if (P.alive && sameFloor && dP < 4) { assault(); return; }
     // seen on the way in: he stops following the route and fights from cover from here on - forward to the next cover toward the player, or holding
-    if (e.pi < e.path.length && !e.hunter && !e.wild && !e.climb && seesP && dP < awareR() && !CINE.on) { e.pi = e.path.length; e.cov = null; e.inCov = false; }
+    if (e.pi < e.path.length && !e.hunter && !e.wild && !e.climb && !e.toSlot && seesP && dP < awareR() && !CINE.on) { e.pi = e.path.length; e.cov = null; e.inCov = false; }
+    if (e.pi >= e.path.length && e.toSlot) { if (!e.toSlot.used) { szSeat(e, e.toSlot); e.toSlot = null; return; } e.toSlot = null; }
     if (e.pi < e.path.length) { const w = e.path[e.pi], x0 = e.pos.x, z0 = e.pos.z; e.anim += dt * 9.5; e.stance = 'stand'; if (steer(e, w[0], w[1], 4.6, dt) < 0.9) e.pi++; e.stuckT = Math.hypot(e.pos.x - x0, e.pos.z - z0) < dt * 0.5 ? (e.stuckT || 0) + dt : 0; if (e.stuckT > 2.5) { e.stuckT = 0; e.pi++; } e.rig.pose('run', e.anim); if (seesP && Math.random() < dt * 0.4) { e.face(P.pos.x, P.pos.z); enemyFire(e); } return; }
-    if (e.climb) { e.sz = 'climb'; e.raid = SZ.stage >= 5; e.cpath = (e.raid ? SZ_RAID : [[-76.3, -22.5, 0], [-76.3, -25.5, 0], [-80.8, -28.6, 0], [-80.8, -31.3, 0], [-80.8, -37.1, 1], [-78.6, -37.1, 1], [-78.6, -30.6, 2], [-78.6, -28.4, 2]]).map(([x, z, f]) => [LX(x), LZ(z), f]); e.ci = 0; return; }
+    if (e.climb) { e.sz = 'climb'; e.raid = SZ.stage >= 5; e.cpath = (e.raidP || SZ_RAID).map(([x, z, f]) => [LX(x), LZ(z), f]); e.ci = 0; return; }
     if (e.kind === 'rpg' && e.rpgCd <= 0 && e.target) { const tp = szRpgTarget(e), mz = e.muzzle(); if (tp && (e.rpgMiss || losW(mz.x, mz.y, mz.z, tp.x, tp.y, tp.z))) { e.face(tp.x, tp.z); e.peek = true; e.stance = 'stand'; if (e.rpgAim === 0) szRpgCall(e); e.rpgAim += dt; e.rig.pose('aim', e.anim, 0); if (e.rpgAim > (e.wild ? 1.2 : 2.2)) { const from = e.muzzle(); fireRocket(from, tp, 'e'); if (MODE === 'suez' && (P.mode === 'tank' || tp.distanceTo(P.pos) < 8)) szFireAt(e, from); fxMuzzle(from, true); sndShot('ak', from); sndBoom(from, 0.3); e.rpgCd = e.wild ? rand(5, 9) : rand(16, 24); e.rpgAim = 0; e.peek = false; } return; } }
     // men firing wild stand in the open and shoot from the hip: no cover, no crouching
     if (e.wild) { e.stance = 'stand'; if (e.target) shoot(); e.rig.pose('aim', e.anim, aimPitch()); return; }
     // each man fights one of two ways: he storms (cover to cover, always closer, the last metres at a run) or he holds (the best cover in reach, kept while it still covers him)
-    if (!e.tac) e.tac = e.kind === 'rpg' || e.kind === 'lmg' || e.kind === 'sniper' || Math.random() > diff.storm ? 'hold' : 'storm';
+    if (!e.tac) e.tac = e.kind === 'rpg' || e.kind === 'lmg' || e.kind === 'sniper' || ((((e.path && e.path[0] ? e.path[0][0] * 1.37 + e.path[0][1] * 2.11 : 0) % 1) + 1) % 1) > diff.storm ? 'hold' : 'storm';   // who storms and who holds is fixed by where he comes in
     if (e.tac === 'storm' && P.alive && sameFloor && dP < 7.5 && seesP) { if (e.cov) { e.cov.by = null; e.cov = null; } assault(); return; }
     // the cover is judged against where the player is now: once he is beside it or behind it, it covers nothing and the man moves
     e.covChk = (e.covChk || 0) - dt;
@@ -6963,7 +7387,7 @@ function szPosInit() {
   }
 }
 // the fixed positions of the last two stages: where the aid post is held from, and the windows and roof over the square
-const SZ_POS5 = [[-75.0, -35.0, 1, 'מול דלת המדרגות'], [-73.7, -30.1, 1, 'דלת המסדרון']], SZ_POS6 = [[-75.5, -24.9, 1, 'חלון לכיכר'], [-72.0, -25.6, 3, 'הגג']];
+const SZ_POSAID = [-75.0, -35.0, 'מול דלת התאג״ד'];   // where the raiders who come up the stairs are met
 function szPosPick() {
   const out = [];
   if ((SZ.stage === 2 || SZ.stage === 3) && GATE.on && LANE.pts && P.alive) {
@@ -6980,7 +7404,11 @@ function szPosPick() {
     cand.sort((a, b) => b[0] - a[0]); const top = cand.slice(0, 12);
     for (const t of top) { const c = t[1], cy = (c.y ?? CHH) + 1.0; let n = 0; for (const e of foes) { if (e.dormant) continue; const q = e.eye(); q.y = Math.max(q.y, e.pos.y + 1.45); if (losW(q.x, q.y, q.z, c.x, cy, c.z)) n++; } t[0] -= n * 1.6; t.n = n; }
     top.sort((a, b) => b[0] - a[0]); for (const t of top) { const c = t[1]; if (out.every((o) => Math.hypot(o.x - c.x, o.z - c.z) > 4)) out.push({ x: c.x, z: c.z, y: c.y ?? CHH, label: 'עמדה' }); if (out.length >= 2) break; }
-  } else if (SZ.stage === 5 || SZ.stage === 6) for (const [x, z, f, label] of SZ.stage === 5 ? SZ_POS5 : SZ_POS6) out.push({ x: LX(x), z: LZ(z), y: CHH + f * FLH, label });
+  } else if (SZ.stage === 5 || SZ.stage === 6) {
+    // the window that faces each place the attack comes from now, all on the first floor; the door of the aid post once one of them is inside
+    if (szAlive((e) => e.raid && inTB(e.pos.x, e.pos.z, 0.3))) out.push({ x: LX(SZ_POSAID[0]), z: LZ(SZ_POSAID[1]), y: CHH + FLH, label: SZ_POSAID[2] });
+    for (const k of (SZ.srcOn && SZ.srcOn.length ? SZ.srcOn : SZ.stage === 6 ? ['A'] : [])) { const q = SZ_DEF[k].pos; if (out.length < 3) out.push({ x: LX(q[0]), z: LZ(q[1]), y: CHH + FLH, label: q[2] }); }
+  }
   return out;
 }
 function szClarity(dt) {
@@ -7002,18 +7430,17 @@ function szClarityOff() { for (const m of SZPOS.mk) m.mk.visible = false; for (c
 /* ---------- objective, hints, HUD, minimap ---------- */
 function suezObjective() {
   if (SZ.stage <= 1) return null;
-  if ((SZ.stage === 2 || SZ.stage === 3) && GATE.on) return gateObj('מצרי', 'המחסה הבא');
-  if (SZ.stage === 2) return [LX(-58), CHH, LZ(4), 'האנדרטה'];
-  if (SZ.stage === 3) return [LX(-76.3), CHH, LZ(-22.8), 'בניין הפינה'];
+  if ((SZ.stage === 2 || SZ.stage === 3) && GATE.on) return szGateObj();
   if (SZ.stage === 4) {
-    const pf = tbFloor(P.pos.y), left = [0, 1, 2, 3].map((f) => szAlive((e) => e.sz === 'room' && tbFloor(e.pos.y) === f));
-    if (!inTB(P.pos.x, P.pos.z)) return [LX(-76.3), CHH, LZ(-22.8), 'בניין הפינה'];
-    if (left[pf] > 0) return null;
-    const nf = left.findIndex((n, f) => f > pf && n > 0); if (nf < 0) return null;
-    const stair = [[-80.8, -28.9], [-78.6, -37.1], [-80.8, -30.6]][pf] || [-80.8, -28.9]; return [LX(stair[0]), CHH + pf * FLH, LZ(stair[1]), `מדרגות · קומה ${nf === 3 ? 'הגג' : nf}`];
+    if (SZ.cqRoom >= 0 && !SZ.cqClr) { const e = szNearest((q) => q.cqr === SZ.cqRoom); if (e) return [e.pos.x, e.pos.y + 1.8, e.pos.z, 'מצרי בחדר', 'foe']; }
+    const st = SZ_CQB[SZ.cq]; if (!st) return null; const f = st.at[2], d = SZD[st.door], pf = tbFloor(P.pos.y);
+    // the next door is a floor up: the foot of the flight that goes there from the player's floor
+    if (pf < f) { const fl = [[-80.8, -30.6], [-78.6, -36.2], [-80.8, -31.2]][pf] || [-80.8, -30.6]; return [LX(fl[0]), CHH + pf * FLH, LZ(fl[1]), `מדרגות · ${f === 3 ? 'הגג' : 'קומה ' + f}`]; }
+    return [LX(d.x), CHH + f * FLH + 1.2, LZ(d.z), f === 3 ? 'היציאה לגג' : st.room < 0 ? 'דלת המדרגות' : 'הדלת הבאה'];
   }
   if (SZ.stage >= 5) {
     if (szAlive((e) => e.raid && inTB(e.pos.x, e.pos.z, 0.3))) return [LX(SZ_AID.door[0]), CHH + FLH, LZ(SZ_AID.door[1]), 'דלת התאג״ד'];
+    if (SZ.stage === 5) { const e = szNearest((q) => q.sq === 'def'); if (e) return [e.pos.x, e.pos.y + 1.6, e.pos.z, SZ_DEF[e.src] ? `התוקפים ${SZ_DEF[e.src].name}` : 'מצרי', 'foe']; }
     if (SZ.stage === 6 && SZ.cv && !SZ.cvDone) { const e = szNearest((e) => e.sq === 'cv' && e.kind === 'rpg'); if (e) return [e.pos.x, e.pos.y + 1.3, e.pos.z, `בזוקה מול השיירה · ${szAlive((q) => q.sq === 'cv' && q.kind === 'rpg')}`]; }
     if (SZ.stage === 6 && SZ.convAt) { const e = szNearest((e) => inTB(e.pos.x, e.pos.z, 0.3)); if (e) return [e.pos.x, e.pos.y + 1.3, e.pos.z, 'מצרי בבניין']; }
     if (SZ.stage === 6 && SZ.conv && !SZ.convAt) { const v = SZ.conv.find((w) => w.alive && w.g.visible); if (v) return [v.g.position.x, v.g.position.y + 1.2, v.g.position.z, SZ.cvDone ? 'השיירה · בדרך לדלת' : 'השיירה']; }
@@ -7024,24 +7451,24 @@ function szNearest(pred) { let best = null, bd = 1e9; for (const e of UNITS.enem
 function suezHints() {
   if (SZ.stage === 0 && GAME.t > 1) hint('sz-tank', TOUCH ? `אתם מפקד הטנק, ראש מחוץ לצריח. <kbd>אש</kbd> = מקלע 0.5, <kbd>רימון</kbd> = פגז מהתותח, <kbd>כוונת</kbd> = כוונת התותחן. הכפתור הירוק מכניס אתכם לצריח.` : `אתם מפקד הטנק, ראש מחוץ לצריח. ${K('לחיצה ממושכת')} מקלע 0.5, ${K('G')} פגז: מחסל עמדה שלמה ומשמיד רכבים, לחצן ימני כוונת תותחן (זום), ${K('C')} להיכנס לצריח מפני צלפים.`, 11);
   if (SZ.stage <= 1 && szAlive((e) => e.kind === 'rpg' && e.peek) > 0) hint('sz-rpg', `<b>בזוקה בחלון!</b> סימון צהוב מהבהב = הוא מכוון לטנק. יש לכם בערך שנייה: מקלע או פגז לחלון.`, 6);
-  if (SZ.stage === 2) hint('sz-run', `הצנחנים (כחול) הולכים אחריכם. כל מי שיורה עליכם מקבל סימן כתום וקשת כתומה בשולי המסך. רוצו לעמדה הירוקה, ירו משם, והתקדמו כשהם מתחבאים.`, 8);
-  if (SZ.stage === 3) hint('sz-sq3', `לאורך הצד המערבי של הכיכר אל בניין הפינה. צוות התותח נגד־טנקים בבור השקים בפתח הרחוב הצפוני: רימון לתוך הבור עובד טוב יותר מירי.`, 8);
-  if (SZ.stage === 4) hint('sz-cqb', `לחימה בבניין: לפני כל חדר זרקו רימון (${K('G')}), חכו לפיצוץ ואז היכנסו. הצנחנים נכנסים אחריכם. המדרגות בפינה הצפון־מערבית.`, 9);
-  if (SZ.stage === 5) hint('sz-hold', `התאג״ד (✚) בחדר הפנימי של הקומה הראשונה, ליד חדר המדרגות. המצרים יעלו במדרגות ישר אליו: שמרו על הדלת מהעמדות המסומנות בירוק, ורימון (${K('G')}) לכל מי שעולה.`, 9);
-  if (SZ.stage === 6 && !SZ.cv && SZ.t > 2) hint('sz-conv', 'השיירה נכנסת מהמזרח (◆). היא תיעצר בכניסה לכיכר תחת אש בזוקות מהבניינים מסביב: תפסו עמדה בחלון שפונה לכיכר (דרום) או עלו לגג - שתי העמדות מסומנות בירוק - ותכסו אותה משם.', 9);
+  if (SZ.stage === 2) hint('sz-run', `הצנחנים (כחול) הולכים אחריכם בטור. כל מי שיורה עליכם מקבל סימן כתום וקשת כתומה בשולי המסך. העמדות שלהם תמיד לפניכם, לאורך הסמטה: מחסה בירוק, ירו משם, והתקדמו כשהם מתחבאים.`, 8);
+  if (SZ.stage === 3) hint('sz-sq3', `צוות התותח בבור השקים בפתח הרחוב, וגבם אליכם: הם מכוונים לשדרה. ירו ראשונים, רימון (${K('G')}) לבור עובד טוב. אחר כך תגיע התקפה מצפון ברחוב, ואז לדלת הצדדית של בניין הפינה.`, 9);
+  if (SZ.stage === 4) hint('sz-cqb', `כל הדלתות בבניין סגורות. מנקים חדר, ניגשים לדלת הבאה (◆) והיא נפתחת: רימון פנימה (${K('G')}), חכו לפיצוץ, והיכנסו. הצנחנים אחריכם.`, 9);
+  if (SZ.stage === 5) hint('sz-hold', `מגינים מהקומה הראשונה. העמדה בחלון שפונה אל התוקפים מסומנת בירוק. מי שפורץ לבניין עולה במדרגות ישר אל התאג״ד (✚): שמרו על הדלת שלו, ורימון (${K('G')}) לכל מי שעולה.`, 9);
+  if (SZ.stage === 6 && !SZ.cv && SZ.t > 2) hint('sz-conv', 'השיירה נכנסת מהרחוב הדרומי (◆). היא תיעצר בכיכר תחת אש בזוקות מהחלונות שבדרום הכיכר: תפסו עמדה בחלון שפונה לכיכר (מסומן בירוק) ותכסו אותה משם.', 9);
 }
 function suezItems(items) {
   const S = SZ_STAGES[SZ.stage]; items.push(['go', (S.goal || S.sub) + (OBJ.on ? ' (◆)' : '')]);
   if (SZ.stage <= 1) { items.push([TANK.hp < 40 ? 'warn' : '', `מצב הטנק: ${Math.max(0, Math.round(TANK.hp))}% · פגז: ${TANK.gunT > 0 ? `טוען ${Math.ceil(TANK.gunT)}` : 'מוכן'}`]); items.push(['', `מצרים בחלונות ובגגות: ${szAlive((e) => e.sz === 'win')} · ברחוב: ${szAlive((e) => e.sz === 'street')}`]); }
-  if ((SZ.stage === 2 || SZ.stage === 3) && GATE.on) gateItem(items); else if (SZ.stage === 3) items.push(['next', 'הכיכר נקייה: היכנסו לבניין הפינה (◆)']);
+  if ((SZ.stage === 2 || SZ.stage === 3) && GATE.on) szGateItem(items);
   if (SZ.stage >= 2 && SZ.stage <= 4) { const n = FRIENDS.filter((f) => f.state === 'follow').length; items.push([n < 2 ? 'warn' : '', `צנחנים איתכם: ${n}`]); }
-  if (SZ.stage === 4) items.push(['', `מצרים בבניין: ${szAlive((e) => e.sz === 'room')}`]);
+  if (SZ.stage === 4) { const done = SZ_CQB.slice(0, SZ.cq).filter((q) => q.room >= 0).length - (SZ.cqClr ? 0 : 1); items.push([SZ.cqClr ? 'next' : '', SZ.cqClr ? `החדר נקי · לדלת הבאה (◆) · ${done}/10` : `מנקים חדר · מצרים בו: ${szAlive((e) => e.cqr === SZ.cqRoom)} · ${done}/10`]); }
   if (SZ.stage >= 5) {
-    if (SZ.stage === 5) { const s = Math.max(0, Math.ceil(SZ.holdT)); items.push(['next', `השיירה מגיעה בעוד ${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`]); }
+    if (SZ.stage === 5) items.push(['next', SZ.srcOn && SZ.srcOn.length ? `גל ${SZ.wave + 1} מתוך ${SZ_WAVES.length} · ${SZ.srcOn.map((k) => SZ_DEF[k].name).join(' ו')}` : `בין הגלים · ${Math.max(0, SZ.wave + 1)}/${SZ_WAVES.length} נהדפו`]);
     else if (SZ.convAt) items.push(['next', 'השיירה בדלת! נקו את הבניין מהמצרים (◆)']);
     else if (SZ.cvDone) items.push(['next', 'השיירה בדרך לדלת: שמרו על המדרגות ועל דלת התאג״ד']);
     else if (SZ.cv) { items.push(['next', 'השיירה תקועה בכניסה לכיכר']); items.push(['warn', `חסלו את הבזוקות שמסביב לכיכר (◆): ${szAlive((e) => e.sq === 'cv' && e.kind === 'rpg')}`]); }
-    else items.push(['next', 'השיירה בשדרה הראשית: תפסו עמדה בחלון שפונה לכיכר או על הגג']);
+    else items.push(['next', 'השיירה ברחוב הדרומי: תפסו עמדה בחלון שפונה לכיכר']);
     const left = szWoundedLeft(); items.push([left < SZ_WOUNDED.length ? 'warn' : 'med', `פצועים בתאג״ד: ${left} מתוך ${SZ_WOUNDED.length}`]);
     const inB = szAlive((e) => inTB(e.pos.x, e.pos.z, 0.3)); if (inB) items.push(['warn', `מצרים בתוך הבניין: ${inB}`]);
   }
@@ -7049,7 +7476,7 @@ function suezItems(items) {
 function drawSuezMinimap(g, X, poly, dot, k) {
   g.fillStyle = 'rgba(150,140,118,.9)'; g.fillRect(0, 0, MINI.c.width, MINI.c.width);
   const rect = (x0, x1, z0, z1) => poly([[LX(x0), LZ(z0)], [LX(x1), LZ(z0)], [LX(x1), LZ(z1)], [LX(x0), LZ(z1)]]);
-  g.fillStyle = 'rgba(70,70,66,.95)'; for (const r of [[-36, 245, -8, 8], [-84, -36, -24, 24], [-66, -50, -105, 105], [-110, -84, -8, 8]]) { rect(...r); g.fill(); }
+  g.fillStyle = 'rgba(70,70,66,.95)'; for (const r of [[-36, 245, -8, 8], [-84, -36, -24, 24], [-66, -50, -105, 105], [-110, -84, -8, 8], [-32, -27.5, -36.5, -11], [-50, -27.5, -36.5, -32]]) { rect(...r); g.fill(); }
   g.fillStyle = 'rgba(205,190,160,.95)'; for (const [x0, x1, z0, z1] of SZ.blocks) { poly([[x0, z0], [x1, z0], [x1, z1], [x0, z1]]); g.fill(); }
   rect(TB.x0, TB.x1, TB.z0, TB.z1); g.fillStyle = SZ.stage >= 2 ? '#ffcf73' : 'rgba(225,212,180,.95)'; g.fill(); g.lineWidth = 2; g.strokeStyle = '#3a2f1c'; g.stroke();
   laneMini(g, X, k);
@@ -7060,14 +7487,14 @@ function drawSuezMinimap(g, X, poly, dot, k) {
 }
 
 /* ---------- starting chapter 2, checkpoints ---------- */
-function szShow(on) { showWorld(on ? 'suez' : 'mezach'); if (SZ.ht) SZ.ht.visible = on && SZ.stage >= 2; if (SZ.aidG) SZ.aidG.visible = on && SZ.stage >= 5; if (SZ.conv) for (const v of SZ.conv) v.g.visible = on && SZ.stage === 6 && !!v.path; }
+function szShow(on) { showWorld(on ? 'suez' : 'mezach'); if (SZ.ht) SZ.ht.visible = on && SZ.stage >= 2; if (on) szAveOn(SZ.stage >= 2); for (const id in SZD) if (SZD[id].bar) SZD[id].piv.visible = on && !SZD[id].open; if (SZ.aidG) SZ.aidG.visible = on && SZ.stage >= 5; if (SZ.conv) for (const v of SZ.conv) v.g.visible = on && SZ.stage === 6 && !!v.path; }
 function szResetTank(s) { Object.assign(TANK, { hp: 100, s, speed: 0, alive: true, burning: false, stopI: 0, holdAt: null, mg: 0, gunT: 0, recoil: 0, fireT: 0, hdV: null, path: [[232, 4], [-28, 4], [-44, 6]] }); if (SZ.lead) { vehRevive(SZ.lead); SZ.lead.shown = s < 100; SZ.lead.g.visible = SZ.lead.shown; if (s >= 100) SZ.lead.alive = false; } SZ.leadHit = s >= 100; for (const f of TANK.fireS) f.visible = false; LIGHTS.fire.intensity = 0; TANK.turret.rotation.y = 0; TANK.gun.rotation.x = 0; }
 function szSetup(stage) {
   clearBattle(); for (const s of SZ.slots) s.used = false; for (const c of SZ.covers) c.by = null;
   Object.assign(P, { vy: 0, crouch: false, hp: 100, lastHit: -9, mag: 20, reserve: 160, gren: diff.gren0, reloadT: 0, fireCd: 0, ads: 0, recoil: 0, post: null, carrying: null, hold: 0, kick: 0, throwT: 0, ammoCd: 0 }); P.alive = true;
   SZ.bailed = stage >= 2; SZ.bigHit = stage >= 2; SZ.hitT = 0; SZ.junction = false; SZ.clearT = 0; SZ.convAt = null; SZ.cv = false; SZ.cvDone = false; SZ.filmed = false; INPUT.tAds = false; $('#tads').classList.remove('on');
   if (SZ.conv) for (const v of SZ.conv) { v.g.visible = false; v.path = null; } if (SZ.aidG) SZ.aidG.visible = stage >= 5;
-  szResetTank([0, 210, 272, 272, 272, 272, 272][stage]); if (stage >= 2) { TANK.alive = false; TANK.burning = true; TANK.hp = 0; }
+  szResetTank([0, 210, SZ_TANK_END, SZ_TANK_END, SZ_TANK_END, SZ_TANK_END, SZ_TANK_END][stage]); if (stage >= 2) { TANK.alive = false; TANK.burning = true; TANK.hp = 0; }
   const [x, z, hd] = tankAt(TANK.s); TANK.g.position.set(LX(x), CHH, LZ(z)); TANK.g.rotation.y = hd; TANK.g.updateMatrixWorld(true);
   if (stage <= 1) { P.mode = 'tank'; P.yaw = hd + Math.PI; P.pitch = -0.02; vm.visible = false; }
   else { P.mode = 'rifle'; vm.visible = true; $('#tsight').classList.remove('on');
@@ -7107,21 +7534,21 @@ function szLeadFilm() {
     end: () => { if (g) { g.cyc = 1.5; g.rpgCd = rand(4, 6); } radio('מ״פ', 'הטנק של 2א נפגע. שמרו על החלונות, הוא עוד שם!', 3.5); },
   });
 }
-/* ---------- film: the convoy at the door. The wounded go down to the half-tracks, and the convoy pulls out east ---------- */
+/* ---------- film: the convoy at the door. The wounded go down to the jeeps, and the convoy pulls out the way it came, south ---------- */
 function szConvoyFilm() {
   if (SZ.filmed) return; SZ.filmed = true; SZ.cvDone = true;
   for (const e of UNITS.enemies) if (e.alive) killEnemy(e, false); for (let i = DIRQ.length - 1; i >= 0; i--) if (DIRQ[i].spawn) DIRQ.splice(i, 1);
   const [T, H1, H2] = SZ.conv, door = V3(LX(-76.3), CHH, LZ(TB.z1)), sq = V3(LX(-60), CHH, LZ(-2));
   const lead = () => { const v = SZ.conv.find((w) => w.alive) || H1; return v.g.position.clone(); };
-  // the wounded are carried down between the first and the second shot: by then they lie on the half-tracks and the squad stands at the tailboards
+  // the wounded are carried down between the first and the second shot: by then they lie across the backs of the jeeps and the squad stands behind them
   const load = () => {
     const W = FRIENDS.slice(10, 15).filter((f) => f.aid && f.state === 'saved'), hts = [H1, H2].filter((v) => v.alive); if (!hts.length) hts.push(H1);
-    W.forEach((f, i) => { const v = hts[i % hts.length], k = Math.floor(i / hts.length); f.bed = v; f.bedAt = [[-1.9, -0.55], [-1.9, 0.55], [-0.1, 0]][k % 3]; const p = v.g.localToWorld(V3(f.bedAt[0], 2.1, f.bedAt[1])); f.unit.place(p.x, p.z); f.unit.pos.y = p.y; f.unit.heading = v.hdV + Math.PI; f.unit.sync(); });
-    FRIENDS.slice(0, 6).forEach((f, i) => { if (f.state !== 'post' && f.state !== 'follow') return; const v = hts[i % hts.length], p = v.g.localToWorld(V3(-4.2 - Math.floor(i / hts.length) * 1.1, 0, (i % 2 ? 1 : -1) * 0.9)); f.state = 'post'; f.target = null; f.unit.place(p.x, p.z, CHH + 0.2); f.unit.heading = v.hdV; f.unit.stance = 'stand'; f.unit.sync(); });
-    { const m = FRIENDS[15]; if (m.state === 'post') { const p = (hts[0]).g.localToWorld(V3(-3.6, 0, 0)); m.unit.place(p.x, p.z, CHH + 0.2); m.unit.heading = hts[0].hdV; m.unit.sync(); } }
+    W.forEach((f, i) => { const v = hts[i % hts.length], k = Math.floor(i / hts.length); f.bed = v; f.bedAt = [[-1.15, -0.32], [-1.15, 0.32], [0.15, 0]][k % 3]; const p = v.g.localToWorld(V3(f.bedAt[0], SZ_BEDY, f.bedAt[1])); f.unit.place(p.x, p.z); f.unit.pos.y = p.y; f.unit.heading = v.hdV + Math.PI; f.unit.sync(); });
+    FRIENDS.slice(0, 6).forEach((f, i) => { if (f.state !== 'post' && f.state !== 'follow') return; const v = hts[i % hts.length], p = v.g.localToWorld(V3(-3.2 - Math.floor(i / hts.length) * 1.1, 0, (i % 2 ? 1 : -1) * 0.9)); f.state = 'post'; f.target = null; f.unit.place(p.x, p.z, CHH + 0.2); f.unit.heading = v.hdV; f.unit.stance = 'stand'; f.unit.sync(); });
+    { const m = FRIENDS[15]; if (m.state === 'post') { const p = (hts[0]).g.localToWorld(V3(-2.8, 0, 1.4)); m.unit.place(p.x, p.z, CHH + 0.2); m.unit.heading = hts[0].hdV; m.unit.sync(); } }
   };
-  // each vehicle leaves from where it stands, the lead first: east along the square and back up the avenue. The wounded ride along
-  const leave = () => { SZ.conv.forEach((v, i) => { if (!v.alive) return; v.path = [[v.g.position.x, v.g.position.z], ...[[-62, -16], [-48, -8], [-34, -4], [-20, 4], [200, 4]].map(([x, z]) => [LX(x), LZ(z)])]; v.s = 0; v.stop = 0; v.ended = true; v.vmax = 7; DIRQ.push({ at: GAME.t + i * 1.4, fn: () => { v.stop = undefined; } }); });
+  // each vehicle leaves from where it stands, the last first: back across the square and down the south street. The wounded ride along
+  const leave = () => { SZ.conv.forEach((v, i) => { if (!v.alive) return; v.path = [[v.g.position.x, v.g.position.z], ...[[-64, -6], [-61, 8], [-58.5, 24], [-58, 40], [-58, 110]].map(([x, z]) => [LX(x), LZ(z)])]; v.s = 0; v.stop = 0; v.ended = true; v.vmax = 7; DIRQ.push({ at: GAME.t + (2 - i) * 1.4, fn: () => { v.stop = undefined; } }); });
     SZ.rideT = 0; };
   playCine({ vid: 'sz_convoy',
     title: 'כיכר אל־ארבעין · 17:25',
@@ -7131,17 +7558,17 @@ function szConvoyFilm() {
       { d: 6.0, cam: (u) => ({ p: V3(LX(-79 + u * 2), CHH + 2.6 + u * 1.8, LZ(-12)), l: lead().add(V3(0, 1.4, 0)), fov: 50 - u * 8 }) },
     ],
     ev: [[3.9, load], [9.2, leave]],
-    caps: [[0.3, '<b>17:25.</b> שיירת החילוץ מגיעה לדלת הבניין.', 3.5], [4.3, 'הצנחנים מורידים את הפצועים מהתאג״ד ומעמיסים אותם על הזחל״מים.', 4.4], [9.4, 'הזחל״מים יוצאים מזרחה. מי שנשאר בבניין ייצא בלילה ברגל, בסמטאות, עד לקווינו.', 5.2]],
+    caps: [[0.3, '<b>17:25.</b> שיירת החילוץ מגיעה לדלת הבניין.', 3.5], [4.3, 'הצנחנים מורידים את הפצועים מהתאג״ד ומעמיסים אותם על הג׳יפים.', 4.4], [9.4, 'הג׳יפים יוצאים דרומה. מי שנשאר בבניין ייצא בלילה ברגל, בסמטאות, עד לקווינו.', 5.2]],
     end: () => { DIRQ.push({ at: GAME.t + 0.3, fn: () => endGame(true) }); },
   });
 }
 function szEnd(win, why) {
   const stats = [[STATS.kills, 'אויבים נפגעו'], [SZ.stage >= 5 ? szWoundedLeft() : Math.max(0, Math.round(TANK.hp)), SZ.stage >= 5 ? 'פצועים חולצו' : 'מצב הטנק %'], [SZ.stage + 1, 'השלב שהגעתם אליו']];
-  if (win) return ['הפצועים חולצו', 'הזחל״מים יצאו מהכיכר מזרחה עם הפצועים. מי שנשאר בבניין יצא בלילה ברגל, בסמטאות, ועד הבוקר הגיע לקווינו. בקרב על סואץ, שעות לפני הפסקת האש, נפלו 80 לוחמים ו־120 נפצעו.', stats];
+  if (win) return ['הפצועים חולצו', 'הג׳יפים יצאו מהכיכר דרומה עם הפצועים. מי שנשאר בבניין יצא בלילה ברגל, בסמטאות, ועד הבוקר הגיע לקווינו. בקרב על סואץ, שעות לפני הפסקת האש, נפלו 80 לוחמים ו־120 נפצעו.', stats];
   if (why === 'tank') return ['הטנק הושמד', 'צוותי הבזוקה בחלונות מכוונים לטנק שנייה לפני שהם יורים. כשרואים אחד מציץ, מקלע 0.5 או פגז לחלון שלו, מיד.', stats];
-  if (why === 'aid') return ['התאג״ד נפל', 'המצרים הגיעו לפצועים. מי שעולה במדרגות חייב למות על המדרגות: עמדו בפתח התאג״ד מול דלת חדר המדרגות, רימון לכל מי שעולה, ושמרו גם על הדלת מהמסדרון.', stats];
-  if (why === 'conv') return ['השיירה הושמדה', 'צוותי הבזוקה בחלונות מסביב לכיכר יורים על הזחל״מים. מהחלונות של הבניין יש אליהם קו ראייה: כוונת, ראש, הבא. הם מציצים לכמה שניות לפני שהם יורים.', stats];
-  return ['נפגעת', 'בטנק אפשר להיכנס לצריח כשהאש כבדה. ברגל: עוברים ממחסה למחסה, ובבניין זורקים רימון לפני כל חדר ונכנסים אחרי הפיצוץ.', stats];
+  if (why === 'aid') return ['התאג״ד נפל', 'המצרים הגיעו לפצועים. מי שפורץ לבניין עולה במדרגות ישר אליהם: כשמישהו בפנים, עזבו את החלון ועמדו מול דלת התאג״ד, רימון לכל מי שעולה.', stats];
+  if (why === 'conv') return ['השיירה הושמדה', 'צוותי הבזוקה בחלונות שבדרום הכיכר יורים על הג׳יפים. מהחלונות של הבניין יש אליהם קו ראייה: כוונת, ראש, הבא. הם מציצים לכמה שניות לפני שהם יורים.', stats];
+  return ['נפגעת', 'בטנק אפשר להיכנס לצריח כשהאש כבדה. בסמטאות: עמדה אחרי עמדה, תמיד ממחסה. בבניין: הדלת נפתחת כשמגיעים אליה - רימון פנימה, ונכנסים אחרי הפיצוץ.', stats];
 }
 CHAP.suez = { stages: SZ_STAGES, st: () => SZ.stage, cp: () => SZ.cp, upd: updSuez, obj: suezObjective, hints: suezHints, items: suezItems, mini: drawSuezMinimap, restore: szRestore, tod: szTimeOfDay, start: startSuez, end: szEnd, tank: true };
 
@@ -7913,12 +8340,13 @@ function filmWalk(dt) { for (const w of FILMW) { const u = w.u; u.pos.x += w.dx 
 const camLerp = (a, b, l0, l1, fov) => (u) => { const e = u * u * (3 - 2 * u); const A = typeof a === 'function' ? a() : a, B = typeof b === 'function' ? b() : b, L0 = typeof l0 === 'function' ? l0() : l0, L1 = typeof l1 === 'function' ? l1() : l1; return { p: A.clone().lerp(B, e), l: L0.clone().lerp(L1, e), fov }; };
 const camOrbit = (c, r, a0, a1, h, fov) => (u) => { const C = typeof c === 'function' ? c() : c, a = lerp(a0, a1, u); return { p: V3(C.x + Math.sin(a) * r, C.y + h, C.z + Math.cos(a) * r), l: C, fov }; };
 
-/* ---------- film, chapter 1, the big wave: the canal full of boats rowing at the rampart, the first of them grounding on the beach ---------- */
+/* ---------- film, chapter 1, the big wave: the canal full of boats rowing at the rampart, the first of them blown up on the mines short of the beach ---------- */
 function mzBoatsFilm() {
   if (D.boatsFilm || CINE.on) return; const W = BOATS.filter((b) => !b.dead && (b.state === 'wait' || b.state === 'cross')); if (W.length < 2) return; D.boatsFilm = true;
-  // the waves are already timed (rowsStart) so that the first of them, one boat, grounds while the film runs - its men the first up the beach;
-  // the film stops the battle (boatsFreeze), so the rest are back where they were when it ends. The lead boat is the first wave's
-  const T_LAND = 14.6, zc = 20, byZ = (a, b) => Math.abs(a.zLand - zc) - Math.abs(b.zLand - zc), rowA = W.filter((b) => b.wave === 0), rowB = W.filter((b) => b.wave === 1);
+  // the waves are already timed (rowsStart) so that the first of them, one boat, comes in while the film runs - and a second short of the
+  // beach goes up on the mines along the waterline (mzMineBoat), in the fourth shot. The film stops the battle (boatsFreeze), so the rest are
+  // back where they were when it ends. The lead boat is the first wave's
+  const T_LAND = 14.9 + MZ_MINE_T, zc = 20, byZ = (a, b) => Math.abs(a.zLand - zc) - Math.abs(b.zLand - zc), rowA = W.filter((b) => b.wave === 0), rowB = W.filter((b) => b.wave === 1);
   const lead = (rowA.length ? rowA : W).slice().sort(byZ)[0], mid = (rowB.length ? rowB : W.filter((b) => b !== lead)).slice().sort(byZ)[0] || lead; lead.filmLand = true;
   if (!rowA.length) W.forEach((b, i) => { const u = b === lead ? 1 - (T_LAND * b.speed) / b.len : b === mid ? 0.55 : 0.34 + 0.28 * ((i * 0.618034) % 1); b.t = (u * b.len) / b.speed; });
   for (const b of W) filmRow(b, true);   // the oars shipped for the film, as in the drone's (up close the rowing does not look right)
@@ -7936,12 +8364,12 @@ function mzBoatsFilm() {
       { d: 5.6, cam: camLerp(V3(beachX + 3, 2.6, zc + 26), V3(beachX + 1, 2.2, zc + 20), V3(nearX(-236), 1.2, zc - 8), V3(nearX(-222), 1.0, zc - 2), 24) },
       { d: 4.6, cam: (u) => { const b = mp(), f = fwd(mid), r = rgt(mid), sd = r.x * SUN.dir.x + r.z * SUN.dir.z > 0 ? 1 : -1; return { p: b.clone().addScaledVector(f, -2.5 + u * 3).addScaledVector(r, sd * 9).add(V3(0, 3.4, 0)), l: b.clone().addScaledVector(f, 0.5 + u * 1.5).add(V3(0, 0.6, 0)), fov: 46 }; } },
       { d: 4.0, cam: (u) => { const b = mp(), f = fwd(mid), r = rgt(mid); return { p: b.clone().addScaledVector(f, -6.5 + u * 1.2).addScaledVector(r, 1.4).add(V3(0, 2.5, 0)), l: V3(crestX(mid.zLand) - 4, groundAt(crestX(mid.zLand), mid.zLand) + 2.5, mid.zLand), fov: 48 }; } },
-      { d: 5.4, slow: 0.55, cam: (u) => ({ p: V3(beachX + 10 - u * 1.5, groundAt(beachX + 10, zl + 11) + 2.3, zl + 11), l: V3(lerp(beachX - 3, beachX + 9, u * u), lerp(0.9, groundAt(beachX + 9, zl) + 1.4, u), zl), fov: 44 }) },
+      { d: 5.4, slow: 0.55, cam: (u) => ({ p: V3(beachX + 10 - u * 1.5, groundAt(beachX + 10, zl + 11) + 2.3, zl + 11), l: V3(beachX - 5.5 - u * 1.5, 1.0 + u * 2.2, zl), fov: 44 }) },   /* from the beach: the boat a few metres out, and the mine under it */
       { d: 3.4, cam: (u) => { const x = crestX(zl) - 1 - u * 1.5; return { p: V3(x, groundAt(x, zl + 9) + 2.4, zl + 9), l: V3(beachX + 3 - u * 2, 1.0, zl - 3), fov: 50 }; } },
     ],
     ev,
     caps: [[0.3, '<b>לפנות ערב.</b> הם זורקים את הכול: סירות לכל אורך הסוללה המערבית, מקצה לקצה.', 4.8], [5.8, 'בכל סירה חיילים צפופים. החותרים לא עוצרים, גם כשהמים מסביבם רותחים מאש.', 4.2],
-      [10.4, '<b>תצפית:</b> הראשונים כבר ליד החוף! עוד רגע הם על הסוללה!', 3.6], [14.8, '<b>מ״פ:</b> הם נוחתים! כולם לסוללה המערבית!', 3.6], [19.8, '<b>מ״פ:</b> לא נותנים להם לעלות. אש על הסירות, עכשיו!', 3.0]],
+      [10.4, '<b>תצפית:</b> הראשונים כבר ליד החוף! עוד רגע הם על הסוללה!', 3.6], [15.6, '<b>פיצוץ!</b> הסירה עלתה על מוקש בקו המים. אף אחד מהם לא הגיע לחוף.', 4.0], [19.8, '<b>מ״פ:</b> עוד עשרות סירות בדרך. אש על הסירות, עכשיו!', 3.0]],
     boatFilm: true, boatRate: 0.4, end: () => { for (const b of BOATS) if (b.filmHide) filmRow(b, false); },   /* the rest row on at less than half pace in it: none of them lands */
   });
 }
@@ -8772,51 +9200,77 @@ CHAP.rescue = { stages: RS_STAGES, st: () => RS.stage, cp: () => CHAP.rescue.cpN
   atgmTarget: (e) => (RS.stage >= 3 && CHAP.rescue.shaul.alive && Math.random() < 0.6 ? () => CHAP.rescue.shaul.g.position.clone().add(V3(0, 1.6, 0)) : null),
   build: () => chapterBuild(CHAP.rescue, rsBuild), setup: rsSetup, clock: '9.10.1973 · ציר טליסמן', toast: ['הלילה שבין 8 ל־9 באוקטובר 1973 · 03:40', 'כוח חילוץ יוצא בלילה לאסוף את לוחמי מעוז פורקן'], start: () => fieldStart('rescue') };
 
-/* ================= chapter 5: the crossing bridge, 16-19 October 1973 =================
-   After Israeli sources. The roller bridge - some 200 m of steel cylinders - was torn on its way to the canal on the 16th, repaired under
-   shelling, towed to the water by battalion 410 on the 18th and laid about a kilometre north of the pontoon bridge, at about 01:00 on the 19th.
-   Film: the repair. 1. 18.10 - across on the rafts, the jeep's machine gun against the far bank. 2. the jeeps through the fields and their
-   bazooka ambushes. 3. a small Egyptian village beside the crossing point, house by house. 4. 19.10, after midnight - the paratroopers hold the
-   houses against the counter-attack while the bridge is pushed into the water. 5. the first tanks cross and come into the village firing.
-   Film: the Egyptians break; a column of tanks on its way to the roller bridge. In this chapter north is +z. */
-const CR = { o: { x: -7000, z: 7000 }, stage: 0, t: 0, cp: 0, msgs: {}, br: 0, flee: [], air: 0, rep: null, push: false, conv: null, filmTod: null, wave: 0, waveT: 0 };
+
+/* ================= chapter 5: the crossing bridges, 18-19 October 1973 =================
+   After Israeli sources (Hebrew Wikipedia, חיל ההנדסה במלחמת יום הכיפורים; ynet; the brigade 14 heritage site). The first tanks went over on
+   16 October on the Gilloa ferries; on the 17th the uniflote pontoons were in the water by 11:30 and the pontoon bridge stood bank to bank at
+   16:30 - from then on the crossing was over it, under shelling and air attack. The roller bridge broke on its way to the canal on the 16th and
+   stuck in the sand; it was dragged on to the water's edge (Lt. Col. Aharon "Johnny" Tana, who led it, fell on the canal bank on the 18th) and
+   launched on the 19th, north of the pontoon bridge; brigade 14's commander crossed on it that day.
+   Film: the repair. 1. 18.10 - over the pontoon bridge in the jeeps, the jeep's machine gun against the Egyptians who crept back onto the
+   rampart. 2. the jeeps north through the fields and their bazooka ambushes. 3. the village where the roller bridge will land: one street,
+   house by house, by one route. 4. the night of the 19th - the house at the head of the street holds the junction against waves from three
+   sides while, behind it, the roller bridge is pushed across. 5. the bridge is down: the tanks come up the street and round into the junction.
+   Film: the Egyptians break; a column of tanks on its way to the roller bridge.
+   As everywhere in the game +x is east (Sinai) and north is -z: the roller bridge lands at z = 0, the pontoon bridge is 404 m south of it. */
+const CR = { o: { x: -7000, z: 7000 }, stage: 0, t: 0, cp: 0, msgs: {}, br: 0, flee: [], air: 0, rep: null, push: false, conv: null, filmTod: null, wave: 0, waveT: 0, doorN: false };
 const CW = toWorld(CR.o);
 const CR_STAGES = [
-  { title: 'על הדוברות', sub: 'צנחני חטיבה 247 חוצים את התעלה בג׳יפים על דוברות, מול גדה שיורה. המקלע על הג׳יפ הוא היחיד שיכול לענות לעמדות ממול — עד שהגלגלים נוגעים באפריקה.', goal: 'מהמקלע על הג׳יפ: השתיקו את העמדות בגדה ממול' },
-  { title: 'בין השדות', sub: 'מעבר לסוללה מתחילים שדות התעלה: תעלות השקיה, שיחים גבוהים, וחוליות בזוקה שמחכות בתוכם. הג׳יפים נוסעים אל הכפר שליד נקודת הגישור.', goal: 'חסלו את מארבי הבזוקה בשיחים, עד הכפר' },
-  { title: 'הכפר', sub: 'כפר מצרי קטן יושב בדיוק במקום שבו יעלה גשר הגלילים לגדה. בית אחרי בית, ממזרח למערב, לאורך הדרך.', goal: 'כבשו את הכפר, בית אחרי בית (◆)' },
-  { title: 'להחזיק את הבתים', sub: '19 באוקטובר, אחרי חצות. מאחוריכם גשר הגלילים נדחף אל המים. המצרים יודעים מה זה אומר — ומסתערים על הכפר מהשדות שבמערב.', goal: 'החזיקו את הבתים מול ההסתערות, עד שהגשר נוגע בגדה (הפס למעלה)' },
-  { title: 'הטנקים עוברים', sub: 'הגשר מונח. הטנקים הראשונים עולים עליו — ומגיעים לכפר באש של מקלעים ופגזים.', goal: 'החזיקו את הבתים — הטנקים בדרך אליכם' },
+  { title: 'על גשר הדוברות', sub: '18 באוקטובר. גשר הדוברות עומד על התעלה מאתמול אחר הצהריים, וכל מה שעובר לגדה המערבית עובר עליו — תחת הפגזה ומטוסים. צנחני חטיבה 247 עוברים בג׳יפים, אחרי הטנקים. בלילה חזרו מצרים לסוללה שמצפון לגשר.', goal: 'מהמקלע על הג׳יפ: השתיקו את המצרים על הסוללה שמצפון לגשר' },
+  { title: 'בין השדות', sub: 'מעבר לסוללה מתחילים שדות התעלה: תעלות השקיה, שיחים גבוהים, וחוליות בזוקה שמחכות בתוכם. הג׳יפים נוסעים צפונה, אל הכפר שליד המקום שבו יונח גשר הגלילים.', goal: 'חסלו את מארבי הבזוקה בשיחים, עד הכפר' },
+  { title: 'רחוב הכפר', sub: 'רחוב אחד, כביש באמצעו ובתים משני צדיו. כובשים בית אחרי בית, בדרך אחת: חצר, בית, חוצים את הרחוב אל הבית שממול, דרך החצר שלו אל החצר הבאה — עד הבית שבראש הרחוב, מול הצומת.', goal: 'כבשו את הרחוב, בית אחרי בית — הדלת הבאה מסומנת ב־◆' },
+  { title: 'הצומת', sub: 'הלילה שבין 18 ל־19 באוקטובר. הבית שבראש הרחוב שולט על הצומת. המצרים יודעים מה זה אומר — והם באים בגלים, משלושה כיוונים: מהסמטה הצפונית, מהסמטה הדרומית ומהדרך שממערב. מאחוריכם, בתעלה, גשר הגלילים נדחף אל המים.', goal: 'החזיקו את הבית מול הצומת עד שגשר הגלילים נוגע בגדה (הפס למעלה)' },
+  { title: 'הטנקים באים', sub: '19 באוקטובר. גשר הגלילים מונח. הטנקים הראשונים עולים עליו — ובאים אליכם במעלה הרחוב ומסביב לכפר, אל הצומת.', goal: 'החזיקו את הבית — הטנקים בדרך אליכם' },
 ];
-const CR_CLOCK = ['18.10.1973 · התעלה', '18.10.1973 · השדות', '18.10.1973 · הכפר', '19.10.1973 · הכפר', '19.10.1973 · גשר הגלילים'];
-const CR_TOD = [8 * 60 + 40, 9 * 60, 9 * 60 + 50, 24 * 60 + 48, 25 * 60 + 4];   // minutes from midnight of the 18th
+const CR_CLOCK = ['18.10.1973 · גשר הדוברות', '18.10.1973 · השדות', '18.10.1973 · הכפר', '19.10.1973 · הצומת', '19.10.1973 · גשר הגלילים'];
+const CR_TOD = [8 * 60 + 40, 9 * 60, 9 * 60 + 50, 24 * 60 + 30, 24 * 60 + 42];   // minutes from midnight of the 18th
 const CR_BRIDGE = -330;   // the sweet-water canal and the little bridge over it
-// the Egyptian trench zigzags along the flat top of the west rampart, north of the breach (scenery now: its men were in the village)
+// the Egyptian trench zigzags along the flat top of the west rampart between the two bridges (scenery now: its men went back into the village)
 const crTri = (t) => 1 - 4 * Math.abs((((t % 1) + 1) % 1) - 0.5);
 const crTX = (lz) => -128 + 2.0 * crTri(lz / 26);
 const CR_TZ0 = 30, CR_TZ1 = 256, CR_RAMP_Z = 268;
-const CR_RAFT_Z = 404;
-// the jeeps: off the rafts, west and then south through the fields, along the foot of the rampart to the village
-const CR_JEEP = [[-86, 400], [-104, 401], [-124, 404], [-152, 410], [-200, 418], [-245, 404], [-252, 370], [-238, 345], [-222, 324], [-204, 302], [-180, 282], [-162, 262], [-153, 236], [-151, 196], [-152, 150], [-152, 104], [-151, 70], [-152, 42]], CR_JEEP_S = smoothPath(CR_JEEP, 3);
+// the pontoon bridge: uniflote pontoons bank to bank, its deck a metre over the water
+const CR_PB_Z = 404, CR_PB_Y = 0.95, CR_PB_PATH = [[134, 404], [100, 404]];
+// the jeeps: over the pontoon bridge, west through the gap in the rampart, then north through the fields, along the foot of the rampart to the village
+const CR_JEEP = [[-100, 404], [-112, 404], [-124, 405], [-152, 410], [-200, 418], [-245, 404], [-252, 370], [-238, 345], [-222, 324], [-204, 302], [-180, 282], [-162, 262], [-153, 236], [-151, 196], [-152, 150], [-152, 104], [-151, 70], [-150, 44], [-147, 10]], CR_JEEP_S = smoothPath(CR_JEEP, 3);
+const CR_J0 = [...CR_PB_PATH, ...CR_JEEP], CR_PB_END = pathLen(CR_PB_PATH) + 196;   // the whole drive, and where on it the bridge's west end is
 // where along the jeep track the three ambushes halt the column, and where their runners come from
-const CR_AMB = { a0: { stop: [-243, 352], from: [-275, 340], txt: 'מארב! בזוקות בשיחים משני הצדדים!' }, a1: { stop: [-196, 296], from: [-228, 286], txt: 'עוד מארב! חי״ר בשדה, משמאל!' }, a2: { stop: [-152, 158], from: [-206, 150], txt: 'בזוקות בשדה מימין! עוד מארב!' } };
+const CR_AMB = { a0: { stop: [-243, 352], from: [-275, 340], txt: 'מארב! בזוקות בשיחים משני הצדדים!' }, a1: { stop: [-196, 296], from: [-228, 286], txt: 'עוד מארב! חי״ר בשדה, משמאל!' }, a2: { stop: [-152, 158], from: [-206, 150], txt: 'בזוקות בשדה משמאל! עוד מארב!' } };
 const crSAt = (path, x, z) => { let acc = 0, best = 0, bd = 1e9; for (let i = 0; i < path.length - 1; i++) { const a = path[i], b = path[i + 1], L = Math.hypot(b[0] - a[0], b[1] - a[1]); for (let u = 0; u <= 1; u += 0.02) { const d = Math.hypot(lerp(a[0], b[0], u) - x, lerp(a[1], b[1], u) - z); if (d < bd) { bd = d; best = acc + L * u; } } acc += L; } return best; };
 const CR_ROAD = [[-120, 0], [-430, 0]];
 const CR_SEGN = 32, CR_SEGL = 6.25, CR_DECK = 1.95, CR_BLEN = CR_SEGN * CR_SEGL;
 const CR_NAMES = ['עמוס', 'רפאל', 'אהרון', 'גבריאל', 'נתן', 'אלון', 'יואב', 'שי', 'בועז', 'עידו', 'אריק', 'מאיר', 'יוסי', 'קובי', 'אבי', 'צחי'];
 const CR_FOLLOW = [0, 1, 2, 3, 10, 11, 12, 13];
-/* the village beside the crossing point: mud-brick houses with walls 60 cm thick and doorways 2.2 m wide, on both sides of the road that runs
-   west from the breach. x, z, width (along x), depth (along z), the side of the door (n: toward -z, s: toward +z), all facing the road */
-const CR_VH = [[-172, -21, 10, 8, 's'], [-197, -23, 9, 10, 's'], [-223, -21, 11, 8, 's'], [-172, 21, 10, 8, 'n'], [-197, 23, 9, 10, 'n'], [-223, 21, 11, 8, 'n'], [-198, -48, 10, 8, 's'], [-198, 48, 10, 8, 'n']];
-const CR_WT = 0.6, CR_HH = 4.4, CR_DOOR = 2.2, CR_WIN = 1.4;   // tall rooms, a high flat roof with its parapet: a village that reads at a glance
-const CR_VSEG = [0, 1, 2, 0, 1, 2, 1, 1];                 // the bound of the advance that takes each house
-const crDoorX = (h) => (h[2] >= 10 ? h[0] + h[2] / 4 : h[0]);
-const crDoorFront = (i) => { const h = CR_VH[i]; return [crDoorX(h), h[4] === 's' ? h[1] + h[3] / 2 + 3.5 : h[1] - h[3] / 2 - 3.5]; };
-// the bounds: in front of a door each, east to west; the man inside each of those houses belongs to the bound that starts at his door
-const CR_VG = [[-152, 8], crDoorFront(3), crDoorFront(1), crDoorFront(5), [-234, 0]];
-const CR_GUARD = [[3, 1], [1, 2], [6, 2], [5, 3], [2, 3]];   // [house, bound]
-const CR_LOWW = [[-240, -40, -28], [-240, -14, -5], [-240, 5, 14], [-240, 28, 40]];   // low walls along the west edge: x, z0, z1
-const crInVillage = (lx, lz, pad = 0) => lx > -252 - pad && lx < -152 + pad && Math.abs(lz) < 62 + pad;
+/* the village, built as a T. The stem is one street running west from the gap in the rampart, the road down its middle, six houses on each side
+   with a walled yard behind each. The advance takes it by ONE route: into the first yard, through its house, across the street into the house
+   opposite, through that house's yard into the next yard, through that house, across the street again... Everything off that route is shut:
+   coils of wire cut the street between the crossings, the houses that are not on the route have their doors shut, the yard walls are higher
+   than a man can climb. At its west end the street runs into the house at the head of the T (CR_D); in front of it the cross-lane and the road
+   from the west meet - the junction. Mud-brick walls 60 cm thick, doorways 2.2 m wide, windows 1.4 m wide with their sills at 1.05 m */
+const CR_WT = 0.6, CR_HH = 4.4, CR_DOOR = 2.2, CR_WIN = 1.4;
+const CR_COLS = [-160, -173, -186, -199, -212, -225], CR_HW = 12, CR_HD = 9, CR_FZ = 6, CR_YZ = 24;   // house centres along the street; width, depth; the fronts at |z| 6; the yards' back walls
+// each house: its column, its side (-1: north of the road, 1: south), its front door and back door (offset from its centre along the street;
+// null: none), whether they are open (the route) or shut, its look; the route goes S1, N1, N2, S2, S3, N3 and on into the house at the head
+const CR_VH = [
+  { id: 'S1', c: 0, sd: 1, fd: -3.2, bd: 3.2, open: true, st: 0, in: 'b' }, { id: 'N1', c: 1, sd: -1, fd: 3.2, bd: -3.2, open: true, st: 1, in: 'f' },
+  { id: 'N2', c: 2, sd: -1, fd: -3.2, bd: 3.2, open: true, st: 2, in: 'b' }, { id: 'S2', c: 3, sd: 1, fd: 3.2, bd: -3.2, open: true, st: 3, in: 'f' },
+  { id: 'S3', c: 4, sd: 1, fd: -3.2, bd: 3.2, open: true, st: 4, in: 'b' }, { id: 'N3', c: 5, sd: -1, fd: 3.2, bd: -3.2, open: true, st: 5, in: 'f' },
+  { id: 'n0', c: 0, sd: -1, fd: 0, bd: null, open: false, st: 6 }, { id: 's1', c: 1, sd: 1, fd: -2.5, bd: null, open: false, st: 7 },
+  { id: 's2', c: 2, sd: 1, fd: 2.5, bd: null, open: false, st: 1 }, { id: 'n3', c: 3, sd: -1, fd: -2.5, bd: null, open: false, st: 4 },
+  { id: 'n4', c: 4, sd: -1, fd: 2.5, bd: null, open: false, st: 0 }, { id: 's5', c: 5, sd: 1, fd: -2.5, bd: null, open: false, st: 5 },
+];
+const CR_D = { x: -240, z: 0, w: 12, d: 22 };            // the house at the head of the street: the village cooperative, two windows wide on the junction
+const CR_LX0 = -246, CR_LX1 = -261, CR_LZ = 104;         // the cross-lane in front of it: between these x, out to |z|
+const CR_WIRE = [-153.6, -179.5, -205.5];                // coils of wire across the street: at its mouth and between the crossings
+// the route, door to door: the gate points of the advance, each just outside the door the next house is entered by
+const CR_VG = [[-147, 10], [-156.8, 17.2], [-169.8, -3.8], [-182.8, -17.2], [-195.8, 3.8], [-208.8, 17.2], [-221.8, -3.8], [-240, -13.3], [-240, -4]];
+const crInVillage = (lx, lz, pad = 0) => (lx > -266 - pad && lx < -150 + pad && Math.abs(lz) < 27 + pad) || (lx > CR_LX1 - 3 - pad && lx < CR_LX0 + 3 + pad && Math.abs(lz) < CR_LZ + 3 + pad) || (lx > -304 - pad && lx < CR_LX1 + pad && Math.abs(lz) < 9 + pad);
+// the three ways into the junction: where a wave forms up out of sight, the mouth it comes through, the windows and the door it storms
+const CR_FRONT = {
+  n: { name: 'מהסמטה הצפונית', short: 'צפון', from: [-253.5, -101], mouth: [-253.5, -27], rpg: [-253.5, -34], tgt: [[-247, -8], [-247, -4], [-247, -9.5]] },
+  s: { name: 'מהסמטה הדרומית', short: 'דרום', from: [-253.5, 101], mouth: [-253.5, 27], rpg: [-253.5, 34], tgt: [[-247, 8], [-247, 4], [-247, 9.5]] },
+  w: { name: 'מהדרך שממערב', short: 'מערב', from: [-358, 0], mouth: [-266, 0], rpg: [-280, 2.5], tgt: [[-247, 0], [-247, -4], [-247, 4]] },
+};
 // the column of tanks in the last film: down the east bank, over the bridge, west along the road
 const CR_CONV = [[330, 440], [318, 330], [330, 220], [300, 120], [250, 60], [190, 24], [140, 6], [110, 0], [-100, 0], [-150, 0], [-430, 0]];
 const crBench = (x, z) => groundAt(x, z) + 0.4;
@@ -8838,24 +9292,27 @@ function crCarve(x, z, h) {
   const lx = x - CR.o.x, lz = z - CR.o.z, ax = Math.abs(lx);
   if (ax < 100) { const t = smooth(76, 100, ax); mix3(PAL.deep, PAL.wet, t); return lerp(-5.5, 0.9, t); }
   if (lx > 0) {
-    const breach = 1 - smooth(32, 50, Math.abs(lz)); const r = 7 * Math.exp(-(((lx - 142) / 9) ** 2)) * (1 - breach); h += r; mixIn(PAL.fresh, smooth(1, 5, r) * 0.5);
+    // the east rampart, cut where the roads come down to both bridges
+    const breach = Math.max(1 - smooth(32, 50, Math.abs(lz)), 1 - smooth(12, 26, Math.abs(lz - CR_PB_Z))); const r = 7 * Math.exp(-(((lx - 142) / 9) ** 2)) * (1 - breach); h += r; mixIn(PAL.fresh, smooth(1, 5, r) * 0.5);
     mixIn(PAL.wet, 1 - smooth(100, 108, lx));
     { const d = Math.abs(lz); if (d < 5 && lx < 340) mixIn([0.56, 0.5, 0.4], 0.6 * (1 - smooth(2.5, 5, d))); }
+    { const d = Math.abs(lz - CR_PB_Z); if (d < 5 && lx < 200) mixIn([0.56, 0.5, 0.4], 0.6 * (1 - smooth(2.5, 5, d))); }
     { const dc = distPolyline(lx, lz, CR_CONV); if (dc < 5 && lx > 110) mixIn([0.58, 0.52, 0.41], 0.55 * (1 - smooth(2.5, 5, dc))); }
   } else {
     const breach = 1 - smooth(12, 34, Math.abs(lz)), nr = 1 - smooth(6, 24, Math.abs(lz - CR_RAMP_Z)), dr = Math.abs(lx + 128);
-    const ramp = 9 * (1 - smooth(6.5, 17, dr)) * (1 - breach) * (1 - 0.8 * nr) * smooth(10, 30, Math.abs(lz - CR_RAFT_Z));
+    const ramp = 9 * (1 - smooth(6.5, 17, dr)) * (1 - breach) * (1 - 0.8 * nr) * smooth(10, 30, Math.abs(lz - CR_PB_Z));
     h += ramp; mixIn(PAL.fresh, smooth(2, 8, ramp) * 0.4);
     // the Egyptian trench: a cut in the flat top of the rampart, sandbags on its lips
     if (lz > CR_TZ0 - 3 && lz < CR_TZ1 + 3) { const d = Math.abs(lx - crTX(lz)), k = smooth(CR_TZ0 - 3, CR_TZ0 + 2, lz) * (1 - smooth(CR_TZ1 - 2, CR_TZ1 + 3, lz)); const c = 1.0 * (1 - smooth(1.4, 2.8, d)) * k; h -= c; mixIn(PAL.sandD, c * 0.6); }
     if (lx < -150) {
-      const dr2 = Math.abs(lz); if (dr2 < 4) mixIn([0.6, 0.53, 0.42], 0.8 * (1 - smooth(2, 4, dr2)));
       { const dj = distPolyline(lx, lz, CR_JEEP_S); if (dj < 4) mixIn([0.6, 0.53, 0.42], 0.7 * (1 - smooth(2, 4, dj))); }
       const dc = Math.abs(lx - CR_BRIDGE); if (dc < 14) { h = lerp(h, -1.6, 1 - smooth(5, 12, dc)); mixIn(PAL.mud, 1 - smooth(6, 13, dc)); if (Math.abs(lz) < 4 && dc < 12) h = Math.max(h, 1.75); }
     }
-    // the village: trodden dust between the houses
-    { const kv = smooth(-258, -246, lx) * (1 - smooth(-158, -148, lx)) * (1 - smooth(54, 66, Math.abs(lz))); if (kv > 0) mixIn([0.64, 0.57, 0.45], 0.88 * kv); }
+    // the village: one level of trodden dust - the street, its yards, the junction and the lanes - so its floors and its walls sit true
+    { const kv = Math.max(smooth(-148, -154, lx) * (1 - smooth(-264, -270, lx)) * (1 - smooth(26, 31, Math.abs(lz))), smooth(CR_LX0 + 4, CR_LX0 - 1, lx) * (1 - smooth(CR_LX1 + 1, CR_LX1 - 4, lx)) * (1 - smooth(CR_LZ, CR_LZ + 8, Math.abs(lz))), smooth(-260, -264, lx) * (1 - smooth(-300, -306, lx)) * (1 - smooth(7, 11, Math.abs(lz))));
+      if (kv > 0) { h = lerp(h, 1.78, kv); mixIn([0.64, 0.57, 0.45], 0.88 * kv); } }
     { const d = Math.abs(lz); if (d < 4.5 && lx > -150) mixIn([0.58, 0.51, 0.4], 0.6 * (1 - smooth(2.5, 4.5, d))); }
+    { const d = Math.abs(lz - CR_PB_Z); if (d < 4.5 && lx > -128) mixIn([0.58, 0.51, 0.4], 0.6 * (1 - smooth(2.5, 4.5, d))); }
     mixIn(PAL.wet, 1 - smooth(100, 106, ax));
   }
   return h;
@@ -8867,13 +9324,18 @@ const crH = (x, z) => crCarve(x, z, crNat(x, z));
 function crWall(ax, az, bx, bz, yb, y0, yt, gaps, P, th = CR_WT, paint = null) {
   const alongX = Math.abs(bz - az) < 1e-6, L = alongX ? Math.abs(bx - ax) : Math.abs(bz - az), sx = alongX ? Math.sign(bx - ax) : 0, sz = alongX ? 0 : Math.sign(bz - az);
   const pt = paint || { out: null, c: 0xc9ae86, band: null, in: 0xc9ae86 }, BAND = y0 + 0.9;
-  const piece = (s0, s1, y1, y2) => { if (s1 - s0 < 0.02 || y2 - y1 < 0.02) return; const a = [ax + sx * s0, az + sz * s0], b = [ax + sx * s1, az + sz * s1], [wx0, wz0] = CW(Math.min(a[0], b[0]), Math.min(a[1], b[1])), [wx1, wz1] = CW(Math.max(a[0], b[0]), Math.max(a[1], b[1]));
-    const x0 = alongX ? wx0 : wx0 - th / 2, x1 = alongX ? wx1 : wx0 + th / 2, z0 = alongX ? wz0 - th / 2 : wz0, z1 = alongX ? wz0 + th / 2 : wz1;
+  const span = (s0, s1) => { const a = [ax + sx * s0, az + sz * s0], b = [ax + sx * s1, az + sz * s1], [wx0, wz0] = CW(Math.min(a[0], b[0]), Math.min(a[1], b[1])), [wx1, wz1] = CW(Math.max(a[0], b[0]), Math.max(a[1], b[1]));
+    return [alongX ? wx0 : wx0 - th / 2, alongX ? wx1 : wx0 + th / 2, alongX ? wz0 - th / 2 : wz0, alongX ? wz0 + th / 2 : wz1]; };
+  const piece = (s0, s1, y1, y2) => { if (s1 - s0 < 0.02 || y2 - y1 < 0.02) return; const [x0, x1, z0, z1] = span(s0, s1);
     // below the band line the outer face takes the band's colour: a piece that crosses it is cut in two (one collider still covers both)
     const cuts = pt.band != null && y1 < BAND && y2 > BAND ? [[y1, BAND, true], [BAND, y2, false]] : [[y1, y2, pt.band != null && y2 <= BAND + 1e-3]];
     for (const [q1, q2, band] of cuts) P.walls.push([crPaint(boxUV(x0, x1, q1, q2, z0, z1, 2.6, 2.6), pt.out, band ? pt.band : pt.c, pt.in, y0, yt), null]);
     addCollider((x0 + x1) / 2, (z0 + z1) / 2, (x1 - x0) / 2, (z1 - z0) / 2, 0, y2, y1); };
-  let s = 0; for (const [g0, g1, kind] of [...gaps].sort((p, q) => p[0] - q[0])) { piece(s, g0, yb, yt); if (kind === 'door') piece(g0, g1, y0 + 2.4, yt); else { piece(g0, g1, yb, y0 + 1.05); piece(g0, g1, y0 + 2.05, yt); } s = g1; }
+  // a doorway ('door'), a doorway with its iron doors shut and barred ('shut': nobody passes, no bullet either), one filled with sandbags to
+  // chest height ('bag'), a window ('win'), a breach knocked through a yard wall ('gap': open to the top)
+  let s = 0; for (const [g0, g1, kind] of [...gaps].sort((p, q) => p[0] - q[0])) { piece(s, g0, yb, yt); if (kind === 'win') { piece(g0, g1, yb, y0 + 1.05); piece(g0, g1, y0 + 2.05, yt); } else if (kind !== 'gap') piece(g0, g1, y0 + 2.4, yt);
+    if (kind === 'shut' || kind === 'bag') { const [x0, x1, z0, z1] = span(g0, g1); addCollider((x0 + x1) / 2, (z0 + z1) / 2, (x1 - x0) / 2, (z1 - z0) / 2, 0, kind === 'shut' ? y0 + 2.4 : y0 + 1.55, yb); }
+    s = g1; }
   piece(s, L, yb, yt);
 }
 // a wall box's colours: the outer face (and the jambs) in the house colour, the inner face whitewashed, darker toward the dust and under the roof
@@ -8987,6 +9449,7 @@ const CR_VSTYLE = [
   { c: 0xbac29e, band: 0x6a7860, raw: false, dh: 0, par: 'solid', roof: 'tank', sh: 0x6a4a30, dr: 0x3e4e44, line: true },
   { c: 0xcfb994, band: null, raw: false, dh: -0.3, par: 'low', roof: 'straw', sh: 0x40607a, dr: 0x6a4a34, scar: true },
   { c: 0xe2ddd0, band: 0x9a8a72, raw: false, dh: 0.4, par: 'rail', roof: 'cols', sh: 0x5a6e4a, dr: 0x5c5048, line: true, hood: true },
+  { c: 0xd6cdb6, band: 0x6f7f74, raw: false, dh: 0.5, par: 'solid', roof: 'tank', sh: 0x3c5c70, dr: 0x4a5a5a, hood: true, shop: true, coop: true },   // the cooperative at the head of the street
 ];
 const CR_IN = 0xe6dfcf, CR_CONC = 0xb4b0a6, CR_RAWC = 0xa8a398;
 const crMix = (a, b, t) => new THREE.Color(a).lerp(new THREE.Color(b), t).getHex();
@@ -9022,19 +9485,27 @@ function crVDress(H, st, WL, P, r, y0, yt, yb) {
         P.conc.push([crBoxOn(wl, g0 - 0.16, g0, F - 0.02, F + 0.06, y0 - 0.05, y0 + 2.58), fr], [crBoxOn(wl, g1, g1 + 0.16, F - 0.02, F + 0.06, y0 - 0.05, y0 + 2.58), fr], [crBoxOn(wl, g0 - 0.16, g1 + 0.16, F - 0.02, F + 0.07, y0 + 2.4, y0 + 2.6), fr]);
         // the step at the door, a concrete hood over it on some houses
         P.conc.push([crBoxOn(wl, g0 - 0.25, g1 + 0.25, F - 0.02, F + 0.55, Math.min(gl(wl, (g0 + g1) / 2, F + 0.4), y0) - 0.3, y0 - 0.03), conc]);
-        if (st.hood) P.conc.push([crBoxOn(wl, g0 - 0.45, g1 + 0.45, F - 0.02, F + 0.65, y0 + 2.8, y0 + 2.92), conc]);
+        if (st.hood && wl.front) P.conc.push([crBoxOn(wl, g0 - 0.45, g1 + 0.45, F - 0.02, F + 0.65, y0 + 2.8, y0 + 2.92), conc]);
+        if (kind === 'shut') {
+          // a house off the route: its iron doors shut in the opening, a beam barred across them outside
+          const mid = (g0 + g1) / 2; P.door.push([crBoxOn(wl, g0 + 0.02, mid - 0.01, -0.05, 0.05, y0 + 0.03, y0 + 2.38, 1.1, 2.33), st.dr], [crBoxOn(wl, mid + 0.01, g1 - 0.02, -0.05, 0.05, y0 + 0.03, y0 + 2.38, 1.1, 2.33), st.dr]);
+          P.wood.push([crBoxOn(wl, g0 - 0.35, g1 + 0.35, F + 0.02, F + 0.15, y0 + 1.12, y0 + 1.3), 0x5a4630]);
+        } else if (kind === 'bag') {
+          // the door on the junction: filled with sandbags from inside to the chest, to fire over
+          const a = CW(...wpt(wl, g0 - 0.25, -F - 0.27)), b = CW(...wpt(wl, g1 + 0.25, -F - 0.27)); bagWall([a, b], 8, y0 - 0.05, false);
+        } else
         // the iron doors: both leaves swung right back against the wall inside; where a window leaves no room, that leaf lies blown off in the dust outside
         for (const sd of [-1, 1]) { const s0 = sd < 0 ? g0 - 1.12 : g1 + 0.02, s1 = s0 + 1.1;
           if (s0 >= T + 0.05 && s1 <= L - T - 0.05 && !wl.gaps.some(([q0, q1]) => q0 !== g0 && s1 > q0 - 0.1 && s0 < q1 + 0.1)) P.door.push([crBoxOn(wl, s0, s1, -F - 0.06, -F - 0.012, y0 + 0.03, y0 + 2.36, 1.1, 2.33), st.dr]);
           else { const [lx, lz] = wpt(wl, (g0 + g1) / 2 + sd * 0.7, F + 1.7 + r() * 0.8), [wx, wz] = CW(lx, lz); P.door.push([new THREE.BoxGeometry(1.1, 0.05, 2.33), st.dr, M4(wx, groundAt(wx, wz) + 0.05, wz, 0.04, r() * 3, 0.03)]); } }
-        // an iron awning on brackets over the door
-        if (st.aw) { const W = g1 - g0 + 1.6, D = 1.45, yi = y0 + 3.08, yo = y0 + 2.74, g = new THREE.BufferGeometry();
+        // an iron awning on brackets over the front door
+        if (st.aw && wl.front && kind !== 'bag') { const W = g1 - g0 + 1.6, D = 1.45, yi = y0 + 3.08, yo = y0 + 2.74, g = new THREE.BufferGeometry();
           g.setAttribute('position', new THREE.Float32BufferAttribute([-W / 2, yi - y0, 0, W / 2, yi - y0, 0, -W / 2, yo - y0, D, W / 2, yo - y0, D], 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute([0, 1, W, 1, 0, 0, W, 0], 2)); g.setIndex([0, 2, 1, 1, 2, 3]); g.computeVertexNormals();
           P.sheet.push([crOnWall(wl, (g0 + g1) / 2, F + 0.02, y0, g), crMix(0x9a948a, 0x8a5a3a, r() * 0.5)]);
           for (const e of [-1, 1]) P.metal.push([crOnWall(wl, (g0 + g1) / 2 + e * (W / 2 - 0.2), F, y0, new THREE.BoxGeometry(0.04, 0.04, 1.5).rotateX(-0.42).translate(0, 2.55, 0.68)), 0x3a3834]); }
-        // the grocer's board over his door
-        if (st.shop) { const cv = canvas(512, 128), g = cv.getContext('2d'), rr = rng(9099); g.fillStyle = '#2d5a66'; g.fillRect(0, 0, 512, 128); tileBlotches(g, 512, rr, 18, 8, 40, 'rgba(120,70,40,0.35)', 'rgba(255,255,255,0.1)', 0.7);
-          g.strokeStyle = 'rgba(230,224,206,0.85)'; g.lineWidth = 5; g.strokeRect(10, 10, 492, 108); g.fillStyle = '#efe8d4'; g.font = 'bold 74px "DejaVu Sans", Tahoma, Arial, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.direction = 'rtl'; g.fillText('بقالة', 256, 66);
+        // the grocer's board over his door (the cooperative's over the door of the house at the head of the street)
+        if (st.shop && wl.front) { const cv = canvas(512, 128), g = cv.getContext('2d'), rr = rng(9099); g.fillStyle = '#2d5a66'; g.fillRect(0, 0, 512, 128); tileBlotches(g, 512, rr, 18, 8, 40, 'rgba(120,70,40,0.35)', 'rgba(255,255,255,0.1)', 0.7);
+          g.strokeStyle = 'rgba(230,224,206,0.85)'; g.lineWidth = 5; g.strokeRect(10, 10, 492, 108); g.fillStyle = '#efe8d4'; g.font = 'bold 74px "DejaVu Sans", Tahoma, Arial, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.direction = 'rtl'; if (st.coop) g.font = 'bold 58px "DejaVu Sans", Tahoma, Arial, sans-serif'; g.fillText(st.coop ? 'جمعية تعاونية' : 'بقالة', 256, 66);
           const m = new THREE.Mesh(crBoxOn(wl, (g0 + g1) / 2 - 1.3, (g0 + g1) / 2 + 1.3, F + 0.01, F + 0.05, y0 + 3.25, y0 + 3.9, 2.6, 0.65), new THREE.MeshStandardMaterial({ map: tex(cv), roughness: 0.8 })); scene.add(SH(onLayer1(m))); }
       }
     }
@@ -9095,8 +9566,8 @@ function crVDress(H, st, WL, P, r, y0, yt, yb) {
   if (st.roof === 'straw') {
     // bundles of dry cotton stalks stacked against the parapet, the fuel of the village ovens
     for (let k = 0; k < 4; k++) { const along = r() < 0.5, [wx, wz] = roofPt(along ? 0.2 + r() * 0.6 : (r() < 0.5 ? 0.06 : 0.94), along ? (r() < 0.5 ? 0.08 : 0.92) : 0.2 + r() * 0.6), L = 1.4 + r() * 0.8; P.straw.push([G.box(along ? L : 0.6, 0.5 + r() * 0.2, along ? 0.6 : L), 0xffffff, M4(wx, ys + 0.3, wz, 0, (r() - 0.5) * 0.2, 0)]); }
-    // and the ladder up to them, against a side wall between its windows
-    const wl = WL[2 + Math.floor(r() * 2)], s = (wl.e0 + wl.e1) / 2, g0 = gl(wl, s, F + 1.4), Hh = ys + 0.7 - g0, len = Math.hypot(Hh, 1.35), th = Math.atan2(1.35, Hh);
+    // and the ladder up to them, against the back wall (the side walls stand a hand's breadth from the next house)
+    const wl = WL[H.door === 's' ? 0 : H.door === 'n' ? 1 : 3], s = (wl.e0 + wl.e1) / 2, g0 = gl(wl, s, F + 1.4), Hh = ys + 0.7 - g0, len = Math.hypot(Hh, 1.35), th = Math.atan2(1.35, Hh);
     const parts = [[G.box(0.05, len, 0.07), 0x7a5a3a, M4(-0.22, len / 2, 0)], [G.box(0.05, len, 0.07), 0x7a5a3a, M4(0.22, len / 2, 0)]]; for (let y = 0.3; y < len - 0.1; y += 0.32) parts.push([G.box(0.44, 0.04, 0.045), 0x6e5034, M4(0, y, 0)]);
     P.wood.push([crOnWall(wl, s, F + 1.4, g0, build(parts).rotateX(-th)), null]);
   }
@@ -9114,79 +9585,184 @@ function crVDress(H, st, WL, P, r, y0, yt, yb) {
   if (st.scar) { const wl = WL[Math.floor(r() * 4)]; for (let n = 0; n < 10; n++) { const s = lerp(wl.e0 + 1.4, wl.e1 - 1.4, r()); if (free(wl, s - 0.85, s + 0.85, 0.1)) { dec(wl, s, y0 + 2.6 + r() * 0.8, 1.7, 1.7, 1); rubble(wl, s, 8, 1.4); break; } } }
   if (st.burnt) for (const wl of WL) for (const [g0, g1, kind] of wl.gaps) if (kind === 'win' && r() < 0.35) dec(wl, (g0 + g1) / 2, y0 + 2.2 + 0.8, 1.7, 1.6, 3);
 }
-function crVHouse(i, P, C, r) {
-  const [x, z, w, d, door] = CR_VH[i], T = CR_WT, x0 = x - w / 2, x1 = x + w / 2, z0 = z - d / 2, z1 = z + d / 2;
+/* a house: sp = { id, x, z, w, d (local centre and size), st (its look), doors: [{ w: 'n'|'s'|'e'|'w', at: the world coordinate along that
+   wall, k: 'door'|'shut'|'bag' }], wins: { wall: 'a' (two, at the quarters, clear of the doors) or [world coordinates] }, part: 'z' (a partition
+   across the long side, a 2.4 m opening in its middle) or null, front: the side its front is on, guard: [x, z, fx, fz] - the man inside } */
+function crHouse(sp, P, C, r) {
+  const { x, z, w, d } = sp, T = CR_WT, x0 = x - w / 2, x1 = x + w / 2, z0 = z - d / 2, z1 = z + d / 2;
   // the floor sits just above the highest ground under the house, the walls go down into it
   let g = -1e9; for (const [a, b] of [[x0, z0], [x1, z0], [x0, z1], [x1, z1], [x, z]]) g = Math.max(g, groundAt(...CW(a, b)));
-  const st = CR_VSTYLE[i], y0 = g + 0.12, yb = g - 0.7, yt = y0 + CR_HH + st.dh, H = { i, x, z, w, d, door, y: y0, win: [], guard: null, box: [x0, x1, z0, z1] };
-  const dx = crDoorX(CR_VH[i]);
-  // windows: two in every outer wall (one where the door leaves no room), each 1.4 m wide, the sill at 1.05 m
-  const wins = (L, avoid) => { const out = []; for (const c of [L * 0.25, L * 0.75]) { if (avoid !== undefined && Math.abs(c - avoid) < CR_DOOR / 2 + CR_WIN / 2 + 0.5) continue; out.push([c - CR_WIN / 2, c + CR_WIN / 2, 'win']); } return out; };
-  const LX = w + T, LZ = d - T;   // the walls along x run the full width, corners included; the walls along z fit between them
-  const nGaps = wins(LX, door === 'n' ? dx - (x0 - T / 2) : undefined), sGaps = wins(LX, door === 's' ? dx - (x0 - T / 2) : undefined);
-  if (door === 'n') nGaps.push([dx - (x0 - T / 2) - CR_DOOR / 2, dx - (x0 - T / 2) + CR_DOOR / 2, 'door']); else sGaps.push([dx - (x0 - T / 2) - CR_DOOR / 2, dx - (x0 - T / 2) + CR_DOOR / 2, 'door']);
-  const wGaps = wins(LZ), eGaps = wins(LZ);
+  const st = CR_VSTYLE[sp.st], y0 = g + 0.12, yb = g - 0.7, yt = y0 + CR_HH + st.dh, H = { id: sp.id, x, z, w, d, door: sp.front || 's', y: y0, yt, win: [], guard: null, box: [x0, x1, z0, z1] };
+  const LX = w + T, LZ = d - T, o = { n: x0 - T / 2, s: x0 - T / 2, w: z0 + T / 2, e: z0 + T / 2 }, Ln = { n: LX, s: LX, w: LZ, e: LZ }, gaps = { n: [], s: [], w: [], e: [] };
+  for (const dr of sp.doors) { const s = dr.at - o[dr.w]; gaps[dr.w].push([s - CR_DOOR / 2, s + CR_DOOR / 2, dr.k || 'door']); }
+  for (const k of ['n', 's', 'w', 'e']) { const ws = sp.wins && sp.wins[k] !== undefined ? sp.wins[k] : 'a', list = ws === 'a' ? [Ln[k] * 0.25, Ln[k] * 0.75] : ws.map((c) => c - o[k]);
+    for (const c of list) { if (gaps[k].some(([g0, g1]) => c + CR_WIN / 2 + 0.5 > g0 && c - CR_WIN / 2 - 0.5 < g1)) continue; gaps[k].push([c - CR_WIN / 2, c + CR_WIN / 2, 'win']); } }
   const pt = (out) => ({ out, c: st.c, band: st.band, in: CR_IN });
-  crWall(x0 - T / 2, z0, x1 + T / 2, z0, yb, y0, yt, nGaps, P, T, pt([0, -1])); crWall(x0 - T / 2, z1, x1 + T / 2, z1, yb, y0, yt, sGaps, P, T, pt([0, 1]));
-  crWall(x0, z0 + T / 2, x0, z1 - T / 2, yb, y0, yt, wGaps, P, T, pt([-1, 0])); crWall(x1, z0 + T / 2, x1, z1 - T / 2, yb, y0, yt, eGaps, P, T, pt([1, 0]));
-  const rec = (gaps, f) => { for (const [g0, g1, k] of gaps) if (k === 'win') H.win.push(f((g0 + g1) / 2)); };
-  rec(nGaps, (s) => ({ x: x0 - T / 2 + s, z: z0, nx: 0, nz: -1 })); rec(sGaps, (s) => ({ x: x0 - T / 2 + s, z: z1, nx: 0, nz: 1 }));
-  rec(wGaps, (s) => ({ x: x0, z: z0 + T / 2 + s, nx: -1, nz: 0 })); rec(eGaps, (s) => ({ x: x1, z: z0 + T / 2 + s, nx: 1, nz: 0 }));
-  // inside: one partition with a 2.4 m opening in the middle, across the long side
+  crWall(x0 - T / 2, z0, x1 + T / 2, z0, yb, y0, yt, gaps.n, P, T, pt([0, -1])); crWall(x0 - T / 2, z1, x1 + T / 2, z1, yb, y0, yt, gaps.s, P, T, pt([0, 1]));
+  crWall(x0, z0 + T / 2, x0, z1 - T / 2, yb, y0, yt, gaps.w, P, T, pt([-1, 0])); crWall(x1, z0 + T / 2, x1, z1 - T / 2, yb, y0, yt, gaps.e, P, T, pt([1, 0]));
+  const rec = (k, f) => { for (const [g0, g1, kd] of gaps[k]) if (kd === 'win') H.win.push(Object.assign(f((g0 + g1) / 2), { wall: k })); };
+  rec('n', (s) => ({ x: o.n + s, z: z0, nx: 0, nz: -1 })); rec('s', (s) => ({ x: o.s + s, z: z1, nx: 0, nz: 1 }));
+  rec('w', (s) => ({ x: x0, z: o.w + s, nx: -1, nz: 0 })); rec('e', (s) => ({ x: x1, z: o.e + s, nx: 1, nz: 0 }));
+  // inside: one partition across the long side with a 2.4 m opening in its middle - the house is two rooms, one after the other
   const wash = { out: null, c: CR_IN, band: null, in: CR_IN };
-  if (w >= 10) crWall(x, z0 + T / 2, x, z1 - T / 2, yb, y0, yt - 0.02, [[LZ / 2 - 1.2, LZ / 2 + 1.2, 'door']], P, 0.45, wash);
-  else crWall(x0 + T / 2, z, x1 - T / 2, z, yb, y0, yt - 0.02, [[(w - T) / 2 - 1.2, (w - T) / 2 + 1.2, 'door']], P, 0.45, wash);
-  // the floor; the roof slab keeps its old collider (its look, the parapet and everything on the roof come from crVDress)
+  if (sp.part === 'z') crWall(x, z0 + T / 2, x, z1 - T / 2, yb, y0, yt - 0.02, [[LZ / 2 - 1.2, LZ / 2 + 1.2, 'door']], P, 0.45, wash);
+  // the floor; the roof slab keeps a collider of its own (its look, the parapet and everything on the roof come from crVDress)
   { const [a, b] = CW(x0 + T / 2, z0 + T / 2), [c, e] = CW(x1 - T / 2, z1 - T / 2); P.floor.push([boxUV(a, c, y0 - 0.14, y0, b, e, 2, 2), 0x6a5a44]); addFloor(a, c, b, e, y0); }
   { const [a, b] = CW(x0 - T / 2 - 0.15, z0 - T / 2 - 0.15), [c, e] = CW(x1 + T / 2 + 0.15, z1 + T / 2 + 0.15); addCollider((a + c) / 2, (b + e) / 2, (c - a) / 2, (e - b) / 2, 0, yt + 0.32, yt); }
-  const WL = [{ o: [x0 - T / 2, z0], t: [1, 0], n: [0, -1], L: LX, gaps: nGaps, e0: 0, e1: LX }, { o: [x0 - T / 2, z1], t: [1, 0], n: [0, 1], L: LX, gaps: sGaps, e0: 0, e1: LX },
-    { o: [x0, z0 + T / 2], t: [0, 1], n: [-1, 0], L: LZ, gaps: wGaps, e0: -T, e1: LZ + T }, { o: [x1, z0 + T / 2], t: [0, 1], n: [1, 0], L: LZ, gaps: eGaps, e0: -T, e1: LZ + T }];
+  const WL = [{ o: [o.n, z0], t: [1, 0], n: [0, -1], L: LX, gaps: gaps.n, e0: 0, e1: LX, front: H.door === 'n' }, { o: [o.s, z1], t: [1, 0], n: [0, 1], L: LX, gaps: gaps.s, e0: 0, e1: LX, front: H.door === 's' },
+    { o: [x0, o.w], t: [0, 1], n: [-1, 0], L: LZ, gaps: gaps.w, e0: -T, e1: LZ + T, front: H.door === 'w' }, { o: [x1, o.e], t: [0, 1], n: [1, 0], L: LZ, gaps: gaps.e, e0: -T, e1: LZ + T, front: H.door === 'e' }];
   crVDress(H, st, WL, P, r, y0, yt, yb);
-  // a few things in the rooms, in the corners away from the doorways
-  const [cx, cz] = CW(x, z), far = door === 's' ? z0 + T / 2 + 0.7 : z1 - T / 2 - 0.7;
-  for (const [ox, kind] of [[x0 + T / 2 + 0.8, 0], [x1 - T / 2 - 0.9, 1]]) { const [px, pz] = CW(ox, far);
-    if (kind === 0) { P.wood.push([new THREE.BoxGeometry(1.0, 0.6, 0.7).translate(px, y0 + 0.3, pz), 0x7a5a38]); addCollider(px, pz, 0.5, 0.35, 0, y0 + 0.6, y0); }
-    else for (let k = 0; k < 3; k++) { P.floor.push([G.cyl(0.24, 0.3, 0.7, 10), 0x9a6a44, M4(px + (k - 1) * 0.55, y0 + 0.35, pz + (k % 2) * 0.3)]); } }
-  { const [px, pz] = CW(x + (r() - 0.5) * 2, z + (r() - 0.5) * 2); P.floor.push([new THREE.BoxGeometry(1.8, 0.03, 1.2).rotateY(r() * 3).translate(px, y0 + 0.02, pz), 0x8a3a2a]); }
-  // cover for whoever fights around it outside, and in the window bays inside
-  coverBox(cx, cz, w / 2 + T / 2, d / 2 + T / 2, 0, 2.4);
-  // inside, beside the doorway: a man stands flat against the wall at the jamb and leans out into the opening to fire
-  { const zw = door === 's' ? z1 : z0, nz = door === 's' ? 1 : -1, zi = zw - nz * (T / 2 + 0.45);
+  // a few things in the rooms, against the side walls, away from the doorways and the opening between the rooms
+  if (sp.part === 'z') for (const [ox, kind] of [[x0 + T / 2 + 0.55, 0], [x1 - T / 2 - 0.6, 1]]) { const [px, pz] = CW(ox, z + (kind ? -1.6 : 1.6));
+    if (kind === 0) { P.wood.push([new THREE.BoxGeometry(0.7, 0.6, 1.0).translate(px, y0 + 0.3, pz), 0x7a5a38]); addCollider(px, pz, 0.35, 0.5, 0, y0 + 0.6, y0); }
+    else for (let k = 0; k < 3; k++) P.floor.push([G.cyl(0.24, 0.3, 0.7, 10), 0x9a6a44, M4(px, y0 + 0.35, pz + (k - 1) * 0.55)]); }
+  { const [px, pz] = CW(x + (sp.part ? 3 : 0) + (r() - 0.5), z + (r() - 0.5)); P.floor.push([new THREE.BoxGeometry(1.8, 0.03, 1.2).rotateY(r() * 3).translate(px, y0 + 0.02, pz), 0x8a3a2a]); }
+  // cover for whoever fights around it outside, and beside each open doorway inside: a man flat against the jamb leans out to fire
+  { const [cx, cz] = CW(x, z); coverBox(cx, cz, w / 2 + T / 2, d / 2 + T / 2, 0, 2.4); }
+  for (const k of ['n', 's']) for (const [g0, g1, kd] of gaps[k]) { if (kd !== 'door') continue; const zw = k === 's' ? z1 : z0, nz = k === 's' ? 1 : -1, dx = o[k] + (g0 + g1) / 2, zi = zw - nz * (T / 2 + 0.45);
     for (const sd of [-1, 1]) { const [qx, qz] = CW(dx + sd * (CR_DOOR / 2 + 0.45), zi), [px, pz] = CW(dx + sd * (CR_DOOR / 2 - 0.3), zi + nz * 0.2); COVER.push({ x: qx, z: qz, nx: 0, nz, h: 2.4, by: null, px, pz, door: true }); } }
-  // the window bays: where an Egyptian waits for the advance in the third stage, and where our men stand in the fourth
+  // the window bays: where an Egyptian waits for the advance, and where our men stand on the night
   for (const wn of H.win) { const bx = wn.x - wn.nx * (T / 2 + 0.55), bz = wn.z - wn.nz * (T / 2 + 0.55), [sx, sz] = CW(bx, bz), [px, pz] = CW(bx + wn.nx * 0.2, bz + wn.nz * 0.2), [hx, hz] = CW(bx - wn.nx * 0.7, bz - wn.nz * 0.7);
-    const s = { x: sx, z: sz, y: y0, nx: wn.nx, nz: wn.nz, f: 0, b: null, used: false, fox: true, p: [px, pz], h: [hx, hz], grp: 'V', hi: i }; C.slots.push(s); wn.slot = s; }
-  // the man inside, waiting for whoever comes through the door
-  { const gz = door === 's' ? z0 + T / 2 + 1.3 : z1 - T / 2 - 1.3, nz = door === 's' ? 1 : -1, gx = w >= 10 ? dx : x, [sx, sz] = CW(gx, gz), [px, pz] = CW(gx, gz + nz * 0.2), [hx, hz] = CW(gx + 0.6, gz - nz * 0.3);
-    const s = { x: sx, z: sz, y: y0, nx: 0, nz, f: 0, b: null, used: false, fox: true, p: [px, pz], h: [hx, hz], grp: 'G', hi: i }; C.slots.push(s); H.guard = s; }
+    const s = { x: sx, z: sz, y: y0, nx: wn.nx, nz: wn.nz, f: 0, b: null, used: false, fox: true, p: [px, pz], h: [hx, hz], grp: 'V', hi: sp.id }; C.slots.push(s); wn.slot = s; }
+  // the man inside, waiting in the second room for whoever comes through the opening
+  if (sp.guard) { const [gx, gz, fx, fz] = sp.guard, [sx, sz] = CW(gx, gz), [px, pz] = CW(gx + fx * 0.2, gz + fz * 0.2), [hx, hz] = CW(gx - fx * 0.5, gz - fz * 0.5);
+    const s = { x: sx, z: sz, y: y0, nx: fx, nz: fz, f: 0, b: null, used: false, fox: true, p: [px, pz], h: [hx, hz], grp: 'G', hi: sp.id }; C.slots.push(s); H.guard = s; }
   return H;
 }
+// a plain wall of the yards and lanes, 2.4 m of mud brick on its own ground: straight runs between the points, with breaches [from, to] (world
+// coordinates along the run). Colliders come with it: higher than a man can jump
+function crYardWall(pts, P, gaps = [], h = 2.4, col = 0xb9a27e, r = null) {
+  for (let i = 0; i < pts.length - 1; i++) {
+    const [ax, az] = pts[i], [bx, bz] = pts[i + 1], alongX = Math.abs(bz - az) < 1e-6, L = alongX ? Math.abs(bx - ax) : Math.abs(bz - az), sg = alongX ? Math.sign(bx - ax) : Math.sign(bz - az);
+    // a long run is cut into pieces of 10 m or less, each standing on the ground under it
+    const n = Math.max(1, Math.ceil(L / 10));
+    for (let k = 0; k < n; k++) {
+      const s0 = (L * k) / n, s1 = (L * (k + 1)) / n, pa = alongX ? [ax + sg * s0, az] : [ax, az + sg * s0], pb = alongX ? [ax + sg * s1, az] : [ax, az + sg * s1];
+      let gmin = 1e9, gmax = -1e9; for (let u = 0; u <= 1.001; u += 0.25) { const gy = groundAt(...CW(lerp(pa[0], pb[0], u), lerp(pa[1], pb[1], u))); gmin = Math.min(gmin, gy); gmax = Math.max(gmax, gy); }
+      const gl = []; for (const [g0, g1] of gaps) { const c0 = alongX ? g0 : g0, c1 = alongX ? g1 : g1, q0 = (c0 - (alongX ? pa[0] : pa[1])) * sg, q1 = (c1 - (alongX ? pa[0] : pa[1])) * sg, lo = Math.min(q0, q1), hi = Math.max(q0, q1); if (hi > 0 && lo < s1 - s0) gl.push([Math.max(0, lo), Math.min(s1 - s0, hi), 'gap']); }
+      crWall(pa[0], pa[1], pb[0], pb[1], gmin - 0.5, gmax, gmax + h, gl, P, 0.42, { out: null, c: col, band: null, in: col });
+      // the coping: a course of brick along the top
+      { const [p0, q0] = CW(Math.min(pa[0], pb[0]), Math.min(pa[1], pb[1])), [p1, q1] = CW(Math.max(pa[0], pb[0]), Math.max(pa[1], pb[1])); P.conc.push([boxUV(alongX ? p0 : p0 - 0.26, alongX ? p1 : p0 + 0.26, gmax + h, gmax + h + 0.1, alongX ? q0 - 0.26 : q0, alongX ? q0 + 0.26 : q1, 1, 1), crMix(col, 0x8a7a62, 0.3)]); }
+      // a breach leaves its bricks in the dust at its foot
+      if (r) for (const [g0, g1] of gl) for (let q = 0; q < 9; q++) { const s = g0 + (g1 - g0) * r(), lat = (r() - 0.5) * 2.4, [wx, wz] = CW(alongX ? pa[0] + sg * s : pa[0] + lat, alongX ? pa[1] + lat : pa[1] + sg * s), qs = 0.1 + r() * 0.16; P.conc.push([new THREE.DodecahedronGeometry(qs, 0), [col, 0x9a5a40, CR_RAWC][Math.floor(r() * 3)], M4(wx, groundAt(wx, wz) + qs * 0.4, wz, r() * 3, r() * 3, r() * 3, 1, 0.7, 1.2)]); }
+    }
+  }
+}
+/* coils of barbed wire, three to a fence (two side by side, one on top, 1.7 m high), on their pickets, following the ground: nobody climbs them
+   and nobody jumps them. Returns the meshes and the colliders, so a stage can lift them (the engineers clear the street for the tanks) */
+const CR_COIL = (() => { const g = new THREE.TorusGeometry(0.46, 0.011, 3, 12); g.rotateY(Math.PI / 2); return g; })();
+function crWire(pts) {
+  const d = densify(pts, 0.21), M = [], q = new THREE.Quaternion(), e = new THREE.Euler(), one = V3(1, 1, 1), cols = [], stakes = [];
+  for (let i = 0; i < d.length; i++) {
+    const a = d[Math.max(0, i - 1)], b = d[Math.min(d.length - 1, i + 1)], hd = Math.atan2(b[0] - a[0], b[1] - a[1]), nx = Math.cos(hd), nz = -Math.sin(hd), [wx, wz] = CW(d[i][0], d[i][1]), gy = groundAt(wx, wz);
+    for (const [lat, y, ph] of [[-0.42, 0.45, 0], [0.42, 0.45, 1.3], [0, 1.22, 2.1]]) { e.set(0, hd + Math.PI / 2 + Math.sin(i * 0.9 + ph) * 0.38, Math.sin(i * 1.7 + ph) * 0.12, 'YXZ'); q.setFromEuler(e); M.push(new THREE.Matrix4().compose(V3(wx + nx * lat, gy + y, wz + nz * lat), q, one)); }
+    if (i % 14 === 0) for (const sd of [-1, 1]) stakes.push([G.box(0.05, 1.5, 0.05), 0x4a4238, M4(wx + nx * sd * 0.5, gy + 0.6, wz + nz * sd * 0.5, sd * 0.25 * nz, 0, -sd * 0.25 * nx)]);
+  }
+  for (let i = 0; i < pts.length - 1; i++) { const [ax, az] = pts[i], [bx, bz] = pts[i + 1], L = Math.hypot(bx - ax, bz - az), n = Math.max(1, Math.ceil(L / 2));
+    for (let k = 0; k < n; k++) { const pa = [lerp(ax, bx, k / n), lerp(az, bz, k / n)], pb = [lerp(ax, bx, (k + 1) / n), lerp(az, bz, (k + 1) / n)], [wa, va] = CW(...pa), [wb, vb] = CW(...pb), g0 = Math.min(groundAt(wa, va), groundAt(wb, vb)), g1 = Math.max(groundAt(wa, va), groundAt(wb, vb));
+      cols.push(addCollider((wa + wb) / 2, (va + vb) / 2, Math.hypot(wb - wa, vb - va) / 2 + 0.1, 0.55, Math.atan2(-(vb - va), wb - wa), g1 + 1.75, g0 - 1)); } }
+  const im = new THREE.InstancedMesh(CR_COIL, new THREE.MeshStandardMaterial({ color: 0x5a544c, roughness: 0.55, metalness: 0.6 }), M.length); M.forEach((m4, k) => im.setMatrixAt(k, m4)); im.instanceMatrix.needsUpdate = true; im.computeBoundingSphere(); im.userData.dyn = true; scene.add(onLayer1(im));
+  const sm = new THREE.Mesh(build(stakes), MAT.vc); sm.userData.dyn = true; scene.add(SH(onLayer1(sm)));
+  return { mesh: [im, sm], cols };
+}
+// the things the stages switch on and off: meshes and colliders kept outside the saves (a save holds only CR's flags, crDynApply puts them back)
+const CR_DYN = {};
+function crDyn(name, mesh, cols) { CR_DYN[name] = { mesh: [].concat(mesh || []), cols: cols.map((k) => ({ k, top: k.top })) }; }
+function crDynSet(name, on) { const g = CR_DYN[name]; if (!g) return; for (const m of g.mesh) m.visible = on; for (const c of g.cols) c.k.top = on ? c.top : -1e9; }
+// what stands when: the street's wire and the walls round the place the jeeps stop belong to the advance; on the night the engineers have cut them
+// for the tanks, the north door of the house at the head is shut and barred behind our men, and the gates in the lanes are shut till the tanks come
+function crDynApply() {
+  const s = CR.stage; crDynSet('wire', s <= 2); crDynSet('box', s <= 2); crDynSet('doorN', CR.doorN); crDynSet('gates', s <= 3);
+  const C = CHAP.cross; if (C.jeepCol) C.jeepCol.top = s === 2 ? C.jeepColTop : -1e9;
+}
 function crVillage(P, C, parts) {
-  const r = rng(4417); C.vh = CR_VH.map((h, i) => crVHouse(i, P, C, r));
-  // the low mud walls along the west edge: chest high, 60 cm thick, with wide gaps between them
-  for (const [lx, z0, z1] of CR_LOWW) { const [a, b] = CW(lx - 0.3, z0), [c, e] = CW(lx + 0.3, z1), g = Math.min(groundAt(a, b), groundAt(c, e)); P.walls.push([boxUV(a, c, g - 0.4, g + 1.25, b, e, 2.6, 2.6), 0xb9a27e]); addCollider((a + c) / 2, (b + e) / 2, 0.3, (e - b) / 2, 0, g + 1.25, g - 0.4); coverBox((a + c) / 2, (b + e) / 2, 0.3, (e - b) / 2, 0, 1.2); }
-  // a well, drums, a cart, a few palms between the houses
-  { const [wx, wz] = CW(-186, 0.0 + 10.5); parts.push([G.cyl(0.9, 0.95, 0.85, 14), 0xa89878, M4(wx, groundAt(wx, wz) + 0.42, wz)], [G.cyl(0.7, 0.7, 0.05, 12), 0x222a2a, M4(wx, groundAt(wx, wz) + 0.86, wz)]); addCollider(wx, wz, 0.9, 0.9, 0, groundAt(wx, wz) + 0.85); }
-  for (const [x, z] of [[-210, -36], [-185, 36], [-232, -9]]) { const [wx, wz] = CW(x, z); fieldDrums(wx, wz, 3); }
-  { const [wx, wz] = CW(-212, 10.5), g = groundAt(wx, wz); parts.push([G.box(2.6, 0.18, 1.4), 0x6e5236, M4(wx, g + 0.8, wz)], [G.cyl(0.55, 0.55, 0.1, 12), 0x3a2e22, M4(wx - 0.4, g + 0.55, wz - 0.75, Math.PI / 2, 0, 0)], [G.cyl(0.55, 0.55, 0.1, 12), 0x3a2e22, M4(wx - 0.4, g + 0.55, wz + 0.75, Math.PI / 2, 0, 0)], [G.box(1.6, 0.08, 0.08), 0x6e5236, M4(wx + 2.0, g + 0.7, wz)]); addCollider(wx, wz, 1.3, 0.8, 0, g + 1.0); coverBox(wx, wz, 1.3, 0.7, 0, 1.0); }
-  { const pl = []; for (const [x, z] of [[-184, -36], [-210, 36], [-160, -12], [-238, 52], [-244, -52], [-186, 60], [-212, -62]]) { const [wx, wz] = CW(x, z); pl.push([wx, wz, 0.9 + r() * 0.3, r() * 6]); } palms(pl); }
-  // the houses on the road take their power from the line along it: a wire sagging from the nearest pole to a bracket on the parapet
-  { const segs = []; for (const h of C.vh) { if (Math.abs(h.z) > 30) continue; const [x0, x1, z0, z1] = h.box, fz = h.z < 0 ? z1 + CR_WT / 2 : z0 - CR_WT / 2, hx = Math.abs(x0 - (-150)) < Math.abs(x1 - (-150)) ? x0 + 0.5 : x1 - 0.5, px = -150 - 40 * Math.round((-150 - hx) / 40);
-      const [ax, az] = CW(px, 7), [bx, bz] = CW(hx, fz), ya = groundAt(ax, az) + 7 - 0.4, yb = h.y + CR_HH + CR_VSTYLE[h.i].dh + 0.9;
+  const r = rng(4417), T = CR_WT; C.vh = {};
+  // the street's houses: the route's six with their doors open front and back, the rest shut
+  for (const h of CR_VH) {
+    const x = CR_COLS[h.c], z = h.sd * (CR_FZ + CR_HD / 2), fw = h.sd > 0 ? 'n' : 's', bw = h.sd > 0 ? 's' : 'n', k = h.open ? 'door' : 'shut';
+    const doors = [{ w: fw, at: x + h.fd, k }]; if (h.bd !== null) doors.push({ w: bw, at: x + h.bd, k });
+    let guard = null;
+    if (h.open) { const ent = h.in === 'b' ? h.bd : h.fd, sg = Math.sign(ent), back = h.in === 'b' ? h.sd : -h.sd, gx = x - sg * 3.9, gz = z + back * 2.3, l = Math.hypot(sg * 3.9, back * 2.3); guard = [gx, gz, (sg * 3.9) / l, (-back * 2.3) / l]; }
+    C.vh[h.id] = crHouse({ id: h.id, x, z, w: CR_HW, d: CR_HD, st: h.st, front: fw, doors, part: 'z', guard, wins: { n: 'a', s: 'a', e: h.c === 0 ? 'a' : [], w: [] } }, P, C, r);
+  }
+  // the house at the head of the street: two windows each side of its barricaded door on the junction, two looking back down the street, its
+  // north door from the yard beside it (the way in; shut behind our men on the night)
+  { const D = CR_D, x0 = D.x - D.w / 2, x1 = D.x + D.w / 2;
+    C.vh.D = crHouse({ id: 'D', x: D.x, z: D.z, w: D.w, d: D.d, st: 8, front: 'w', doors: [{ w: 'w', at: 0, k: 'bag' }, { w: 'n', at: D.x, k: 'door' }], part: null, wins: { w: [-8, -4, 4, 8], e: [-3, 3], n: [x0 + 1.8], s: [x0 + 2.5, x1 - 2.5] } }, P, C, r);
+    // two pillars hold its roof
+    for (const zz of [-5.5, 5.5]) { const [px, pz] = CW(D.x, zz), y0 = C.vh.D.y; P.conc.push([G.box(0.45, CR_HH, 0.45), CR_RAWC, M4(px, y0 + CR_HH / 2, pz)]); addCollider(px, pz, 0.23, 0.23, 0, y0 + CR_HH, y0 - 0.5); }
+    // the north door: its iron leaves, swung shut and barred on the night
+    { const y0 = C.vh.D.y, [ax, az] = CW(D.x - CR_DOOR / 2, D.z - D.d / 2), [bx] = CW(D.x + CR_DOOR / 2, 0), dm = new THREE.Mesh(build([[G.box(CR_DOOR / 2 - 0.02, 2.36, 0.06), CR_VSTYLE[8].dr, M4(ax + CR_DOOR / 4, y0 + 1.2, az)], [G.box(CR_DOOR / 2 - 0.02, 2.36, 0.06), CR_VSTYLE[8].dr, M4(bx - CR_DOOR / 4, y0 + 1.2, az)], [G.box(CR_DOOR + 0.5, 0.14, 0.1), 0x6a5236, M4((ax + bx) / 2, y0 + 1.25, az + 0.12)]]), MAT.vc);
+      dm.userData.dyn = true; scene.add(SH(onLayer1(dm))); crDyn('doorN', dm, [addCollider((ax + bx) / 2, az, CR_DOOR / 2, 0.32, 0, y0 + 2.4, y0 - 0.7)]); }
+    // its two defenders on the day, inside, watching the north door
+    C.dIn = [[-243.6, 2.8], [-236.8, 7.0]].map(([gx, gz]) => { const l = Math.hypot(D.x - gx, -D.d / 2 - gz), fx = (D.x - gx) / l, fz = (-D.d / 2 - gz) / l, [sx, sz] = CW(gx, gz), [px, pz] = CW(gx + fx * 0.2, gz + fz * 0.2), [hx, hz] = CW(gx - fx * 0.5, gz - fz * 0.5);
+      const s = { x: sx, z: sz, y: C.vh.D.y, nx: fx, nz: fz, f: 0, b: null, used: false, fox: true, p: [px, pz], h: [hx, hz], grp: 'G', hi: 'D' }; C.slots.push(s); return s; });
+    // inside: ammunition boxes and a few sandbags under the windows on the junction
+    for (const zz of [-8, -4, 4, 8]) { const [bx, bz] = CW(x0 + 0.95, zz), y0 = C.vh.D.y; bagWall([[bx, bz - 0.55], [bx, bz + 0.55]], 2, y0 - 0.05, false); }
+    for (const [lx, lz] of [[-236, -7], [-236.2, 7.5], [-243.5, 9.6]]) { const [px, pz] = CW(lx, lz), y0 = C.vh.D.y; P.wood.push([G.box(0.8, 0.45, 0.5), 0x5a5a3a, M4(px, y0 + 0.22, pz)], [G.box(0.8, 0.45, 0.5), 0x5f5f3e, M4(px + 0.1, y0 + 0.67, pz + 0.05)]); addCollider(px, pz, 0.45, 0.3, 0, y0 + 0.9, y0); } }
+  // the yards: a wall at the back of each row, walls between the yards, breaches where the route goes through
+  const Y = CR_YZ, F = CR_FZ + CR_HD, E = -154, mids = [-166.5, -179.5, -192.5, -205.5, -218.5, -232.5];
+  for (const sd of [-1, 1]) {
+    crYardWall([[E, sd * Y], [-232.5, sd * Y]], P);   // the back line
+    crYardWall([[E, sd * F], [E, sd * Y]], P, sd > 0 ? [[17.6, 21.6]] : [], 2.4, 0xb9a27e, r);   // the east end: the way into the first yard
+    // (between two houses the gap is a slit of 40 cm, too narrow for a man: the walls between the yards start at the houses' backs; the last
+    // one, beside the house at the head, runs from the street front)
+    mids.forEach((mx, i) => { const gap = (sd < 0 && i === 1) || (sd > 0 && i === 3) || (sd < 0 && i === 5) ? [[sd * 17.6, sd * 21.6]] : []; crYardWall([[mx, sd * (i === 5 ? CR_FZ : F)], [mx, sd * Y]], P, gap, 2.4, 0xb9a27e, r); });
+    // the strip between the last house and the house at the head: shut to the street
+    crYardWall([[-231, sd * CR_FZ], [-234, sd * CR_FZ]], P);
+    // the yards of the house at the head: its north yard is reached from the last house's yard; the south one is shut
+    crYardWall([[-232.5, sd * Y], [CR_LX0, sd * Y]], P); crYardWall([[CR_LX0, sd * (CR_D.d / 2)], [CR_LX0, sd * Y]], P);
+  }
+  // the junction: the cross-lane between walls, the road from the west between walls; gates in the lanes' east walls (shut till the tanks come)
+  { const LZ = CR_LZ, gz0 = 40, gz1 = 46;
+    for (const sd of [-1, 1]) {
+      crYardWall([[CR_LX0, sd * Y], [CR_LX0, sd * gz0]], P); crYardWall([[CR_LX0, sd * gz1], [CR_LX0, sd * LZ]], P);
+      crYardWall([[CR_LX1, sd * 6], [CR_LX1, sd * LZ]], P); crYardWall([[CR_LX1, sd * 6], [-302, sd * 6]], P);
+    }
+    const gl = [], gc = []; for (const sd of [-1, 1]) { const [gx, gzw] = CW(CR_LX0, sd * (gz0 + gz1) / 2), y = groundAt(gx, gzw); gl.push([G.box(0.12, 2.2, 2.95), 0x5a4a36, M4(gx, y + 1.1, gzw - 1.5)], [G.box(0.12, 2.2, 2.95), 0x5e4e38, M4(gx, y + 1.1, gzw + 1.5)], [G.box(0.16, 0.16, 6.1), 0x4a3c2c, M4(gx - 0.08, y + 1.6, gzw)]); gc.push(addCollider(gx, gzw, 0.3, 3.05, 0, y + 2.4, y - 0.7)); }
+    const gm = new THREE.Mesh(build(gl), MAT.vc); gm.userData.dyn = true; scene.add(SH(onLayer1(gm))); crDyn('gates', gm, gc); }
+  // the street is cut by wire between the crossings: the only way on is through the houses
+  // (and Czech hedgehogs in front of it)
+  { const ms = [], cs = []; for (const wx of CR_WIRE) { const w = crWire([[wx, -CR_FZ + 0.35], [wx, CR_FZ - 0.35]]); ms.push(...w.mesh); cs.push(...w.cols); }
+    const hh = []; for (const wx of CR_WIRE) for (const lz of [-3.6, 0.2, 3.9]) { const [x, z] = CW(wx + 1.0 + (lz > 0 ? 0.3 : -0.2), lz), y = groundAt(x, z); hh.push(new THREE.Matrix4().compose(V3(x, y, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, lz * 0.7, 0)), V3(1, 1, 1))); }
+    if (mdlHas('hedgehog')) for (const m of mdlInst('hedgehog', 0, hh)) { m.userData.dyn = true; ms.push(m); }
+    crDyn('wire', ms, cs); }
+  // a well and oil drums in the junction, a palm or two in the yards
+  { const [wx, wz] = CW(-255, -14), y = groundAt(wx, wz); parts.push([G.cyl(0.9, 0.95, 0.85, 14), 0xa89878, M4(wx, y + 0.42, wz)], [G.cyl(0.7, 0.7, 0.05, 12), 0x222a2a, M4(wx, y + 0.86, wz)]); addCollider(wx, wz, 0.9, 0.9, 0, y + 0.85); coverBox(wx, wz, 0.9, 0.9, 0, 0.85); }
+  for (const [x, z] of [[-251, 15], [-258.5, -40], [-249, 62], [-275, -4.6]]) { const [wx, wz] = CW(x, z); fieldDrums(wx, wz, 3); }
+  { const pl = []; for (const [x, z] of [[-161, 21], [-185, -20], [-200, 21], [-214, -20], [-226, 20], [-240, -20], [-170, -21], [-240, 18]]) { const [wx, wz] = CW(x, z); pl.push([wx, wz, 0.85 + r() * 0.3, r() * 6]); } palms(pl); }
+  // the street's power line, a wire from a pole to the parapet of each house on the south side
+  { powerLine([[-152, 5.1], [-232, 5.1]].map(([x, z]) => CW(x, z)), 40, 7); const segs = [];
+    for (const h of CR_VH) { if (h.sd < 0) continue; const H = C.vh[h.id], hx = CR_COLS[h.c] + 4.5, px = -152 - 40 * Math.round((-152 - hx) / 40), [ax, az] = CW(px, 5.1), [bx, bz] = CW(hx, CR_FZ - 0.3), ya = groundAt(ax, az) + 7 - 0.4, yb = H.yt + 0.9;
       for (let k = 0; k < 10; k++) { const t0 = k / 10, t1 = (k + 1) / 10, sag = (t) => -Math.sin(t * Math.PI) * 0.55; segs.push(V3(lerp(ax, bx, t0), lerp(ya, yb, t0) + sag(t0), lerp(az, bz, t0)), V3(lerp(ax, bx, t1), lerp(ya, yb, t1) + sag(t1), lerp(az, bz, t1))); }
       parts.push([G.box(0.06, 0.25, 0.06), 0x2e2c28, M4(bx, yb - 0.1, bz)]); }
     scene.add(onLayer1(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(segs), new THREE.LineBasicMaterial({ color: 0x2a2724 })))); }
+  // where the jeeps stop: fences of wire from the village's corners to the water, a gap for the track that the second jeep parks in. With the canal on the east, the street's wire and the yard walls, the only way on from here is into the first yard
+  { const ms = [], cs = [];
+    for (const sd of [-1, 1]) for (const sg of sd > 0 ? [[[E, Y], [-149.7, Y]], [[-146.7, Y], [-88, Y]]] : [[[E, -Y], [-88, -Y]]]) { const w = crWire(sg); ms.push(...w.mesh); cs.push(...w.cols); }
+    crDyn('box', ms, cs);
+    const [jx, jz] = CW(-148.2, Y), gy = groundAt(jx, jz); C.jeepColTop = gy + 2.2; C.jeepCol = addCollider(jx, jz, 1.55, 0.6, 0, C.jeepColTop, gy - 1); }
 }
 // the roller bridge: one segment = a big steel float (the "roller") under a deck with side rails
 const BR_SEG = build([[G.box(6.2, 0.35, 5.0), 0x5d604a, M4(0, 1.78, 0)], [G.cyl(1.25, 1.25, 4.6, 18), 0x4b4e3e, M4(0, 0.5, 0, Math.PI / 2, 0, 0)], [G.cyl(1.28, 1.28, 0.18, 18), 0x2f3229, M4(0, 0.5, 2.3, Math.PI / 2, 0, 0)], [G.cyl(1.28, 1.28, 0.18, 18), 0x2f3229, M4(0, 0.5, -2.3, Math.PI / 2, 0, 0)],
   ...[-1, 1].flatMap((sd) => [[G.box(6.2, 0.16, 0.14), 0x3f4236, M4(0, 2.85, sd * 2.5)], [G.box(6.2, 0.16, 0.14), 0x3f4236, M4(0, 2.35, sd * 2.5)], [G.box(0.16, 0.95, 0.16), 0x3f4236, M4(-3.0, 2.4, sd * 2.5)], [G.box(0.16, 0.95, 0.16), 0x3f4236, M4(0, 2.4, sd * 2.5)], [G.box(1.3, 0.12, 0.12), 0x3f4236, M4(-1.5, 2.4, sd * 2.5, 0, 0, 0.6)], [G.box(1.3, 0.12, 0.12), 0x3f4236, M4(1.5, 2.4, sd * 2.5, 0, 0, -0.6)]]), [G.box(0.3, 0.5, 5.2), 0x34372c, M4(3.0, 1.6, 0)]]);
 const BR_FRONT = build([[G.cyl(0.05, 0.05, 4.2, 6), 0x2a2a28, M4(0, 3.6, 2.3)], [G.box(0.04, 0.7, 1.1), 0xe8641e, M4(0, 5.2, 2.85)], [G.cyl(0.05, 0.05, 4.2, 6), 0x2a2a28, M4(0, 3.6, -2.3)], [G.box(0.04, 0.7, 1.1), 0xe8641e, M4(0, 5.2, -2.85)]]);
 const JEEP_MG = build([[G.box(0.1, 0.13, 0.95), 0x1d1d1b, M4(0, 0, -0.35)], [G.cyl(0.024, 0.024, 0.75, 6), 0x151515, M4(0, 0.012, -1.17, Math.PI / 2, 0, 0)], [G.cyl(0.04, 0.04, 0.3, 8), 0x2a2a28, M4(0, 0.012, -0.95, Math.PI / 2, 0, 0)], [G.box(0.07, 0.2, 0.1), 0x24221f, M4(0, -0.13, -0.05)], [G.box(0.17, 0.11, 0.26), 0x2a2a24, M4(0, 0.07, -0.5)], [G.box(0.2, 0.15, 0.2), 0x4a4c3a, M4(-0.16, -0.03, -0.5)], [G.box(0.05, 0.08, 0.05), 0x1a1a1a, M4(0, 0.1, -1.45)]]);
-const CRANE_BOOM = build([[G.box(9.9, 0.42, 0.42), 0xc9a43a, M4(4.95, 0, 0)], [G.box(9.9, 0.08, 0.5), 0x8a7428, M4(4.95, 0.25, 0)], [G.box(1.4, 0.9, 1.0), 0x7a6a30, M4(0.2, 0, 0)], [G.cyl(0.18, 0.18, 0.6, 10), 0x2a2a28, M4(9.9, -0.3, 0)]]);
+// the pontoon bridge: 8 m uniflote pontoons pinned end to end, the roadway on them with its kerbs, a ramp down to each bank
+const CR_PBSEG = build([[G.box(7.85, 0.85, 6.4), 0x5f6450, M4(0, 0.05, 0)], [G.box(7.9, 0.1, 4.4), 0x8a8a78, M4(0, 0.88, 0)], ...[-1.4, -0.45, 0.45, 1.4].map((zz) => [G.box(7.9, 0.03, 0.5), 0x9a9886, M4(0, 0.94, zz)]), ...[-1, 1].flatMap((sd) => [[G.box(7.9, 0.22, 0.22), 0x4a4c3e, M4(0, 1.02, sd * 2.25)], [G.box(7.85, 0.3, 0.9), 0x565b48, M4(0, 0.62, sd * 2.75)], [G.cyl(0.09, 0.11, 0.35, 8), 0x2a2b26, M4(-3.4, 0.98, sd * 2.95)], [G.cyl(0.09, 0.11, 0.35, 8), 0x2a2b26, M4(3.4, 0.98, sd * 2.95)]]), [G.box(0.18, 0.12, 4.4), 0x2e3028, M4(3.93, 0.9, 0)]]);
+const CR_PBRAMP = build([[G.box(7.0, 0.22, 4.4), 0x8a8a78, M4(0, 0, 0)], [G.box(7.0, 0.2, 0.2), 0x3a3c30, M4(0, 0.16, 2.25)], [G.box(7.0, 0.2, 0.2), 0x3a3c30, M4(0, 0.16, -2.25)]]);
+// the deck a vehicle drives on: the pontoon bridge (by day) - its roadway, with a ramp at each end down to the bank
+function crPBDeck(x, z) { const lx = x - CR.o.x, lz = z - CR.o.z; if (Math.abs(lz - CR_PB_Z) > 3.4 || Math.abs(lx) > 107) return null; const a = Math.abs(lx); return a <= 100 ? CR_PB_Y : lerp(CR_PB_Y, Math.max(CR_PB_Y, groundAt(x, z)), (a - 100) / 7); }
+// an Egyptian tank knocked out in the fields: the T-55 model, burnt, crooked, smouldering
+function crWreckT55(lx, lz, hd, r) {
+  const [x, z] = CW(lx, lz); if (!(typeof VEH_DATA !== 'undefined' && VEH_DATA.t55)) return placeTank(x, z, hd, TANK_BURNT);
+  const rec = vehModel('t55', 'e'), m = rec.g; m.position.set(x, groundAt(x, z), z); m.rotation.y = -THREE.MathUtils.degToRad(hd) + Math.PI / 2; rec.crew = false; rec.dead = true; vehDamage(rec, true); m.traverse((o) => { if (o.isMesh) o.material = MAT_BURNT; });
+  scene.add(SH(onLayer1(m))); wreckTilt(m, r); wreckFire(m, VEH_FIRE.t55, 1.4); addCollider(x, z, 3.4, 1.8, m.rotation.y, groundAt(x, z) + 2.3); coverBox(x, z, 3.4, 1.8, m.rotation.y, 2.1); return m;
+}
 function crBuild() {
-  const C = CHAP.cross; C.ground = makeGround({ x0: CR.o.x - 440, x1: CR.o.x + 345, z0: CR.o.z - 160, z1: CR.o.z + 450, step: 1.9, h: mapH('cross', crNat, crCarve), map: 'cross', vegOk: (x, z) => { const lx = x - CR.o.x, lz = z - CR.o.z; return Math.abs(lx) > 106 && Math.abs(lz) > 5 && Math.abs(lx - CR_BRIDGE) > 12 && !(lx > -262 && lx < -142 && Math.abs(lz) < 70); } }); GROUND = C.ground;
+  const C = CHAP.cross; C.ground = makeGround({ x0: CR.o.x - 440, x1: CR.o.x + 345, z0: CR.o.z - 160, z1: CR.o.z + 450, step: 1.9, h: mapH('cross', crNat, crCarve), map: 'cross', vegOk: (x, z) => { const lx = x - CR.o.x, lz = z - CR.o.z; return Math.abs(lx) > 106 && Math.abs(lz) > 5 && Math.abs(lz - CR_PB_Z) > 6 && Math.abs(lx - CR_BRIDGE) > 12 && !crInVillage(lx, lz, 6) && !(lx > -158 && lx < -94 && Math.abs(lz) < 27); } }); GROUND = C.ground;
   const BAGS = [], sv = BATCH.bag; BATCH.bag = BAGS; const k0 = COVER.length; C.slots = [];
-  // the trench on the rampart north of the breach: sandbag lips, traverses, bunkers, the Egyptian flag
+  // the trench on the rampart between the bridges: sandbag lips, traverses, bunkers, the Egyptian flag
   { const line = []; for (let lz = CR_TZ0; lz <= CR_TZ1; lz += 2.5) line.push([crTX(lz), lz]); const W = (dx) => line.map(([x, z]) => CW(x + dx, z));
     bagWall(W(-2.9), 4, null, true); bagWall(W(2.9), 3, null, true); if (!LITE) { bagWall(W(-3.35), 3, null, false); bagWall(W(3.35), 2, null, false); }
     bagWall(W(-1.55), LITE ? 1 : 2, null, false);
@@ -9194,14 +9770,15 @@ function crBuild() {
     const bk = []; for (const [lz, sd] of [[150, 1], [100, -1], [228, 1]]) { const tx = crTX(lz), [wx, wz] = CW(tx + sd * 5.9, lz), y = groundAt(wx, wz) - 0.3; bk.push([G.box(4.2, 1.7, 3.6), 0x8e8468, M4(wx, y + 0.85, wz)], [G.box(4.6, 0.35, 4.0), 0x7a7258, M4(wx, y + 1.85, wz)], [G.box(0.06, 0.25, 2.2), 0x161412, M4(wx - sd * 2.11, y + 1.25, wz)]); addCollider(wx, wz, 2.1, 1.8, 0, y + 2.0); coverBox(wx, wz, 2.1, 1.8, 0, 1.8); }
     scene.add(SH(onLayer1(new THREE.Mesh(build(bk), MAT.vc))));
     { const [fx, fz] = CW(crTX(34) - 3.5, 34); C.egFlag = flag(fx, fz, 'eg', 6.5, Math.PI / 2); C.egFlag.userData.dyn = true; } }
-  // bazooka nests in the scrub: three ambushes along the jeep track; and the nests in the fields west of the village for the counter-attack
+  // bazooka nests in the scrub: three ambushes along the jeep track
   const nb = []; C.nests = {};
   for (const [id, pts] of [['a0', [[-252, 360, 'rpg'], [-212, 352, 'rifle'], [-246, 332, 'rifle'], [-206, 322, 'rpg'], [-230, 314, 'rifle'], [-258, 346, 'rifle']]], ['a1', [[-212, 290, 'rpg'], [-176, 300, 'rifle'], [-192, 266, 'rifle'], [-162, 292, 'rifle'], [-202, 276, 'rpg'], [-170, 258, 'rifle']]],
     ['a2', [[-176, 178, 'rpg'], [-184, 160, 'rifle'], [-172, 146, 'rifle'], [-188, 136, 'rpg'], [-170, 124, 'rifle'], [-182, 170, 'rifle']]]])
-    C.nests[id] = pts.map(([x0, z0, kind]) => { const [x, z] = corr(CR_JEEP, x0, z0, 22, 9), [wx, wz] = CW(x, z); let bd = 1e9, tx = x, tz = z; for (const p of densify(CR_JEEP, 6)) { const d = Math.hypot(p[0] - x, p[1] - z); if (d < bd) { bd = d; tx = p[0]; tz = p[1]; } } const dx = tx - x, dz = tz - z, l = Math.hypot(dx, dz) || 1; return bushNest(wx, wz, dx / l, dz / l, C.slots, 'A' + id, kind, nb, Math.random); });
-  C.nests.h = [[-292, -26, 'rpg'], [-300, 18, 'rifle'], [-288, 44, 'rpg'], [-304, -6, 'rifle']].map(([x, z, kind]) => { const [wx, wz] = CW(x, z); return bushNest(wx, wz, 1, 0, C.slots, 'H', kind, nb, Math.random); });
-  // Egyptian positions at the landing, on the shoulders of the breach, facing the canal
-  for (const [x, z] of [[-112, 386], [-110, 424], [-131, 391], [-131, 419], [-118, 404]]) { const [wx, wz] = CW(x, z); foxhole(wx, wz, 1, 0, C.slots).grp = 'L'; }
+    C.nests[id] = pts.map(([x0, z0, kind]) => { const [x, z] = corr(CR_JEEP, x0, z0, 22, 9), [wx, wz] = CW(x, z); let bd = 1e9, tx = x, tz = z; for (const p of densify(CR_JEEP, 6)) { const d = Math.hypot(p[0] - x, p[1] - z); if (d < bd) { bd = d; tx = p[0]; tz = p[1]; } } const dx = tx - x, dz = tz - z, l = Math.hypot(dx, dz) || 1; return bushNest(wx, wz, dx / l, dz / l, C.slots, 'A' + id, kind, nb, rng(Math.round(x0 * 13 - z0))); });
+  // on the night: two holes on the road from the west, out past the end of its walls, from where a machine gun and a bazooka look down it at the junction
+  C.nests.h = [[-308, -3.4, 'rpg'], [-312, 3.6, 'lmg']].map(([x, z, kind]) => { const [wx, wz] = CW(x, z), s = foxhole(wx, wz, 1, 0, C.slots); s.grp = 'H'; s.kind = kind; return s; });
+  // the Egyptians who crept back onto the rampart north of the pontoon bridge's landing, looking down on the bridge
+  for (const [x, z] of [[-127, 384], [-129, 371], [-125, 360], [-130, 349], [-126, 338]]) { const [wx, wz] = CW(x, z), dx = -40 - x, dz = 404 - z, l = Math.hypot(dx, dz); foxhole(wx, wz, dx / l, dz / l, C.slots).grp = 'L'; }
   // the village
   const P = { walls: [], roof: [], floor: [], wood: [], conc: [], shut: [], door: [], sheet: [], metal: [], pig: [], straw: [], cloth: [], decal: [] }, parts = []; crVillage(P, C, parts);
   { const pt = crPlasterTex(), ct = crConcTex(), vm = (map, o = {}) => new THREE.MeshStandardMaterial(Object.assign({ vertexColors: true, map, roughness: 0.95 }, o)), put = (list, mat, cast = true) => { if (!list.length) return; const m = new THREE.Mesh(build(list), mat); scene.add(SH(onLayer1(m), cast, true)); };
@@ -9212,13 +9789,17 @@ function crBuild() {
   if (P.roof.length) { const m = new THREE.Mesh(build(P.roof), new THREE.MeshStandardMaterial({ vertexColors: true, map: TX.grime, roughness: 0.95 })); scene.add(SH(onLayer1(m))); }
   { const m = new THREE.Mesh(build(P.floor), MAT.vc); m.receiveShadow = !LITE; scene.add(onLayer1(m)); }
   { const m = new THREE.Mesh(build(P.wood), new THREE.MeshStandardMaterial({ vertexColors: true, map: TX.wood, roughness: 0.92 })); scene.add(SH(onLayer1(m))); }
-  { const pl = []; const r = rng(91); for (let i = 0; i < 46; i++) { const x = -190 - r() * 140, z = 76 + r() * 150; const [wx, wz] = CW(x, z); pl.push([wx, wz, 0.8 + r() * 0.35, r() * 6]); } for (let i = 0; i < 18; i++) { const [wx, wz] = CW(-345 - r() * 60, -150 + r() * 560); pl.push([wx, wz, 0.9, r() * 6]); } palms(pl); }
-  { const r = rng(92), trees = []; for (let i = 0; i < 90; i++) trees.push([-175 - r() * 120, -72 - r() * 80]); const tg = build([[G.cyl(0.12, 0.18, 1.6, 6), 0x5a4632, M4(0, 0.8, 0)], [G.sph(1.5, 9, 7), 0x3d5a2c, M4(0, 2.3, 0, 0, 0, 0, 1, 0.8, 1)]]); const im = new THREE.InstancedMesh(tg, MAT.vc, trees.length), mm = new THREE.Matrix4(), q = new THREE.Quaternion(); trees.forEach(([x, z], i) => { const [wx, wz] = CW(x, z), s = 0.8 + r() * 0.5; im.setMatrixAt(i, mm.compose(V3(wx, groundAt(wx, wz), wz), q.setFromAxisAngle(V3(0, 1, 0), r() * 6), V3(s, s, s))); }); scene.add(SH(onLayer1(im))); for (let i = 0; i < trees.length; i += 4) { const [wx, wz] = CW(...trees[i]); addCover(wx + 0.9, wz, -1, 0, 1.2); } }
+  const clearOf = (x, z) => !crInVillage(x, z, 5);
+  { const pl = []; const r = rng(91); for (let i = 0; i < 46; i++) { const x = -190 - r() * 140, z = 76 + r() * 150; if (!clearOf(x, z)) continue; const [wx, wz] = CW(x, z); pl.push([wx, wz, 0.8 + r() * 0.35, r() * 6]); } for (let i = 0; i < 18; i++) { const [wx, wz] = CW(-345 - r() * 60, -150 + r() * 560); pl.push([wx, wz, 0.9, r() * 6]); } palms(pl); }
+  { const r = rng(92), trees = []; for (let i = 0; i < 90; i++) { const t = [-175 - r() * 120, -72 - r() * 80]; if (clearOf(t[0], t[1]) && Math.abs(t[1] + 34) > 8) trees.push(t); } const tg = build([[G.cyl(0.12, 0.18, 1.6, 6), 0x5a4632, M4(0, 0.8, 0)], [G.sph(1.5, 9, 7), 0x3d5a2c, M4(0, 2.3, 0, 0, 0, 0, 1, 0.8, 1)]]); const im = new THREE.InstancedMesh(tg, MAT.vc, trees.length), mm = new THREE.Matrix4(), q = new THREE.Quaternion(); trees.forEach(([x, z], i) => { const [wx, wz] = CW(x, z), s = 0.8 + r() * 0.5; im.setMatrixAt(i, mm.compose(V3(wx, groundAt(wx, wz), wz), q.setFromAxisAngle(V3(0, 1, 0), r() * 6), V3(s, s, s))); }); scene.add(SH(onLayer1(im))); for (let i = 0; i < trees.length; i += 4) { const [wx, wz] = CW(...trees[i]); addCover(wx + 0.9, wz, -1, 0, 1.2); } }
   // the little bridge over the sweet-water canal
   { const [bx, bz] = CW(CR_BRIDGE, 0), y = 1.85; const m = new THREE.Mesh(build([[G.box(30, 0.5, 6.4), 0xa29a8a, M4(0, -0.25, 0)], [G.box(30, 0.8, 0.3), 0x8e8676, M4(0, 0.4, 3.1)], [G.box(30, 0.8, 0.3), 0x8e8676, M4(0, 0.4, -3.1)]]), MAT.vc); m.position.set(bx, y, bz); scene.add(SH(onLayer1(m))); addFloor(bx - 15, bx + 15, bz - 3, bz + 3, y); addCollider(bx, bz + 3.1, 15, 0.15, 0, y + 0.8, y - 0.5); addCollider(bx, bz - 3.1, 15, 0.15, 0, y + 0.8, y - 0.5); }
-  // the east bank: the crossing yard; the roller bridge lies on the sand behind the water's edge with the tanks that will push it
-  for (const [x, z, b] of [[175, -60, 270], [190, 40, 250], [205, -26, 280], [228, 30, 265]]) { const [wx, wz] = CW(x, z); placeTank(wx, wz, b); }
-  for (const [x, z, b] of [[168, 70, 260], [212, 82, 270], [196, -80, 275]]) { const [wx, wz] = CW(x, z); halftrack(wx, wz, b); }
+  // the pontoon bridge, bank to bank, 404 m south of where the roller bridge will lie
+  { const list = []; for (let x = -96; x <= 96; x += 8) { const [wx, wz] = CW(x, CR_PB_Z); list.push([CR_PBSEG, null, M4(wx, 0, wz)]); }
+    for (const sd of [-1, 1]) { const [wx, wz] = CW(sd * 103.5, CR_PB_Z), gb = Math.max(CR_PB_Y, groundAt(...CW(sd * 107, CR_PB_Z))); list.push([CR_PBRAMP, null, M4(wx, (CR_PB_Y + gb) / 2 - 0.1, wz, 0, 0, sd * Math.atan2(gb - CR_PB_Y, 7))]); }
+    scene.add(SH(onLayer1(new THREE.Mesh(build(list), MAT.vc)), true, true)); }
+  // the east bank: the crossing yard; the roller bridge lies on the sand behind the water's edge with the tanks that will push it, more waiting
+  for (const [x, z, b] of [[175, -60, 270], [190, 40, 250], [205, -26, 280], [228, 30, 265], [168, 70, 260], [212, 82, 270], [196, -80, 275]]) { const [wx, wz] = CW(x, z); placeTank(wx, wz, b); }
   C.towT = [0, 1, 2, 3].map(() => { const m = VEH_DATA.magach ? (() => { const r = vehModel('magach', 'f'); r.crew = true; return r.g; })() : new THREE.Mesh(TANK_GEO, MAT.vc); m.rotation.y = Math.PI; m.userData.dyn = true; scene.add(SH(onLayer1(m))); return m; });
   { const [rx, rz] = CW(104, 0); const m = new THREE.Mesh(build([[G.box(12, 0.5, 5.2), 0x5a5c48, M4(0, 0, 0, 0, 0, 0.12)], [G.box(12, 0.4, 0.15), 0x43463a, M4(0, 0.45, 2.5, 0, 0, 0.12)], [G.box(12, 0.4, 0.15), 0x43463a, M4(0, 0.45, -2.5, 0, 0, 0.12)]]), MAT.vc); m.position.set(rx, 1.4, rz); scene.add(SH(onLayer1(m))); }
   { const [rx, rz] = CW(-106, 0); C.wramp = new THREE.Mesh(build([[G.box(12, 0.5, 5.2), 0x5a5c48, M4(0, 0, 0, 0, 0, -0.1)], [G.box(12, 0.4, 0.15), 0x43463a, M4(0, 0.45, 2.5, 0, 0, -0.1)], [G.box(12, 0.4, 0.15), 0x43463a, M4(0, 0.45, -2.5, 0, 0, -0.1)]]), MAT.vc); C.wramp.position.set(rx, 1.45, rz); C.wramp.userData.dyn = true; C.wramp.visible = false; scene.add(SH(onLayer1(C.wramp))); }
@@ -9226,12 +9807,12 @@ function crBuild() {
   C.segs = []; for (let k = 0; k < CR_SEGN; k++) { const m = new THREE.Mesh(BR_SEG, MAT.vc); m.userData.dyn = true; SH(m, true, true); onLayer1(m); scene.add(m); C.segs.push(m); }
   // work lamps along the rails and on the bow, lit on the night it is pushed out
   { C.lamps = []; const lm = new THREE.SpriteMaterial({ map: FXT.flare, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, color: 0xffd8a0 });
-    for (let k = 0; k < CR_SEGN; k += 4) for (const sd of [-1, 1]) { const q = new THREE.Sprite(lm); q.position.set(0, 3.1, sd * 2.5); q.scale.setScalar(1.7); q.visible = false; C.segs[k].add(q); C.lamps.push(q); }
-    for (const sd of [-1, 1]) { const q = new THREE.Sprite(lm); q.position.set(0, 4.7, sd * 2.3); q.scale.setScalar(2.6); q.visible = false; C.front.add(q); C.lamps.push(q); } }
-  // the repair of the opening film: a crane on a truck, a trailer, the engineers
-  { const cr = new THREE.Group(); cr.add(new THREE.Mesh(TRUCK_GEO, MAT.vc)); cr.children[0].position.set(1.8, 0, 0); const piv = new THREE.Group(); piv.position.set(0, 2.9, 0); cr.add(piv); const boom = new THREE.Mesh(CRANE_BOOM, MAT.vc); boom.rotation.z = 0.55; piv.add(boom); cr.userData = { dyn: true, piv, boom }; cr.visible = false; scene.add(SH(onLayer1(cr))); C.crane = cr;
-    C.cable = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 1, 5), MAT.metal); C.cable.userData.dyn = true; C.cable.visible = false; scene.add(onLayer1(C.cable));
-    C.trailer = new THREE.Mesh(build([[G.box(7.2, 0.35, 3.0), 0x4e4f40, M4(0, 0.7, 0)], ...[-2.4, -1.4, 2.4].flatMap((x) => [-1, 1].map((sd) => [G.cyl(0.42, 0.42, 0.3, 12), 0x1d1c19, M4(x, 0.42, sd * 1.2, Math.PI / 2, 0, 0)]))]), MAT.vc); C.trailer.userData.dyn = true; C.trailer.visible = false; scene.add(SH(onLayer1(C.trailer)));
+    // (big glows: from the house at the head of the street, 250 m off, they are how the bridge is seen going out across the dark water)
+    for (let k = 0; k < CR_SEGN; k += 2) for (const sd of [-1, 1]) { const q = new THREE.Sprite(lm); q.position.set(0, 3.1, sd * 2.5); q.scale.setScalar(2.6); q.visible = false; C.segs[k].add(q); C.lamps.push(q); }
+    for (const sd of [-1, 1]) { const q = new THREE.Sprite(lm); q.position.set(0, 4.7, sd * 2.3); q.scale.setScalar(6); q.visible = false; C.front.add(q); C.lamps.push(q); }
+    for (const t of C.towT) { const q = new THREE.Sprite(lm); q.position.set(1.5, 2.9, 0); q.scale.setScalar(3.2); q.visible = false; t.add(q); C.lamps.push(q); } }
+  // the repair of the opening film: a tank shoves the new roller in from the side over the sand, the engineers round it
+  { const r = VEH_DATA.magach ? vehModel('magach', 'f') : null, m = r ? r.g : new THREE.Mesh(TANK_GEO, MAT.vc); if (r) r.crew = true; m.userData.dyn = true; m.visible = false; scene.add(SH(onLayer1(m))); C.repT = m;
     C.eng = [0, 1, 2, 3, 4].map(() => { const u = new Unit('f', 'rifle'); scene.remove(u.tag); u.alive = true; u.rig.root.visible = false; u.rig.root.userData.dyn = true; u.rig.gun.visible = false; return u; }); }
   for (const [x, z, s] of [[-900, -500, 40], [-1200, 300, 55], [600, -900, 30], [-700, 800, 45]]) { const [wx, wz] = CW(x, z); smokeColumn(wx, wz, s, true); }
   { // fields, scrub and reeds
@@ -9240,7 +9821,7 @@ function crBuild() {
     const X0 = CR.o.x - 440, X1 = CR.o.x - 150, Z0 = CR.o.z - 160, Z1 = CR.o.z + 450;
     concealPatches([...patchesNear(CR_JEEP.map(([x, z]) => CW(x, z)), 30, 9, 30, 880, okF, 4, 9), ...patchesNear(CR_ROAD.map(([x, z]) => CW(x, z)), 22, 8, 30, 882, okF, 4, 9), ...patchesIn(40, X0, X1, Z0, Z1, 883, okF, 5, 12)], C, 884, 0.7);
     dressRoute(CR_ROAD.map(([x, z]) => CW(x, z)), okF, 800, 1, 0.8); dressRoute(CR_JEEP.map(([x, z]) => CW(x, z)), okF, 805, 1.2, 0.6); dressArea(X0, X1, Z0, Z1, okF, 820, 0.8, 0.8);
-    { const okE = (x, z) => { const [lx, lz] = L(x, z); return lx > 104 && !(Math.abs(lz) < 40 && lx < 160) && Math.abs(lz) > 6 && distPolyline(lx, lz, CR_CONV) > 7; }; dressArea(CR.o.x + 104, CR.o.x + 345, Z0, Z1, okE, 840, 0.5, 0.1); const okR = (x, z) => { const [lx, lz] = L(x, z); return lx < -100 && lx > -150 && Math.abs(lx - crTX(lz)) > 3.2 && Math.abs(lz) > 20 && distPolyline(lx, lz, CR_JEEP) > 6; }; dressArea(CR.o.x - 150, CR.o.x - 100, Z0, Z1, okR, 860, 0.35, 0.3); }
+    { const okE = (x, z) => { const [lx, lz] = L(x, z); return lx > 104 && !(Math.abs(lz) < 40 && lx < 160) && Math.abs(lz) > 6 && Math.abs(lz - CR_PB_Z) > 7 && distPolyline(lx, lz, CR_CONV) > 7; }; dressArea(CR.o.x + 104, CR.o.x + 345, Z0, Z1, okE, 840, 0.5, 0.1); const okR = (x, z) => { const [lx, lz] = L(x, z); return lx < -100 && lx > -150 && Math.abs(lx - crTX(lz)) > 3.2 && Math.abs(lz) > 27 && Math.abs(lz - CR_PB_Z) > 7 && distPolyline(lx, lz, CR_JEEP) > 6; }; dressArea(CR.o.x - 150, CR.o.x - 100, Z0, Z1, okR, 860, 0.35, 0.3); }
     instScatter(BUSH_G, scatterIn(LITE ? 300 : 700, X0, CR.o.x - 152, Z0, Z1, 501, okF, (x, z, r) => [x, z, 0.7 + r() * 1.0, r() * 6, greenBush(r), 0, 0.9]).concat(nb));
     { const rows = []; for (const [x0, x1, z0, z1] of [[-430, -350, -150, -12], [-430, -350, 12, 160], [-320, -190, 120, 240], [-330, -280, 300, 440]]) for (let x = x0; x < x1; x += 1.6) for (let z = z0; z < z1; z += 6.5) { const [wx, wz] = CW(x, z); if (!okF(wx, wz)) continue; rows.push([wx, wz, 1, 0, 0x5c7a3a + (Math.random() < 0.5 ? 0x060300 : 0), 0, 1]); }
       if (MAPV.kinds && MAPV.kinds.grass_green) {   // with the map's plant cards: rows of young crop, plant by plant, instead of green boxes
@@ -9250,27 +9831,29 @@ function crBuild() {
       } else { const cg = build([[G.box(0.45, 0.55, 6.0), 0xffffff, M4(0, 0.27, 0)]]); instScatter(cg, rows, DET_MAT, false); } }
     { const reeds = []; for (let lz = -160; lz < 450; lz += 2.6) for (const sd of [-1, 1]) { if (Math.abs(lz) < 6 || Math.random() < 0.3) continue; const [wx, wz] = CW(CR_BRIDGE + sd * rand(7, 9.5), lz + rand(-1, 1)); reeds.push([wx, wz, 0.8 + Math.random() * 0.5, Math.random() * 6, Math.random() < 0.5 ? 0x7a8a4a : 0x8a8a58, 0, 1]); } instScatter(REED_G, reeds, DET_MAT, false); }
     { const hs = []; for (const [x, z] of [[-212, -120], [-224, -126], [-300, 180], [-312, 190], [-290, 360]]) { const [wx, wz] = CW(x, z); hs.push([G.cyl(1.4, 1.6, 1.8, 12), 0xc8b070, M4(wx, groundAt(wx, wz) + 0.9, wz)], [G.cone(1.5, 0.9, 12), 0xbca262, M4(wx, groundAt(wx, wz) + 2.2, wz)]); addCollider(wx, wz, 1.4, 1.4, 0, groundAt(wx, wz) + 2.2); coverBox(wx, wz, 1.4, 1.4, 0, 1.8); } scene.add(SH(onLayer1(new THREE.Mesh(build(hs), MAT.vc)))); }
-    for (const [x, z, w, d, h, ru, col] of [[-318, 14, 4, 4, 2.6, 0, '#bfae8e'], [-380, -36, 6, 4, 2.8, 0, '#c7b490'], [-200, 96, 5, 4, 2.4, 1, '#c2ab84'], [-404, 52, 5, 5, 2.6, 0, '#cbb894'], [-276, 352, 5, 4, 2.5, 1, '#c4ae86'], [-192, 248, 4, 4, 2.4, 0, '#c9b48e']]) { const [wx, wz] = CW(x, z); smallHut(wx, wz, w, d, h, col, 0x7a6a52, !!ru); }
-    powerLine([[-150, 7], [-700, 7]].map(([x, z]) => CW(x, z)), 40, 7); powerLine(CR_JEEP.map(([x, z]) => CW(x - 14, z)), 42, 7);
-    wireFence([[-256, -6], [-322, -6]].map(([x, z]) => CW(x, z))); wireFence([[-340, -6], [-600, -6]].map(([x, z]) => CW(x, z)));
+    for (const [x, z, w, d, h, ru, col] of [[-318, 16, 4, 4, 2.6, 0, '#bfae8e'], [-380, -36, 6, 4, 2.8, 0, '#c7b490'], [-200, 96, 5, 4, 2.4, 1, '#c2ab84'], [-404, 52, 5, 5, 2.6, 0, '#cbb894'], [-276, 352, 5, 4, 2.5, 1, '#c4ae86'], [-192, 248, 4, 4, 2.4, 0, '#c9b48e']]) { const [wx, wz] = CW(x, z); smallHut(wx, wz, w, d, h, col, 0x7a6a52, !!ru); }
+    powerLine([[-306, 9], [-700, 9]].map(([x, z]) => CW(x, z)), 40, 7); powerLine(CR_JEEP.slice(3).map(([x, z]) => CW(x - 14, z)), 42, 7);
+    wireFence([[-306, -9], [-322, -9]].map(([x, z]) => CW(x, z))); wireFence([[-340, -9], [-600, -9]].map(([x, z]) => CW(x, z)));
     { const bl = []; for (const [x, z] of [[-140, 300], [-142, 318], [-136, 330]]) { const [wx, wz] = CW(x, z); bl.push([wx, wz, 1.2 + Math.random() * 0.6, Math.random() * 6, rockCol(Math.random), 0.3, 0.72]); } instScatter(BOULDER_G, bl); boulders(bl); }
-    instScatter(ROCK_G, scatterIn(LITE ? 80 : 180, CR.o.x + 100, CR.o.x + 345, Z0, Z1, 502, (x, z) => { const [lx, lz] = L(x, z); return Math.abs(lz) > 5 && distPolyline(lx, lz, CR_CONV) > 6; }, (x, z, r) => [x, z, 0.25 + r() ** 3, r() * 6, rockCol(r), 0.2, 0.55]).concat(scatterIn(90, X0, X1, Z0, Z1, 503, okF, (x, z, r) => [x, z, 0.2 + r() * 0.4, r() * 6, rockCol(r), 0.2, 0.6])));
-    instScatter(BUSH_G, scatterIn(LITE ? 60 : 140, CR.o.x + 100, CR.o.x + 345, Z0, Z1, 504, (x, z) => { const [lx, lz] = L(x, z); return Math.abs(lz) > 5 && distPolyline(lx, lz, CR_CONV) > 6; }, (x, z, r) => [x, z, 0.35 + r() * 0.5, r() * 6, dryBush(r), 0, 0.7]));
-    for (const [x, z] of [[-150, 280], [-300, 8]]) { const [wx, wz] = CW(x, z); fieldDrums(wx, wz, 5); }
-    { const [a, b] = CW(-170, 276); fieldSign(a, b, 'צומת הצליחה ←', Math.PI, 1.4); }
+    instScatter(ROCK_G, scatterIn(LITE ? 80 : 180, CR.o.x + 100, CR.o.x + 345, Z0, Z1, 502, (x, z) => { const [lx, lz] = L(x, z); return Math.abs(lz) > 5 && Math.abs(lz - CR_PB_Z) > 6 && distPolyline(lx, lz, CR_CONV) > 6; }, (x, z, r) => [x, z, 0.25 + r() ** 3, r() * 6, rockCol(r), 0.2, 0.55]).concat(scatterIn(90, X0, X1, Z0, Z1, 503, okF, (x, z, r) => [x, z, 0.2 + r() * 0.4, r() * 6, rockCol(r), 0.2, 0.6])));
+    instScatter(BUSH_G, scatterIn(LITE ? 60 : 140, CR.o.x + 100, CR.o.x + 345, Z0, Z1, 504, (x, z) => { const [lx, lz] = L(x, z); return Math.abs(lz) > 5 && Math.abs(lz - CR_PB_Z) > 6 && distPolyline(lx, lz, CR_CONV) > 6; }, (x, z, r) => [x, z, 0.35 + r() * 0.5, r() * 6, dryBush(r), 0, 0.7]));
+    for (const [x, z] of [[-150, 280], [-300, 14]]) { const [wx, wz] = CW(x, z); fieldDrums(wx, wz, 5); }
+    { const [a, b] = CW(-170, 276); fieldSign(a, b, 'אל הכפר ←', Math.PI, 1.4); }
   }
   if (parts.length) scene.add(SH(onLayer1(new THREE.Mesh(build(parts), MAT.vc))));
   BATCH.bag = sv; if (BAGS.length) scene.add(bagMesh(BAGS)); C.covers = COVER.slice(k0); for (const c of C.covers) c.y = hAt(c.x, c.z, groundAt(c.x, c.z) + 0.6);
-  // vehicles: our jeeps on their rafts; the tanks that cross the bridge
+  // vehicles: our jeeps (no truck, no half-track: the tanks and the jeeps are the only vehicles of this chapter); the tanks over the bridges
   const jeepCrew = (v) => { const d = new THREE.Mesh(SEATED_F, MAT.clothF); d.position.set(-0.35 * JK, 0.95 * JK, -0.3 * JK); d.rotation.y = Math.PI / 2; v.g.add(d); v.crew = [d]; };
-  C.jeeps = [0, 1, 2].map((i) => { const v = addVeh({ mode: 'cross', side: 'f', kind: 'jeep', geo: JEEP_GEO, half: [1.6 * JK, 1.6 * JK, 0.8 * JK], guns: i > 0, vmax: 6.5 }); jeepCrew(v); const vl = v.g.userData.vl; if (vl) vl.crew = false; else v.g.add(new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.045, 0.8 * JK, 6).translate(-0.55 * JK, 1.35 * JK, 0), MAT.metal));   // the modelled jeep has its own .50 on its post; its men are set here
+  C.jeeps = [0, 1, 2].map((i) => { const v = addVeh({ mode: 'cross', side: 'f', kind: 'jeep', geo: JEEP_GEO, half: [1.6 * JK, 1.6 * JK, 0.8 * JK], guns: i > 0, vmax: 6.5, float: crPBDeck }); jeepCrew(v); const vl = v.g.userData.vl; if (vl) vl.crew = false; else v.g.add(new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.045, 0.8 * JK, 6).translate(-0.55 * JK, 1.35 * JK, 0), MAT.metal));   // the modelled jeep has its own .50 on its post; its men are set here
     if (i > 0) { const gu = new Unit('f', 'rifle'); scene.remove(gu.tag); gu.alive = true; gu.rig.root.visible = true; gu.stance = 'stand'; gu.rig.pose('aim', 0, 0.05); v.crewU = [{ u: gu, at: V3(-0.85 * JK, 0.95 * JK, 0.0) }]; v.crew.push(gu.rig.root); } return v; });
-  C.rafts = [0, 1, 2].map(() => addVeh({ mode: 'cross', side: 'f', kind: 'raft', geo: RAFT_GEO, half: [5.5, 1.2, 3.2], float: (x, z) => (groundAt(x, z) < 0.4 ? 0.02 : null), vmax: 3.2, rock: { a: 0 }, sea: true }));
-  C.jeepX = addVeh({ mode: 'cross', side: 'f', kind: 'jeep', geo: JEEP_GEO, half: [1.6 * JK, 1.6 * JK, 0.8 * JK], vmax: 0 }); if (C.jeepX.g.userData.vl) C.jeepX.g.userData.vl.crew = false; C.jeepX.men = [[-0.35, 0.95, -0.3], [0.45, 0.95, 0.35], [-1.1, 0.95, 0.3]].map(([x, y, z]) => { const d = new THREE.Mesh(SEATED_F, MAT.clothF); d.position.set(x * JK, y * JK, z * JK); d.rotation.y = Math.PI / 2; C.jeepX.g.add(d); return d; });
-  for (const v of C.jeeps) { v.sea = true; v.float = (x, z) => { const lx = x - CR.o.x; return lx > -97 && lx < 100 && Math.abs(z - CR.o.z - CR_RAFT_Z) < 22 ? 1.1 : null; }; }
-  roadRibbon(CR_JEEP.map(([x, z]) => CW(x, z)), 5, 'dirt'); roadRibbon([[-106, 0], [-400, 0]].map(([x, z]) => CW(x, z)), 9, 'asphalt'); roadWrecks([[-262, 0], [-400, 0]].map(([x, z]) => CW(x, z)), 3, 9117, 7.5);
+  C.jeepX = addVeh({ mode: 'cross', side: 'f', kind: 'jeep', geo: JEEP_GEO, half: [1.6 * JK, 1.6 * JK, 0.8 * JK], vmax: 3, float: crPBDeck }); if (C.jeepX.g.userData.vl) C.jeepX.g.userData.vl.crew = false; C.jeepX.men = [[-0.35, 0.95, -0.3], [0.45, 0.95, 0.35], [-1.1, 0.95, 0.3]].map(([x, y, z]) => { const d = new THREE.Mesh(SEATED_F, MAT.clothF); d.position.set(x * JK, y * JK, z * JK); d.rotation.y = Math.PI / 2; C.jeepX.g.add(d); return d; });
+  roadRibbon(CR_JEEP.map(([x, z]) => CW(x, z)), 5, 'dirt'); roadRibbon(CR_PB_PATH.map(([x, z]) => CW(x, z)), 5, 'dirt');
+  roadRibbon([[-106, 0], [-153, 0]].map(([x, z]) => CW(x, z)), 8, 'asphalt'); roadRibbon([[-153, 0], [-234, 0]].map(([x, z]) => CW(x, z)), 6.4, 'asphalt'); roadRibbon([[CR_LX1, 0], [-420, 0]].map(([x, z]) => CW(x, z)), 7, 'asphalt'); roadRibbon([[-253.5, -CR_LZ], [-253.5, CR_LZ]].map(([x, z]) => CW(x, z)), 6, 'dirt');
+  { const r = rng(9117); crWreckT55(-352, -16, 190, r); crWreckT55(-385, 13, 160, r); crWreckT55(-292, 58, 210, r); crWreckT55(-288, -62, 120, r); }
   C.mg = new THREE.Mesh(JEEP_MG, MAT.vc); C.mg.visible = false; C.mg.userData.dyn = true; scene.add(onLayer1(C.mg));
-  C.tanks = [0, 1, 2, 3, 4, 5].map(() => addVeh({ mode: 'cross', side: 'f', kind: 'tank', geo: TANK_GEO, half: [3.4, 2.6, 1.9], guns: false, vmax: 8, float: crDeck }));
+  const deck = (x, z) => crDeck(x, z) ?? crPBDeck(x, z);
+  C.tanks = [0, 1, 2, 3, 4, 5].map(() => addVeh({ mode: 'cross', side: 'f', kind: 'tank', geo: TANK_GEO, half: [3.4, 2.6, 1.9], guns: false, vmax: 8, float: deck }));
+  C.pbT = [0, 1].map(() => addVeh({ mode: 'cross', side: 'f', kind: 'tank', geo: TANK_GEO, half: [3.4, 2.6, 1.9], guns: false, vmax: 3, float: crPBDeck }));
   // the column of the last film: fifty tanks drawn as one instanced mesh
   C.conv = VEH_DATA.magach ? new THREE.InstancedMesh(vehMerged('magach', 2, 'f'), MAT.veh, 50) : new THREE.InstancedMesh(TANK_GEO, MAT.vc, 50); C.conv.frustumCulled = false; C.conv.userData.dyn = true; C.conv.visible = false; SH(C.conv, true, false); scene.add(onLayer1(C.conv));
 }
@@ -9293,49 +9876,47 @@ function crBridgePose(dt) {
   { const night = CR.filmTod != null ? CR.filmTod % 1440 < 300 : CR.stage >= 3; if (C.lamps[0].visible !== night) for (const q of C.lamps) q.visible = night; }
   if (CR.stage === 3) meter('גשר הגלילים', CR.br);
 }
-/* the repair: segment 12 is lifted off the trailer, swung over and lowered into the gap; then the tanks push the rear half up against it */
+/* the repair: the new roller lies on the sand beside the gap; a tank shoves it in sideways, then the tanks behind push the rear half up against it */
 function crRepStart() {
-  const C = CHAP.cross, cx12 = 100 + 12.5 * CR_SEGL, px = cx12 + 3, pz = -7.9, reach = Math.hypot(cx12 - px, -pz), a1 = Math.atan2(0 - pz, cx12 - px), a0 = a1 + 1.75;
-  const [tx, tz] = [px + Math.cos(a0) * reach, pz + Math.sin(a0) * reach], [wtx, wtz] = CW(tx, tz), gT = groundAt(wtx, wtz);
-  CR.rep = { t: 0, gap: 4, joined: false, px, pz, reach, a0, a1, yT: gT + 1.6, yS: crSegY(cx12) };
-  const [wx, wz] = CW(px, pz); C.crane.position.set(wx, groundAt(wx, wz), wz); C.crane.visible = true; C.cable.visible = true;
-  C.trailer.position.set(wtx, gT, wtz); C.trailer.rotation.y = -a0 + Math.PI / 2; C.trailer.visible = true;
-  const spots = [[cx12 - 4.4, 3.4, 'crouch'], [cx12 + 4.6, 3.3, 'idle'], [cx12 - 4.0, -3.5, 'idle'], [cx12 + 5.8, -3.0, 'crouch'], [px - 2.2, pz - 1.6, 'idle']];
+  const C = CHAP.cross, cx12 = 100 + 12.5 * CR_SEGL, z0 = -9.5;
+  CR.rep = { t: 0, gap: 4, joined: false, cx: cx12, z0, yS: crSegY(cx12) };
+  const spots = [[cx12 - 4.4, 3.4, 'crouch'], [cx12 + 4.6, 3.3, 'idle'], [cx12 - 4.0, -4.2, 'idle'], [cx12 + 5.8, -4.0, 'crouch'], [cx12 + 2.6, -17.5, 'idle']];
   C.eng.forEach((u, i) => { const [ex, ez] = CW(spots[i][0], spots[i][1]); u.place(ex, ez); u.engPose = spots[i][2]; u.face(...CW(cx12, 0)); u.stance = spots[i][2] === 'crouch' ? 'crouch' : 'stand'; u.rig.root.visible = true; u.rig.pose(u.engPose, 0, 0); u.sync(); });
+  C.repT.visible = true; crRepUpd(0);
 }
-function crRepEnd() { const C = CHAP.cross; CR.rep = null; C.crane.visible = false; C.cable.visible = false; C.trailer.visible = false; for (const u of C.eng) u.rig.root.visible = false; }
+function crRepEnd() { const C = CHAP.cross; CR.rep = null; if (C.repT) C.repT.visible = false; for (const u of C.eng || []) u.rig.root.visible = false; }
 function crRepUpd(dt) {
   const R = CR.rep; if (!R) return; const C = CHAP.cross, m = C.segs[12], t = (R.t += dt);
-  // 9.5 lifted off the trailer, 12.5 swung over the gap, 15.5 lowered into it, 18.5 home; 20-25.5 the tanks push the rear half up against it
-  const a = t < 12.5 ? R.a0 : t < 15.5 ? lerp(R.a0, R.a1, smooth(12.5, 15.5, t)) : R.a1, yUp = R.yS + 4.4;
-  const y = t < 9.5 ? R.yT : t < 12.5 ? lerp(R.yT, yUp, smooth(9.5, 12.5, t)) : t < 15.5 ? yUp : t < 18.5 ? lerp(yUp, R.yS, smooth(15.5, 18.5, t)) : R.yS;
-  if (t >= 18.5 && !R.joined) { R.joined = true; const [wx, wz] = CW(R.px + Math.cos(R.a1) * R.reach, 0); fxDust(V3(wx, R.yS - 0.4, wz)); sndClick(240, 0.4); }
-  const lx = R.px + Math.cos(a) * R.reach, lz = R.pz + Math.sin(a) * R.reach, [wx, wz] = CW(lx, lz);
-  if (!R.joined) { m.visible = true; m.position.set(wx, y + (t > 9.5 && t < 18.5 ? Math.sin(t * 1.8) * 0.07 : 0), wz); m.rotation.set(0, a - R.a1, 0); }
+  // 9.5-18.5 the tank shoves the roller across the sand into the gap; 20-25.5 the tanks behind push the rear half up against it
+  const u = smooth(9.5, 18.5, t), lz = lerp(R.z0, 0, u);
+  if (t >= 18.5 && !R.joined) { R.joined = true; const [wx, wz] = CW(R.cx, 0); fxDust(V3(wx, R.yS - 0.4, wz)); sndClick(240, 0.4); }
+  if (!R.joined) { const [wx, wz] = CW(R.cx, lz); m.visible = true; m.position.set(wx, R.yS + (t > 9.5 ? Math.sin(t * 7) * 0.02 : 0), wz); m.rotation.set(0, 0, 0); if (dt > 0 && t > 9.5 && Math.random() < dt * 5) fxDust(V3(wx + rand(-3, 3), R.yS - 0.6, wz - 2.6)); }
   R.gap = t < 20 ? 4 : lerp(4, 0, smooth(20, 25.5, t));
-  const piv = C.crane.userData.piv; piv.rotation.y = -a; C.crane.updateMatrixWorld(true); const tip = C.crane.userData.boom.localToWorld(V3(9.9, -0.4, 0)), top = (R.joined ? R.yS : y) + 2.0, L = Math.max(0.2, tip.y - top);
-  C.cable.position.set(tip.x, tip.y - L / 2, tip.z); C.cable.scale.set(1, L, 1); C.cable.visible = !R.joined || t < 19;
-  for (const u of C.eng) { u.anim = (u.anim || 0) + dt * (u.engPose === 'crouch' ? 1.5 : 0.8); u.rig.pose(u.engPose, u.anim, 0); u.sync(); }
+  // the tank: nose against the roller's side, backing off once it is home
+  { const tz = lz - 2.6 - 3.9 - (R.joined ? smooth(18.5, 22, t) * 6 : 0), [wx, wz] = CW(R.cx, tz); C.repT.position.set(wx, groundAt(wx, wz), wz); C.repT.rotation.set(0, -Math.PI / 2, 0); const vl = C.repT.userData.vl; if (vl) vl.spd = t > 9.5 && t < 22 ? 1.2 : 0; }
+  if (dt > 0 && t > 9.5 && t < 18.5 && Math.random() < dt * 3) { const s = FX.smoke.get(); s.life = 2.2; s.s.position.copy(C.repT.position).add(V3(rand(-1, 1), 2.3, rand(-3.4, -2.6))); s.s.material.color.set(0x2e2c28); s.upd = (q, uu, d2) => { q.s.position.y += 1.6 * d2; q.s.scale.setScalar(0.8 + uu * 3.4); q.s.material.opacity = 0.55 * (1 - uu); }; }
+  for (const e of C.eng) { e.anim = (e.anim || 0) + dt * (e.engPose === 'crouch' ? 1.5 : 0.8); e.rig.pose(e.engPose, e.anim, 0); e.sync(); }
 }
-/* ---------- the third raft: a direct hit on the jeep it carries. One man is killed, two are wounded ---------- */
+/* ---------- the jeep behind on the bridge: a direct hit. One man is killed, two are wounded ---------- */
 function crDirectHit() {
-  const C = CHAP.cross, r = C.rafts[2], X = C.jeepX; CR.hit3 = true; r.g.updateMatrixWorld(true); const p = X.g.getWorldPosition(V3());
-  fxExplosion(p.clone().add(V3(0, 0.8, 0)), 3.2); sndBoom(p, 3.0); crBurst(p.x + 4, p.z + 3, 1.5); crBurst(p.x - 5, p.z - 3, 1.3); crSplash(V3(p.x + 1, 0, p.z - 4), 1.2);
-  r.rock.a = 0.45; r.vmax = 1.3; FX.shake = Math.max(FX.shake, clamp(1.4 - camera.position.distanceTo(p) / 40, 0.2, 0.9));
-  X.wreck = true; X.g.traverse((m) => { if (m.isMesh && !X.men.includes(m)) m.material = MAT_BURNT; }); X.g.rotation.set(0.12, 0.5, 0.2);
+  const C = CHAP.cross, X = C.jeepX; CR.hit3 = true; X.g.updateMatrixWorld(true); const p = X.g.getWorldPosition(V3());
+  fxExplosion(p.clone().add(V3(0, 0.8, 0)), 3.2); sndBoom(p, 3.0); crBurst(p.x + 3, p.z + 7, 1.5); crBurst(p.x - 5, p.z - 6, 1.3); crSplash(V3(p.x + 1, 0, p.z - 5), 1.2);
+  X.vmax = 0; X.speed = 0; X.stop = X.s; FX.shake = Math.max(FX.shake, clamp(1.4 - camera.position.distanceTo(p) / 40, 0.2, 0.9));
+  X.crHit = true; X.g.traverse((m) => { if (m.isMesh && !X.men.includes(m)) m.material = MAT_BURNT; }); { const vl = X.g.userData.vl; if (vl) { vehDamage(vl, true); vl.dead = true; } }
   for (let i = 0; i < 2; i++) { const f = new THREE.Sprite(new THREE.SpriteMaterial({ map: FXT.fire, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, color: HDC })); f.position.set(rand(-0.4, 0.4), 1.4 + i * 0.6, rand(-0.3, 0.3)); f.scale.setScalar(1.8 + i * 0.6); X.g.add(f); X.fires.push(f); }
-  const [a, b, c] = X.men; r.g.attach(a); CR.thrown = { m: a, v: V3(rand(1.5, 3), 5.5, rand(2, 4)), t: 0 };
-  for (const [m, at] of [[b, [2.7, 0.3, 1.5]], [c, [-2.5, 0.3, -1.3]]]) { r.g.attach(m); m.position.set(...at); m.rotation.set(0, rand(0, 3), Math.PI / 2); }
-  radio('קשר', 'פצצה על הדוברה שלידנו! פגיעה ישירה!', 2.4);
-  DIRQ.push({ at: GAME.t + 2.8, fn: () => { radio('חובש', 'הג׳יפ על הדוברה השכנה נפגע! יש הרוג ושני פצועים. אני עליהם!', 3.4); feed('הדוברה השכנה נפגעה: הרוג ושני פצועים', 'bad'); } });
+  // one is thrown off the bridge into the canal; the other two lie on the roadway beside the burning jeep
+  const [a, b, c] = X.men; scene.attach(a); CR.thrown = { m: a, v: V3(rand(-1, 1), 5.5, (Math.random() < 0.5 ? -1 : 1) * rand(3, 4)), t: 0 };
+  for (const [m, at] of [[b, [2.6, 1.6]], [c, [-2.4, -1.5]]]) { scene.attach(m); m.position.set(p.x + at[0], CR_PB_Y + 0.15, p.z + at[1]); m.rotation.set(0, rand(0, 3), Math.PI / 2); }
+  radio('קשר', 'פצצה על הגשר מאחורינו! פגיעה ישירה בג׳יפ!', 2.4);
+  DIRQ.push({ at: GAME.t + 2.8, fn: () => { radio('חובש', 'הג׳יפ מאחורינו נפגע! יש הרוג ושני פצועים. אני עליהם!', 3.4); feed('הג׳יפ שמאחור נפגע על הגשר: הרוג ושני פצועים', 'bad'); } });
 }
-/* the bomb that finds the raft beside the player's: a jet comes in low from behind, along the line of the rafts; the bomb falls in slow motion,
-   the player's head is turned to it, and it lands on the jeep nine metres away */
+/* the bomb that finds the jeep behind the player's on the bridge: a jet comes in low from the east, along the bridge; the bomb falls in slow
+   motion, the player's head is turned to it, and it lands on the jeep some forty metres behind */
 function crStrike() {
   const C = CHAP.cross, X = C.jeepX; X.g.updateMatrixWorld(true); const to = X.g.getWorldPosition(V3());
   const m = new THREE.Mesh(JET_GEO, MAT.jet); SH(m, true, false); scene.add(onLayer1(m));
   CR.strike = { m, t: 0, x0: to.x + 330, z: to.z - 3, rel: false }; m.position.set(to.x + 330, 46, to.z - 3);
-  sndJet(3.2); radio('צנחן', 'מטוס! מאחורינו — הוא צולל על הדוברה שלידנו!', 2.6);
+  sndJet(3.2); radio('צנחן', 'מטוס! מהמזרח — הוא צולל על הגשר!', 2.6);
 }
 function crStrikeUpd(dt) {
   const S = CR.strike; if (!S) return; const C = CHAP.cross, X = C.jeepX; S.t += dt;
@@ -9343,7 +9924,7 @@ function crStrikeUpd(dt) {
   X.g.updateMatrixWorld(true); const tgt = X.g.getWorldPosition(V3());
   if (!S.rel && x < tgt.x + 52) { S.rel = true; const bm = new THREE.Mesh(BOMB_GEO, MAT.vc); bm.scale.setScalar(1.6); scene.add(onLayer1(bm)); const from = S.m.position.clone().add(V3(0, -1.2, 0));
     CR.shellIn = { m: bm, from, to: tgt.clone().add(V3(0, 0.6, 0)), t: 0, dur: 1.15, track: true }; bm.position.copy(from);
-    slowMo(3.8, 0.2, tgt.clone().add(V3(0, 3.4, 0)));   /* aimed a little high: the burst fills the view above our own jeep's windscreen */ toast('פצצה!', 'הדוברה שלידכם'); }
+    slowMo(3.8, 0.2, tgt.clone().add(V3(0, 3.4, 0))); toast('פצצה!', 'על הגשר, מאחוריכם'); }
   if (x < tgt.x - 800) { scene.remove(S.m); CR.strike = null; }
 }
 function crShellUpd(dt) {
@@ -9352,19 +9933,19 @@ function crShellUpd(dt) {
 }
 function crHitUpd(dt) {
   const C = CHAP.cross, X = C.jeepX, T = CR.thrown;
-  if (T && T.m.visible) { T.t += dt; T.v.y -= 9.8 * dt; T.m.position.addScaledVector(T.v, dt); T.m.rotation.x += dt * 5; T.m.rotation.z += dt * 3; if (T.m.position.y < -1.2) { T.m.visible = false; const wp = T.m.getWorldPosition(V3()); wp.y = 0; for (let k = 0; k < 4; k++) fxDust(wp.clone().add(V3(rand(-0.6, 0.6), 0.3 + k * 0.3, rand(-0.6, 0.6))), true); rippleAdd(wp.x, wp.z, 0.5); } }
-  if (X.wreck && X.g.visible && Math.random() < dt * 3.5) { const wp = X.g.getWorldPosition(V3()), q = FX.smoke.get(); q.life = 6; q.s.position.set(wp.x + rand(-0.6, 0.6), wp.y + 2.2, wp.z + rand(-0.6, 0.6)); q.s.material.color.set(0x1a1816); q.upd = (o, u, d2) => { o.s.position.y += 2.4 * d2; o.s.scale.setScalar(1.6 + u * 7); o.s.material.opacity = 0.7 * (1 - u); }; }
-  if (X.wreck) for (const f of X.fires) f.scale.setScalar(1.6 + Math.sin(GAME.t * 11 + f.id) * 0.3 + (f.position.y > 1.6 ? 0.6 : 0));
+  if (T && T.m.visible) { T.t += dt; T.v.y -= 9.8 * dt; T.m.position.addScaledVector(T.v, dt); T.m.rotation.x += dt * 5; T.m.rotation.z += dt * 3; if (T.m.position.y < -1.2) { T.m.visible = false; const wp = T.m.position.clone(); wp.y = 0; for (let k = 0; k < 4; k++) fxDust(wp.clone().add(V3(rand(-0.6, 0.6), 0.3 + k * 0.3, rand(-0.6, 0.6))), true); rippleAdd(wp.x, wp.z, 0.5); } }
+  if (X.crHit && X.g.visible && Math.random() < dt * 3.5) { const wp = X.g.getWorldPosition(V3()), q = FX.smoke.get(); q.life = 6; q.s.position.set(wp.x + rand(-0.6, 0.6), wp.y + 2.2, wp.z + rand(-0.6, 0.6)); q.s.material.color.set(0x1a1816); q.upd = (o, u, d2) => { o.s.position.y += 2.4 * d2; o.s.scale.setScalar(1.6 + u * 7); o.s.material.opacity = 0.7 * (1 - u); }; }
+  if (X.crHit) for (const f of X.fires) f.scale.setScalar(1.6 + Math.sin(GAME.t * 11 + f.id) * 0.3 + (f.position.y > 1.6 ? 0.6 : 0));
 }
-/* ---------- the air raids: Egyptian jets dive on the rafts and on the bridge waiting on the bank ---------- */
+/* ---------- the air raids: Egyptian jets dive on the pontoon bridge and on the roller bridge waiting on the bank ---------- */
 const CRJ = [];
 function crJet(kind) {
   const m = new THREE.Mesh(JET_GEO, MAT.jet); SH(m, true, false); m.visible = false; scene.add(onLayer1(m));
   let tx, tz, ang;
-  if (kind === 'raft') { const r = CHAP.cross.rafts[Math.random() < 0.6 ? 0 : 1].g.position; tx = r.x + rand(-6, 6); tz = r.z + rand(-30, 10); ang = Math.PI / 2 + rand(-0.15, 0.15); }
+  if (kind === 'pb') { tx = CR.o.x + rand(-70, 70); tz = CR.o.z + CR_PB_Z + rand(-30, 10); ang = Math.PI / 2 + rand(-0.15, 0.15); }
   else { tx = CR.o.x + 100 - CR.br * CR_BLEN + rand(10, 190); tz = CR.o.z; ang = rand(-0.25, 0.25) + (Math.random() < 0.5 ? 0 : Math.PI); }
   CRJ.push({ m, kind, tx, tz, dx: Math.cos(ang), dz: Math.sin(ang), t: 0, last: -1e9, bombs: false });
-  radio('תצפית', kind === 'raft' ? pick(['מיג צולל על הדוברות!', 'מטוס! הוא בא על הדוברות!']) : pick(['מיגים על גשר הגלילים!', 'סוחויים בצלילה על הצומת!']), 2.6);
+  radio('תצפית', kind === 'pb' ? pick(['מיג צולל על גשר הדוברות!', 'מטוס! הוא בא על הגשר!']) : pick(['מיגים על גשר הגלילים!', 'סוחויים בצלילה על הצומת!']), 2.6);
 }
 function crInTrench(x, z) { const lz = z - CR.o.z; return lz > CR_TZ0 - 2 && lz < CR_TZ1 + 2 && Math.abs(x - CR.o.x - crTX(lz)) < 1.7; }
 function crJetsUpd(dt) {
@@ -9387,18 +9968,18 @@ function crBombsUpd(dt) {
 }
 // shells from the Egyptian artillery keep falling around the crossing: columns of water in the canal, sand on the yard
 function crShells(dt) {
-  CR.shT = (CR.shT ?? 2) - dt; if (CR.shT > 0) return; const crossing = CR.stage === 0 && CR.msgs.go && !CHAP.cross.rafts[0].ended, pushing = CR.push && CR.br < 1; CR.shT = crossing ? rand(0.4, 1.0) : pushing ? rand(0.7, 1.5) : rand(1.2, 3.2);
+  CR.shT = (CR.shT ?? 2) - dt; if (CR.shT > 0) return; const crossing = CR.stage === 0 && CR.msgs.go && !CR.msgs.off, pushing = CR.push && CR.br < 1; CR.shT = crossing ? rand(0.4, 1.0) : pushing ? rand(0.7, 1.5) : rand(1.2, 3.2);
   const xf = 100 - CR.br * CR_BLEN, r = Math.random(); let x, z;
-  if (crossing && r < 0.9) { const q = CHAP.cross.rafts[Math.floor(Math.random() * 3)].g.position, a = rand(0, 6.283), dd = rand(7, 26); x = q.x + Math.cos(a) * dd; z = q.z + Math.sin(a) * dd; }
-  else if (CR.stage === 0 && r < 0.6) { const q = CHAP.cross.rafts[Math.random() < 0.5 ? 0 : 1].g.position; x = q.x + rand(-30, 30); z = q.z + rand(-25, 25); }
+  // on the crossing they fall in the water either side of the bridge, along the column; a few on the bridge's ends
+  if (crossing && r < 0.9) { const q = CHAP.cross.jeeps[0].g.position; x = clamp(q.x + rand(-40, 50), CR.o.x - 92, CR.o.x + 92); z = CR.o.z + CR_PB_Z + (Math.random() < 0.5 ? -1 : 1) * rand(8, 30); }
+  else if (CR.stage === 0 && r < 0.6) { x = CR.o.x + rand(-90, 90); z = CR.o.z + CR_PB_Z + (Math.random() < 0.5 ? -1 : 1) * rand(10, 45); }
   else if (r < 0.6) { x = CR.o.x + clamp(xf + rand(-30, 60), -90, 92); z = CR.o.z + (Math.random() < 0.5 ? -1 : 1) * rand(8, 34); } else if (r < 0.85) { x = CR.o.x + rand(110, 300); z = CR.o.z + rand(-90, 90); if (Math.abs(z - CR.o.z) < 8) z += 16; } else { x = CR.o.x + rand(-80, 80); z = CR.o.z + rand(-160, 160); if (Math.abs(z - CR.o.z) < 6) z += 12; }
   const gy = groundAt(x, z), p = V3(x, Math.max(gy, 0), z); if (camera.position.distanceTo(p) < 70 && Math.random() < 0.5) sndWhistle(1.0);
   DIRQ.push({ at: GAME.t + 1.0, fn: () => { if (gy < 0) crBurst(x, z, crossing ? 1.5 : 1.2); else { fxExplosion(p, 1.1); sndBoom(p, 1.0); } } });
 }
-// a shell in the canal: a column of water, and every raft near it rocks; close to the camera the whole picture shakes
+// a shell in the canal: a column of water and rings; close to the camera the whole picture shakes
 function crSplash(p, k = 1) {
   const n = Math.round(9 * k); for (let i = 0; i < n; i++) fxDust(p.clone().add(V3(rand(-2, 2) * k, 0.3 + i * 0.55 * k, rand(-2, 2) * k)), true); for (let i = 0; i < 5; i++) fxDust(p.clone().add(V3(rand(-5, 5), 0.2, rand(-5, 5))), true); sndBoom(p, 1.1 * k);
-  for (const r of CHAP.cross.rafts) { const d = r.g.position.distanceTo(p); if (d < 32) r.rock.a = Math.max(r.rock.a, 0.16 * k * (1 - d / 32)); }
   rippleAdd(p.x, p.z, 0.9 * k); FX.shake = Math.max(FX.shake, clamp(1.1 - camera.position.distanceTo(p) / 34, 0, 0.75));
 }
 // a big one: the water thrown high in a white column that falls back, and rings that spread wide
@@ -9409,119 +9990,171 @@ function crBurst(x, z, k = 1.4) {
 }
 /* ---------- stage setup ---------- */
 function crSeat(v, x, z) { return () => ({ p: v.g.localToWorld(V3(x * JK, 0.95 * JK, z * JK)), hd: v.hdV + (z < 0 ? Math.PI / 2 : -Math.PI / 2) }); }
-const CR_RAFT_LOAD = [[0, 2.6], [0, -2.6], [1, 2.6]];   // which raft each jeep crosses on, and where on its deck
-// the third raft, the one that is hit, crosses right beside the player's
-function crRaftPath(i) { const z = CR_RAFT_Z - 4 + [0, 17, -8.5][i]; return [CW(i === 2 ? 72 : 84, z), CW(-84, z)]; }   // a little ahead, so the gunner sees it past the men beside him
-function crRelease(v, gap) {
-  // a jeep drives off its raft: its own path begins where it stands and joins the track
-  scene.attach(v.g); const J = CR_JEEP.map(([x, z]) => CW(x, z)), p = v.g.position, start = [p.x, p.z], off = Math.hypot(J[0][0] - p.x, J[0][1] - p.z);
-  v.path = [start, ...J]; v.s = 0; v.hdV = null; v.vmax = 6.5; v.speed = 0; v.onRaft = null; v.gap = gap - off; v.off = off;
-}
 function crCut(fn) { const f = $('#fade'); f.style.transition = 'opacity .5s'; f.style.opacity = '1'; DIRQ.push({ at: GAME.t + 0.55, fn: () => { fn(); f.style.transition = 'opacity 1.2s'; f.style.opacity = '0'; } }); }
-// a bay of the village for one of ours: the base of a window slot, facing out of it
+// a post for one of ours: a window bay (or any place with a facing), in world coordinates
 const crPost = (s, name) => ({ name, x: s.x, z: s.z, y: s.y, fx: s.nx, fz: s.nz, state: 'post' });
+const crDi = () => Math.max(0, DIFF.indexOf(diff));   // the level: 0 easy, 1, 2 hard
 function crSetup(stage) {
-  const C = CHAP.cross; fieldSetupCommon(C, stage); resetTrail(); CR.flee = []; CR.msgs = {}; if (CR.shellIn && CR.shellIn.m) scene.remove(CR.shellIn.m); CR.shellIn = null; SLOW.left = 0; SLOW.k = 1; SLOW.look = null; for (const j of CRJ) scene.remove(j.m); CRJ.length = 0; for (const b of AIR.bombs) scene.remove(b.m); AIR.bombs.length = 0;
-  CR.br = stage >= 4 ? 1 : 0; CR.push = false; CR.air = [40, 18, 22, 999, 999][stage]; if (CR.strike) { scene.remove(CR.strike.m); CR.strike = null; } CR.wave = 0; CR.waveT = 4; CR.filmTod = null; CR.tanksOn = false; CR.illumT = 3; crRepEnd(); crConvOff(); meter(null);
+  const C = CHAP.cross; fieldSetupCommon(C, stage); resetTrail(); CR.flee = []; CR.msgs = {}; CR.stage = stage; if (CR.shellIn && CR.shellIn.m) scene.remove(CR.shellIn.m); CR.shellIn = null; SLOW.left = 0; SLOW.k = 1; SLOW.look = null; for (const j of CRJ) scene.remove(j.m); CRJ.length = 0; for (const b of AIR.bombs) scene.remove(b.m); AIR.bombs.length = 0;
+  CR.br = stage >= 4 ? 1 : 0; CR.push = false; CR.air = [34, 18, 999, 999, 999][stage]; if (CR.strike) { scene.remove(CR.strike.m); CR.strike = null; } CR.wave = 0; CR.waveT = 0; CR.filmTod = null; CR.tanksOn = false; CR.illumT = 3; CR.doorN = stage >= 3; CR.rg = { i: 0, clear: false, t: 0 }; crRepEnd(); crConvOff(); meter(null);
   $('#clockSub').textContent = CR_CLOCK[stage];
-  for (const v of C.jeeps) if (v.g.parent !== scene) scene.attach(v.g);
-  for (const v of VEH) if (v.mode === 'cross') { vehRevive(v); v.path = null; v.stop = undefined; v.ended = false; v.shown = false; v.g.visible = false; v.onEnd = null; v.speed = 0; v.onRaft = null; }
+  for (const v of VEH) if (v.mode === 'cross') { vehRevive(v); v.path = null; v.stop = undefined; v.ended = false; v.shown = false; v.g.visible = false; v.onEnd = null; v.speed = 0; }
   if (C.egFlag) C.egFlag.visible = stage < 2;
   P.mode = 'rifle'; vm.visible = true; if (TANK.g) TANK.g.visible = false; C.mg.visible = false;
-  // the rafts: loaded at the Sinai bank, or already tied up at the west bank
-  C.rafts.forEach((r, i) => { const RP = crRaftPath(i); r.shown = true; r.g.visible = true; r.path = RP; r.s = stage === 0 ? 0 : pathLen(RP); r.vmax = 0; r.hdV = null; r.ended = stage > 0; r.onEnd = () => {}; const [x, z, hd] = pathAt(RP, r.s); vehPose(r, x, z, hd); r.g.updateMatrixWorld(true); });
-  // the fourth jeep rides the third raft, the one that will be hit half way over
-  { const X = C.jeepX, r = C.rafts[2]; if (X.g.parent !== r.g) r.g.add(X.g); X.g.position.set(0, 1.1, 0); X.g.rotation.set(0, 0, 0); X.g.visible = stage === 0; X.wreck = false; X.onRaft = r;
+  // the jeep at the tail of the column on the bridge: the one the bomb will find
+  { const X = C.jeepX; X.crHit = false; CR.hit3 = false; CR.thrown = null;
     X.men.forEach((m, i) => { if (m.parent !== X.g) X.g.add(m); m.position.set(...[[-0.35, 0.95, -0.3], [0.45, 0.95, 0.35], [-1.1, 0.95, 0.3]][i].map((q) => q * JK)); m.rotation.set(0, Math.PI / 2, 0); m.visible = true; });
-    CR.hit3 = false; CR.wh3 = false; CR.thrown = null; for (const q of C.rafts) q.rock.a = 0; }
-  const J = CR_JEEP.map(([x, z]) => CW(x, z)), L = pathLen(J);
-  C.jeeps.forEach((v, i) => { v.shown = true; v.g.visible = true; v.ambush = null; v.hdV = null; v.off = 0;
-    if (stage === 0) { const [ri, lx] = CR_RAFT_LOAD[i], r = C.rafts[ri]; r.g.add(v.g); v.g.position.set(lx, 1.1, 0); v.g.rotation.set(0, 0, 0); v.onRaft = r; v.path = null; v.gap = i * 14; }
-    else { v.path = J; v.s = stage === 1 ? 30 - i * 14 : L - i * 14; v.vmax = 6.5; v.gap = i * 14; v.stop = stage === 1 ? undefined : v.s; const [x, z, hd] = pathAt(J, v.s); vehPose(v, x, z, hd); } });
+    if (stage === 0) { X.shown = true; X.g.visible = true; X.path = CR_J0.map(([x, z]) => CW(x, z)); X.s = 6; X.vmax = 0; X.hdV = null; X.stop = CR_PB_END - 42; const [x, z, hd] = pathAt(X.path, X.s); vehPose(X, x, z, hd); } }
+  const J = CR_J0.map(([x, z]) => CW(x, z)), L = pathLen(J);
+  C.jeeps.forEach((v, i) => { v.shown = true; v.g.visible = true; v.ambush = null; v.hdV = null; v.off = 0; v.path = J; v.gap = i * 14;
+    v.s = stage === 0 ? 48 - i * 14 : stage === 1 ? CR_PB_END + 30 - i * 14 : L - i * 14; v.vmax = stage === 0 ? 0 : 6.5; v.stop = stage === 0 ? CR_PB_END - v.gap : stage === 1 ? undefined : v.s; const [x, z, hd] = pathAt(J, v.s); vehPose(v, x, z, hd); });
+  // the two tanks ahead of the jeeps on the bridge: over, and away west into the bridgehead
+  if (stage === 0) C.pbT.forEach((v, i) => { v.shown = true; v.g.visible = true; v.path = [...CR_PB_PATH, [-100, 404], [-124, 405], [-160, 424], [-205, 441], [-245, 449]].map(([x, z]) => CW(x, z)); v.s = 66 + i * 17; v.vmax = 0; v.hdV = null; v.onEnd = (q) => { q.g.visible = false; q.shown = false; }; const [x, z, hd] = pathAt(v.path, v.s); vehPose(v, x, z, hd); });
   const lead = C.jeeps[0];
   lead.crew[0].visible = stage > 1;
-  const put = (lx, lz, yaw, y) => { const [x, z] = CW(lx, lz); P.pos.set(x, y === undefined ? groundAt(x, z) : hAt(x, z, y + 0.4), z); P.yaw = yaw; P.pitch = 0; };
   if (stage <= 1) { P.ride = { pos: () => lead.g.localToWorld(V3(-1.2, 1.3, 0)), eye: 1.62, mg: true, gun: C.mg, muzzle: () => C.mg.localToWorld(V3(0, 0.012, -1.5)) }; lead.g.updateMatrixWorld(true); P.pos.copy(P.ride.pos()); P.yaw = Math.PI / 2; P.pitch = -0.04; vm.visible = false; }
-  else if (stage === 2) put(-149, 34, 0.98);
-  else { const pw = C.vh[2].win.filter((wn) => wn.nx < -0.5)[1].slot; P.pos.set(pw.x, hAt(pw.x, pw.z, pw.y + 0.4), pw.z); P.yaw = Math.PI / 2; P.pitch = 0; }   // the other west window of the house at the corner is the player's
+  else if (stage === 2) { const [x, z] = CW(-146.6, 13.2); P.pos.set(x, groundAt(x, z), z); P.yaw = Math.atan2(7.4, -6.4); P.pitch = 0; }
   const seats = [crSeat(lead, -1.5, -0.55), crSeat(lead, -1.5, 0.55), crSeat(C.jeeps[1], -1.45, -0.5), crSeat(C.jeeps[1], -1.45, 0.5), crSeat(C.jeeps[1], -0.35, 0.3), crSeat(C.jeeps[2], -1.45, -0.5), crSeat(C.jeeps[2], -1.45, 0.5), crSeat(C.jeeps[2], -0.35, 0.3)];
-  // the bays our men hold in the fourth and fifth stages: the west windows of the four houses that face the fields
-  const W = (hi, f) => C.vh[hi].win.filter(f).map((wn) => wn.slot), west = (wn) => wn.nx < -0.5;
-  const bays = [W(2, west)[0], W(2, (wn) => wn.nz < -0.5)[0], ...W(5, west), ...W(6, west), ...W(7, west)];
+  // the night: the house at the head of the street. Our men at three of the four windows on the junction, both sides of the barricaded door, the
+  // north window and a window looking back down the street; the fourth window on the junction is the player's
+  const D = C.vh.D, win = (k) => D.win.filter((w) => w.wall === k).map((w) => w.slot), W = win('w'), dp = (lz) => { const [x, z] = CW(CR_D.x - CR_D.w / 2 + CR_WT / 2 + 0.6, lz); return { x, z, y: D.y, nx: -1, nz: 0 }; };
+  const posts = [W[0], W[1], W[3], dp(-0.75), dp(0.75), win('n')[0], win('e')[0], win('e')[1]];
+  if (stage >= 3) { const s = W[2]; P.pos.set(s.x, hAt(s.x, s.z, s.y + 0.4), s.z); P.yaw = Math.PI / 2; P.pitch = 0; }
   const fw = [-Math.sin(P.yaw), -Math.cos(P.yaw)];
   fieldFriends(CR_NAMES.map((name, i) => {
     const fo = CR_FOLLOW.indexOf(i); if (fo < 0) return null;
     if (stage <= 1) return { name, state: 'ride', ride: seats[fo], fi: fo };
-    if (stage === 2) { const b = 2.2 + fo * 1.4; return { name, x: P.pos.x - fw[0] * b + (fo % 2 ? 1 : -1) * fw[1], z: P.pos.z - fw[1] * b - (fo % 2 ? 1 : -1) * fw[0], state: 'follow', fi: fo }; }
-    return bays[fo] ? crPost(bays[fo], name) : null;
+    if (stage === 2) { const b = 2.2 + fo * 1.2; return { name, x: P.pos.x - fw[0] * b + (fo % 2 ? 1 : -1) * fw[1] * 0.8, z: P.pos.z - fw[1] * b - (fo % 2 ? 1 : -1) * fw[0] * 0.8, state: 'follow', fi: fo }; }
+    return posts[fo] ? crPost(posts[fo], name) : null;
   }));
-  crBridgePose(0); crStage(stage);
+  crDynApply(); crBridgePose(0); crStage(stage);
 }
 function crStage(i) {
-  const C = CHAP.cross; fieldStage(C, i); CR.stage = i; CR.msgs = {};
-  if (i === 0) { if (CR.introSeen) DIRQ.push({ at: GAME.t + 0.4, fn: crIntroEnd }); else DIRQ.push({ at: GAME.t + 0.4, fn: () => crIntroFilm() }); }   // a second try of the crossing starts at once
-  if (i === 1) { const lead = C.jeeps[0]; C.stops = {}; for (const id in CR_AMB) C.stops[id] = crSAt(lead.path, ...CW(...CR_AMB[id].stop)); radio('מ״פ', 'על הגדה! נוסעים בין השדות, ואז דרומה לאורך הסוללה, אל הכפר שליד נקודת הגישור. מקלעים מוכנים!', 4); }
+  const C = CHAP.cross; fieldStage(C, i); CR.stage = i; CR.msgs = {}; crDynApply();
+  if (i === 0) { if (CR.introSeen) DIRQ.push({ at: GAME.t + 0.4, fn: crIntroEnd }); else DIRQ.push({ at: GAME.t + 0.4, fn: () => crIntroFilm() }); }
+  if (i === 1) { const lead = C.jeeps[0]; C.stops = {}; for (const id in CR_AMB) C.stops[id] = crSAt(lead.path, ...CW(...CR_AMB[id].stop)); radio('מ״פ', 'עברנו! עכשיו צפונה בין השדות, לאורך הסוללה, אל הכפר — שם יעלה גשר הגלילים לגדה. מקלעים מוכנים!', 4); }
   if (i === 2) {
-    radio('מ״פ', 'קפצו מהג׳יפים! הכפר שולט על המקום שבו יעלה הגשר. בית אחרי בית, ממזרח למערב — רימון לפני כל דלת!', 4.5);
-    hint('cr-gate', `כובשים את הכפר <b>בית אחרי בית</b>: חסלו את המצרים בחלונות של הבתים שלפניכם, ואז היכנסו מהדלת — יש מישהו בפנים. הבית הבא יסומן ב־◆. הדלתות רחבות, והחלונות טובים לירי.`, 9);
-    crVillageMan(); gateStart(CR_VG.map(([x, z]) => CW(x, z)), crVGate, crVDone, 'בית');
+    radio('מ״פ', 'קפצו מהג׳יפים! הכפר שולט על המקום שבו יעלה הגשר. הרחוב חסום בגדר תיל — עוברים דרך החצרות והבתים, בית אחרי בית!', 4.5);
+    hint('cr-gate', `<b>בית אחרי בית, בדרך אחת:</b> חצר, בית, חוצים את הרחוב אל הבית שממול, ודרך החצר שלו לחצר הבאה. הדלת הבאה מסומנת ב־◆ — היא נפתחת לדרך רק כשכל המצרים בקטע מתים. בכל בית יש מצרי שמחכה בחדר השני.`, 10);
+    crVillageMan(); crVGate(0);
   }
   if (i === 3) crHoldStart();
-  if (i === 4) { meter(null); if (!CR.tanksOn) crTanksGo(); radio('מג״ד', 'הגשר מונח! הטנקים עולים עליו — החזיקו עוד קצת, הם בדרך אליכם!', 4); CR.waveT = 6; }
+  if (i === 4) { meter(null); if (!CR.tanksOn) crTanksGo(); radio('מג״ד', 'הגשר מונח! הטנקים עולים עליו — הם באים במעלה הרחוב ומסביב לכפר. החזיקו עוד קצת!', 4); crWaveGo(9); }
 }
-/* the village: every house manned before the advance reaches it - men in the windows, one inside behind each door the bounds lead to */
+/* the street: every house manned before the advance reaches it - men at the windows that look onto the route, one inside each house on the route,
+   waiting in its second room. Each bound: [house, the wall and which of its windows (or 'g', the man inside; 'in', inside the house at the
+   head), weapon, from which level on] */
+const CR_VMEN = [
+  [['S1', 'e', 0, 'rifle', 0], ['S1', 's', 0, 'smg', 0], ['n0', 'e', 1, 'rifle', 1]],
+  [['S1', 'g', 0, 'smg', 0], ['N1', 's', 0, 'rifle', 0], ['n0', 's', 0, 'lmg', 1], ['s1', 'n', 0, 'rifle', 0]],
+  [['N1', 'g', 0, 'rifle', 0], ['N2', 'n', 0, 'rifle', 0]],
+  [['N2', 'g', 0, 'smg', 0], ['S2', 'n', 0, 'rifle', 0], ['s2', 'n', 0, 'lmg', 1], ['n3', 's', 0, 'rifle', 0]],
+  [['S2', 'g', 0, 'rifle', 0], ['S3', 's', 0, 'smg', 0]],
+  [['S3', 'g', 0, 'smg', 0], ['N3', 's', 0, 'rifle', 0], ['n4', 's', 0, 'rifle', 1], ['s5', 'n', 0, 'lmg', 0], ['D', 'e', 0, 'rifle', 2]],
+  [['N3', 'g', 0, 'rifle', 0], ['D', 'n', 0, 'smg', 0]],
+  [['D', 'in', 0, 'smg', 0], ['D', 'in', 1, 'rifle', 1]],
+];
 function crVillageMan() {
-  const C = CHAP.cross;
-  C.vh.forEach((H, hi) => { const seg = CR_VSEG[hi], tag = 'g' + seg, cap = hi === 2 || hi === 5 ? 4 : 3;
-    const ok = H.win.filter((wn) => wn.nx > 0.5 || (wn.nz !== 0 && Math.sign(wn.nz) !== Math.sign(H.z)) || (seg === 2 && wn.nx > -0.5)).sort(() => Math.random() - 0.5);
-    ok.slice(0, cap).forEach((wn, k) => fSlotPlace(wn.slot, k === 1 && hi % 3 === 1 ? 'lmg' : k === 2 ? 'smg' : 'rifle', tag, { wakeG: seg, wakeR: 30 })); });
-  for (const [hi, seg] of CR_GUARD) { const e = fSlotPlace(C.vh[hi].guard, hi === 2 ? 'smg' : 'rifle', 'g' + seg, { wakeG: seg, wakeR: 7 }); if (e) e.cyc = rand(0.3, 0.8); }
+  const C = CHAP.cross, di = crDi();
+  CR_VMEN.forEach((list, b) => { for (const [id, wall, k, kind, lv] of list) { if (di < lv) continue; const H = C.vh[id];
+    const s = wall === 'g' ? H.guard : wall === 'in' ? C.dIn[k] : (H.win.filter((w) => w.wall === wall)[k] || {}).slot;
+    const e = fSlotPlace(s, kind, 'g' + b, { wakeR: wall === 'g' || wall === 'in' ? 7 : 30 }); if (e) e.cyc = rand(0.3, 0.8); } });
 }
-// each bound: men who run in along the road and the lanes from the west, in plain sight
+// the advance through the street: as the field's gates, but a bound is clear only when every man in it is down - seen or not
+const crRouteLeft = () => UNITS.enemies.reduce((n, e) => n + (e.alive && e.sq === 'g' + CR.rg.i ? 1 : 0), 0);
+const CR_VSAY = [
+  'פורצים לחצר של הבית הראשון — דרך הפרצה בחומה המזרחית!',
+  'בחצר! פנימה מהדלת האחורית — חדר, ואחריו החדר השני. אחר כך החוצה לרחוב, אל הבית שממול.',
+  'חצינו! הבית שממול — פנימה, ואז דרך החצר שלו, בפרצה, אל החצר הבאה.',
+  'החצר הבאה! הדלת האחורית של הבית — פנימה, ומשם שוב לרחוב.',
+  'עוד חציה! הבית שממול, ודרך החצר שלו אל הבית הבא.',
+  'הדלת האחורית! פנימה, ואחר כך החוצה — אל הבית האחרון שממול.',
+  'הבית האחרון! דרך החצר שלו, בפרצה — אל החצר של הבית שבראש הרחוב.',
+  'הדלת של הבית שבראש הרחוב — פנימה! מכאן שולטים על הצומת.',
+];
 function crVGate(k) {
-  const tgt = [[-188, 0], [-210, 0], [-232, 0], [-246, 0]][k], n = [3, 3, 3, 5][k];
-  for (let j = 0; j < n; j++) DIRQ.push({ at: GAME.t + 1.2 + j * 1.1, spawn: true, gate: k, fn: () => { const z0 = k === 3 ? rand(-30, 30) : rand(-6, 6), [x, z] = CW(k === 3 ? rand(-300, -286) : rand(-268, -258), z0), [tx, tz] = CW(tgt[0] + rand(-3, 3), (k === 3 ? z0 * 0.6 : rand(-5, 5))); const e = fSpawnStreet(x, z, [[tx, tz]], j === 1 ? 'smg' : j === 3 ? 'rpg' : 'rifle'); if (e) e.sq = 'g' + k; } });
-  if (k > 0) radio('צנחן', pick(['יש מישהו בבית! רימון לדלת!', 'חלון בקומה — מקלע!', 'הם רצים אלינו בדרך, ממערב!', 'הבית הבא! לכסות את החלונות!']), 2.4);
+  // the bound's men stop hiding: the player sees where the fire will come from
+  for (const e of UNITS.enemies) if (e.alive && e.sq === 'g' + k && e.dormant) { e.dormant = false; e.cyc = rand(0.4, 1.4); }
+  radio('מ״פ', CR_VSAY[k], 3.4);
+}
+function crRouteUpd(dt) {
+  if (CINE.on || CR.msgs.vdone) return; const R = CR.rg, n = CR_VG.length - 1; R.t += dt;
+  const left = crRouteLeft(); if (left > 0 && !(R.t > 60 && left <= 1) && R.t < 100) { R.clear = false; return; }
+  if (!R.clear) { R.clear = true; for (const e of UNITS.enemies) if (e.alive && e.sq === 'g' + R.i && !fieldSees(e, 120)) { e.alive = false; e.rig.root.visible = false; e.tag.visible = false; if (e.slot) { e.slot.used = false; e.slot = null; } }
+    if (R.i >= n - 1) { crVDone(); return; } radio('צנחן', pick(['נקי! הבא!', 'נקי! קדימה, לדלת הבאה!', 'הבית נקי!']), 2); feed(`הקטע נקי · הדלת הבאה ◆ (${R.i + 2}/${n})`, 'good'); }
+  const [x, z] = CW(...CR_VG[R.i + 1]); if (Math.hypot(P.pos.x - x, P.pos.z - z) < 2.8) { R.i++; R.clear = false; R.t = 0; if (R.i >= n) { crVDone(); return; } feed(`בית ${R.i}/${n - 1}`); crVGate(R.i); snapRequest('gate'); }
 }
 function crVDone() {
-  feed('הכפר בידינו', 'good'); radio('מ״פ', 'הכפר שלנו! תופסים את הבתים שמול השדות — מכאן הם יבואו.', 4); snapRequest('village');
+  if (CR.msgs.vdone) return; CR.msgs.vdone = true;
+  feed('הרחוב בידינו', 'good'); radio('מ״פ', 'הרחוב שלנו! כולם לבית שבראש הרחוב — מכאן הם יבואו, מכל הכיוונים של הצומת.', 4); snapRequest('village');
   DIRQ.push({ at: GAME.t + 4.5, fn: () => crCut(() => crSetup(3)) });
 }
-/* ---------- the night: the bridge goes into the water, the Egyptians come for the village ---------- */
+/* ---------- the night: the bridge goes into the water, the Egyptians come for the junction ---------- */
+const CR_HOLD = [150, 165, 180];   // seconds the roller bridge takes to cross, by level: the length of the stand
+// the waves: which ways in each comes by, and how many men down each (on the middle level; the easy level brings fewer, the hard one more)
+const CR_WAVES = [[['w'], 4], [['n'], 5], [['s'], 5], [['w', 'n'], 4], [['s', 'w'], 4], [['n', 's'], 4], [['w', 'n', 's'], 3], [['n', 's', 'w'], 4], [['w', 's', 'n'], 4], [['n', 'w', 's'], 4]];
 function crHoldStart() {
-  const C = CHAP.cross; CR.push = true; CR.waveT = 13; DIRQ.push({ at: GAME.t + 7.4, spawn: true, fn: () => crWave(CR.wave++) });
-  const tip = () => V3(CR.o.x + 100 - CR.br * CR_BLEN, 1.0, CR.o.z), [vx, vz] = CW(-212, -6), vil = V3(vx, groundAt(vx, vz), vz);
-  { const [x, z] = CW(rand(-40, 40), 30); spawnFlare(x, z, 150, 30, 26, 0.6); } { const [x, z] = CW(-280, 10); spawnFlare(x, z, 160, 30, 26, 0.5); }
+  const C = CHAP.cross; CR.push = true; CR.wave = 0; CR.waveT = 2;
+  const tip = () => V3(CR.o.x + 100 - CR.br * CR_BLEN, 1.0, CR.o.z), [vx, vz] = CW(-240, 0), vil = V3(vx, groundAt(vx, vz), vz);
+  { const [x, z] = CW(rand(-40, 40), 30); spawnFlare(x, z, 150, 30, 26, 0.6); } { const [x, z] = CW(-275, 0); spawnFlare(x, z, 160, 30, 26, 0.5); }
   playCine({ vid: 'cr_hold',
-    title: 'גשר הגלילים · 19 באוקטובר 1973',
+    title: 'הצומת · הלילה שבין 18 ל־19 באוקטובר 1973',
     shots: [
       { d: 7.5, cam: camLerp(() => V3(CR.o.x + 132, 6.5, CR.o.z + 24), () => V3(CR.o.x + 122, 5.2, CR.o.z + 20), () => tip().add(V3(16, 0, 0)), () => tip(), 50) },
-      { d: 7.0, cam: camLerp(vil.clone().add(V3(14, 9, 6)), vil.clone().add(V3(11, 8.2, 5)), vil.clone().add(V3(-60, 1, 0)), vil.clone().add(V3(-72, 0, 0)), 54) },
+      { d: 7.5, cam: camLerp(vil.clone().add(V3(16, 15, 22)), vil.clone().add(V3(10, 12, 16)), vil.clone().add(V3(-16, 0, 0)), vil.clone().add(V3(-22, 0, 0)), 56) },
     ],
-    caps: [[0.4, '<b>19 באוקטובר, 00:50.</b> גדוד 410 דוחף את גשר הגלילים אל המים.', 6.8], [7.8, 'בכפר, הצנחנים מחזיקים בבתים. מהשדות שבמערב — הסתערות.', 6.6]],
-    end: () => { CR.filmTod = null; radio('מ״פ', 'כל אחד בחלון שלו! הם באים מהשדות — לא נותנים להם להגיע לבתים עד שהגשר מונח!', 4.4);
-      hint('cr-hold', `<b>מחזיקים את הבתים.</b> ירו מהחלונות על כל מי שרץ אליכם מהשדות במערב. מאחוריכם, דרך הפרצה בסוללה, אפשר לראות את גשר הגלילים נדחף אל המים — הפס למעלה מראה כמה נשאר.`, 10); },
+    caps: [[0.4, '<b>19 באוקטובר, אחרי חצות.</b> הטנקים דוחפים את גשר הגלילים אל המים, גליל אחרי גליל.', 6.8], [7.8, 'בכפר, הצנחנים בבית שבראש הרחוב. מולם הצומת — ושלוש דרכים שמהן יבואו המצרים.', 6.8]],
+    end: () => { CR.filmTod = null; radio('מ״פ', 'כל אחד בחלון שלו! הם יבואו מהסמטה הצפונית, מהסמטה הדרומית ומהדרך שממערב — לא נותנים להם להגיע לקירות!', 4.4);
+      hint('cr-hold', `<b>מחזיקים את הבית מול הצומת.</b> ירו מהחלונות על כל מי שרץ אליכם — מהסמטאות בצפון ובדרום ומהדרך שממערב. מי שמגיע לקיר זורק רימון פנימה: התרחקו מהסימן ⚠. מאחוריכם, דרך החלונות המזרחיים, רואים את גשר הגלילים נדחף אל המים — הפס למעלה מראה כמה נשאר.`, 12); },
   });
 }
-/* the counter-attack: waves out of the fields to the west, on a front as wide as the village, a bazooka here and there */
+/* one man of a wave: out of sight up his lane, at a run through its mouth to a window or the door of the house - he does not stop to fight on the
+   way. At the wall he fires in point blank and, if he carries one, throws a grenade in. The bazooka men stop in the mouth and fire from there */
+function crStormer(f, k, j, kind) {
+  const F = CR_FRONT[f], r = rng(9000 + CR.wave * 131 + k * 17 + j), lat = (r() - 0.5) * (f === 'w' ? 5 : 8), [x, z] = CW(F.from[0] + (f === 'w' ? r() * 6 : lat), F.from[1] + (f === 'w' ? lat : (r() - 0.5) * 6));
+  const rpg = kind === 'rpg', mouth = CW(F.mouth[0] + (f === 'w' ? 0 : lat * 0.6), F.mouth[1] + (f === 'w' ? lat * 0.6 : 0)), t = F.tgt[(k + j) % F.tgt.length], end = rpg ? CW(F.rpg[0] + lat * 0.3, F.rpg[1]) : CW(t[0] - r() * 0.5, t[1] + (r() - 0.5) * 1.6);
+  const path = f === 'w' ? [CW(-318, lat * 0.4), mouth, end] : [mouth, end], e = fSpawnStreet0(x, z, path, kind); if (!e) return null;
+  e.sq = 'h'; e.crFront = f; e.tac = rpg ? 'hold' : 'storm'; e.wild = !rpg; e.crSt = !rpg; e.crG = r() < [0.25, 0.45, 0.5][crDi()] ? 1 : 0; e.crAt = null; e.crK = r(); e.rpgCd = rpg ? 4 + r() * 4 : 99;
+  return e;
+}
 function crWave(n) {
-  const sz = [10, 12, 14, 15, 12, 10][Math.min(n, 5)];
-  for (let k = 0; k < sz; k++) DIRQ.push({ at: GAME.t + k * 0.6, spawn: true, fn: () => { const z0 = rand(-44, 44), [x, z] = CW(rand(-318, -298), z0), pts = [CW(rand(-268, -254), z0 + rand(-6, 6))]; if (Math.random() < 0.4) pts.push(CW(rand(-249, -244), clamp(z0 * 0.8, -40, 40))); const e = fSpawnStreet(x, z, pts, k % 5 === 2 ? 'rpg' : 'rifle'); if (e) e.sq = 'h'; } });
-  if (n === 1) for (const s of CHAP.cross.nests.h) fSlotSpawn(s.kind, (q) => q === s, 'h');
-  radio('תצפית', ['חי״ר מצרי בשדות! מתקרבים מהמערב!', 'עוד גל! הם רצים בין התעלות!', 'משאיות פרקו חי״ר מאחורי המטע! הם באים!', 'עוד גל! תחזיקו, הגשר כמעט מונח!', 'הם עוד באים! הטנקים בדרך!', 'גל אחרון!'][Math.min(n, 5)], 3);
+  const [fronts, base] = CR_WAVES[Math.min(n, CR_WAVES.length - 1)], k = [0.7, 1, 0.85][crDi()], m = Math.max(2, Math.round(base * k));
+  fronts.forEach((f, fi) => { for (let j = 0; j < m; j++) DIRQ.push({ at: GAME.t + fi * 1.6 + j * 0.85, spawn: true, fn: () => crStormer(f, fi, j, j === 2 && n % 2 === 1 ? 'rpg' : j % 4 === 3 ? 'smg' : 'rifle') }); });
+  if (n === 2) for (const s of CHAP.cross.nests.h) { const e = fSlotSpawn(s.kind, (q) => q === s, 'h'); if (e) { e.crSt = false; e.crFront = 'w'; } }
+  const where = fronts.map((f) => CR_FRONT[f].name).join(fronts.length > 2 ? ', ' : ' ו');
+  radio('תצפית', fronts.length > 2 ? `מכל הכיוונים! ${where}!` : `${n ? 'עוד גל' : 'הם באים'} — ${where}!`, 3);
+  CR.lastFronts = fronts;
+}
+// the last assault, as the tanks come: everything down all three ways at once
+function crWaveGo(n) { CR.wave = n; crWave(n); }
+/* at the wall: a man who got there fires in at whatever he sees and throws his grenade in at the window or the doorway beside him */
+function crStormUpd(dt) {
+  const C = CHAP.cross, D = C.vh.D, live = PROJ.filter((q) => q.type === 'gren' && q.owner === 'e').length, cap = [1, 2, 3][crDi()];
+  for (const e of UNITS.enemies) {
+    if (!e.alive || !e.crSt || e.state !== 'sz' || e.sz !== 'street' || !e.path) continue;   // (a man's flags outlive him: the pool hands his body on)
+    if (e.pi < e.path.length) continue;
+    if (e.crAt === null) { e.crAt = GAME.t; e.crGT = GAME.t + 2.2 + e.crK * 1.6; }
+    if (e.crG > 0 && GAME.t > e.crGT && live < cap && P.alive) {
+      // the opening beside him, and a point two metres inside it: whoever stands at that window has the fuse's two seconds to get away from it
+      let best = null, bd = 1e9; for (const w of D.win.concat([{ x: CR_D.x - CR_D.w / 2, z: 0, nx: -1, nz: 0 }])) { if (w.nx > -0.5) continue; const [wx, wz] = CW(w.x, w.z), d = Math.hypot(wx - e.pos.x, wz - e.pos.z); if (d < bd) { bd = d; best = [wx, wz]; } }
+      if (best && bd < 4.5) { const pin = V3(best[0] + 2.4, D.y + 0.2, best[1] + (e.crK - 0.5) * 1.6);
+        const from = e.chest().add(V3(0, 0.6, 0)), T = 0.9, v = V3((pin.x - from.x) / T, (pin.y - from.y) / T + 4.9 * T, (pin.z - from.z) / T); throwGrenade(from, v, 'e'); e.face(pin.x, pin.z); e.throwT = 0.5;
+        e.crG--; e.crGT = GAME.t + 7; if (Math.random() < 0.5) radio(pick(CR_NAMES), pick(['רימון! בחלון!', 'רימון פנימה! זוזו!', 'הוא ליד הקיר — רימון!']), 2); } }
+  }
 }
 function crBridgeDone() {
   const C = CHAP.cross; CR.push = false; meter('גשר הגלילים', 1); feed('גשר הגלילים מונח', 'good'); crTanksGo();
+  for (let i = DIRQ.length - 1; i >= 0; i--) if (DIRQ[i].spawn) DIRQ.splice(i, 1);
   const t0 = () => C.tanks[0].g.position.clone(), wb = V3(CR.o.x - 112, 4.2, CR.o.z - 16);
   playCine({ vid: 'cr_bridge', shots: [{ d: 8.5, cam: camLerp(wb, wb.clone().add(V3(3, -0.6, 2)), () => t0().add(V3(-26, 1, 0)), () => t0().add(V3(0, 1.5, 0)), 44) }],
-    caps: [[0.5, '<b>01:00.</b> הקצה נוגע בגדה המערבית. הטנק הראשון עולה על הגשר.', 7.6]],
+    caps: [[0.5, '<b>19 באוקטובר.</b> הקצה נוגע בגדה המערבית. הטנק הראשון עולה על גשר הגלילים.', 7.6]],
     end: () => crStage(4) });
 }
-/* ---------- the tanks: over the bridge, through the breach, into the village with every gun they have ---------- */
-const CR_TDEST = [[[-184, 0], [-232, 0]], [[-184, 0], [-186, -35], [-232, -35]], [[-184, 0], [-186, 35], [-232, 35]], [[-166, 0]], [[-148, 0]], [[-130, 0]]];
+/* ---------- the tanks: over the bridge, up the street, and round the village through the gates into the lanes - with every gun they have ---------- */
+const CR_TDEST = [[[-150, 0], [-226, 0]], [[-150, 0], [-150, -34], [-232, -34], [-242, -43], [-251, -43], [-253.5, -34]], [[-150, 0], [-150, 34], [-232, 34], [-242, 43], [-251, 43], [-253.5, 34]], [[-150, 0], [-210, 0]], [[-150, 0], [-192, 0]], [[-150, 0], [-172, 0]]];
 function crTanksGo() {
   const C = CHAP.cross; CR.tanksOn = true;
-  C.tanks.forEach((v, i) => { vehRevive(v); const pts = [[104 + i * 15, 0], [100, 0], [-100, 0], [-150, 0], ...CR_TDEST[i]]; v.path = pts.map(([x, z]) => CW(x, z)); v.s = 0; v.vmax = 8.5; v.speed = 0; v.stop = pathLen(v.path); v.ended = false; v.hdV = null; v.onEnd = null; v.shown = true; v.g.visible = true; v.name = ['הטנק הראשון', 'טנק 2', 'טנק 3', 'טנק 4', 'טנק 5', 'טנק 6'][i]; v.mgT = rand(0, 1); v.gunT = rand(1.5, 3.5); const [x, z, hd] = pathAt(v.path, 0); vehPose(v, x, z, hd); });
+  C.tanks.forEach((v, i) => { vehRevive(v); const pts = [[104 + i * 15, 0], [100, 0], [-100, 0], ...CR_TDEST[i]]; v.path = pts.map(([x, z]) => CW(x, z)); v.s = 0; v.vmax = 8.5; v.speed = 0; v.stop = pathLen(v.path); v.ended = false; v.hdV = null; v.onEnd = null; v.shown = true; v.g.visible = true; v.name = ['הטנק הראשון', 'טנק 2', 'טנק 3', 'טנק 4', 'טנק 5', 'טנק 6'][i]; v.mgT = rand(0, 1); v.gunT = rand(1.5, 3.5); const [x, z, hd] = pathAt(v.path, 0); vehPose(v, x, z, hd); });
 }
 // a tank's machine gun in long bursts, and its gun every few seconds where the Egyptians are thickest
 function crTankGun(v, dt) {
@@ -9534,7 +10167,7 @@ function crTankGun(v, dt) {
   v.gunT -= dt; if (v.gunT <= 0) { v.gunT = rand(2.4, 4.0); const p = e.pos.clone(), a = Math.atan2(p.x - from.x, p.z - from.z), mz = v.g.position.clone().add(V3(Math.sin(a) * 4.6, 2.3, Math.cos(a) * 4.6)); fxMuzzle(mz, true); fxExplosion(mz, 0.4); sndBoom(mz, 1.0); fxTracer(mz, c, true); FX.shake = Math.max(FX.shake, clamp(0.5 - camera.position.distanceTo(mz) / 80, 0, 0.4));
     DIRQ.push({ at: GAME.t + 0.22, fn: () => { p.y = groundAt(p.x, p.z); fxExplosion(p, 1.3); sndBoom(p, 1.1); for (const o of UNITS.enemies) if (o.alive && o.pos.distanceTo(p) < 5.5) killEnemy(o, false); } }); }
 }
-// the Egyptians break: whoever is left turns and runs for the fields
+// the Egyptians break: whoever is left turns and runs back the way he came
 function crFlee() {
   CR.msgs.flee = true; CR.fleeT = CHAP.cross.t; for (let i = DIRQ.length - 1; i >= 0; i--) if (DIRQ[i].spawn) DIRQ.splice(i, 1);
   for (const e of UNITS.enemies) if (e.alive && e.sz && e.sq === 'h') { e.state = 'film'; e.sz = null; e.dormant = false; e.drift = rand(-0.9, 0.9); e.anim = rand(0, 6); if (e.slot) { e.slot.used = false; e.slot = null; } CR.flee.push(e); }
@@ -9550,86 +10183,93 @@ function crUpd(dt) {
   const C = CHAP.cross; C.t += dt; CR.t = (CR.t || 0) + dt; if (Math.floor(C.t * 2) !== Math.floor((C.t - dt) * 2)) szEnemyCleanup();
   for (let i = DIRQ.length - 1; i >= 0; i--) if (DIRQ[i] && GAME.t >= DIRQ[i].at) { const q = DIRQ.splice(i, 1)[0]; q.fn(); }
   crJetsUpd(dt); crBombsUpd(dt); updDebris(dt); crHitUpd(dt); rippleUpd(dt); crRepUpd(dt); crConvUpd(dt); crLook(dt); if (!CR.msgs.flee) crShells(dt);
-  if (CR.push && CR.br < 1) CR.br = Math.min(1, CR.br + dt / 62);
+  if (CR.push && CR.br < 1) CR.br = Math.min(1, CR.br + dt / CR_HOLD[crDi()]);
   crBridgePose(dt);
-  if (CR.stage < 3 && !CINE.on && !(CR.stage === 0 && !CR.msgs.go)) { CR.air -= dt; if (CR.air <= 0) { CR.air = rand(20, 30); crJet(CR.stage === 0 ? 'raft' : 'bridge'); } }
+  if (CR.stage < 2 && !CINE.on && !(CR.stage === 0 && !CR.msgs.go)) { CR.air -= dt; if (CR.air <= 0) { CR.air = rand(20, 30); crJet(CR.stage === 0 ? 'pb' : 'bridge'); } }
   // the jeep's machine gun turns with the gunner
   if (P.ride && P.ride.mg) { C.mg.visible = !CINE.on; C.mg.quaternion.copy(camera.quaternion); C.mg.position.copy(camera.position).add(V3(0.0, -0.44, -0.3).applyQuaternion(camera.quaternion)); } else C.mg.visible = false;
-  // fleeing Egyptians run for the fields
-  for (const e of CR.flee) { if (!e.alive) continue; e.pos.x -= 5.4 * dt; e.pos.z += (e.drift || 0) * dt; e.pos.y = groundAt(e.pos.x, e.pos.z); e.heading = -Math.PI / 2; e.anim += dt * 11; e.stance = 'stand'; e.rig.pose('run', e.anim); e.sync(); }
+  // the Egyptians who break run back the way they came: up the lanes, or west down the road (kept between its walls)
+  for (const e of CR.flee) { if (!e.alive) continue; const sp = 5.4 * dt, lx = e.pos.x - CR.o.x, lz = e.pos.z - CR.o.z;
+    if (e.crFront === 'n' || e.crFront === 's') { const sg = e.crFront === 'n' ? -1 : 1; e.pos.z += sg * sp; e.pos.x += clamp(clamp(lx, CR_LX1 + 1.5, CR_LX0 - 1.5) - lx, -3 * dt, 3 * dt); e.heading = sg < 0 ? Math.PI : 0; }
+    else { e.pos.x -= sp; if (e.crFront === 'w' && lx < CR_LX0 - 1 && lx > -304) e.pos.z += clamp(clamp(lz, -3.5, 3.5) - lz, -3 * dt, 3 * dt); else e.pos.z += (e.drift || 0) * dt; e.heading = -Math.PI / 2; }
+    e.pos.y = groundAt(e.pos.x, e.pos.z); e.anim += dt * 11; e.stance = 'stand'; e.rig.pose('run', e.anim); e.sync(); }
   if (CR.stage === 4) for (const v of C.tanks) crTankGun(v, dt);
   if (CR.stage === 0) {
-    // the rafts cross; the Egyptians at the landing open fire half way over; the jeeps drive off when the bank is quiet
-    const rA = C.rafts[0], u = rA.s / pathLen(rA.path);
-    { const r3 = C.rafts[2], u3 = r3.s / pathLen(r3.path); if (CR.msgs.go && !CR.hit3 && u3 > 0.3 && !CR.strike && !CR.shellIn) crStrike(); crStrikeUpd(dt); crShellUpd(dt); }
-    if (u > 0.22 && !CR.msgs.fire) { CR.msgs.fire = true; for (const s of C.slots) if (s.grp === 'L') fSlotSpawn(s === C.slots.find((q) => q.grp === 'L') ? 'rpg' : 'rifle', (q) => q === s, 'L'); radio('צנחן', 'אש מהגדה ממול! מקלע בסוללה!', 2.4);
-      for (let k = 0; k < 10; k++) DIRQ.push({ at: GAME.t + 3 + k * 1.1, spawn: true, fn: () => { const lz = CR_RAFT_Z + rand(-30, 26), [x, z] = CW(-150 - rand(0, 40), lz), [tx, tz] = CW(-108 - rand(0, 10), lz + rand(-6, 6)); const e = fSpawnStreet(x, z, [[tx, tz]], k % 5 === 2 ? 'rpg' : 'rifle'); if (e) e.sq = 'L'; } }); }
-    if (rA.ended) { CR.msgs.landT = (CR.msgs.landT || 0) + dt; if (!CR.msgs.off && holdDone(fieldLeft((e) => e.sq === 'L'), CR.msgs.landT)) { CR.msgs.off = true; fieldDespawn((e) => e.sq === 'L'); crRelease(C.jeeps[0], 0); radio('נהג', 'יורדים מהדוברה! מחזיקים חזק!', 2); crStage(1); } }
+    // the column crawls over the bridge behind the tanks; the Egyptians on the rampart open fire as it reaches the middle; it goes on when they are quiet
+    const lead = C.jeeps[0], X = C.jeepX;
+    if (CR.msgs.go && !CR.hit3 && !CR.strike && !CR.shellIn && X.g.position.x - CR.o.x < 40) crStrike(); crStrikeUpd(dt); crShellUpd(dt);
+    if (lead.g.position.x - CR.o.x < 62 && !CR.msgs.fire) { CR.msgs.fire = true; let first = true; for (const s of C.slots) if (s.grp === 'L') { fSlotSpawn(first ? 'rpg' : 'rifle', (q) => q === s, 'L'); first = false; } radio('צנחן', 'אש מהסוללה! מצפון לגשר, על הסוללה — מקלע!', 2.4);
+      for (let k = 0; k < 8; k++) DIRQ.push({ at: GAME.t + 3 + k * 1.2, spawn: true, fn: () => { const [x, z] = CW(-129 + (k % 3) * 2, 296 - k * 3), [tx, tz] = CW(-123 - (k % 4) * 2.5, 350 + k * 5); const e = fSpawnStreet(x, z, [[tx, tz]], k % 4 === 2 ? 'rpg' : 'rifle'); if (e) e.sq = 'L'; } }); }
+    if (lead.s >= lead.stop - 0.8) { CR.msgs.landT = (CR.msgs.landT || 0) + dt; if (!CR.msgs.off && holdDone(fieldLeft((e) => e.sq === 'L'), CR.msgs.landT)) { CR.msgs.off = true; fieldDespawn((e) => e.sq === 'L'); radio('נהג', 'יורדים מהגשר! מחזיקים חזק!', 2); crStage(1); } }
   } else if (CR.stage === 1) {
     const lead = C.jeeps[0], L = pathLen(lead.path);
-    // the other jeeps leave their rafts in turn, fourteen metres apart
-    const [j1, j2] = [C.jeeps[1], C.jeeps[2]];
-    if (j1.onRaft && lead.s > 16) crRelease(j1, 14);
-    if (j2.onRaft && !j1.onRaft && C.rafts[1].ended && j1.s - (j1.off || 0) > 16) crRelease(j2, 28);
     for (const id in CR_AMB) { const s0 = C.stops[id]; if (lead.s > s0 - 75 && !CR.msgs[id]) { CR.msgs[id] = true; crAmbush(id); lead.stop = s0; } }
     // after the last ambush the track runs straight along the rampart: the column picks up speed
     if (CR.msgs.a1 && lead.stop === undefined) lead.vmax = 8.5;
-    for (const v of C.jeeps) { if (v.onRaft) continue; v.stop = lead.stop === undefined ? (v === lead ? undefined : L - v.gap) : lead.stop - v.gap; if (v !== lead) v.vmax = lead.vmax; }
+    for (const v of C.jeeps) { v.stop = lead.stop === undefined ? (v === lead ? undefined : L - v.gap) : lead.stop - v.gap; if (v !== lead) v.vmax = lead.vmax; }
     if (lead.stop !== undefined && lead.s > lead.stop - 0.8) { CR.msgs.wait = (CR.msgs.wait || 0) + dt; const left = fieldLeft((e) => e.sq === lead.ambush); if (holdDone(left, CR.msgs.wait)) { fieldDespawn((e) => e.sq === lead.ambush); lead.stop = undefined; CR.msgs.wait = 0; radio('נהג', left ? 'אין זמן, ממשיכים!' : 'נקי! ממשיכים!', 2); } }
     if (lead.s >= L - 0.6 && !CR.msgs.out) { CR.msgs.out = true; crDismount(); }
-  } else if (CR.stage === 2) { updTrail(dt); gateUpd(dt); }
+  } else if (CR.stage === 2) { updTrail(dt); crRouteUpd(dt); }
   else if (CR.stage === 3) {
-    updTrail(dt); if (CINE.on) return;
-    CR.waveT -= dt; if (CR.waveT <= 0 && CR.br < 0.94) { crWave(CR.wave++); CR.waveT = 13; }
+    updTrail(dt); if (CINE.on) return; crStormUpd(dt);
+    CR.waveT -= dt; if (CR.waveT <= 0 && CR.br < 0.94 && CR.wave < CR_WAVES.length - 1) { crWave(CR.wave++); CR.waveT = (CR_HOLD[crDi()] - 12) / (CR_WAVES.length - 1); }
     for (const [k, txt] of [[0.3, 'הגשר בשליש הדרך! תחזיקו!'], [0.55, 'חצי גשר במים!'], [0.8, 'שמונים אחוז! הקצה כמעט אצלנו!'], [0.95, 'עוד גליל אחד! הטנקים מתניעים!']]) if (CR.br >= k && !CR.msgs['b' + k]) { CR.msgs['b' + k] = true; radio('גשר', txt, 3); }
+    if (CR.br >= 0.5 && !CR.msgs.look) { CR.msgs.look = true; hint('cr-look', 'הסתכלו לאחור דרך החלון המזרחי, במורד הרחוב: הפנסים על גשר הגלילים כבר באמצע התעלה, והטנקים מאחוריו.', 7); }
     if (CR.br >= 1 && !CR.msgs.done) { CR.msgs.done = true; crBridgeDone(); }
   } else if (CR.stage === 4) {
-    updTrail(dt); if (CINE.on) return;
-    if (!CR.msgs.flee) { CR.waveT -= dt; if (CR.waveT <= 0) { crWave(CR.wave++); CR.waveT = 12; } }
-    const tlx = C.tanks[0].g.position.x - CR.o.x;
-    if (!CR.msgs.arr && tlx < -112) { CR.msgs.arr = true; radio('מפקד הטנק', 'אנחנו בפרצה! תנו לנו מטרות — אנחנו מנקים את השדה!', 3.2); DIRQ.push({ at: GAME.t + 9, fn: () => { if (!CR.msgs.flee) crFlee(); } }); }
-    if (!CR.msgs.flee && C.t > 60) crFlee();
+    updTrail(dt); if (CINE.on) return; crStormUpd(dt);
+    const arr = [C.tanks[1], C.tanks[2]].some((v) => v.alive && v.s >= v.stop - 0.6);
+    if (!CR.msgs.arr && arr) { CR.msgs.arr = true; radio('מפקד הטנק', 'אנחנו בסמטה! תנו לנו מטרות — אנחנו מנקים את הצומת!', 3.2); DIRQ.push({ at: GAME.t + 7, fn: () => { if (!CR.msgs.flee) crFlee(); } }); }
+    if (!CR.msgs.flee && C.t > 80) crFlee();
     if (CR.msgs.flee && !CR.msgs.end && C.t - CR.fleeT > 9) { CR.msgs.end = true; DIRQ.push({ at: GAME.t + 0.5, fn: crEndFilm }); }
   }
 }
 function crAmbush(id) {
   const C = CHAP.cross, lead = C.jeeps[0], A = CR_AMB[id]; lead.ambush = id;
   for (const s of C.nests[id]) fSlotSpawn(s.kind, (q) => q === s, id);
-  for (let k = 0; k < 13; k++) DIRQ.push({ at: GAME.t + 2 + k * 0.7, spawn: true, fn: () => { const [x, z] = corr(CR_JEEP, A.from[0] + rand(-10, 10), A.from[1] + rand(-14, 14), 22, 14), [tx, tz] = corr(CR_JEEP, x + rand(10, 20), z + rand(-8, 8), 14, 7); const e = fSpawnStreet(...CW(x, z), [CW(tx, tz)], k === 3 ? 'rpg' : 'rifle'); if (e) e.sq = id; } });
+  const rr = rng(7300 + id.charCodeAt(1));   // the same runners from the same places on every try
+  for (let k = 0; k < 13; k++) { const ox = rr() * 20 - 10, oz = rr() * 28 - 14, tx0 = 10 + rr() * 10, tz0 = rr() * 16 - 8; DIRQ.push({ at: GAME.t + 2 + k * 0.7, spawn: true, fn: () => { const [x, z] = corr(CR_JEEP, A.from[0] + ox, A.from[1] + oz, 22, 14), [tx, tz] = corr(CR_JEEP, x + tx0, z + tz0, 14, 7); const e = fSpawnStreet(...CW(x, z), [CW(tx, tz)], k === 3 ? 'rpg' : 'rifle'); if (e) e.sq = id; } }); }
   radio('צנחן', A.txt, 2.6);
 }
 function crDismount() {
   const C = CHAP.cross, lead = C.jeeps[0]; P.ride = null; C.mg.visible = false; vm.visible = true; P.crouch = false; lead.crew[0].visible = true;
-  const p = lead.g.localToWorld(V3(-0.6 * JK, 0, -2.0 * JK)); P.pos.set(p.x, groundAt(p.x, p.z), p.z); resetTrail();
+  const p = lead.g.localToWorld(V3(-0.6 * JK, 0, -2.0 * JK)); P.pos.set(p.x, groundAt(p.x, p.z), p.z); P.yaw = Math.atan2(7.4, -6.4); resetTrail();
   CR_FOLLOW.forEach((fi, k) => { const f = FRIENDS[fi], u = f.unit, q = C.jeeps[Math.floor(k / 3)].g.localToWorld(V3(-1.2 + (k % 3) * 0.8, 0, k % 2 ? -2.0 : 2.0)); u.place(q.x, q.z); f.state = 'follow'; f.fi = k; f.ti = 0; f.stuck = 0; f.post = { id: 'F' + fi, fx: 0, fz: -1, mag: null, occupant: f, stand: [q.x, q.z] }; });
-  crStage(2);
+  crStage(2); crDynApply();
 }
 /* ---------- films ---------- */
-/* the opening: the roller bridge on the east bank, mended under fire - the crane lowers a new roller into the gap, the tanks close it up,
-   shells throw up the canal; then the rafts */
+/* the opening: the roller bridge on the east bank, mended under fire - a tank shoves the new roller into the gap, the tanks close it up, shells
+   throw up the canal; then the pontoon bridge to the south, the tanks and the jeeps on it */
 function crIntroFilm() {
-  const C = CHAP.cross, rp = () => C.rafts[0].g.position.clone(), cx12 = 100 + 12.5 * CR_SEGL, slot = V3(CR.o.x + cx12, 2.6, CR.o.z), g = groundAt(slot.x, slot.z);
+  const C = CHAP.cross, pb = () => C.jeeps[0].g.position.clone(), cx12 = 100 + 12.5 * CR_SEGL, slot = V3(CR.o.x + cx12, 2.6, CR.o.z), g = groundAt(slot.x, slot.z);
   crRepStart(); CR.filmTod = 7 * 60 + 50;
   const water = (lx, lz, k) => () => crBurst(CR.o.x + lx, CR.o.z + lz, k), land = (lx, lz) => () => { const [x, z] = CW(lx, lz), p = V3(x, groundAt(x, z), z); fxExplosion(p, 1.2); sndBoom(p, 1.0); };
-  // slow: every shot long enough to look at - the crane, the roller swinging over, the water thrown up by the shells
+  // slow: every shot long enough to look at - the tank shoving the roller, the water thrown up by the shells, the bridge of pontoons
   playCine({ vid: 'cr_intro',
-    title: 'גשר הצליחה · 16–18 באוקטובר 1973',
+    title: 'הגשרים · 16–18 באוקטובר 1973',
     shots: [
       { d: 8.5, cam: camLerp(V3(slot.x + 54, 34, slot.z + 66), V3(slot.x + 36, 25, slot.z + 52), slot.clone().add(V3(-30, -2, 0)), slot.clone().add(V3(-16, -2, 0)), 50) },
-      { d: 10.5, cam: camLerp(V3(slot.x - 17, g + 5.2, slot.z + 21), V3(slot.x - 14, g + 4.7, slot.z + 18), slot.clone().add(V3(2, 3.0, -6)), slot.clone().add(V3(0, 1.4, -2)), 50) },
+      { d: 10.5, cam: camLerp(V3(slot.x - 17, g + 5.2, slot.z + 21), V3(slot.x - 14, g + 4.7, slot.z + 18), slot.clone().add(V3(2, 2.0, -7)), slot.clone().add(V3(0, 1.4, -3)), 50) },
       { d: 8.0, cam: camLerp(V3(CR.o.x + 66, 1.5, CR.o.z + 30), V3(CR.o.x + 69, 1.45, CR.o.z + 27), V3(CR.o.x + 150, 2.5, CR.o.z), V3(CR.o.x + 162, 2.5, CR.o.z), 46) },
-      { d: 8.5, cam: (u) => ({ p: rp().add(V3(-17 + u * 4, 4.5, 15)), l: rp().add(V3(0, 1.2, 0)), fov: 50 }) },
+      { d: 8.5, cam: (u) => ({ p: pb().add(V3(-26 + u * 6, 7.5, 24)), l: pb().add(V3(-6, 1.0, 0)), fov: 50 }) },
     ],
-    ev: [[1.8, water(70, 26, 1.5)], [4.0, land(220, 40)], [5.8, water(55, -18, 1.4)], [10.5, water(84, 14, 1.2)], [13.5, land(162, -30)], [17.0, water(64, 9, 1.4)], [20.2, water(86, -7, 1.6)], [22.0, water(74, 18, 1.5)], [24.0, land(236, -24)], [25.6, water(60, -12, 1.3)], [27.0, () => { crRepEnd(); CR.filmTod = null; }], [29.5, water(40, 430, 1.3)], [32.0, water(-30, 380, 1.2)]],
-    caps: [[0.6, '<b>16 באוקטובר.</b> בדרך אל התעלה נקרע גשר הגלילים — כ־200 מטר של גלילי פלדה.', 7.4], [9.0, 'המהנדסים מחליפים את הגליל הפגוע, תחת הפגזה.', 8.6], [19.4, '<b>18 באוקטובר.</b> גדוד 410 גורר את הגשר אל שפת המים. כדי להניח אותו — צריך להחזיק את הגדה שממול.', 7.2], [27.4, 'בינתיים צנחני חטיבה 247 חוצים בג׳יפים על הדוברות.', 4.6], [32.4, '<b>מ״פ:</b> דוברות, יוצאים! מקלעים על הגדה ממול!', 3.0]],
+    ev: [[1.8, water(70, 26, 1.5)], [4.0, land(220, 40)], [5.8, water(55, -18, 1.4)], [10.5, water(84, 14, 1.2)], [13.5, land(162, -30)], [17.0, water(64, 9, 1.4)], [20.2, water(86, -7, 1.6)], [22.0, water(74, 18, 1.5)], [24.0, land(236, -24)], [25.6, water(60, -12, 1.3)], [27.0, () => { crRepEnd(); CR.filmTod = null; }], [29.5, water(40, CR_PB_Z + 26, 1.3)], [32.0, water(-30, CR_PB_Z - 22, 1.2)]],
+    caps: [[0.6, '<b>16 באוקטובר.</b> בדרך אל התעלה נשבר גשר הגלילים — כ־200 מטר של גלילי פלדה — ונתקע בחולות.', 7.4], [9.0, 'המהנדסים מחליפים את החוליה הפגועה, תחת הפגזה.', 8.6], [19.4, '<b>18 באוקטובר.</b> הגשר נגרר אל שפת המים. סא״ל אהרון (ג׳וני) טנא, שהוביל אותו, נופל על גדת התעלה.', 7.2], [27.4, 'מדרום, גשר הדוברות עומד על התעלה מאז אחר הצהריים של ה־17. עליו עוברים הטנקים — ואחריהם הצנחנים בג׳יפים.', 4.6], [32.4, '<b>מ״פ:</b> נוסעים! מקלעים מוכנים — ועיניים על הסוללה ממול!', 3.0]],
     end: crIntroEnd,
   });
 }
-function crIntroEnd() { const C = CHAP.cross; CR.introSeen = true; crRepEnd(); CR.filmTod = null; CR.msgs.go = true; for (const r of C.rafts) r.vmax = 3.2; C.rafts[1].vmax = 2.9; C.rafts[2].vmax = 3.15; hint('cr-mg', `אתם על המקלע של הג׳יפ: ${TOUCH ? 'לחצו ממושך על אש' : 'לחיצה ממושכת'} יורה צרורות. הכוונת נצמדת לאויב הקרוב. חוליות בזוקה מסומנות באדום.`, 8); }
+function crIntroEnd() { const C = CHAP.cross; CR.introSeen = true; crRepEnd(); CR.filmTod = null; CR.msgs.go = true; for (const v of [...C.jeeps, C.jeepX, ...C.pbT]) if (v.g.visible) v.vmax = 3; hint('cr-mg', `אתם על המקלע של הג׳יפ: ${TOUCH ? 'לחצו ממושך על אש' : 'לחיצה ממושכת'} יורה צרורות. הכוונת נצמדת לאויב הקרוב. חוליות בזוקה מסומנות באדום.`, 8); }
 // the column of the last film: fifty tanks along the east bank, over the bridge, west along the road
 function crConvOff() { const C = CHAP.cross; CR.conv = null; if (C.conv) C.conv.visible = false; }
+// on the night the tanks that will cross wait in a file beside the roller bridge on the east bank, closing up as it goes out: seen from the
+// house at the head of the street, down the street and through the gap in the rampart
+function crQueuePose() {
+  const C = CHAP.cross, m4 = new THREE.Matrix4(), q = new THREE.Quaternion().setFromAxisAngle(V3(0, 1, 0), Math.PI), one = V3(1, 1, 1), zero = V3(0.001, 0.001, 0.001), hide = V3(0, -100, 0);
+  for (let i = 0; i < 50; i++) { if (i >= 10) { C.conv.setMatrixAt(i, m4.compose(hide, q, zero)); continue; } const [x, z] = CW(160 + i * 16 - 46 * CR.br, 10.5); C.conv.setMatrixAt(i, m4.compose(V3(x, groundAt(x, z), z), q, one)); }
+  C.conv.instanceMatrix.needsUpdate = true; C.conv.visible = true;
+}
 function crConvUpd(dt) {
-  const C = CHAP.cross, V = CR.conv; if (!V) return; V.s += 7 * dt; const path = V.path, m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), up = V3(0, 1, 0), hide = V3(0, -100, 0), one = V3(1, 1, 1), zero = V3(0.001, 0.001, 0.001);
+  const C = CHAP.cross, V = CR.conv; if (!V) { if (CR.stage === 3 && C.conv) crQueuePose(); return; } V.s += 7 * dt; const path = V.path, m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), up = V3(0, 1, 0), hide = V3(0, -100, 0), one = V3(1, 1, 1), zero = V3(0.001, 0.001, 0.001);
   for (let i = 0; i < 50; i++) { const s = V.s - i * 17; if (s < 0) { C.conv.setMatrixAt(i, m4.compose(hide, q.identity(), zero)); continue; } const [x, z, hd] = pathAt(path, s), fy = crDeck(x, z); q.setFromAxisAngle(up, hd - Math.PI / 2); C.conv.setMatrixAt(i, m4.compose(V3(x, fy ?? groundAt(x, z), z), q, one)); }
   C.conv.instanceMatrix.needsUpdate = true; C.conv.visible = true;
 }
@@ -9655,27 +10295,26 @@ function crEndFilm() {
       ...[0.8, 1.9, 2.7, 3.9, 4.6, 5.8, 6.9, 7.8].map((t) => [t, boom(lp, 13, 38)]),
       [8.5, () => { CR.filmTod = 30 * 60 + 15; for (const e of CR.flee) { e.alive = false; e.rig.root.visible = false; } for (const v of C.tanks.slice(3)) { v.g.visible = false; v.path = null; } }],
       ...[9.4, 10.6, 11.5, 12.9, 14.2, 15.0, 16.4, 17.7].map((t) => [t, boom(c2, 16, 44)]), ...[19.6, 21.3, 23.0, 25.1, 26.8].map((t) => [t, boom(c2, 30, 75, 1.3)])],
-    caps: [[0.4, 'המצרים נשברים ונסוגים מערבה, אל השדות.', 7.4], [8.8, '<b>19 באוקטובר, עם שחר.</b> טור ארוך של טנקים בדרך אל גשר הגלילים.', 8.6], [18.6, 'הגשר הונח כקילומטר צפונית לגשר הדוברות. בימים הבאים עברו על שני הגשרים אוגדות שלמות, וראש הגשר בגדה המערבית התרחב לרוחב של קילומטרים.', 9.0]],
+    caps: [[0.4, 'המצרים נשברים ונסוגים אל השדות.', 7.4], [8.8, '<b>19 באוקטובר, עם שחר.</b> טור ארוך של טנקים בדרך אל גשר הגלילים.', 8.6], [18.6, 'גשר הגלילים הונח מצפון לגשר הדוברות. בימים הבאים עברו על שני הגשרים אוגדות שלמות, וראש הגשר בגדה המערבית התרחב לרוחב של קילומטרים.', 9.0]],
     end: () => { CR.filmTod = null; DIRQ.push({ at: GAME.t + 0.3, fn: () => endGame(true) }); },
   });
 }
 /* ---------- the chapter's hooks ---------- */
 function crObj() {
   const C = CHAP.cross;
-  if (CR.stage === 0) { const e = fieldNearest((q) => q.sq === 'L'); if (e) return [e.pos.x, e.pos.y + 2.2, e.pos.z, 'עמדה בגדה']; const [x, z] = CW(-96, CR_RAFT_Z); return [x, 1, z, 'הגדה המערבית']; }
-  if (CR.stage === 1) { const lead = C.jeeps[0]; if (lead.stop !== undefined) { const e = fieldNearest((q) => q.sq === lead.ambush); if (e) return [e.pos.x, e.pos.y + 2.2, e.pos.z, 'מארב']; } return null; }
-  if (CR.stage === 2) return gateObj('מצרי בבית', 'הבית הבא');
-  if (CR.stage === 3) { const e = fieldNearest((q) => q.sq === 'h', 140); return e ? [e.pos.x, e.pos.y + 2.2, e.pos.z, 'מסתערים', 'foe'] : null; }
-  if (CR.stage === 4) { const e = !CR.msgs.flee && fieldNearest((q) => q.sq === 'h', 140); if (e) return [e.pos.x, e.pos.y + 2.2, e.pos.z, 'מסתערים', 'foe']; const p = C.tanks[0].g.position; return [p.x, p.y + 3.5, p.z, 'הטנקים']; }
+  if (CR.stage === 0) { const e = fieldNearest((q) => q.sq === 'L'); if (e) return [e.pos.x, e.pos.y + 2.2, e.pos.z, 'מצרים על הסוללה', 'foe']; const [x, z] = CW(-100, CR_PB_Z); return [x, 1.5, z, 'קצה הגשר']; }
+  if (CR.stage === 1) { const lead = C.jeeps[0]; if (lead.stop !== undefined) { const e = fieldNearest((q) => q.sq === lead.ambush); if (e) return [e.pos.x, e.pos.y + 2.2, e.pos.z, 'מארב', 'foe']; } return null; }
+  if (CR.stage === 2) { if (CINE.on || CR.msgs.vdone) return null; if (crRouteLeft() > 0) { const e = fieldNearest((q) => q.sq === 'g' + CR.rg.i); return e ? [e.pos.x, e.pos.y + 2.2, e.pos.z, 'מצרי בקטע', 'foe'] : null; } const [x, z] = CW(...CR_VG[CR.rg.i + 1]); return [x, groundAt(x, z), z, CR.rg.i + 1 >= CR_VG.length - 2 ? 'הבית שבראש הרחוב' : 'הדלת הבאה']; }
+  if (CR.stage === 3 || CR.stage === 4) { const e = !CR.msgs.flee && fieldNearest((q) => q.sq === 'h', 140); if (e) return [e.pos.x, e.pos.y + 2.2, e.pos.z, 'מסתערים', 'foe']; if (CR.stage === 4) { const p = C.tanks[1].g.position; return [p.x, p.y + 3.5, p.z, 'הטנקים']; } return null; }
   return null;
 }
 function crItems(items) {
   const C = CHAP.cross, S = CR_STAGES[CR.stage]; items.push(['go', (S.goal || S.sub) + (OBJ.on ? ' (◆)' : '')]);
-  if (CR.stage === 0) { const r = C.rafts[0]; items.push(['', r.ended ? `הדוברה עגנה · מצרים בגדה: ${fieldLeft((e) => e.sq === 'L')}` : `עד הגדה המערבית: ${Math.max(0, Math.round(pathLen(r.path) - r.s))} מ׳`]); }
+  if (CR.stage === 0) { const lead = C.jeeps[0], left = fieldLeft((e) => e.sq === 'L'); items.push(['', lead.s >= lead.stop - 1 ? `בקצה הגשר · מצרים על הסוללה: ${left}` : `עד קצה הגשר: ${Math.max(0, Math.round(lead.stop - lead.s))} מ׳${left ? ` · מצרים על הסוללה: ${left}` : ''}`]); }
   if (CR.stage === 1) { const lead = C.jeeps[0]; items.push(['', lead.stop !== undefined ? `מארב! מצרים שנותרו: ${fieldLeft((e) => e.sq === lead.ambush)}` : `עד הכפר: ${Math.max(0, Math.round(pathLen(lead.path) - lead.s))} מ׳`]); }
-  if (CR.stage === 2) gateItem(items);
-  if (CR.stage === 3) { items.push(['next', `גשר הגלילים: ${Math.round(CR.br * 100)}%`]); items.push(['', `גל ${CR.wave} · מצרים מול הכפר: ${fieldLeft((e) => e.sq === 'h', 160)}`]); }
-  if (CR.stage === 4) { const lead = C.tanks[0], lx = lead.g.position.x - CR.o.x; items.push(['next', CR.msgs.flee ? 'המצרים נסוגים' : lx > -100 ? `הטנק הראשון על הגשר: עוד ${Math.max(0, Math.round(lx + 100))} מ׳` : 'הטנקים בכפר!']); items.push(['', `מצרים מול הכפר: ${fieldLeft((e) => e.sq === 'h', 160)}`]); }
+  if (CR.stage === 2 && !CR.msgs.vdone) { const n = CR_VG.length - 1, left = crRouteLeft(); items.push([left ? '' : 'next', left ? `בית ${Math.min(CR.rg.i + 1, n - 1)}/${n - 1} · מצרים בקטע: ${left}` : `הקטע נקי · לדלת הבאה (◆)`]); }
+  if (CR.stage === 3) { items.push(['next', `גשר הגלילים: ${Math.round(CR.br * 100)}%`]); const fr = (CR.lastFronts || []).map((f) => CR_FRONT[f].short); items.push(['', `גל ${CR.wave}${fr.length ? ` · ${fr.join(', ')}` : ''} · מסתערים: ${UNITS.enemies.filter((e) => e.alive && e.sq === 'h').length}`]); }
+  if (CR.stage === 4) { const lead = C.tanks[0], lx = lead.g.position.x - CR.o.x; items.push(['next', CR.msgs.flee ? 'המצרים נסוגים' : lx > -100 ? `הטנק הראשון על הגשר: עוד ${Math.max(0, Math.round(lx + 100))} מ׳` : 'הטנקים בכפר!']); items.push(['', `מסתערים: ${UNITS.enemies.filter((e) => e.alive && e.sq === 'h').length}`]); }
   if (CR.stage >= 2) { const n = FRIENDS.filter((f) => f.state === 'follow' || f.state === 'post').length; items.push([n < 2 ? 'warn' : '', `צנחנים איתכם: ${n}`]); }
 }
 function crHints() {
@@ -9683,20 +10322,22 @@ function crHints() {
 }
 function crMini(g, X, poly, dot, k) {
   const W = (pts) => pts.map(([x, z]) => CW(x, z)), tl = []; for (let z = CR_TZ0; z <= CR_TZ1; z += 4) tl.push([crTX(z), z]); const xf = 100 - CR.br * CR_BLEN;
-  miniField(g, X, poly, dot, k, { bg: 'rgba(120,128,84,.92)', polys: [[W([[100, -900], [100, 900], [900, 900], [900, -900]]), 'rgba(176,152,112,.95)'], [W([[-150, -900], [-150, 900], [100, 900], [100, -900]]), 'rgba(184,160,118,.95)'], [W([[-92, -900], [-92, 900], [92, 900], [92, -900]]), 'rgba(28,70,86,.95)'], [W([[CR_BRIDGE - 8, -900], [CR_BRIDGE - 8, 900], [CR_BRIDGE + 8, 900], [CR_BRIDGE + 8, -900]]), 'rgba(40,80,90,.95)'], ...CR_VH.map(([x, z, w, d]) => [W([[x - w / 2, z - d / 2], [x + w / 2, z - d / 2], [x + w / 2, z + d / 2], [x - w / 2, z + d / 2]]), 'rgba(205,190,160,.95)'])],
-    lines: [[W([[-150, 0], [-700, 0]]), 3, 'rgba(150,130,96,.9)'], [W(CR_JEEP), 3, 'rgba(150,130,96,.9)'], [W(tl), 2.5, 'rgba(90,60,40,.95)'], [W([[xf, 0], [xf + CR_BLEN, 0]]), 4, 'rgba(60,64,50,1)']] });
+  const box = (x, z, w, d, col) => [W([[x - w / 2, z - d / 2], [x + w / 2, z - d / 2], [x + w / 2, z + d / 2], [x - w / 2, z + d / 2]]), col];
+  miniField(g, X, poly, dot, k, { bg: 'rgba(120,128,84,.92)', polys: [[W([[100, -900], [100, 900], [900, 900], [900, -900]]), 'rgba(176,152,112,.95)'], [W([[-150, -900], [-150, 900], [100, 900], [100, -900]]), 'rgba(184,160,118,.95)'], [W([[-92, -900], [-92, 900], [92, 900], [92, -900]]), 'rgba(28,70,86,.95)'], [W([[CR_BRIDGE - 8, -900], [CR_BRIDGE - 8, 900], [CR_BRIDGE + 8, 900], [CR_BRIDGE + 8, -900]]), 'rgba(40,80,90,.95)'],
+      box(-193, 0, 79, 48, 'rgba(170,150,116,.9)'), box((CR_LX0 + CR_LX1) / 2, 0, CR_LX0 - CR_LX1, 2 * CR_LZ, 'rgba(160,140,108,.9)'), ...CR_VH.map((h) => box(CR_COLS[h.c], h.sd * (CR_FZ + CR_HD / 2), CR_HW, CR_HD, h.open ? 'rgba(222,206,172,.98)' : 'rgba(150,136,112,.95)')), box(CR_D.x, CR_D.z, CR_D.w, CR_D.d, 'rgba(236,222,186,1)')],
+    lines: [[W([[-106, 0], [-153, 0]]), 3, 'rgba(150,130,96,.9)'], [W([[CR_LX1, 0], [-700, 0]]), 3, 'rgba(150,130,96,.9)'], [W(CR_JEEP), 3, 'rgba(150,130,96,.9)'], [W(tl), 2.5, 'rgba(90,60,40,.95)'], [W([[-100, CR_PB_Z], [100, CR_PB_Z]]), 3.5, 'rgba(70,74,58,1)'], [W([[xf, 0], [xf + CR_BLEN, 0]]), 4, 'rgba(60,64,50,1)']] });
 }
 function crEnd(win, why) {
   const stats = [[STATS.kills, 'אויבים נפגעו'], [Math.round(CR.br * 100), 'גשר הגלילים %'], [CR.stage + 1, 'השלב שהגעתם אליו']];
-  if (win) return ['גשר הגלילים מונח', 'גשר הגלילים — כ־200 מטר של גלילי פלדה — נקרע בדרך אל התעלה ב־16 באוקטובר 1973, תוקן תחת הפגזה, ונגרר אל המים בידי גדוד 410. בלילה שבין 18 ל־19 באוקטובר, בסביבות 01:00, הוא הונח כקילומטר צפונית לגשר הדוברות. באותם ימים נלחמו צנחני חטיבה 247 בכפרים ובבתים שלאורך התעלה כדי להרחיב את ראש הגשר; גדוד 565 החזיק בבתי סרפאום מול הסתערויות, עד שחולץ. מעל שני הגשרים עברו אוגדות שלמות לגדה המערבית.', stats];
-  return ['נפגעת', ['תנו למקלע לעבוד: צרורות ארוכים על העמדות בגדה, והחוליות המסומנות באדום קודם.', 'במארב — קודם הבזוקות. הן מסומנות באדום.', 'בכפר: חלון אחרי חלון, ורימון לפני כל דלת. הדלתות רחבות — אל תעמדו בתוכן.', 'מהחלון — לירות ולרדת. רימון על מי שמגיע עד החומה הנמוכה.', 'הטנקים בדרך. עוד כמה שניות של אש מהחלונות.'][CR.stage] || '', stats];
+  if (win) return ['גשר הגלילים מונח', 'מ־16 באוקטובר 1973 עברו הטנקים לגדה המערבית על התמסחים, ומאחר הצהריים של ה־17 — על גשר הדוברות, תחת הפגזה ותקיפות מהאוויר. גשר הגלילים — כ־200 מטר של גלילי פלדה — נשבר בדרך אל התעלה, תוקן, ונגרר אל שפת המים; סא״ל אהרון (ג׳וני) טנא, שהוביל אותו, נפל על גדת התעלה ב־18 באוקטובר. ב־19 באוקטובר הושק הגשר למים, מצפון לגשר הדוברות, ובו ביום עבר עליו מח״ט 14. באותם ימים נלחמו הצנחנים בכפרים ובשדות שלאורך התעלה כדי להרחיב את ראש הגשר. מעל שני הגשרים עברו אוגדות שלמות לגדה המערבית.', stats];
+  return ['נפגעת', ['תנו למקלע לעבוד: צרורות ארוכים על המצרים שעל הסוללה, והחוליות המסומנות באדום קודם.', 'במארב — קודם הבזוקות. הן מסומנות באדום.', 'בכל בית יש מצרי בחדר השני: רימון לפני שעוברים בפתח, והחלונות של הבית שממול לפני שחוצים את הרחוב.', 'מהחלון — לירות ולרדת. מי שמגיע לקיר זורק רימון: זוזו מהסימן ⚠. אל תעמדו מול הדלת.', 'הטנקים בדרך. עוד כמה שניות של אש מהחלונות.'][CR.stage] || '', stats];
 }
-function crSnapOK() { if (CR.stage === 0) return false; if (CR.stage === 1 && CHAP.cross.jeeps.some((v) => v.onRaft)) return false; return true; }
-function crSnapAfter() { crRepEnd(); crBridgePose(0); if (CR.stage !== 3) meter(null); CR.filmTod = null; }
+function crSnapOK() { if (CR.stage === 0) return false; if (CR.stage === 1 && CR.msgs.out) return false; return true; }
+function crSnapAfter() { crRepEnd(); crDynApply(); crBridgePose(0); if (CR.stage !== 3) meter(null); CR.filmTod = null; }
 CHAP.cross = { stages: CR_STAGES, st: () => CR.stage, cp: () => CHAP.cross.cpN || 0, upd: crUpd, obj: crObj, hints: crHints, items: crItems, mini: crMini, restore: fieldRestore, end: crEnd, tank: false, night: true, snapOK: crSnapOK, snapAfter: crSnapAfter,
   stableTag: () => 'למחסה',
   tod: () => { const m = CR.filmTod != null ? CR.filmTod : CR_TOD[CR.stage] + CHAP.cross.t / (CR.stage >= 3 ? 20 : 6); return (((m % 1440) + 1440) % 1440) - START_MIN; },
-  build: () => chapterBuild(CHAP.cross, crBuild), setup: crSetup, clock: CR_CLOCK[0], toast: ['18–19 באוקטובר 1973 · גשר הצליחה', 'גשר הגלילים מחכה על הגדה. צריך להחזיק את הצד שממול'], start: () => { CR.introSeen = false; fieldStart('cross'); } };
+  build: () => chapterBuild(CHAP.cross, crBuild), setup: crSetup, clock: CR_CLOCK[0], toast: ['18–19 באוקטובר 1973 · הגשרים', 'גשר הדוברות כבר על התעלה; גשר הגלילים מחכה על הגדה. צריך להחזיק את הצד שממול'], start: () => { CR.introSeen = false; fieldStart('cross'); } };
 
 /* ================= chapter 5: the encirclement of the Third Army, 24 October 1973 =================
    The armoured columns cut the Suez-Cairo road behind the Egyptian Third Army and reach the Gulf of Suez at Adabiya.
@@ -10167,18 +10808,19 @@ CHAP.armor = { stages: AM_STAGES, st: () => AM.stage, dbg: () => { const Z = AM_
 /* ================= chapter 5: the Hermon, 22 October 1973 =================
    Golani climb from Majdal Shams to take back the outpost that fell on the first day of the war. On the road, Syrian commandos lie in wait
    by the roadside and snipers sit on the rocks; at the cable-car station the fighting is room to room. Then the post itself, layer by layer:
-   an outer ring of trench, an inner ring with sangars in the yard, a bunker of eight rooms sunk into the rock, the terrace and the three
-   upper rooms on its slab, and last the roof, where the Syrians dug in behind stone baskets. Every position is manned before the player
-   can see it: the defenders wait hidden and come alive as the fight reaches them - nothing appears out of thin air. */
+   an outer ring of trench, an inner ring with sangars in the yard, the bunker sunk into the rock - a chain of eight rooms, each opening
+   into the next, round to the stair in the middle - the six rooms of the upper floor the same way, and last the roof, where the Syrians dug
+   in behind walls of stone baskets. Every position is manned before the player can see it: the defenders wait hidden and come alive as the
+   fight reaches them - nothing appears out of thin air. */
 const HM = { o: { x: 0, z: 11000 }, stage: 0, msgs: {} };
 const HW = toWorld(HM.o);
 const HM_STAGES = [
   { title: 'בעלייה', sub: 'עוד חושך, וקר. הציר ממג׳דל שמס מתפתל במעלה ההר, ובצדי הדרך, בין הסלעים, שוכב הקומנדו הסורי ומחכה. קטע אחרי קטע, סלע אחרי סלע.', goal: 'נקו קטע, רוצו לקטע הבא (◆). הקומנדו בצדי הדרך ועל הסלעים' },
   { title: 'הטבעת החיצונית', sub: 'הגדר של המוצב. התעלה החיצונית מתפתלת סביבו, עמדה אחרי עמדה, בכיוון אחד בלבד — עד תעלת הקשר שמובילה פנימה.', goal: 'בתעלה החיצונית סביב המוצב, עמדה אחרי עמדה, עד תעלת הקשר (◆)' },
   { title: 'אל דלת הבונקר', sub: 'בתעלת הקשר פנימה, אל הטבעת הפנימית. בחצר סנגרים של אבנים, ובסופה דלת הבונקר שהסורים נעלו מאחוריהם.', goal: 'הטבעת הפנימית, הסנגרים בחצר, ואז דלת הבונקר (◆)' },
-  { title: 'בתוך ההר', sub: 'מסדרון ארוך, קר ואפל, ושמונה חדרים — כולם מאוישים. רימון לפני כל דלת, הפיצוץ, ואז פנימה. בקצה האולם מדרגות שעולות.', goal: 'חדר אחרי חדר, רימון לפני כל דלת, עד המדרגות באולם הכניסה (◆)' },
-  { title: 'המרפסת', sub: 'עולים למרפסת, תחת אש מהגג שמעל. עמדות הגביונים, ואז שלושת החדרים העליונים: התצפית, הקשר והמפות.', goal: 'עמדות הגביונים במרפסת, ואז שלושת החדרים העליונים (◆)' },
-  { title: 'הדגל', sub: 'במדרגות החיצוניות לגג. שם הם התבצרו, בין הגביונים והאנטנות, עם הנוף על כל הגליל. עמדה אחרי עמדה, עד התורן.', goal: 'עמדה אחרי עמדה על הגג, עד התורן (◆)' },
+  { title: 'בתוך ההר', sub: 'אין כאן מסדרון: חדר נפתח לחדר. חדר השמירה, המגורים, חדר האוכל, המטבח, המחסן, הקשר ומגורי הקצינים — ובאמצע האולם עם המדרגות למעלה. כל דלת נפתחת רק כשהחדר שלפניה נקי.', goal: 'חדר אחרי חדר, עד המדרגות שבאולם האמצעי (◆)' },
+  { title: 'הקומה העליונה', sub: 'במדרגות למעלה, אל חדר הקשר. גם כאן חדר אחרי חדר: המודיעין, המגורים, החדר של המ״פ, אולם התצפית — עד המחסן שבו המדרגות לגג.', goal: 'חדר אחרי חדר בקומה העליונה, עד המדרגות לגג (◆)' },
+  { title: 'הדגל', sub: 'דרך הפתח אל הגג. קירות של סלסלות אבנים חוצים אותו, וביניהם מסלול אחד שמתפתל עד התורן. שם הם התבצרו, עמדה אחרי עמדה.', goal: 'במסלול שבין קירות הגביונים, עמדה אחרי עמדה, עד התורן (◆)' },
 ];
 const HM_ROAD = [[-22, -150], [38, -92], [-26, -30], [34, 34], [-22, 98], [28, 160], [4, 232]], HM_ROAD_S = smoothPath(HM_ROAD, 4);
 /* the post: two rings of trench round a bunker of three levels. Both rings are listed clockwise (seen from above, north up), so each bay's
@@ -10193,10 +10835,37 @@ const HM_SPURS = [[[28, 246.3], [24, 264.8]], null, null, [[0, 260], [6.5, 271.6
 /* small concrete bunkers sunk into the outer wall of the ring trenches, a firing slit looking back down the trench at whoever comes along it:
    the centre (x, z), the trench point beside it (cx, cz), along the trench (tx, tz) and outward (nx, nz) */
 const HM_PILL = (() => { const out = []; for (const [ring, tag, at] of [[HM_RING_O, 'o', [72, 160, 246]], [HM_RING_I, 'i', [58, 142]]]) { const d = densify(ring, 0.5); let acc = 0, k = 0; for (let i = 1; i < d.length && k < at.length; i++) { acc += Math.hypot(d[i][0] - d[i - 1][0], d[i][1] - d[i - 1][1]); if (acc < at[k]) continue; k++; const [px, pz] = d[i], [qx, qz] = d[Math.max(0, i - 4)], l = Math.hypot(px - qx, pz - qz) || 1, tx = (px - qx) / l, tz = (pz - qz) / l; let nx = -tz, nz = tx; if (nx * px + nz * (pz - 290) < 0) { nx = -nx; nz = -nz; } out.push({ x: px + nx * 2.9, z: pz + nz * 2.9, cx: px, cz: pz, tx, tz, nx, nz, ring: tag }); } } return out; })();
-const HM_F = { x0: -26, x1: 26, z0: 272, z1: 308 }, HM_DOOR = [6.5, 272], HM_CORR = [287, 293], HM_RX = [[-26, -13], [-13, 0], [0, 13], [13, 26]];
-const HM_U = { x0: -22, x1: 22, z0: 293, z1: 308 };                       // the upper block, three rooms on the slab; the terrace is south of it
-const HM_STAIR = { x0: 2.5, x1: 11, z0: 282, z1: 286, top: 10.5 };          // the main stair, across the back of the entrance hall, up through the slab onto the terrace (rises toward +x)
-const HM_RSTAIR = { x0: 22.4, x1: 25.4, z0: 289, z1: 300, zl: 303 };        // the outside stair to the roof, along the east wall of the upper block (rises toward +z)
+/* the bunker: no corridor. Each floor is a chain of rooms, one door from each into the next and no other way between them, the way the
+   trenches outside are one lane: the guard room at the door, then deeper and deeper into the post, round to the stair in the middle; upstairs
+   the same, round to the stair onto the roof. Each door stays shut until the room before it is clear, so there is only ever one room to take */
+const HM_F = { x0: -26, x1: 26, z0: 272, z1: 308 }, HM_DOOR = [6.5, 272];
+const HM_U = { x0: -22, x1: 22, z0: 280, z1: 308 };                       // the upper block on the slab; the strip of terrace south of it is never walked
+// the rooms of each floor, in the order they are taken. paint: the lower band and the wall above it; wood: a board floor; tz: polished screed (else rough)
+const HM_RM = [[
+  { id: 'guard', x0: 0, x1: 13, z0: 272, z1: 284, paint: [0x7a8466, 0xe8e2d0] },
+  { id: 'bunks', x0: -13, x1: 0, z0: 272, z1: 284, paint: [0x7e8c78, 0xeae5d6] },
+  { id: 'mess', x0: -26, x1: -13, z0: 272, z1: 296, paint: [0x8e8064, 0xede6d2] },
+  { id: 'kitchen', x0: -26, x1: -13, z0: 296, z1: 308, paint: [0xb9c0b8, 0xeeede6], tz: true },
+  { id: 'ammo', x0: -13, x1: 0, z0: 296, z1: 308, paint: [0xa29e94, 0xbcb8ae] },
+  { id: 'radio', x0: 0, x1: 13, z0: 296, z1: 308, paint: [0x667579, 0xe4e3da], tz: true },
+  { id: 'officers', x0: 13, x1: 26, z0: 284, z1: 308, paint: [0x74604a, 0xebe3d1], wood: true },
+  { id: 'hall', x0: -13, x1: 13, z0: 284, z1: 296, paint: [0x737c66, 0xdcd8cb] },
+], [
+  { id: 'signals', x0: 0, x1: 13, z0: 280, z1: 294, paint: [0x667579, 0xe6e5dc], tz: true },
+  { id: 'intel', x0: -9, x1: 0, z0: 280, z1: 294, paint: [0x80907c, 0xebe7da], tz: true },
+  { id: 'bunks2', x0: -22, x1: -9, z0: 280, z1: 294, paint: [0x7e8c78, 0xeae5d6] },
+  { id: 'cmdr', x0: -22, x1: -9, z0: 294, z1: 308, paint: [0x74604a, 0xebe3d1], wood: true },
+  { id: 'obs', x0: -9, x1: 13, z0: 294, z1: 308, paint: [0x7a8466, 0xe6e0ce], tz: true },
+  { id: 'store', x0: 13, x1: 22, z0: 294, z1: 308, paint: [0xa29e94, 0xbcb8ae] },
+]];
+// door k of a floor leads from room k-1 into room k: [x, z, the axis its wall runs along]. The lower floor's door 0 is the way in from the trench
+const HM_DR = [[[6.5, 272, 'x'], [0, 281, 'z'], [-13, 275, 'z'], [-22, 296, 'x'], [-13, 303, 'z'], [0, 299, 'z'], [13, 304, 'z'], [13, 291.5, 'z']],
+  [null, [0, 291, 'z'], [-9, 283, 'z'], [-19, 294, 'x'], [-9, 304, 'z'], [13, 298, 'z']]];
+// slits in the upper block's outer walls, over Syria and the Golan: [x, z, axis]
+const HM_WIN = [[-18, 308, 'x'], [-13, 308, 'x'], [-5, 308, 'x'], [0, 308, 'x'], [5, 308, 'x'], [10, 308, 'x'], [17.5, 308, 'x'], [-22, 286, 'z'], [-22, 300, 'z'], [-22, 304, 'z'], [-15.5, 280, 'x'], [-4.5, 280, 'x'], [6.5, 280, 'x']];
+const HM_STAIR = { x0: 2, x1: 10, z0: 284.2, z1: 287.6 };              // the hall's stair, along its south wall, rising toward +x into the signals room above
+const HM_RSTAIR = { x0: 18.6, x1: 21.6, z0: 298, z1: 306 };            // the store's stair along its east wall, rising toward -z through a hatch onto the roof
+const HM_MAST = [-17.5, 294], HM_RW = [14, 5, -4, -13];                 // the flag; the roof's walls of stone baskets, north to south, each open at alternate ends
 const HM_CABLE = [56, 44];
 const HM_NAMES = ['אבי', 'גיורא', 'דודי', 'ציון', 'ניסים', 'משה', 'יוסי', 'שמוליק', 'רמי', 'עוזי'];
 const hmRock = (r) => [0x8f8a80, 0x7d786f, 0x9a948a, 0x6e6a63, 0x878177, 0xa39d92][Math.floor(r() * 6)];   // weathered limestone, grey-tan with lichen (lighter greys read as snow in the sun)
@@ -10236,214 +10905,327 @@ function hmCarve(x, z, h) {
   return h;
 }
 function hmBuildKit() {
-  const K = { con: [], dark: [], gab: [], wood: [], prop: [], lamps: [] };
-  // a straight wall from (a) to (b) in local coordinates, with door gaps [from, to] measured along it
+  const K = { con: [], gab: [], wood: [], prop: [], lamps: [], skin: [], floorC: [], floorW: [], floorT: [], bulb: [] };
+  // a straight wall from (a) to (b) in local coordinates, with openings [from, to] measured along it: a door runs from the foot of the wall up
+  // to dTop, a window [from, to, bottom, top] is a slit with wall below and above it
   // the walls' concrete is tiled every 2 m (a plain box would stretch the whole texture along a 52 m wall)
   const wUV = (g, len, h, th) => { const uv = g.attributes.uv, n = g.attributes.normal; for (let i = 0; i < uv.count; i++) { const w = Math.abs(n.getX(i)) > 0.5 ? th : len, hh = Math.abs(n.getY(i)) > 0.5 ? th : h; uv.setXY(i, uv.getX(i) * w / 2, uv.getY(i) * hh / 2); } return g; };
-  K.wall = (ax, az, bx, bz, y0, y1, gaps = [], th = 0.35) => {
+  K.wall = (ax, az, bx, bz, y0, y1, gaps = [], th = 0.35, col = 0xffffff, dTop = null, list = K.con) => {
     const L = Math.hypot(bx - ax, bz - az), ux = (bx - ax) / L, uz = (bz - az) / L, rot = Math.atan2(-uz, ux); let s = 0; const segs = [];
-    for (const [g0, g1] of [...gaps].sort((p, q) => p[0] - q[0])) { if (g0 > s) segs.push([s, g0]); s = g1; } if (s < L) segs.push([s, L]);
-    for (const [s0, s1] of segs) { const m = (s0 + s1) / 2, [wx, wz] = HW(ax + ux * m, az + uz * m), len = s1 - s0; K.con.push([wUV(new THREE.BoxGeometry(len, y1 - y0, th), len, y1 - y0, th).rotateY(rot).translate(wx, (y0 + y1) / 2, wz), 0xffffff]); addCollider(wx, wz, len / 2, th / 2, rot, y1, y0); }
-    for (const [g0, g1] of gaps) { const m = (g0 + g1) / 2, [wx, wz] = HW(ax + ux * m, az + uz * m); K.con.push([wUV(new THREE.BoxGeometry(g1 - g0, 0.6, th), g1 - g0, 0.6, th).rotateY(rot).translate(wx, y1 - 0.3, wz), 0xffffff]); addCollider(wx, wz, (g1 - g0) / 2, th / 2, rot, y1, y1 - 0.6); }
+    const piece = (s0, s1, ya, yb) => { if (s1 - s0 < 0.01 || yb - ya < 0.01) return; const m = (s0 + s1) / 2, [wx, wz] = HW(ax + ux * m, az + uz * m), len = s1 - s0; list.push([wUV(new THREE.BoxGeometry(len, yb - ya, th), len, yb - ya, th).rotateY(rot).translate(wx, (ya + yb) / 2, wz), col]); addCollider(wx, wz, len / 2, th / 2, rot, yb, ya); };
+    for (const [g0, g1] of [...gaps].sort((p, q) => p[0] - q[0])) { if (g0 > s) segs.push([s, g0]); s = Math.max(s, g1); } if (s < L) segs.push([s, L]);
+    for (const [s0, s1] of segs) piece(s0, s1, y0, y1);
+    for (const [g0, g1, wb, wt] of gaps) { if (wb === undefined) piece(g0, g1, dTop ?? y1 - 0.6, y1); else { piece(g0, g1, y0, wb); piece(g0, g1, wt, y1); } }
   };
   K.slab = (x0, x1, z0, z1, y, t = 0.3, collide = true) => { const [a, b] = HW(x0, z0), [c, d] = HW(x1, z1); K.con.push([boxUV(a, c, y - t, y, b, d, 2, 2), 0xd8d4cc]); if (collide) addCollider((a + c) / 2, (b + d) / 2, (c - a) / 2, (d - b) / 2, 0, y, y - t); };
-  K.gabion = (lx, lz, w, d, h, y) => { const [wx, wz] = HW(lx, lz); K.gab.push(boxUV(wx - w / 2, wx + w / 2, y, y + h, wz - d / 2, wz + d / 2, 1, 1)); addCollider(wx, wz, w / 2, d / 2, 0, y + h, y - 0.2); };
-  K.box = (lx, lz, y, w, h, d, col, list = K.prop, rot = 0) => { const [wx, wz] = HW(lx, lz); list.push([new THREE.BoxGeometry(w, h, d).rotateY(rot).translate(wx, y + h / 2, wz), col]); };
-  K.solid = (lx, lz, y, w, h, d, col, list = K.prop, rot = 0) => { K.box(lx, lz, y, w, h, d, col, list, rot); const [wx, wz] = HW(lx, lz); addCollider(wx, wz, w / 2, d / 2, rot, y + h, y); };
-  // a model of the furniture pack (src/4f_data_furn.js): standing at y, turned ry (0: its front to +z), scaled sc (a number or [x, y, z]). solid: it
-  // blocks, sized from the model's own box. Each copy is an instance; all the copies of a model are drawn at once at the end. Returns its top (y without the model)
-  // set: K.mdl for the post's furniture, K.mdlC for the cable-car station's
-  K.mdl = {}; K.mdlC = {};
+  K.gabion = (lx, lz, w, d, h, y, collide = true) => { const [wx, wz] = HW(lx, lz); K.gab.push(boxUV(wx - w / 2, wx + w / 2, y, y + h, wz - d / 2, wz + d / 2, 1, 1)); if (collide) addCollider(wx, wz, w / 2, d / 2, 0, y + h, y - 0.2); };
+  // a model of the furniture pack (src/4f_data_furn.js) or the props pack (4f_data_props.js): standing at y, turned ry (0: its front to +z), scaled sc (a
+  // number or [x, y, z]). solid: it blocks, sized from the model's own box. Each copy is an instance; all the copies of a model are drawn at once at
+  // the end. Returns its top (y without the model). set: K.mdl for the post's furniture, K.mdlC for the cable-car station's, K.mdlT for the trenches'
+  K.mdl = {}; K.mdlC = {}; K.mdlT = {};
   K.fm = (name, lx, lz, y, ry = 0, solid = false, sc = 1, set = K.mdl) => {
     if (!mdlHas(name)) return y; const b = mdlBox(name), s = Array.isArray(sc) ? sc : [sc, sc, sc], [wx, wz] = HW(lx, lz);
     (set[name] = set[name] || []).push(M4(wx, y, wz, 0, ry, 0, s[0], s[1], s[2]));
     if (solid) addCollider(wx, wz, b[0] * s[0] / 2, b[2] * s[2] / 2, ry, y + b[1] * s[1], y);
     return y + b[1] * s[1];
   };
+  // the same knocked over: tipped rx about its own x axis and rz about its own z, then turned ry; it rests on its lowest corner. solid: a collider
+  // round what it covers now (a table on its side is a shield 0.8 high)
+  const _q = new THREE.Quaternion(), _e = new THREE.Euler(), _v = V3(), _mt = new THREE.Matrix4(), _my = new THREE.Matrix4();
+  K.ft = (name, lx, lz, y, ry, rx, rz = 0, solid = false, set = K.mdl) => {
+    if (!mdlHas(name)) return; const b = mdlBox(name), [wx, wz] = HW(lx, lz), lo = [1e9, 1e9, 1e9], hi = [-1e9, -1e9, -1e9]; _q.setFromEuler(_e.set(rx, 0, rz, 'XYZ'));
+    for (const sx of [-0.5, 0.5]) for (const sy of [0, 1]) for (const sz of [-0.5, 0.5]) { _v.set(sx * b[0], sy * b[1], sz * b[2]).applyQuaternion(_q); for (let k = 0; k < 3; k++) { lo[k] = Math.min(lo[k], _v.getComponent(k)); hi[k] = Math.max(hi[k], _v.getComponent(k)); } }
+    const m = _my.makeRotationY(ry).clone().multiply(_mt.makeRotationFromQuaternion(_q)); m.setPosition(wx, y - lo[1], wz); (set[name] = set[name] || []).push(m);
+    if (solid) { const cx = (lo[0] + hi[0]) / 2, cz = (lo[2] + hi[2]) / 2, c = Math.cos(ry), s = Math.sin(ry); addCollider(wx + cx * c + cz * s, wz - cx * s + cz * c, (hi[0] - lo[0]) / 2, (hi[2] - lo[2]) / 2, ry, y + hi[1] - lo[1], y); }
+  };
   // a pile of crates: layers of the long weapons crates n side by side, then ammunition boxes, each a little askew; it blocks. Returns its top
   const jr = rng(2311);
-  K.pile = (lx, lz, y, ry, layers, boxes, n = 2, solid = true) => {
+  K.pile = (lx, lz, y, ry, layers, boxes, n = 2, solid = true, set = K.mdl) => {
     if (!mdlHas('f_crate_long') || !mdlHas('f_crate_wood')) return y; const L = mdlBox('f_crate_long'), A = mdlBox('f_crate_wood'), s = Math.sin(ry), c = Math.cos(ry); let h = y;
-    for (let l = 0; l < layers; l++, h += L[1]) for (let i = 0; i < n; i++) { const o = (i - (n - 1) / 2) * L[2]; K.fm('f_crate_long', lx + s * o, lz + c * o, h, ry + (jr() - 0.5) * 0.05); }
-    for (let k = 0; k < boxes; k++, h += A[1]) K.fm('f_crate_wood', lx, lz, h, ry + (jr() - 0.5) * 0.16);
+    for (let l = 0; l < layers; l++, h += L[1]) for (let i = 0; i < n; i++) { const o = (i - (n - 1) / 2) * L[2]; K.fm('f_crate_long', lx + s * o, lz + c * o, h, ry + (jr() - 0.5) * 0.05, false, 1, set); }
+    for (let k = 0; k < boxes; k++, h += A[1]) K.fm('f_crate_wood', lx, lz, h, ry + (jr() - 0.5) * 0.16, false, 1, set);
     if (solid) { const [wx, wz] = HW(lx, lz); addCollider(wx, wz, (layers ? L[0] : A[0]) / 2, (layers ? n * L[2] : A[2]) / 2, ry, h, y); }
     return h;
   };
   return K;
 }
-// cover points inside the building belong to a floor, so the defenders stay on their own level
-function hmCover(lx, lz, nx, nz, f, h = 1) { const [wx, wz] = HW(lx, lz); const l = Math.hypot(nx, nz) || 1; COVER.push({ x: wx, z: wz, nx: nx / l, nz: nz / l, h, by: null, floor: f, y: hmY(f) }); }
-/* ---------- the furniture of the post: bunks, lockers, radio racks, map boards, the kitchen; and the mess the battle left ----------
-   door = { z, nz }: the wall the door is in and which way the room extends from it; the defenders get cover flanking the door.
-   The pieces are the models of the furniture pack; the walls a piece stands against are at most 0.3 thick on the room's side, so a piece's back is set 0.32 in */
+/* ---------- the walls of a floor, its paint, floors, ceilings and lights ----------
+   Every room's edges and the floor's outline, merged line by line into straight walls, the doors and slits cut into them. Inside, each room is
+   painted the way army posts were: a dark band to shoulder height, a line, pale wash above, darker into the corners where the floor and the
+   ceiling meet the wall (all in the vertex colours over a plaster texture); a screed floor or boards; a whitewashed ceiling on concrete beams */
+const hmShade = (hex, k) => { const c = new THREE.Color(hex); return c.multiplyScalar(k).getHex(); };
+function hmFloorGeo(K, f) {
+  const R = HM_RM[f], y0 = hmY(f), yc = f ? HM_U1 : HM_PY - 0.3, B = f ? HM_U : HM_F, tOut = f ? 0.5 : 0.6, doors = HM_DR[f].filter(Boolean), wins = f ? HM_WIN : [];
+  const lines = new Map(), add = (ax, c, a, b) => { const k = ax + c; if (!lines.has(k)) lines.set(k, { ax, c, iv: [] }); lines.get(k).iv.push([Math.min(a, b), Math.max(a, b)]); };
+  for (const r of R) { add('x', r.z0, r.x0, r.x1); add('x', r.z1, r.x0, r.x1); add('z', r.x0, r.z0, r.z1); add('z', r.x1, r.z0, r.z1); }
+  add('x', B.z0, B.x0, B.x1); add('x', B.z1, B.x0, B.x1); add('z', B.x0, B.z0, B.z1); add('z', B.x1, B.z0, B.z1);
+  const outer = (ax, c) => (ax === 'x' ? c === B.z0 || c === B.z1 : c === B.x0 || c === B.x1), thick = (ax, c) => (outer(ax, c) ? tOut : 0.35);
+  const at = (o, ax, c) => o[2] === ax && Math.abs((ax === 'x' ? o[1] : o[0]) - c) < 1e-6, along = (o, ax) => (ax === 'x' ? o[0] : o[1]);
+  const dw = (d) => (d === HM_DR[0][0] ? 1.0 : 0.8);   // half the width of a door: the way in from the trench is 2 m wide, the others 1.6
+  for (const { ax, c, iv } of lines.values()) {
+    iv.sort((p, q) => p[0] - q[0]); const m = []; for (const v of iv) { const l = m[m.length - 1]; if (l && v[0] <= l[1] + 1e-6) l[1] = Math.max(l[1], v[1]); else m.push([...v]); }
+    const out = outer(ax, c), th = thick(ax, c);
+    for (let [a, b] of m) {
+      a -= th / 2; b += th / 2;   // run into the walls across its ends, so no corner is left open
+      const gaps = [];
+      for (const d of doors) if (at(d, ax, c)) { const p = along(d, ax); if (p > a && p < b) gaps.push([p - a - dw(d), p - a + dw(d)]); }
+      for (const w of wins) if (at(w, ax, c)) { const p = along(w, ax); if (p > a && p < b) gaps.push([p - a - 0.55, p - a + 0.55, y0 + 1.4, y0 + 1.78]); }
+      const lo = out && !f ? y0 - 0.4 : y0, hi = f ? yc : out ? HM_PY : yc, col = f ? 0xc9c5bc : 0xb8b4aa;
+      if (ax === 'x') K.wall(a, c, b, c, lo, hi, gaps, th, col, y0 + 2.3); else K.wall(c, a, c, b, lo, hi, gaps, th, col, y0 + 2.3);
+    }
+  }
+  // a concrete sill in each doorway of the lower floor, where the room floors stop at the wall (else the rock of the pit shows through)
+  if (!f) for (const d of doors) { if (d === HM_DR[0][0]) continue; const [x, z, ax] = d, [a, b] = HW(ax === 'z' ? x - 0.22 : x - 0.8, ax === 'z' ? z - 0.8 : z - 0.22), [c, e] = HW(ax === 'z' ? x + 0.22 : x + 0.8, ax === 'z' ? z + 0.8 : z + 0.22); K.floorC.push([boxUV(a, c, y0 - 0.034, y0 - 0.002, b, e, 1, 1), 0x7a766c]); }
+  // the paint, room by room, on the inner face of each of its walls
+  const S = 0.02, dado = 1.22, band = 0.06;
+  R.forEach((r, ri) => {
+    const [lo, hi] = r.paint, inset = (ax, c, sd) => c + sd * (thick(ax, c) / 2 + 0.006), ix0 = inset('z', r.x0, 1), ix1 = inset('z', r.x1, -1), iz0 = inset('x', r.z0, 1), iz1 = inset('x', r.z1, -1);
+    const ao = (hex) => (x, y, z) => hmShade(hex, lerp(0.7, 1, smooth(y0, y0 + 0.9, y)) * lerp(1, 0.84, smooth(yc - 0.7, yc, y)));
+    const bandBox = (p0, p1, ya, yb, ax, c, sd) => {   // one wall face from p0 to p1 along it, between heights ya and yb, cut into the three bands
+      for (const [b0, b1, hex] of [[y0, y0 + dado, lo], [y0 + dado, y0 + dado + band, hmShade(lo, 0.55)], [y0 + dado + band, yc, hi]]) { const u0 = Math.max(ya, b0), u1 = Math.min(yb, b1); if (u1 - u0 < 0.005) continue;
+        const [w0, wz0] = HW(ax === 'x' ? p0 : c, ax === 'x' ? c : p0), [w1, wz1] = HW(ax === 'x' ? p1 : c + sd * S, ax === 'x' ? c + sd * S : p1);
+        const g = ax === 'x' ? boxUV(w0, w1, u0, u1, Math.min(wz0, wz1), Math.max(wz0, wz1), 4.4, 4.4) : boxUV(Math.min(w0, w1), Math.max(w0, w1), u0, u1, wz0, wz1, 4.4, 4.4); K.skin.push([colored(g, ao(hex)), null]); } };
+    for (const [ax, c, sd, p0, p1] of [['x', iz0, 1, ix0, ix1], ['x', iz1, -1, ix0, ix1], ['z', ix0, 1, iz0, iz1], ['z', ix1, -1, iz0, iz1]]) {
+      const line = ax === 'x' ? (sd > 0 ? r.z0 : r.z1) : (sd > 0 ? r.x0 : r.x1), cuts = [];
+      for (const d of doors) if (at(d, ax, line)) { const p = along(d, ax); if (p > p0 && p < p1) cuts.push([p - dw(d), p + dw(d), y0 + 2.3, yc]); }
+      for (const w of wins) if (at(w, ax, line)) { const p = along(w, ax); if (p > p0 && p < p1) cuts.push([p - 0.55, p + 0.55, y0 + 1.4, y0 + 1.78, true]); }
+      cuts.sort((p, q) => p[0] - q[0]); let s = p0;
+      for (const [q0, q1, ya, yb, win] of cuts) { if (q0 > s) bandBox(s, q0, y0, yc, ax, c, sd); if (win) { bandBox(q0, q1, y0, ya, ax, c, sd); bandBox(q0, q1, yb, yc, ax, c, sd); } else bandBox(q0, q1, ya, yb, ax, c, sd); s = q1; }
+      if (s < p1) bandBox(s, p1, y0, yc, ax, c, sd);
+    }
+    // the floor (screed, or boards in the officers' rooms), the ceiling and its beams across the short way, a bulb or two
+    const [a, b] = HW(ix0, iz0), [c2, d] = HW(ix1, iz1), fy = f ? HM_PY + 0.012 : HM_L0 - 0.004;
+    if (r.wood) K.floorW.push([boxUV(a, c2, fy - 0.03, fy, b, d, 2.4, 1.28), 0xd8c8b0]); else if (r.tz) K.floorT.push([boxUV(a, c2, fy - 0.03, fy, b, d, 3.6, 3.6), [0xffffff, 0xf2f0ea][ri % 2]]); else K.floorC.push([boxUV(a, c2, fy - 0.03, fy, b, d, 4.6, 4.6), [0x76726a, 0x6e6b64, 0x7a756c][ri % 3]]);
+    K.skin.push([colored(boxUV(a, c2, yc - 0.02, yc, b, d, 5.5, 5.5), 0xe4e1d8), null]);
+    const wx = ix1 - ix0, wz = iz1 - iz0, alongX = wx < wz, span = alongX ? wz : wx, nb = Math.max(1, Math.round(span / 3.2));
+    for (let i = 1; i < nb; i++) { const t = (alongX ? iz0 : ix0) + span * i / nb; const g = alongX ? boxUV(a, c2, yc - 0.28, yc - 0.02, HW(0, t)[1] - 0.16, HW(0, t)[1] + 0.16, 2, 2) : boxUV(HW(t, 0)[0] - 0.16, HW(t, 0)[0] + 0.16, yc - 0.28, yc - 0.02, b, d, 2, 2); K.skin.push([colored(g, (x, y) => hmShade(0xd6d3cb, y > yc - 0.1 ? 0.86 : 1)), null]); }
+    const nl = span > 16 ? 2 : 1; for (let i = 0; i < nl; i++) { const t = (i + 0.5) / nl, lx = alongX ? (ix0 + ix1) / 2 : lerp(ix0, ix1, t), lz = alongX ? lerp(iz0, iz1, t) : (iz0 + iz1) / 2, [bx, bz] = HW(lx, lz);
+      K.bulb.push([new THREE.SphereGeometry(0.07, 8, 6).translate(bx, yc - 0.36, bz), 0xfff4d0]); K.con.push([new THREE.CylinderGeometry(0.008, 0.008, 0.3, 4).translate(bx, yc - 0.17, bz), 0x222222]); K.lamps.push([bx, yc - 0.45, bz, f, ri]); }
+  });
+}
+/* ---------- the doors between the rooms: steel, painted, shut. Each opens into the room it leads to, once the room before it is clear ---------- */
+const HM_DOORS = [[], []];
+function hmDoorsBuild() {
+  // one mesh a door: the painted leaf, two stiffening ribs across it, the handles (in the vertex colours, over the grime texture)
+  const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.62, metalness: 0.3, map: TX.grime });
+  const geo = build([[new THREE.BoxGeometry(1.56, 2.24, 0.05), 0x5a6450, M4(0.78, 1.12, 0)], [new THREE.BoxGeometry(1.4, 0.06, 0.07), 0x525c48, M4(0.78, 0.35, 0)], [new THREE.BoxGeometry(1.4, 0.06, 0.07), 0x525c48, M4(0.78, 1.9, 0)], [new THREE.BoxGeometry(0.12, 0.04, 0.16), 0x1c1c1a, M4(1.38, 1.02, 0)]]);
+  for (let f = 0; f < 2; f++) HM_DR[f].forEach((d, k) => {
+    if (!d || (f === 0 && k === 0)) { HM_DOORS[f][k] = null; return; }
+    const [x, z, ax] = d, y = hmY(f), into = HM_RM[f][k], u = ax === 'x' ? [1, 0] : [0, 1], c = ax === 'x' ? z : x, n = ax === 'x' ? [0, (into.z0 === c ? 1 : -1)] : [(into.x0 === c ? 1 : -1), 0];
+    const hx = x - u[0] * 0.78, hz = z - u[1] * 0.78, [wx, wz] = HW(hx, hz), phi = Math.atan2(-u[1], u[0]), sgn = Math.abs(n[0] - u[1]) < 1e-6 && Math.abs(n[1] + u[0]) < 1e-6 ? 1 : -1;
+    const pivot = new THREE.Group(); pivot.position.set(wx, y, wz); pivot.rotation.y = phi;
+    pivot.add(new THREE.Mesh(geo, mat)); scene.add(SH(onLayer1(pivot), false, true));
+    const [cx, cz] = HW(x, z), col = addCollider(cx, cz, 0.82, 0.12, Math.atan2(-u[1], u[0]), y + 2.3, y - 0.1);
+    HM_DOORS[f][k] = { pivot, phi, sgn, col, top: col.top, bot: col.bot, ang: 0, open: false, at: V3(cx, y + 1.2, cz) };
+  });
+}
+function hmDoorSet(d, open, now = true) { if (!d) return; d.open = open; d.req = null; d.col.top = open ? -1e9 : d.top; d.col.bot = open ? -1e9 - 1 : d.bot; if (now) { d.ang = open ? 1 : 0; d.pivot.rotation.y = d.phi + d.sgn * d.ang * 1.66; } }
+// the doors as a stage of the post begins (or comes back from a checkpoint at bound g0): every door up to the room the player stands in is open
+function hmDoorsSet(stage, g0 = 0) {
+  HM_DOORS[0].forEach((d, k) => hmDoorSet(d, stage > 3 || (stage === 3 && k <= g0)));
+  HM_DOORS[1].forEach((d, k) => hmDoorSet(d, stage > 4 || (stage === 4 && k <= g0)));
+}
+function hmDoorsUpd(dt) {
+  const st = HM.stage;
+  if ((st === 3 || st === 4) && GATE.on && GATE.clear) { const d = HM_DOORS[st - 3][GATE.i + 1]; if (d && !d.open && !d.req) d.req = GAME.t + 1.1; }
+  for (const L of HM_DOORS) for (const d of L) { if (!d) continue;
+    if (d.req && GAME.t >= d.req) { hmDoorSet(d, true, false); sndBoom(d.at, 0.12); sndClick(260, 0.22); radio('לוחם', pick(['פותחים! רימון ונכנסים!', 'הדלת פתוחה - פנימה!', 'דלת! מכסים, נכנסים!']), 1.8); }
+    const tg = d.open ? 1 : 0; if (Math.abs(d.ang - tg) > 1e-3) { d.ang += (tg - d.ang) * Math.min(1, dt * 7); d.pivot.rotation.y = d.phi + d.sgn * d.ang * 1.66; } }
+}
+/* ---------- the rooms: a Syrian company has lived in the post for two weeks, and the attack catches it at breakfast ----------
+   Bunks with the blankets thrown back and mattresses dragged to the floor, rifles left on the beds and on the mess tables, chairs knocked over,
+   the radio room with its sets still on, crates of ammunition opened in the store, the officers' beds and the commander's desk. Every piece is a
+   model of the furniture and props packs. The defenders: each has his place behind something solid, facing the door the attack comes through
+   (cover: 'tab' a table thrown on its side, 'pile' crates, 'bags' sandbags, 'drum' oil drums, 'own' whatever stands there already) */
 const HM_TE = Math.PI / 2, HM_TW = -Math.PI / 2, HM_TN = Math.PI;   // the turn that faces a model's front to +x, to -x, to -z (0: to +z)
-// a row of n lockers against the wall at x1, their fronts into the room, centred on lz: one collider for the row
-function hmLockers(K, x1, lz, y, n) {
-  if (!mdlHas('f_locker')) return; const b = mdlBox('f_locker'), lx = x1 - 0.18 - b[2] / 2;
-  for (let i = 0; i < n; i++) K.fm('f_locker', lx, lz + (i - (n - 1) / 2) * b[0], y, HM_TW);
-  const [wx, wz] = HW(lx, lz); addCollider(wx, wz, b[2] / 2, n * b[0] / 2, 0, y + b[1], y);
-}
-// the two bunks stand against the wall away from the door (the rooms south of the corridor have their door in the z1 wall): the first one's x, their z, and +1 / -1 for that wall
-const hmBunks = (x0, z0, z1, door) => (door && door.nz < 0 ? [x0 + 1.6, z0 + 1.3, -1] : [x0 + 1.2, z1 - 1.3, 1]);
-function hmRoom(K, x0, x1, z0, z1, f, kind, r, door = null) {
-  const y = hmY(f), cx = (x0 + x1) / 2, cz = (z0 + z1) / 2, E = HM_TE, W = HM_TW, N = HM_TN;
-  if (kind === 'bunks') { const [b0, bz, sg] = hmBunks(x0, z0, z1, door); for (let i = 0; i < 2; i++) K.fm('f_bunk', b0 + i * 2.6, bz, y, 0, true); hmLockers(K, x1, z0 + 1.2, y, 3); hmCover(x1 - 1.2, z0 + 1.2, 1, 0, f); hmCover(b0 + 1.3, bz - sg * 1.3, 0, sg, f); }
-  else if (kind === 'radio') {
-    // the racks: two steel cabinets side by side, the sets on top
-    const cb = mdlHas('f_cabinet') ? mdlBox('f_cabinet') : null;
-    if (cb) for (let i = 0; i < 3; i++) { const bz = z0 + 1.0 + i * 1.5, lx = x1 - 0.18 - cb[2] / 2; for (const o of [-0.5, 0.5]) K.fm('f_cabinet', lx, bz + o * cb[0], y, W); const [wx, wz] = HW(lx, bz); addCollider(wx, wz, cb[2] / 2, cb[0], 0, y + cb[1], y); }
-    K.fm('f_table_wood', cx - 0.5, cz, y, 0, true, [1.3, 1, 1.2]); hmCover(cx - 0.5, cz - 1.1, 0, -1, f); hmCover(x1 - 1.4, z0 + 2.2, 1, 0, f);
+function hmFurnish(K, f) {
+  const C = CHAP.hermon, y = hmY(f), E = HM_TE, W = HM_TW, N = HM_TN, PI = Math.PI, r = rng(2230 + f);
+  const F = (n, x, z, ry = 0, solid = false, sc = 1) => K.fm(n, x, z, y, ry, solid, sc);
+  const On = (n, x, z, top, ry = 0) => K.fm(n, x, z, top, ry);
+  const T = (n, x, z, ry, rx, rz = 0, top = y, solid = false) => K.ft(n, x, z, top, ry, rx, rz, solid);
+  const Lie = (n, x, z, ry, top = y) => K.ft(n, x, z, top, ry, 0, PI / 2);             // a rifle on its side
+  const Rack = (x, z, ry, n, step = 0.13) => { const c = Math.cos(ry), s = Math.sin(ry); for (let i = 0; i < n; i++) K.ft('akms', x + c * (i - (n - 1) / 2) * step, z - s * (i - (n - 1) / 2) * step, y, ry + PI, -PI / 2 + 0.12, 0); };   // rifles stood on their butts against a wall, leaning in
+  const Pile = (x, z, ry, layers, boxes, n = 2, solid = true) => K.pile(x, z, y, ry, layers, boxes, n, solid);
+  const Bags = (pts, layers = 4) => bagWall(pts.map(([a, b]) => HW(a, b)), layers, y - 0.02, true);
+  const Lockers = (x, z, ry, n) => { if (!mdlHas('f_locker')) return; const b = mdlBox('f_locker'), c = Math.cos(ry), s = Math.sin(ry); for (let i = 0; i < n; i++) { const o = (i - (n - 1) / 2) * b[0]; K.fm('f_locker', x + c * o, z - s * o, y, ry); } const [wx, wz] = HW(x, z); addCollider(wx, wz, n * b[0] / 2, b[2] / 2, ry, y + b[1], y); };
+  const Cabs = (x, z, ry, n) => { if (!mdlHas('f_cabinet')) return; const b = mdlBox('f_cabinet'), c = Math.cos(ry), s = Math.sin(ry); for (let i = 0; i < n; i++) { const o = (i - (n - 1) / 2) * b[0]; K.fm('f_cabinet', x + c * o, z - s * o, y, ry); } const [wx, wz] = HW(x, z); addCollider(wx, wz, n * b[0] / 2, b[2] / 2, ry, y + b[1], y); };
+  const Jerries = (x, z, ry, n) => { const c = Math.cos(ry), s = Math.sin(ry); for (let i = 0; i < n; i++) K.fm('jerry', x + c * i * 0.2, z - s * i * 0.2, y, ry + (r() - 0.5) * 0.25); };
+  const Mess = (x, z, ry, tip = 0) => {   // a mess table: two metal tables end to end, a bench along each side (tip: which bench lies on its side)
+    const c = Math.cos(ry), s = Math.sin(ry); for (const o of [-0.615, 0.615]) K.fm('f_table_metal', x + c * o, z - s * o, y, ry); const [wx, wz] = HW(x, z); addCollider(wx, wz, 1.23, 0.34, ry, y + 0.76, y);
+    for (const sd of [-1, 1]) for (const o of [-0.66, 0.66]) { const bx = x + c * o + s * sd * 0.56, bz = z - s * o + c * sd * 0.56; if (tip && sd === tip && o > 0) K.ft('f_bench_metal', bx + s * sd * 0.2, bz + c * sd * 0.2, y, ry + 0.2, PI / 2, 0); else K.fm('f_bench_metal', bx, bz, y, ry + (r() - 0.5) * 0.12); } };
+  const Desk = (x, z, ry, items, chair = 'f_chair', tip = false) => {   // a desk or table against a wall (front: the side the chair is), what stands on it, the chair
+    const n = items.shift(), top = K.fm(n, x, z, y, ry, true), c = Math.cos(ry), s = Math.sin(ry), w = mdlHas(n) ? mdlBox(n)[0] : 1.2;
+    items.forEach((it, i) => { const o = ((i + 0.5) / items.length - 0.5) * (w - 0.35); if (it === 'akms') K.ft('akms', x + c * o, z - s * o, top, ry + PI / 2 + (r() - 0.5) * 0.3, 0, PI / 2); else K.fm(it, x + c * o, z - s * o, top, ry + (r() - 0.5) * 0.3); });
+    if (chair) { const cx = x + s * 0.72, cz = z + c * 0.72; if (tip) K.ft(chair, cx + s * 0.35, cz + c * 0.35, y, ry + PI + 0.5, -PI / 2, 0); else K.fm(chair, cx, cz, y, ry + PI + (r() - 0.5) * 0.4); } };
+  // a defender's place: hiding at (hx, hz) behind his cover, facing the door the attack comes through; he rises to fire over low cover,
+  // or steps out beside tall cover. dmin: the lowest level (DIFF) he is there on
+  const S = (k, hx, hz, cover, kind = 'rifle', dmin = 0, face = null) => {
+    const ent = face || (f === 0 ? HM_DR[0][k] : k === 0 ? [10.4, 285.9] : HM_DR[1][k]), dx = ent[0] - hx, dz = ent[1] - hz, l = Math.hypot(dx, dz) || 1, ux = dx / l, uz = dz / l, ry = Math.atan2(ux, uz);
+    let px = hx, pz = hz;
+    if (cover === 'tab') K.ft('f_table_wood', hx + ux * 0.42, hz + uz * 0.42, y, ry, PI / 2, 0, true);   /* on its side the wooden table stands 0.8: a man ducked behind it is hidden */
+    else if (cover === 'pile') Pile(hx + ux * 0.68, hz + uz * 0.68, ry, 3, 0, 2);   /* the crates broadside to the door */
+    else if (cover === 'bags') Bags([[hx + ux * 0.72 - uz * 1.0, hz + uz * 0.72 + ux * 1.0], [hx + ux * 0.72 + uz * 1.0, hz + uz * 0.72 - ux * 1.0]]);
+    else if (cover === 'drum') for (const sd of [-1, 1]) K.fm('drum', hx + ux * 0.72 + uz * sd * 0.32, hz + uz * 0.72 - ux * sd * 0.32, y, r() * 3, true);
+    else if (cover === 'side') { px = hx - uz * 0.62; pz = hz + ux * 0.62; }   // tall cover beside him: he steps out to his right to fire
+    const [wx, wz] = HW(hx, hz), [ppx, ppz] = HW(px, pz);
+    C.slots.push({ x: wx, z: wz, y, nx: ux, nz: uz, f, b: null, used: false, fox: true, p: [ppx + ux * 0.08, ppz + uz * 0.08], h: [wx, wz], grp: 'IN', fl: f, room: k, kind, dmin });
+  };
+  const sign1 = (t, x, z, yy, rot, w = 1.3) => { const [sx, sz] = HW(x, z); sign(t, 'plain', sx, yy, sz, rot, w); };
+  if (f === 0) {
+    // ---- 0: the guard room inside the door. A sandbag post facing the way in, the sentries' bunks, their table and radio, a rack of rifles ----
+    Bags([[8.4, 274.0], [8.4, 275.7], [11.8, 275.7]]); S(0, 9.5, 276.6, 'own', 'lmg');
+    S(0, 2.7, 279.7, 'pile'); S(0, 3.0, 276.1, 'bags', 'smg', 2);
+    Lockers(12.6, 278.2, W, 4); Desk(10.4, 283.3, N, ['f_table_wood', 'f_radio_set', 'akms', 'f_lamp_k'], 'f_chair', true);
+    Cabs(7.2, 283.45, N, 2); F('f_shelf', 4.6, 283.67, N, true); On('f_radio_set', 4.3, 283.68, y + 0.67, N); On('f_lamp_k', 5.0, 283.66, y + 1.13);
+    F('f_bunk', 0.58, 274.15, 0, true); F('f_bunk', 0.58, 276.35, 0, true); F('f_mattress', 1.62, 274.6, 0.22); Lie('akms', 1.6, 274.3, 0.3, y + 0.2);
+    F('drum', 12.3, 272.95, 0, true); F('drum', 11.65, 272.95, 0.5, true); Jerries(12.45, 273.75, E, 3); Rack(12.62, 280.6, W, 4);
+    T('f_chair', 5.8, 278.2, 1.1, -PI / 2); F('f_bench_metal', 2.9, 272.66, 0); F('f_table_metal', 10.3, 280.5, 0, true); On('f_lamp_k', 10.0, 280.55, y + 0.76); F('f_stool_metal', 10.8, 279.75, 0.4);
+    F('f_shelf', 0.32, 278.6, E, true); On('f_radio_set', 0.33, 278.3, y + 0.67, E); On('f_lamp_k', 0.33, 279.0, y + 1.13); F('jerry', 7.9, 283.5, 0.2);
+    // ---- 1: the first bunk room. Two rows of bunks, blankets thrown back, mattresses dragged off; a table in the middle where they played cards ----
+    for (const x of [-12.35, -11.05, -9.75, -6.8, -5.5, -4.2]) F('f_bunk', x, 282.85, 0, true);
+    for (const x of [-9.0, -7.7, -6.4, -5.1]) F('f_bunk', x, 273.28, N, true);
+    S(1, -8.4, 282.7, 'pile', 'rifle', 0, [0, 281]); S(1, -10.7, 278.0, 'tab'); S(1, -11.4, 273.6, 'tab', 'smg', 1);
+    Desk(-6.6, 278.0, 0, ['f_table_wood', 'f_lamp_k', 'f_radio_set'], null); F('f_bench_metal', -6.6, 278.8, 0); F('f_stool_metal', -7.6, 277.3); T('f_stool_metal', -5.4, 277.1, 0.4, PI / 2);
+    F('f_mattress', -2.7, 275.2, 1.3); F('f_mattress', -10.2, 280.6, 1.75); Lie('akms', -9.75, 282.5, 0.1, y + 0.54); Lie('akms', -2.4, 275.0, 1.0, y + 0.2); Lie('akms', -5.1, 273.4, 1.6, y + 1.32);
+    Lockers(-0.4, 283.5, W, 2); Jerries(-12.45, 277.4, 0, 2); F('crate', -1.2, 272.9, 0.1, true);
+    // ---- 2: the mess hall. Long tables and benches, the rifles laid down by the plates, a bench knocked over as they ran ----
+    Mess(-22.6, 278.6, E, 1); Mess(-22.6, 283.8, E); Mess(-22.6, 289.0, E, -1); Mess(-17.1, 281.4, E); Mess(-17.1, 286.6, E, 1); Mess(-17.1, 291.8, E);
+    for (const [x, z, n] of [[-22.6, 278.0, 'f_lamp_k'], [-22.5, 284.4, 'f_radio_set'], [-17.0, 287.0, 'f_lamp_k'], [-17.2, 291.2, 'f_lamp_k']]) On(n, x, z, y + 0.76, r() * 6);
+    Lie('akms', -22.7, 289.4, 0.2, y + 0.76); Lie('akms', -17.0, 281.0, 2.9, y + 0.76); Lie('akms', -22.5, 283.2, 0.1, y + 0.76);
+    S(2, -19.6, 279.2, 'tab'); S(2, -24.6, 286.0, 'pile'); S(2, -14.6, 293.3, 'drum', 'lmg', 1); S(2, -19.6, 294.6, 'bags', 'rifle', 2);
+    F('f_shelf', -25.55, 293.0, E, true); On('f_radio_set', -25.55, 292.7, y + 0.67, E); F('drum', -25.1, 272.9, 0, true); F('drum', -24.45, 272.95, 1, true); Jerries(-23.8, 272.75, 0, 3); Cabs(-25.35, 275.5, E, 2);
+    T('f_chair', -20.0, 286.3, 2.2, -PI / 2); T('f_stool_metal', -15.6, 284.0, 0.7, 0, PI / 2);
+    // ---- 3: the kitchen. Ovens and worktops on the north wall, shelves, water drums, food crates; the breakfast left on the prep table ----
+    for (const x of [-24.9, -24.3, -23.7]) F('f_oven', x, 307.44, N, true); for (const x of [-22.45, -21.2]) F('f_table_metal', x, 307.36, N, true);
+    On('f_lamp_k', -21.6, 307.3, y + 0.76); F('f_shelf', -25.55, 304.6, E, true); F('f_shelf', -25.55, 302.9, E, true); On('f_lamp_k', -25.5, 303.1, y + 1.13);
+    for (const [x, z] of [[-25.2, 296.75], [-24.55, 296.8], [-25.2, 297.45]]) F('drum', x, z, r() * 3, true); Pile(-14.0, 297.2, 0, 0, 3, 1); Pile(-15.0, 297.2, 0.1, 0, 2, 1); F('crate', -14.0, 298.4, E, true);
+    Desk(-19.5, 302.4, 0, ['f_table_wood', 'f_lamp_k', 'f_radio_set'], null); F('f_stool_metal', -20.2, 301.6); T('f_stool_metal', -18.6, 301.4, 1.0, PI / 2);
+    S(3, -15.3, 305.8, 'pile', 'rifle', 0); S(3, -19.4, 303.4, 'own'); S(3, -23.8, 300.6, 'drum', 'smg', 2);
+    for (const zz of [299.6, 300.85]) F('f_table_metal', -25.36, zz, E, true); On('f_lamp_k', -25.3, 300.3, y + 0.76); K.fm('f_crate_wood', -25.36, 299.6, y + 0.76, E + 0.1);
+    F('f_table_metal', -16.4, 300.4, 0, true); F('f_stool_metal', -16.9, 299.7); F('f_stool_metal', -15.8, 301.15, 2.0); On('f_radio_set', -16.6, 300.5, y + 0.76, 0.3);
+    Pile(-17.6, 296.62, 0, 0, 2, 1); F('crate', -19.2, 296.56, 0, true); Jerries(-22.9, 306.95, 0, 3);
+    // ---- 4: the ammunition store. Stacks of crates on both long walls, an island of them in the middle, the RPGs on top, a rack of rifles ----
+    for (let i = 0; i < 7; i++) { const x = -11.6 + i * 1.5, top = Pile(x, 307.25, 0, 3 + (i % 2), i % 3 === 0 ? 1 : 0, 2); if (i === 2 || i === 5) K.ft('rpg7', x, 307.2, top, PI / 2, 0, PI / 2); }
+    for (const x of [-11.2, -9.4]) { const top = K.fm('crate', x, 296.6, y, 0, true); K.fm('crate', x, 296.6, top, 0.05); } Pile(-7.4, 296.75, 0, 2, 2, 2);
+    Rack(-3.6, 296.45, 0, 6); Jerries(-0.55, 301.5, -PI / 2, 6); F('drum', -0.65, 305.2, 0, true); F('drum', -0.65, 305.85, 1.3, true);
+    S(4, -4.2, 301.6, 'pile', 'rifle', 0); S(4, -7.6, 304.4, 'pile'); S(4, -1.6, 304.0, 'drum', 'lmg', 1);
+    K.ft('rpg7', -7.3, 297.0, y + 2 * 0.259 + 2 * 0.231, 0.2, 0, PI / 2); K.ft('crate', -5.6, 299.5, y, 0.6, 0, PI / 2);
+    // ---- 5: the radio room. The sets on the long table, the typewriter, the filing cabinets, the map table in the middle ----
+    Desk(3.5, 307.3, N, ['f_table_wood', 'f_radio_set', 'f_radio_set', 'f_lamp_desk']); Desk(5.3, 307.3, N, ['f_table_wood', 'f_radio_set', 'f_lamp_k'], 'f_chair', true);
+    Desk(9.6, 307.36, N, ['f_desk', 'f_typewriter', 'f_lamp_desk']); Cabs(3.3, 296.53, 0, 4);
+    for (const zz of [301.8, 302.6]) F('f_table_wood', 6.6, zz, 0, true); F('f_chair_fold', 5.8, 300.95, 0); F('f_chair_fold', 7.4, 300.95, 0.3); F('f_chair_fold', 5.8, 303.45, N); T('f_chair_fold', 7.6, 303.8, 2.9, -PI / 2); On('f_radio_set', 6.3, 302.4, y + 0.76, 0.4); On('f_lamp_k', 7.0, 301.9, y + 0.76);
+    S(5, 10.6, 299.4, 'tab'); S(5, 6.8, 303.7, 'own'); S(5, 11.6, 302.6, 'pile', 'smg', 1);
+    Desk(12.43, 299.6, W, ['f_desk', 'f_typewriter', 'f_lamp_desk'], 'f_chair', true); F('f_shelf', 0.32, 304.6, E, true); On('f_radio_set', 0.33, 304.2, y + 0.67, E); On('f_radio_set', 0.33, 305.0, y + 1.13, E); On('f_lamp_k', 0.33, 304.9, y + 0.67);
+    // ---- 6: the officers' quarters. Beds and wardrobes in the north half, a line of wardrobes across the room, the commander's office beyond ----
+    K.fm('f_bed_wood', 24.7, 306.7, W, true); K.fm('f_bed_wood', 24.7, 302.6, W, true); F('f_wardrobe', 20.6, 307.39, N, true); F('f_wardrobe', 19.05, 307.39, N, true);
+    for (const x of [13.95, 15.45, 16.95, 18.45, 19.95]) F('f_wardrobe', x, 296.0, 0, true);
+    F('f_sofa', 17.2, 300.3, 0, true); Desk(14.3, 301.0, E, ['f_table_metal', 'f_lamp_k'], 'f_stool_metal'); Lie('akms', 24.6, 302.3, 0.1, y + 0.62);
+    S(6, 22.9, 300.2, 'tab'); S(6, 21.8, 305.2, 'bags', 'rifle', 1); F('f_wardrobe', 25.39, 299.2, W, true); F('f_table_metal', 23.25, 304.65, 0, true); On('f_lamp_k', 23.0, 304.7, y + 0.76); On('f_radio_set', 23.6, 304.6, y + 0.76, 0.2);
+    Desk(19.4, 284.52, 0, ['f_desk', 'f_typewriter', 'f_lamp_desk', 'f_radio_set']); F('f_sofa', 25.28, 290.0, W, true); F('f_table_metal', 23.9, 290.0, E, true); On('f_lamp_k', 23.9, 289.7, y + 0.76);
+    Cabs(23.2, 284.53, 0, 3); F('f_chair', 21.9, 292.8, 2.6); F('f_shelf', 13.33, 287.5, E, true);
+    S(6, 15.6, 288.6, 'pile', 'rifle', 0, [23.3, 295.6]); S(6, 18.6, 292.4, 'tab', 'smg', 2, [23.3, 295.6]);
+    // ---- 7: the hall in the middle of the post, its stair up to the signals room. The Syrians' last stand on this floor, sandbags at the stair ----
+    S(7, -1.0, 289.6, 'bags', 'lmg', 0); S(7, -6.2, 293.6, 'pile'); S(7, -3.4, 286.2, 'drum', 'rifle', 1); S(7, 6.2, 294.6, 'bags', 'smg', 1); S(7, -10.6, 289.2, 'pile', 'rifle', 2);
+    Desk(-9.2, 295.4, N, ['f_table_wood', 'f_radio_set', 'f_radio_set']); Desk(-11.4, 295.4, N, ['f_table_wood', 'f_lamp_k', 'akms'], 'f_chair', true);
+    Cabs(-12.45, 286.2, E, 3); F('drum', 11.2, 285.0, 0, true); F('drum', 11.9, 285.2, 1, true); Jerries(12.0, 286.0, 0, 3); Pile(2.6, 295.3, 0, 2, 2, 2); F('crate', 0.4, 295.35, 0, true);
+    sign1('↑ למעלה', 1.2, 284.24, y + 2.0, 0, 1.2); F('f_shelf', -12.68, 291.8, E, true); On('f_radio_set', -12.67, 291.5, y + 0.67, E); On('f_lamp_k', -12.67, 292.2, y + 1.13);
+    Pile(11.6, 295.25, 0, 3, 1, 2); Pile(10.2, 295.25, 0.05, 2, 0, 2); F('drum', 12.3, 294.0, 0.4, true); Jerries(-4.6, 295.55, 0, 4);
+    // the post was ours until the 6th: its Hebrew signs are still on the walls
+    sign1('אסור לעשן', -3.6, 296.25, y + 2.05, 0, 1.4);
+  } else {
+    // ---- 0: the signals room at the head of the stair. Its sets along the east wall, cabinets, a crate store south of the stairwell ----
+    Desk(12.42, 289.9, W, ['f_table_wood', 'f_radio_set', 'f_radio_set']); Desk(12.42, 291.7, W, ['f_table_wood', 'f_radio_set', 'f_lamp_desk'], 'f_chair', true); Cabs(4.0, 293.47, N, 4);
+    Pile(1.2, 281.0, 0, 3, 1, 2); F('drum', 12.3, 280.9, 0, true); Jerries(11.4, 280.7, 0, 3); F('crate', 8.0, 280.8, 0, true);
+    sign1('חדר קשר', 9.0, 280.32, y + 2.3, 0, 1.1); Desk(1.0, 293.49, N, ['f_desk', 'f_typewriter', 'f_lamp_desk']); Pile(3.0, 280.95, 0.05, 2, 2, 2); S(0, 7.2, 291.8, 'tab'); S(0, 11.2, 293.3, 'pile'); S(0, 4.6, 281.6, 'bags', 'rifle', 1); S(0, 1.6, 289.8, 'drum', 'smg', 2);
+    // ---- 1: the intelligence room: the Israeli equipment the Syrians took over - desks, typewriters, cabinets of files ----
+    Desk(-7.0, 293.49, N, ['f_desk', 'f_typewriter', 'f_lamp_desk']); Desk(-5.4, 293.49, N, ['f_desk', 'f_typewriter'], 'f_chair', true); Cabs(-6.2, 280.61, 0, 5); Desk(-1.0, 286.8, W, ['f_table_wood', 'f_radio_set', 'f_lamp_k']);
+    S(1, -7.6, 289.2, 'tab'); S(1, -3.2, 284.2, 'pile'); S(1, -8.0, 285.8, 'drum', 'smg', 2); Cabs(-8.46, 288.2, E, 3); F('f_chair', -2.2, 290.6, 2.4); sign1('מודיעין', -6.2, 293.75, y + 2.25, Math.PI, 1.2);
+    // ---- 2: the upper bunk room ----
+    for (const x of [-21.15, -19.85, -18.55, -17.25, -15.95]) F('f_bunk', x, 281.23, N, true);
+    for (const z of [285.6, 286.9, 288.2]) F('f_bunk', -20.78, z, E, true); Lockers(-14.0, 293.6, N, 4);
+    F('f_mattress', -15.4, 285.2, 0.5); F('f_mattress', -12.0, 288.6, 1.4); Lie('akms', -18.55, 281.0, 0.2, y + 0.54); Lie('akms', -20.6, 286.9, 1.7, y + 1.32);
+    Desk(-17.0, 290.0, 0, ['f_table_metal', 'f_lamp_k'], null); F('f_stool_metal', -17.6, 289.3); T('f_stool_metal', -16.2, 289.1, 2.0, PI / 2);
+    S(2, -14.6, 290.8, 'tab'); S(2, -19.2, 284.6, 'bags'); S(2, -11.4, 292.6, 'pile', 'smg', 1);
+    // ---- 3: the company commander's room: his bed, wardrobe, desk under the slit, a sofa, the map table ----
+    K.fm('f_bed_wood', -20.75, 306.4, E, true); F('f_wardrobe', -17.0, 307.44, N, true); Desk(-13.4, 307.41, N, ['f_desk', 'f_typewriter', 'f_lamp_desk', 'f_radio_set']);
+    F('f_sofa', -21.33, 299.6, E, true); F('f_table_wood', -15.6, 300.6, 0, true); F('f_chair_fold', -16.2, 299.8, 0); T('f_chair_fold', -14.8, 299.4, 0.8, -PI / 2); On('f_lamp_k', -15.4, 300.8, y + 0.76);
+    Cabs(-9.75, 296.0, W, 2); Lie('akms', -20.8, 306.1, 0.2, y + 0.6);
+    S(3, -12.0, 301.6, 'tab'); S(3, -16.4, 305.0, 'bags', 'rifle', 1);
+    // ---- 4: the observation hall: stations under the slits over Syria, the map table, the RPGs by the windows ----
+    for (const x of [-5, 0, 5, 10]) { F('f_table_metal', x, 307.36, N, true); F(x === 0 ? 'f_chair' : 'f_stool_metal', x + 0.2, 306.6, r() * 0.6); }
+    On('f_radio_set', -5.2, 307.4, y + 0.76, N); On('f_radio_set', 10.1, 307.4, y + 0.76, N); On('f_lamp_k', 4.8, 307.3, y + 0.76); K.ft('rpg7', 0.1, 307.3, y + 0.76, PI / 2, 0, PI / 2);
+    for (const zz of [300.1, 300.9]) F('f_table_wood', 2.0, zz, 0, true); F('f_chair_fold', 1.2, 299.25, 0); F('f_chair_fold', 2.8, 301.75, N); T('f_chair_fold', 3.2, 299.0, 0.9, -PI / 2);
+    Cabs(-6.0, 294.53, 0, 4); Rack(12.4, 296.2, W, 3); Cabs(12.46, 302.5, W, 3); Bags([[-3.4, 307.35], [-1.4, 307.35]], 3); Bags([[6.6, 307.35], [8.4, 307.35]], 3);
+    S(4, 3.2, 304.2, 'tab'); S(4, 8.2, 297.6, 'pile'); S(4, -3.2, 296.2, 'bags', 'rifle', 1); S(4, 11.2, 305.6, 'drum', 'lmg', 2);
+    // ---- 5: the store under the roof hatch ----
+    Pile(20.1, 295.0, 0, 3, 1, 2); F('drum', 21.1, 296.6, 0, true); Jerries(18.9, 297.2, 0, 3); F('f_shelf', 13.33, 303.6, E, true); F('crate', 13.7, 306.9, E, true);
+    S(5, 16.8, 304.6, 'pile'); S(5, 16.0, 295.4, 'drum', 'smg', 1); Pile(13.62, 300.6, PI / 2, 3, 1, 2); Pile(13.62, 305.3, PI / 2, 2, 2, 2); F('drum', 14.0, 295.0, 0.3, true); F('drum', 14.65, 294.85, 1.2, true);
   }
-  else if (kind === 'map') { K.box(x0 + 0.08, cz, y + 0.9, 0.06, 1.3, 2.4, 0xd8cfb4); K.box(x0 + 0.1, cz, y + 1.2, 0.02, 0.5, 1.6, 0x6b8a9a);
-    // the map table: two tables pushed together, the chairs round it
-    for (const o of [-0.4, 0.4]) K.fm('f_table_wood', cx, cz + o, y); if (mdlHas('f_table_wood')) { const [wx, wz] = HW(cx, cz); addCollider(wx, wz, 0.8, 0.8, 0, y + 0.76, y); }
-    for (const [o, sd] of [[-0.45, -1], [0.45, -1], [-0.45, 1], [0.45, 1]]) K.fm('f_chair_fold', cx + o, cz + sd * 1.15, y, sd < 0 ? 0 : N);
-    hmCover(cx, cz + 1.0, 0, 1, f); hmCover(cx, cz - 1.0, 0, -1, f); }
-  else if (kind === 'kitchen') {
-    // along the outer wall: the cooker, two worktops, then the shelves of tins and bottles; the mess table in the middle with its benches
-    K.fm('f_oven', x0 + 0.32 + 0.26, z0 + 1.0, y, E, true); for (const lz of [z0 + 2.0, z0 + 3.25]) K.fm('f_table_metal', x0 + 0.32 + 0.34, lz, y, E, true);
-    for (const lz of [z0 + 5.0, z0 + 6.6, z0 + 8.2]) K.fm('f_shelf', x0 + 0.32 + 0.15, lz, y, E, true);
-    for (const o of [-0.615, 0.615]) K.fm('f_table_metal', cx + 0.6, cz + o, y, E); if (mdlHas('f_table_metal')) { const [wx, wz] = HW(cx + 0.6, cz); addCollider(wx, wz, 0.34, 1.23, 0, y + 0.76, y); }
-    for (const sx of [-1, 1]) for (const o of [-0.66, 0.66]) K.fm('f_bench_metal', cx + 0.6 + sx * 0.55, cz + o, y, E);
-    hmCover(cx + 1.6, cz, 1, 0, f); }
-  else if (kind === 'store') { for (let i = 0; i < 6; i++) K.pile(x0 + 0.85 + (i % 3) * 1.4, z1 - 0.6 - Math.floor(i / 3) * 1.1, y, 0, 2 + (i % 2), 0); K.pile(x1 - 0.6, z0 + 2.9, y, E, 0, 3, 2, false); hmCover(cx, z1 - 2.4, 0, 1, f); }
-  else if (kind === 'obs') { K.solid(cx, z1 - 1.0, y, 1.0, 1.1, 0.6, 0x55524a); K.box(cx, z1 - 1.0, y + 1.1, 0.3, 0.25, 0.9, 0x1a1a1a); K.fm('f_table_wood', x0 + 1.2, cz, y, 0, true); hmCover(x0 + 1.2, cz - 1.0, 0, -1, f); hmCover(cx, z1 - 2.0, 0, 1, f); }
-  // wide rooms get a second table with stools and a row of lockers on the far side, so the room is not half empty
-  if (x1 - x0 > 11) { K.fm('f_table_wood', x1 - 3.2, cz + 0.5, y, 0, true); for (const [ox, oz] of [[-0.6, -1.0], [0.6, -1.0], [0, 1.0]]) K.fm('f_stool_metal', x1 - 3.2 + ox, cz + 0.5 + oz, y, oz < 0 ? 0 : N); hmLockers(K, x1, cz + 3.33, y, 4); hmCover(x1 - 3.2, cz - 0.6, 0, -1, f); K.pile(x0 + 2.2, cz - 0.5, y, 0, 0, 4); hmCover(x0 + 2.2, cz - 1.3, 0, -1, f, 0.9); }
-  // and cover flanking the door, inside: the first men in through it are met from both sides
-  if (door) { for (const sd of [-1, 1]) { const px = cx + sd * 2.6, pz = door.z + door.nz * 1.1; K.pile(px, pz, y, 0, 2, 2); hmCover(px, pz + door.nz * 0.6, cx - px, door.z - pz - door.nz * 0.6, f, 0.95); } }
-  // the battle of the 6th: overturned crates, scorch marks, papers and spent cases on the floor
-  for (let i = 0; i < 5; i++) { const px = lerp(x0 + 0.8, x1 - 0.8, r()), pz = lerp(z0 + 0.8, z1 - 0.8, r()); if (r() < 0.5) K.fm('f_crate_wood', px, pz, y, r() * 3); else K.box(px, pz, y + 0.01, 0.6 + r() * 0.8, 0.005, 0.5 + r() * 0.6, 0x26221e, K.prop, r() * 3); }
-  K.box(cx, cz, y + 2.55, 0.12, 0.12, 0.12, 0xfff2c8); K.lamps.push([cx, cz, y + 2.4]);
-  hmRoomMore(K, x0, x1, z0, z1, f, kind); hmRoomProps(x0, x1, z0, z1, f, kind, r, door);
 }
-/* the rest of the furniture: a post that men lived in for months is full - tables and stools, shelves, stoves with their pipes, a generator, barrels, boards */
-function hmRoomMore(K, x0, x1, z0, z1, f, kind) {
-  const y = hmY(f), cx = (x0 + x1) / 2, cz = (z0 + z1) / 2, E = HM_TE, W = HM_TW, N = HM_TN;
-  const shelf = (lx, lz, ry) => K.fm('f_shelf', lx, lz, y, ry, true);
-  // the cooker against the wall at z0, its pipe up from its back and into that wall
-  const stove = (lx, lz) => { K.fm('f_oven', lx, lz, y, 0, true); K.box(lx, lz - 0.2, y + 0.9, 0.12, 1.56, 0.12, 0x2a2a28); K.box(lx, lz - 0.4, y + 2.4, 0.12, 0.12, 0.5, 0x2a2a28); };
-  if (kind === 'bunks') { K.fm('f_table_metal', cx, z0 + 1.6, y, 0, true); K.fm('f_stool_metal', cx - 0.9, z0 + 1.6, y, E); K.fm('f_stool_metal', cx + 0.9, z0 + 1.6, y, W); stove(x0 + 0.6, z0 + 0.6); shelf(cx + 4.0, z0 + 0.47, 0); for (let i = 0; i < 3; i++) K.box(x1 - 0.2, z0 + 2.4 + i * 0.5, y + 1.6, 0.06, 0.06, 0.06, 0x2a2a28); }
-  else if (kind === 'radio') { K.fm('f_desk', cx + 1.6, z1 - 0.65, y, N, true); K.fm('f_lamp_desk', cx + 2.05, z1 - 0.5, y + 0.76, N); K.fm('f_chair_fold', cx + 1.4, z1 - 1.35, y, 0); K.fm('f_stool_metal', cx - 0.5, cz - 1.0, y); K.solid(x0 + 0.7, z1 - 0.7, y, 0.9, 0.7, 0.6, 0x3a3a30); K.box(x0 + 0.7, z1 - 0.7, y + 0.7, 0.3, 0.1, 0.3, 0x2a2a28); for (let i = 0; i < 4; i++) K.box(x0 + 1.2 + i * 1.2, z1 - 0.4, y + 0.01, 1.3, 0.02, 0.03, 0x1a1a1a); shelf(x0 + 2.0, z0 + 0.47, 0); }
-  else if (kind === 'map') { for (const sd of [-1, 1]) K.fm('f_stool_metal', cx + sd * 1.1, cz, y); K.fm('f_cabinet', x1 - 0.18 - 0.36, z0 + 0.8, y, W, true); K.box(x1 - 0.08, cz + 1.2, y + 0.9, 0.06, 1.1, 1.6, 0xd8cfb4); K.box(x1 - 0.1, cz + 1.2, y + 1.15, 0.02, 0.5, 1.2, 0x6b8a9a); shelf(cx + 4.0, z1 - 0.47, N); }
-  else if (kind === 'kitchen') { K.solid(x1 - 0.6, z1 - 0.7, y, 0.9, 1.1, 0.9, 0x6a7a8a); K.box(x1 - 0.6, z1 - 0.7, y + 1.1, 0.9, 0.06, 0.9, 0x5a6a7a); stove(x1 - 0.6, z0 + 0.6); K.fm('f_table_metal', x0 + 2.2, z1 - 0.51, y, N, true); }
-  else if (kind === 'store') { for (let i = 0; i < 3; i++) K.pile(x0 + 0.6 + i * 0.75, z0 + 0.7, y, E, 0, 4); for (let i = 0; i < 3; i++) { const [wx, wz] = HW(x1 - 0.6, z0 + 0.6 + i * 0.75); K.prop.push([G.cyl(0.3, 0.3, 0.9, 12), i % 2 ? 0x46503f : 0x5a4a30, M4(wx, y + 0.45, wz)]); addCollider(wx, wz, 0.32, 0.32, 0, y + 0.9, y); } shelf(x0 + 10.9, z0 + 0.47, 0); shelf(x0 + 0.47, z0 + 4.0, E); K.pile(cx, cz, y, 0, 2, 0, 3); }
-  else if (kind === 'obs') { K.fm('f_bench_metal', cx + 1.6, cz - 0.9, y, 0, true); K.box(x0 + 0.08, cz + 1.4, y + 0.9, 0.06, 1.0, 1.4, 0xd8cfb4); K.box(x0 + 0.1, cz + 1.4, y + 1.15, 0.02, 0.5, 1.0, 0x6b8a9a); K.fm('f_chair_fold', x0 + 1.2, cz - 0.75, y, 0); stove(x1 - 0.6, z0 + 0.6); shelf(cx + 4.0, z0 + 0.47, 0); }
+/* the roof: four walls of stone baskets across it, north to south, each open at alternate ends - a lane that winds from the hatch to the flag.
+   The men of each stretch wait behind baskets facing the gap the attack comes through */
+function hmRoof(K) {
+  const C = CHAP.hermon, U = HM_U, yR = HM_RY, H = 1.9;
+  const wallZ = (x, z0, z1) => { for (let z = z0 + 0.6; z < z1 - 0.3; z += 1.2) for (let c = 0; c < 2; c++) K.gabion(x + (c ? 0.04 : 0), z, 1.0 - c * 0.08, 1.15, H / 2, yR + c * H / 2, false); const [wx, wz] = HW(x, (z0 + z1) / 2); addCollider(wx, wz, 0.5, (z1 - z0) / 2, 0, yR + H, yR - 0.2); };
+  HM_RW.forEach((x, i) => (i % 2 === 0 ? wallZ(x, U.z0 + 3.5, U.z1 - 0.9) : wallZ(x, U.z0 + 0.9, U.z1 - 3.5)));
+  const r = rng(2291), st = [[17.2, 285.0, 0, 1, 0], [20.0, 287.6, 0, 1, 1], [8.0, 300.6, 1, -1, 0], [11.4, 304.8, 1, -1, 0], [6.6, 292.2, 1, -1, 1], [0.2, 288.0, 2, 1, 0], [-2.4, 284.0, 2, 1, 0], [2.8, 293.6, 2, 1, 1],
+    [-8.6, 300.8, 3, -1, 0], [-11.0, 305.0, 3, -1, 0], [-6.2, 293.2, 3, -1, 1], [-17.2, 288.4, 4, 1, 0], [-20.0, 290.8, 4, 1, 0], [-15.4, 284.2, 4, 1, 1]];
+  // each man faces the way the lane comes at his stretch (north or south), a block of baskets in front of him
+  for (const [x, z, k, sd, dmin] of st) { K.gabion(x, z + sd * 0.95, 2.4, 1.0, 1.05, yR); const [wx, wz] = HW(x, z); C.slots.push({ x: wx, z: wz, y: yR, nx: 0, nz: sd, f: 2, b: null, used: false, fox: true, roof: true, p: [wx, wz + sd * 0.12], h: [wx, wz], grp: 'R2', room: k, kind: r() < 0.25 ? 'lmg' : 'rifle', dmin }); }
 }
-/* the small things of the post, room by room: everything the Syrians found there and everything they brought. They stand on the furniture models:
-   tables, desks and metal tables 0.76 high, the cooker 0.9, the boards of a shelf 0.21, 0.67 and 1.13, the bunk's mattresses 0.54 and 1.32, the
-   steel cabinet 1.3, the lockers 1.9, the metal bench 0.39, a chair's seat 0.42, the crates 0.26 (long) and 0.23 (ammunition) a layer */
-function hmRoomProps(x0, x1, z0, z1, f, kind, r, door = null) {
-  const y = hmY(f), cx = (x0 + x1) / 2, cz = (z0 + z1) / 2, seed = Math.round(x0 * 7 + z0 * 3 + f * 101);
-  const P = (k, lx, lz, yy, rot = 0, floor = y) => { const [x, z] = HW(lx, lz); return propAdd('hermon', k, x, yy, z, rot, floor); };
-  const On = (kinds, lx, lz, yy, w, d, sd) => { const [x, z] = HW(lx, lz); return propsOn('hermon', kinds, x, z, yy, w, d, 0, sd, y); };
-  const W = (k, lx, yy, lz, ry, sd = 1) => { const [x, z] = HW(lx, lz); return propWall('hermon', k, x, yy, z, ry, sd, 'e'); };
-  const E = Math.PI / 2, Wf = -Math.PI / 2, S = 0, N = Math.PI;   // facing +x, -x, +z, -z
-  const LC = mdlHas('f_crate_long') ? mdlBox('f_crate_long')[1] : 0.26, AC = mdlHas('f_crate_wood') ? mdlBox('f_crate_wood')[1] : 0.23;
-  if (kind === 'bunks') {
-    const [b0, bz, sg] = hmBunks(x0, z0, z1, door);   // the pillows lie at the bunks' -z end, the boots and the helmets on the floor in front of them
-    for (let i = 0; i < 2; i++) { const bx = b0 + i * 2.6; P('blanketF', bx, bz + 0.2, y + 0.54, 0.2); P('books', bx + 0.2, bz + 0.7, y + 0.54, 0.4); P('pack', bx, bz + 0.55, y + 1.32, 1.5 + i); P('boots', bx + 0.6, bz - sg * 0.95, y, 0.3); P('helmet', bx - 0.5, bz - sg * 1.15, y, 0.8); P('canteen', bx + 0.2, bz - sg * 1.2, y); }
-    P('frame', x1 - 0.4, z0 + 1.0, y + 1.9, 0.2); P('lamp', x1 - 0.4, z0 + 1.5, y + 1.9); On(['cards', 'cups', 'ashtray', 'candle', 'backgammon'], cx, z0 + 1.6, y + 0.76, 1.1, 0.6, seed + 1); On(['books', 'canteen', 'frame', 'cigs', 'thermos'], cx + 4.0, z0 + 0.47, y + 0.68, 1.3, 0.2, seed + 2); On(['helmet', 'mess', 'books', 'lamp'], cx + 4.0, z0 + 0.47, y + 1.14, 1.3, 0.2, seed + 3); P('kettle', x0 + 0.5, z0 + 0.7, y + 0.9, 0.3); P('pot', x0 + 0.72, z0 + 0.55, y + 0.9, 0); for (let i = 0; i < 3; i++) P('helmet', x1 - 0.35, z0 + 2.4 + i * 0.5, y + 1.42, 0.5 + i, y); P('cigs', x0 + 2.9, z0 + 1.3, y); P('jerry', x0 + 0.6, z0 + 1.2, y, 0.2); P('bucket', x1 - 1.6, z0 + 0.6, y); P('radio', x0 + 3.0, z0 + 2.0, y, 2.6);
-    W('calendar', x0 + 0.03, y + 1.6, z0 + 2.0, E, 2); W('portrait', cx, y + 1.75, z0 + 0.03, S, 5); W('clock', x1 - 0.03, y + 2.0, z1 - 2.2, Wf);
-  } else if (kind === 'radio') {
-    On(['radioBig', 'phone', 'papers', 'headset', 'cups', 'lamp', 'cigs', 'thermos'], cx - 0.5, cz, y + 0.76, 1.9, 0.8, seed);
-    for (let i = 0; i < 3; i++) { const bz = z0 + 1.0 + i * 1.5; P('radioBig', x1 - 0.54, bz - 0.25, y + 1.3, Wf, y); P('headset', x1 - 0.54, bz + 0.3, y + 1.3, 0.3 * i, y); }
-    On(['radioBig', 'phone', 'headset', 'papers', 'cups'], cx + 1.4, z1 - 0.65, y + 0.76, 0.8, 0.5, seed + 4); P('jerry', x0 + 0.4, z1 - 1.3, y, 0.3); P('oilcan', x0 + 1.3, z1 - 0.5, y); On(['books', 'papers', 'canteen', 'cans', 'tclock'], x0 + 2.0, z0 + 0.47, y + 0.68, 1.3, 0.2, seed + 5); On(['maptube', 'books', 'lamp', 'cigs'], x0 + 2.0, z0 + 0.47, y + 1.14, 1.3, 0.2, seed + 6); P('ammo', x0 + 0.6, z1 - 0.6, y, 0.2); P('jerry', x0 + 1.1, z1 - 0.6, y, 0.3); P('helmet', x0 + 0.5, z0 + 0.6, y, 1.0); P('pack', x0 + 1.0, z0 + 0.5, y, 2.0); P('crateS', cx + 0.5, z1 - 0.6, y, 0.1); P('radio', cx + 0.5, z1 - 0.6, y + 0.33, 0.4);
-    W('map', cx, y + 1.65, z0 + 0.03, S, 3); W('clock', x0 + 1.0, y + 2.05, z0 + 0.03, S); W('portrait', x0 + 0.03, y + 1.75, cz, E, 6); W('calendar', x0 + 0.03, y + 1.5, cz + 1.4, E, 1);
-  } else if (kind === 'map') {
-    On(['papers', 'maptube', 'maptube', 'phone', 'binocs', 'lamp', 'cups', 'ashtray', 'books'], cx - 0.15, cz + 0.1, y + 0.76, 1.2, 1.3, seed);
-    P('helmet', cx - 0.45, cz - 1.2, y + 0.42, 0.4); P('radio', cx + 0.45, cz + 1.2, y + 0.42, 0.3); P('papers', x1 - 0.5, z0 + 0.8, y + 1.3, 0.3); P('phone', x1 - 0.55, z0 + 0.65, y + 1.3, 0.1); On(['books', 'maptube', 'binocs', 'cans', 'lamp', 'papers'], cx + 4.0, z1 - 0.47, y + 0.68, 1.3, 0.2, seed + 7); On(['bottles', 'cups', 'tclock', 'books'], cx + 4.0, z1 - 0.47, y + 1.14, 1.3, 0.2, seed + 8); P('jerry', x1 - 0.6, z1 - 0.6, y, 0.3); P('pack', x1 - 1.15, z0 + 0.7, y, 1.1); P('crateS', x0 + 0.9, z1 - 0.7, y, 0.3); P('papers', x0 + 0.9, z1 - 0.7, y + 0.33, 0.8); P('thermos', x0 + 1.2, z1 - 0.9, y + 0.33);
-    W('portrait', cx + 2.0, y + 1.75, z1 - 0.03, N, 4); W('clock', x1 - 0.03, y + 2.0, cz, Wf); W('map', x1 - 0.03, y + 1.5, cz - 1.8, Wf, 9);
-  } else if (kind === 'kitchen') {
-    P('pot', x0 + 0.58, z0 + 1.0, y + 0.9, 0); P('pan', x0 + 0.66, z0 + 1.85, y + 0.76, 0.3); P('kettle', x0 + 0.66, z0 + 3.5, y + 0.76, 0.6); for (let i = 0; i < 2; i++) { const bz = z0 + 2.0 + i * 1.25; P(['plates', 'jug'][i], x0 + 0.5, bz + 0.3, y + 0.76, 0); P(['cans', 'cups'][i], x0 + 0.78, bz - 0.15, y + 0.76, 0.3); P(['bottles', 'basket'][i], x0 + 0.5, bz - 0.4, y + 0.76, 0.1); }
-    On(['plates', 'glasses', 'teapot', 'backgammon', 'bottle', 'basket', 'fruit', 'cards', 'cups'], cx + 0.6, cz, y + 0.76, 0.55, 2.3, seed);
-    On(['cans', 'bottles', 'plates', 'jug', 'cans', 'basket', 'bottle'], x0 + 0.47, z0 + 6.6, y + 0.68, 0.2, 4.4, seed + 9); On(['bottles', 'cans', 'tin', 'cups', 'teapot', 'cans'], x0 + 0.47, z0 + 6.6, y + 1.14, 0.2, 4.4, seed + 10); P('bucket', x1 - 0.6, z1 - 1.5, y, 0.2); P('cups', x1 - 0.4, z1 - 0.7, y + 1.16, 0, y); P('pot', x1 - 0.68, z0 + 0.6, y + 0.9, 0.3); P('kettle', x1 - 0.48, z0 + 0.5, y + 0.9, 0); On(['plates', 'pan', 'bottles', 'mess'], x0 + 2.2, z1 - 0.51, y + 0.76, 1.0, 0.45, seed + 11);
-    P('bucket', x0 + 1.2, z0 + 0.6, y); P('sack', x1 - 0.8, z1 - 0.7, y, 0.3); P('sack', x1 - 0.9, z1 - 1.4, y, 1.4); P('jerry', x1 - 0.6, z0 + 1.3, y, 0.2); P('tin', x1 - 0.6, z0 + 1.75, y, 0.1); P('crateS', x0 + 1.0, z1 - 0.7, y, 0.4); P('cans', x0 + 1.0, z1 - 0.7, y + 0.33, 0.2); P('primus', x0 + 1.4, z1 - 1.5, y); P('oilcan', x0 + 1.9, z1 - 1.3, y);
-    W('calendar', x1 - 0.03, y + 1.6, cz, Wf, 1); W('clock', cx, y + 2.05, z1 - 0.03, N);
-  } else if (kind === 'store') {
-    for (let i = 0; i < 6; i++) { const bx = x0 + 0.85 + (i % 3) * 1.4, bz = z1 - 0.6 - Math.floor(i / 3) * 1.1, top = y + (2 + (i % 2)) * LC; P(['ammo', 'jerry', 'cans', 'blanket', 'helmet', 'sack'][i], bx, bz, top, 0.4 * i); }
-    for (let i = 0; i < 3; i++) P(['ammo', 'jerry', 'cans'][i], x0 + 0.6 + i * 0.75, z0 + 0.7, y + 4 * AC, 0.3 * i); for (const [lx, lz, h, ks, w, d] of [[x0 + 10.9, z0 + 0.47, 0.68, ['ammo', 'ammo', 'cans', 'jerry', 'tin'], 1.3, 0.2], [x0 + 10.9, z0 + 0.47, 1.14, ['bottles', 'cans', 'blanket', 'mess', 'cans'], 1.3, 0.2], [x0 + 0.47, z0 + 4.0, 0.68, ['helmet', 'helmet', 'pack', 'blanket'], 0.2, 1.3]]) On(ks, lx, lz, y + h, w, d, seed + h * 10 + lx); P('blanketF', cx - 0.3, cz, y + 2 * LC, 0.2); P('helmet', cx + 0.4, cz + 0.2, y + 2 * LC, 0.6);
-    P('jerry', x0 + 0.5, z0 + 1.4, y, 0.2); P('jerry', x0 + 0.95, z0 + 1.4, y, -0.1); P('sack', cx, z0 + 0.8, y, 0.7); P('sack', cx + 0.6, z0 + 1.2, y, 1.9); P('tin', x1 - 1.2, z0 + 0.6, y, 0.2); P('oilcan', x1 - 1.5, z0 + 1.0, y); P('crateS', cx - 1.5, z0 + 1.1, y, 0.3); P('bottles', cx - 1.5, z0 + 1.1, y + 0.33, 0.2); P('lamp', cx - 1.2, z0 + 0.9, y + 0.33);
-    W('calendar', x0 + 0.03, y + 1.6, cz, E, 2);
-  } else if (kind === 'obs') {
-    On(['binocs', 'papers', 'phone', 'lamp', 'cups', 'maptube', 'headset', 'cigs'], x0 + 1.2, cz, y + 0.76, 1.5, 0.7, seed);
-    P('helmet', x1 - 1.3, z0 + 0.6, y, 0.4); P('ammo', x1 - 0.7, z0 + 1.25, y, 0.1); P('jerry', x0 + 0.5, z0 + 0.5, y, 0.3); On(['pack', 'helmet', 'canteen', 'blanket'], cx + 1.6, cz - 0.9, y + 0.39, 1.2, 0.25, seed + 12); On(['books', 'binocs', 'cans', 'lamp'], cx + 4.0, z0 + 0.47, y + 1.14, 1.3, 0.2, seed + 13); P('kettle', x1 - 0.6, z0 + 0.6, y + 0.9, 0.2); P('cups', x1 - 0.42, z0 + 0.72, y + 0.9, 0, y); P('thermos', x0 + 0.55, cz + 0.25, y + 0.76); P('radio', x1 - 0.8, cz + 0.6, y, 1.9);
-    W('map', x0 + 0.03, y + 1.6, cz, E, 10); W('clock', cx, y + 2.05, z0 + 0.03, S);
-  }
+/* the small things along the trenches: crates of ammunition, jerrycans, an oil drum, a rifle left against the wall - the models of the props packs */
+function hmTrenchProp(K, x, z, y, a, kind) {
+  const [lx, lz] = [x - HM.o.x, z - HM.o.z], c = Math.cos(a), s = Math.sin(a), at = (u, v) => [lx + c * u - s * v, lz + s * u + c * v], ry = -a, T = K.mdlT;
+  if (kind === 0) K.pile(...at(0, 0), y, ry, 2, 0, 1, false, T);
+  else if (kind === 1) { K.fm('jerry', ...at(0, 0), y, ry, false, 1, T); K.fm('jerry', ...at(0.22, 0.04), y, ry + 0.2, false, 1, T); }
+  else if (kind === 2) { const top = K.fm('f_crate_wood', ...at(0, 0), y, ry + Math.PI / 2, false, 1, T); K.fm('f_crate_wood', ...at(0.02, 0), top, ry + Math.PI / 2 + 0.1, false, 1, T); }
+  else if (kind === 3) K.fm('crate', ...at(0, 0), y, ry, false, 1, T);
+  else if (kind === 4) K.fm('drum', ...at(0, 0), y, ry, false, 1, T);
+  else K.ft('akms', ...at(0, 0), y, ry, 0, Math.PI / 2, false, T);
 }
 function hmBuild() {
   const C = CHAP.hermon; C.ground = makeGround({ x0: HM.o.x - 230, x1: HM.o.x + 230, z0: HM.o.z - 210, z1: HM.o.z + 345, step: 1.6, h: mapH('hermon', hmOuter, hmCarve), map: 'hermon', vegOk: (x, z) => { const lx = x - HM.o.x, lz = z - HM.o.z; return distPolyline(lx, lz, HM_ROAD_S) > 5 && hmDist(lx, lz) > 70; } }); GROUND = C.ground;
   const BAGS = [], sv = BATCH.bag; BATCH.bag = BAGS; const k0 = COVER.length; C.slots = [];
-  const K = hmBuildKit(), r = rng(2210), stone = [], L = (x, z) => [x - HM.o.x, z - HM.o.z], y0 = HM_L0, y1 = HM_PY, u0 = HM_PY, u1 = HM_U1, yR = HM_RY;
-  const { x0, x1, z0, z1 } = HM_F, [c0, c1] = HM_CORR, [dx, dz] = HM_DOOR, U = HM_U, ST = HM_STAIR, RS = HM_RSTAIR;
-  // ---- the lower level, sunk into the rock: a 6 m corridor east to west, four rooms on each side, the entrance hall with the stair at the south door ----
-  K.wall(x0, z1, x1, z1, y0 - 0.4, y1, [], 0.6); K.wall(x0, z0, x1, z0, y0 - 0.4, y1, [[dx - x0 - 1.3, dx - x0 + 1.3]], 0.6);
-  K.wall(x0, z0, x0, z1, y0 - 0.4, y1, [], 0.6); K.wall(x1, z0, x1, z1, y0 - 0.4, y1, [], 0.6);
-  const doorAt = (a, b) => [(a + b) / 2 - x0 - 1.0, (a + b) / 2 - x0 + 1.0];
-  K.wall(x0, c1, x1, c1, y0, y1 - 0.3, HM_RX.map(([a, b]) => doorAt(a, b)));                                            // the north wall of the corridor: a door into each room
-  K.wall(x0, c0, x1, c0, y0, y1 - 0.3, [...HM_RX.filter((rr) => rr[0] !== 0).map(([a, b]) => doorAt(a, b)), [1.2 - x0, 11.8 - x0]]);   // south: three doors and the wide opening of the hall
-  for (const x of [-13, 0, 13]) { K.wall(x, c1, x, z1, y0, y1 - 0.3, x === 0 ? [] : [[7, 9]]); K.wall(x, z0, x, c0, y0, y1 - 0.3, x === -13 ? [[6, 8]] : []); }   // partitions, two of them with a connecting door
-  K.con.push([boxUV(...[HW(x0, z0)[0], HW(x1, z1)[0]], y0 - 0.02, y0, ...[HW(x0, z0)[1], HW(x1, z1)[1]], 2, 2), 0x8e8a82]);   // the floor
-  // the main stair: in the hall, rising east onto the terrace through a hole in the slab; stringer walls along its sides, a step rail at the top
-  { const [a, b] = HW(ST.x0, ST.z0), [c, d] = HW(ST.x1, ST.z1); addRamp(a, c, b, d, 'x', a, HW(ST.top, 0)[0], y0, y1);
-    const n = 14, run = ST.top - ST.x0; for (let i = 0; i < n; i++) { const xx = ST.x0 + (i + 0.5) * run / n, [sx, sz] = HW(xx, (ST.z0 + ST.z1) / 2); K.con.push([new THREE.BoxGeometry(run / n + 0.02, 0.2, ST.z1 - ST.z0).translate(sx, y0 + (i + 1) / n * (y1 - y0) - 0.1, sz), 0x9a968c]); }
-    for (let i = 0; i < 4; i++) { const xa = ST.x0 + i * run / 4, xb = xa + run / 4, top = y0 + (i + 1) / 4 * (y1 - y0) + 0.95; for (const zz of [ST.z0, ST.z1]) K.wall(xa, zz, xb, zz, y0 - 0.2, top, [], 0.16); }
-    for (let i = 0; i < 4; i++) { const h = Math.max(0.25, (i + 0.15) / 4 * (y1 - y0)), [bx, bz] = HW(ST.x0 + (i + 0.5) * run / 4, (ST.z0 + ST.z1) / 2); K.con.push([new THREE.BoxGeometry(run / 4, h, ST.z1 - ST.z0 - 0.1).translate(bx, y0 + h / 2, bz), 0x8e8a82]); }   // the solid under the steps
-    K.wall(ST.x1, ST.z0, ST.x1, ST.z1, y0, y1 - 0.45, [], 0.12);   // the high end is closed below, so nobody walks in under the steps
-  }
-  // the slab, split round the stair hole; the terrace apron 3.8 m wide all round, with the strip for the door trench left open; the lower level's walls hold it up
+  const K = hmBuildKit(), r = rng(2210), stone = [], L = (x, z) => [x - HM.o.x, z - HM.o.z], y0 = HM_L0, y1 = HM_PY, yR = HM_RY;
+  const { x0, x1, z0, z1 } = HM_F, [dx] = HM_DOOR, U = HM_U, ST = HM_STAIR, RS = HM_RSTAIR;
+  // ---- the two floors: walls, paint, floors, ceilings; the furniture and the defenders' places ----
+  hmFloorGeo(K, 0); hmFloorGeo(K, 1); hmFurnish(K, 0); hmFurnish(K, 1); hmDoorsBuild();
+  // the hall's stair: rising east along the hall's south wall through a hole in the slab into the signals room; a stringer wall along its open
+  // side rising with it, the solid under the steps, and the high end walled in below so nobody walks in under it
+  { const [a, b] = HW(ST.x0, ST.z0), [c, d] = HW(ST.x1, ST.z1); addRamp(a, c, b, d, 'x', a, c, y0, y1);
+    const n = 15, run = ST.x1 - ST.x0, w = ST.z1 - ST.z0, zc = (ST.z0 + ST.z1) / 2; for (let i = 0; i < n; i++) { const [sx, sz] = HW(ST.x0 + (i + 0.5) * run / n, zc); K.con.push([new THREE.BoxGeometry(run / n + 0.02, 0.2, w).translate(sx, y0 + (i + 1) / n * (y1 - y0) - 0.1, sz), 0x9a968c]); }
+    for (let i = 0; i < 4; i++) { const xa = ST.x0 + i * run / 4, xb = xa + run / 4, top = y0 + (i + 1) / 4 * (y1 - y0) + 0.95; K.wall(xa, ST.z1 + 0.08, xb, ST.z1 + 0.08, y0, Math.min(top, y1 - 0.31), [], 0.16, 0x7c8470, null, K.skin); }
+    for (let i = 0; i < 4; i++) { const h = Math.max(0.25, (i + 0.15) / 4 * (y1 - y0)), [bx, bz] = HW(ST.x0 + (i + 0.5) * run / 4, zc); K.con.push([new THREE.BoxGeometry(run / 4, h, w - 0.1).translate(bx, y0 + h / 2, bz), 0x8e8a82]); }
+    K.wall(ST.x1 + 0.06, ST.z0, ST.x1 + 0.06, ST.z1 + 0.16, y0, y1 - 0.45, [], 0.12, 0x7c8470, null, K.skin);
+    // round the hole upstairs, a low wall on three sides; the east end, where the stair comes up, open
+    K.wall(ST.x0 - 0.08, ST.z0 - 0.16, ST.x0 - 0.08, ST.z1 + 0.16, y1, y1 + 0.95, [], 0.16, 0x6c7a7e, null, K.skin); for (const zz of [ST.z0 - 0.08, ST.z1 + 0.08]) K.wall(ST.x0, zz, ST.x1 - 0.2, zz, y1, y1 + 0.95, [], 0.16, 0x6c7a7e, null, K.skin); }
+  // the store's stair to the roof: along its east wall, rising south through the hatch; its stringer wall on the open side, the high end walled in below
+  { const [a, b] = HW(RS.x0, RS.z0), [c, d] = HW(RS.x1, RS.z1); addRamp(a, c, b, d, 'z', d, b, y1, yR);
+    const n = 16, run = RS.z1 - RS.z0, w = RS.x1 - RS.x0, xc = (RS.x0 + RS.x1) / 2; for (let i = 0; i < n; i++) { const [sx, sz] = HW(xc, RS.z1 - (i + 0.5) * run / n); K.con.push([new THREE.BoxGeometry(w, 0.2, run / n + 0.02).translate(sx, y1 + (i + 1) / n * (yR - y1) - 0.1, sz), 0x9a968c]); }
+    for (let i = 0; i < 4; i++) { const za = RS.z1 - i * run / 4, zb = za - run / 4, top = y1 + (i + 1) / 4 * (yR - y1) + 0.95; K.wall(RS.x0 - 0.08, za, RS.x0 - 0.08, zb, y1, Math.min(top, HM_U1 - 0.01), [], 0.16, 0xa8a49a, null, K.skin); const h = Math.max(0.25, (i + 0.15) / 4 * (yR - y1)), [bx, bz] = HW(xc, (za + zb) / 2); K.con.push([new THREE.BoxGeometry(w - 0.1, h, run / 4).translate(bx, y1 + h / 2, bz), 0x8e8a82]); }
+    K.wall(RS.x0 - 0.16, RS.z0 - 0.06, RS.x1, RS.z0 - 0.06, y1, yR - 0.45, [], 0.12, 0xa8a49a, null, K.skin);
+    // on the roof, round the hatch: low walls west, north and east; the south end, where the stair comes out, open
+    K.wall(RS.x0 - 0.08, RS.z0, RS.x0 - 0.08, RS.z1 + 0.16, yR, yR + 1.0, [], 0.16, 0xc9c5bc); K.wall(RS.x0 - 0.16, RS.z1 + 0.08, RS.x1 + 0.2, RS.z1 + 0.08, yR, yR + 1.0, [], 0.16, 0xc9c5bc); K.wall(RS.x1 + 0.12, RS.z0 - 0.5, RS.x1 + 0.12, RS.z1 + 0.16, yR, yR + 1.0, [], 0.16, 0xc9c5bc); }
+  // the slab over the lower floor, split round the stair hole; the terrace apron 3.8 m wide all round, with the strip for the door trench left open
   K.slab(x0 - 0.3, x1 + 0.3, ST.z1, z1 + 0.3, y1, 0.3); K.slab(x0 - 0.3, x1 + 0.3, z0 - 0.3, ST.z0, y1, 0.3); K.slab(x0 - 0.3, ST.x0, ST.z0, ST.z1, y1, 0.3); K.slab(ST.x1, x1 + 0.3, ST.z0, ST.z1, y1, 0.3);
   { const A = 3.8, t = 0.7; for (const [a, b, c, d] of [[x0 - A, dx - 1.6, z0 - A, z0 - 0.3], [dx + 1.6, x1 + A, z0 - A, z0 - 0.3], [x0 - A, x1 + A, z1 + 0.3, z1 + A], [x0 - A, x0 - 0.3, z0 - 0.3, z1 + 0.3], [x1 + 0.3, x1 + A, z0 - 0.3, z1 + 0.3]]) K.slab(a, b, c, d, y1, t, false);
-    // the walkable surfaces: the slab and apron, minus the stair hole and the door strip
     const F = (a, b, c, d, y) => { const [p, q] = HW(a, c), [s, t2] = HW(b, d); addFloor(p, s, q, t2, y); };
     F(x0 - 3.2, x1 + 3.2, ST.z1, z1 + 3.2, y1); F(x0 - 3.2, dx - 1.6, z0 - 3.2, ST.z0, y1); F(dx + 1.6, x1 + 3.2, z0 - 3.2, ST.z0, y1); F(x0 - 3.2, ST.x0, ST.z0, ST.z1, y1); F(ST.x1, x1 + 3.2, ST.z0, ST.z1, y1); F(dx - 1.6, dx + 1.6, z0 - 0.3, ST.z0, y1);
     // the concrete-walled approach: the last stretch of the door trench between retaining walls
     { const [a, b] = HM_SPURS[3], ux = b[0] - a[0], uz = b[1] - a[1], l = Math.hypot(ux, uz), nx = -uz / l, nz = ux / l; for (const sd of [-1, 1]) K.wall(a[0] + ux * 0.35 + nx * sd * 1.5, a[1] + uz * 0.35 + nz * sd * 1.5, b[0] + nx * sd * 1.5, b[1] + nz * sd * 1.5, y0 - 0.3, y1 + 0.25, [], 0.4); }
-    // a low wall round the stair hole on the terrace, open on the east where the stair comes out
-    K.wall(ST.x0, ST.z0, ST.x0, ST.z1, y1, y1 + 0.9, [], 0.15); K.wall(ST.x0, ST.z0, ST.x1 - 0.5, ST.z0, y1, y1 + 0.9, [], 0.15); K.wall(ST.x0, ST.z1, ST.x1 - 0.5, ST.z1, y1, y1 + 0.9, [], 0.15);
-  }
-  // the rooms of the lower level: the door of each is on the corridor wall
-  const RK_N = ['bunks', 'store', 'radio', 'bunks'], RK_S = ['kitchen', 'map', null, 'bunks'];
-  HM_RX.forEach(([a, b], i) => { hmRoom(K, a, b, c1, z1, 0, RK_N[i], r, { z: c1, nz: 1 }); if (RK_S[i]) hmRoom(K, a, b, z0, c0, 0, RK_S[i], r, { z: c0, nz: -1 }); });
-  // the entrance hall: crates to fight from, a sign for the stair
-  for (const [lx, lz] of [[1.4, 279.4], [11.6, 279.4]]) K.pile(lx, lz, y0, 0, 2, 2); hmCover(1.4, 280.1, 5.1, -7.1, 0, 0.95); hmCover(11.6, 280.1, -5.1, -7.1, 0, 0.95); hmCover(1.0, 274.5, 5.5, 8, 0, 0.6);
-  for (const [lx, lz] of [[12.2, 274.5], [12.2, 275.6], [1.2, 286.2]]) K.pile(lx, lz, y0, 0, 2, 0);
-  { const [sx, sz] = HW(12.6, 284); sign('↑ לגג', 'plain', sx, y0 + 2.0, sz, -Math.PI / 2, 1.3); const [tx, tz] = HW(6.5, 292.85); sign('← המסדרון →', 'plain', tx, y0 + 2.2, tz, Math.PI, 1.6); }
-  for (const x of [-20, -7, 7, 20]) { K.box(x, (c0 + c1) / 2, y0 + 2.6, 0.12, 0.12, 0.12, 0xfff2c8); } K.lamps.push([-14, 290, y0 + 2.5], [14, 290, y0 + 2.5]);
-  // the Syrians' barricades in the corridor: sandbags across half its width, a man behind each
-  for (const [x, sd] of [[-16, 1], [-3, -1], [18, 1]]) { const [wx, wz] = HW(x, 290 + sd * 1.3); for (let k = 0; k < 12; k++) BAGS.push([wx + ((k % 6) - 2.5) * 0.52, y0 + 0.1 + Math.floor(k / 6) * 0.2, wz, 0]); addCollider(wx, wz, 1.6, 0.25, 0, y0 + 0.5, y0 - 0.2); hmCover(x + 0.7, 290 + sd * 1.3, -1, 0, 0, 0.5); }
-  // ---- the upper level: three rooms in a block on the slab, their doors onto the terrace; slit windows north, over Syria ----
-  K.wall(U.x0, U.z1, U.x1, U.z1, u0, u1); K.wall(U.x0, U.z0, U.x1, U.z0, u0, u1, [-15, 0, 15].map((x) => [x - U.x0 - 1.0, x - U.x0 + 1.0])); K.wall(U.x0, U.z0, U.x0, U.z1, u0, u1); K.wall(U.x1, U.z0, U.x1, U.z1, u0, u1);
-  K.wall(-8, U.z0, -8, U.z1, u0, u1, [[7, 9]]); K.wall(8, U.z0, 8, U.z1, u0, u1, [[7, 9]]);
-  K.slab(U.x0 - 0.3, U.x1 + 0.3, U.z0 - 0.3, U.z1 + 0.3, yR, 0.3);
-  hmRoom(K, U.x0, -8, U.z0, U.z1, 1, 'obs', r, { z: U.z0, nz: 1 }); hmRoom(K, -8, 8, U.z0, U.z1, 1, 'radio', r, { z: U.z0, nz: 1 }); hmRoom(K, 8, U.x1, U.z0, U.z1, 1, 'map', r, { z: U.z0, nz: 1 });
-  for (const lx of [-15, -5, 5, 15]) K.box(lx, U.z1 + 0.05, u0 + 1.4, 2.2, 0.06, 0.1, 0x101010);
-  { const [a, b] = HW(U.x0 - 0.3, U.z0 - 0.3), [c, d] = HW(U.x1 + 0.3, U.z1 + 0.3); addFloor(a, c, b, d, yR); }
-  // the outside stair to the roof, along the east wall: concrete steps, a parapet on its outer side rising with it, a landing with its own parapet
-  { const [a, b] = HW(RS.x0 - 0.2, RS.z0), [c, d] = HW(RS.x1, RS.z1); addRamp(a, c, b, d, 'z', b, d, y1, yR);
-    const n = 16, run = RS.z1 - RS.z0; for (let i = 0; i < n; i++) { const zz = RS.z0 + (i + 0.5) * run / n, [sx, sz] = HW((RS.x0 + RS.x1) / 2, zz); K.con.push([new THREE.BoxGeometry(RS.x1 - RS.x0, 0.2, run / n + 0.02).translate(sx, y1 + (i + 1) / n * (yR - y1) - 0.1, sz), 0x9a968c]); }
-    for (let i = 0; i < 4; i++) { const za = RS.z0 + i * run / 4, zb = za + run / 4, top = y1 + (i + 1) / 4 * (yR - y1) + 1.0; K.wall(RS.x1 + 0.12, za, RS.x1 + 0.12, zb, y1 - 0.2, top, [], 0.25); const [bx, bz] = HW((RS.x0 + RS.x1) / 2, (za + zb) / 2); K.con.push([new THREE.BoxGeometry(RS.x1 - RS.x0, Math.max(0.3, (i + 0.5) / 4 * (yR - y1) - 0.3), run / 4).translate(bx, y1 + Math.max(0.3, (i + 0.5) / 4 * (yR - y1) - 0.3) / 2 - 0.3, bz), 0x8e8a82]); }
-    K.slab(RS.x0 - 0.2, RS.x1 + 0.3, RS.z1, RS.zl + 0.3, yR, 0.3); { const [a2, b2] = HW(RS.x0 - 0.2, RS.z1), [c2, d2] = HW(RS.x1 + 0.3, RS.zl + 0.3); addFloor(a2, c2, b2, d2, yR); }
-    K.wall(RS.x1 + 0.12, RS.z1, RS.x1 + 0.12, RS.zl + 0.3, yR, yR + 1.0, [], 0.25); K.wall(RS.x0 - 0.2, RS.zl + 0.3, RS.x1 + 0.3, RS.zl + 0.3, yR, yR + 1.0, [], 0.25);
-    const [sx, sz] = HW(RS.x1 + 0.3, RS.z0 - 1.2); sign('↑ לגג', 'plain', sx, y1 + 2.1, sz, -Math.PI / 2, 1.3);
-  }
-  // ---- the gabion blast layer: baskets of stone round the terrace, round the roof, and the firing blocks on the roof ----
+    // the roof slab over the upper block, split round the hatch, and its walkable top
+    K.slab(U.x0 - 0.3, U.x1 + 0.3, U.z0 - 0.3, RS.z0, yR, 0.3); K.slab(U.x0 - 0.3, U.x1 + 0.3, RS.z1, U.z1 + 0.3, yR, 0.3); K.slab(U.x0 - 0.3, RS.x0, RS.z0, RS.z1, yR, 0.3); K.slab(RS.x1, U.x1 + 0.3, RS.z0, RS.z1, yR, 0.3);
+    F(U.x0 - 0.3, U.x1 + 0.3, U.z0 - 0.3, RS.z0, yR); F(U.x0 - 0.3, U.x1 + 0.3, RS.z1, U.z1 + 0.3, yR); F(U.x0 - 0.3, RS.x0, RS.z0, RS.z1, yR); F(RS.x1, U.x1 + 0.3, RS.z0, RS.z1, yR); }
+  // ---- the gabion blast layer: baskets of stone round the terrace (nobody walks the terrace: they close it off from the yard) and round the roof ----
   for (let x = x0 - 2.5; x <= x1 + 2.5; x += 1.2) { if (Math.abs(x - dx) > 2.4) K.gabion(x, z0 - 2.6, 1.15, 1.0, 1.1, y1); K.gabion(x, z1 + 2.6, 1.15, 1.0, 1.1, y1); }
   for (let z = z0 - 1.5; z <= z1 + 1.5; z += 1.2) { K.gabion(x0 - 2.6, z, 1.0, 1.15, 1.1, y1); K.gabion(x1 + 2.6, z, 1.0, 1.15, 1.1, y1); }
   for (let x = U.x0 + 0.6; x <= U.x1 - 0.5; x += 1.2) { K.gabion(x, U.z1 - 0.5, 1.15, 1.0, 1.1, yR); K.gabion(x, U.z0 + 0.5, 1.15, 1.0, 1.1, yR); }
-  for (let z = U.z0 + 1.7; z <= U.z1 - 1.6; z += 1.2) { K.gabion(U.x0 + 0.5, z, 1.0, 1.15, 1.1, yR); if (z < RS.z1 - 0.8 || z > RS.zl + 0.6) K.gabion(U.x1 - 0.5, z, 1.0, 1.15, 1.1, yR); }
-  // the terrace nests: gabion blocks facing the stair exit; the roof blocks facing the landing
-  // a gabion block is cover for two: one man at each end of it, both facing the same way
-  let nestId = 0;
-  const nest = (lx, lz, fx, fz, y, f, grp, long) => { const l = Math.hypot(fx, fz) || 1; fx /= l; fz /= l; K.gabion(lx, lz, long ? 1.0 : 2.4, long ? 2.4 : 1.0, 1.05, y); const [wx, wz] = HW(lx, lz), sx = -fz, sz = fx, id = 'n' + nestId++;
-    for (const o of [-0.7, 0.7]) C.slots.push({ x: wx - fx * 0.8 + sx * o, z: wz - fz * 0.8 + sz * o, y, nx: fx, nz: fz, f, b: null, used: false, fox: true, roof: f === 2, p: [wx - fx * 0.85 + sx * o, wz - fz * 0.85 + sz * o], h: [wx - fx * 1.35 + sx * o, wz - fz * 1.35 + sz * o], grp, bay: id }); addCover(wx - fx * 0.75, wz - fz * 0.75, fx, fz, 1.0); };
-  nest(-15, 287, 26, -3, y1, 1, 'T2', true); nest(16, 287.5, -5, -3.5, y1, 1, 'T2', false); nest(-7, 290.6, 18, -6.5, y1, 1, 'T2', false); nest(7, 290.6, 4, -6.5, y1, 1, 'T2', false); nest(-21, 281, 32, 3, y1, 1, 'T2', true); nest(21, 276, -10, 8, y1, 1, 'T2', true);
-  for (const [lx, lz] of [[12, 297], [12, 304], [4, 297], [4, 304], [-4, 300.5], [-12, 297], [-12, 304], [-18, 300.5]]) nest(lx, lz, 1, 0, yR, 2, 'R2', true);
-  nest(18, 306.4, 0.76, -0.65, yR, 2, 'R2', false); nest(18, 294.6, 0.64, 0.77, yR, 2, 'R2', false);
+  for (let z = U.z0 + 1.7; z <= U.z1 - 1.6; z += 1.2) { K.gabion(U.x0 + 0.5, z, 1.0, 1.15, 1.1, yR); if (z < RS.z0 - 0.8 || z > RS.z1 + 0.8) K.gabion(U.x1 - 0.5, z, 1.0, 1.15, 1.1, yR); }
+  hmRoof(K);
   // antennas, the radar dome on the terrace, the observation cupola on the roof, a water tank in the yard
   for (const [lx, lz, hgt] of [[-31, 300, 22], [31, 280, 28]]) { const [wx, wz] = HW(lx, lz), y = groundAt(wx, wz); for (const [ox, oz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) K.prop.push([G.cyl(0.07, 0.09, hgt, 5), 0x8e8e88, M4(wx + ox * 0.9, y + hgt / 2, wz + oz * 0.9, oz * 0.025, 0, -ox * 0.025)]); for (let k = 1; k < hgt / 1.6; k++) { const yy = y + k * 1.6, w = 0.9 * (1 - k * 1.6 / hgt * 0.35); K.prop.push([G.box(w * 2, 0.04, 0.04), 0x8e8e88, M4(wx, yy, wz - w, 0, 0, k % 2 ? 0.5 : -0.5)], [G.box(w * 2, 0.04, 0.04), 0x8e8e88, M4(wx, yy, wz + w, 0, 0, k % 2 ? -0.5 : 0.5)], [G.box(0.04, 0.04, w * 2), 0x8e8e88, M4(wx - w, yy, wz, k % 2 ? 0.5 : -0.5, 0, 0)], [G.box(0.04, 0.04, w * 2), 0x8e8e88, M4(wx + w, yy, wz, k % 2 ? -0.5 : 0.5, 0, 0)]); } K.prop.push([G.sph(1.3, 14, 8, 0, Math.PI * 2, 0, Math.PI * 0.45), 0xd8d8d0, M4(wx, y + hgt * 0.78, wz + 1.1, -1.3, 0, 0)]); addCollider(wx, wz, 1.1, 1.1, 0, y + hgt, y); }
-  { const [wx, wz] = HW(-16, 279); K.prop.push([G.sph(3.4, 22, 12, 0, Math.PI * 2, 0, Math.PI * 0.55), 0xe8e8e2, M4(wx, y1 + 0.4, wz)], [G.cyl(3.5, 3.6, 0.6, 22), 0xbab8b0, M4(wx, y1 + 0.3, wz)]); addCollider(wx, wz, 3.0, 3.0, 0, y1 + 3.6, y1); }
-  { const [wx, wz] = HW(-7, 300.5); K.prop.push([G.cyl(0.7, 0.7, 1.0, 12), 0x55524a, M4(wx, yR + 0.5, wz)], [G.box(1.0, 0.28, 0.3), 0x1a1a1a, M4(wx, yR + 0.9, wz + 0.5)]); addCollider(wx, wz, 0.75, 0.75, 0, yR + 1.0, yR); }
+  { const [wx, wz] = HW(-16, 276); K.prop.push([G.sph(3.4, 22, 12, 0, Math.PI * 2, 0, Math.PI * 0.55), 0xe8e8e2, M4(wx, y1 + 0.4, wz)], [G.cyl(3.5, 3.6, 0.6, 22), 0xbab8b0, M4(wx, y1 + 0.3, wz)]); addCollider(wx, wz, 3.0, 3.0, 0, y1 + 3.6, y1); }
+  { const [wx, wz] = HW(-8, 296.4); K.prop.push([G.cyl(0.7, 0.7, 1.0, 12), 0x55524a, M4(wx, yR + 0.5, wz)], [G.box(1.0, 0.28, 0.3), 0x1a1a1a, M4(wx, yR + 0.9, wz + 0.5)]); addCollider(wx, wz, 0.75, 0.75, 0, yR + 1.0, yR); }
   { const [wx, wz] = HW(-30, 278), y = groundAt(wx, wz); for (const [ox, oz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) K.prop.push([G.cyl(0.08, 0.08, 3, 5), 0x6e6a60, M4(wx + ox * 1.1, y + 1.5, wz + oz * 1.1)]); K.prop.push([G.cyl(1.6, 1.6, 2.2, 16), 0x8a8a7a, M4(wx, y + 4.1, wz)]); addCollider(wx, wz, 1.4, 1.4, 0, y + 5.2); }
   // ---- the trenches: timber revetments and duckboards, sandbags on the lips of both rings ----
   const lipBag = (pts, off) => pts.map(([x, z], i) => { const j = Math.min(i + 1, pts.length - 1), p = pts[Math.max(0, j - 1)], q = pts[j], dx2 = q[0] - p[0], dz2 = q[1] - p[1], l = Math.hypot(dx2, dz2) || 1; return HW(x - dz2 / l * off, z + dx2 / l * off); });
@@ -10458,7 +11240,7 @@ function hmBuild() {
       if (HM_SPURS.some((sp) => sp && distPolyline(bx, bz, sp) < 4) || HM_PILL.some((b) => Math.hypot(bx - b.cx, bz - b.cz) < 6)) continue;
       bagWall([[wx + nx * 1.45 + tx * 0.9, wz + nz * 1.45 + tz * 0.9], [wx + nx * 0.8 + tx * 0.9, wz + nz * 0.8 + tz * 0.9]], 4, g - 0.05, false);
       for (const o of [0.6, 1.1]) C.slots.push({ x: wx + nx * o, z: wz + nz * o, y: g, nx: -tx, nz: -tz, f: 0, b: null, used: false, fox: true, p: [wx + nx * o - tx * 0.3, wz + nz * o - tz * 0.3], h: [wx + nx * o + tx * 0.4, wz + nz * o + tz * 0.4], grp: 'T', ring, at: [bx, bz], bay: ring + i }); addCover(wx + nx * 0.6 + tx * 0.2, wz + nz * 0.6 + tz * 0.2, -tx, -tz, 0.8); } }
-  for (const line of LINES) { const d = densify(line, 2.6); for (let i = 1; i < d.length; i++) { if (hmDist(...d[i]) < 3.5 || HM_PILL.some((b) => Math.hypot(d[i][0] - b.cx, d[i][1] - b.cz) < 4.6)) continue; const [x, z] = d[i], [px, pz] = d[i - 1], a = Math.atan2(z - pz, x - px), sd = i % 2 ? 1 : -1, [wx, wz] = HW(x - Math.sin(a) * 0.85 * sd, z + Math.cos(a) * 0.85 * sd); hmProps(K.prop, K.wood, wx, wz, groundAt(wx, wz) + 0.06, a, r, Math.floor(r() * 10)); } }
+  for (const line of LINES) { const d = densify(line, 4.2); for (let i = 1; i < d.length; i++) { if (hmDist(...d[i]) < 3.5 || HM_PILL.some((b) => Math.hypot(d[i][0] - b.cx, d[i][1] - b.cz) < 4.6)) continue; const [x, z] = d[i], [px, pz] = d[i - 1], a = Math.atan2(z - pz, x - px), sd = i % 2 ? 1 : -1, [wx, wz] = HW(x - Math.sin(a) * 0.85 * sd, z + Math.cos(a) * 0.85 * sd); hmTrenchProp(K, wx, wz, groundAt(wx, wz) + 0.04, a, Math.floor(r() * 6)); } }
   // ---- the trench bunkers: concrete boxes sunk into the outer wall of the rings, roofed with a slab and a layer of earth and bags; a slit
   //      in the trench-side wall looks back down the trench, the door is at its far end. One machine gun in each ----
   HM_PILL.forEach((b, bi) => { const at = (u, v) => [b.x + b.tx * u + b.nx * v, b.z + b.tz * u + b.nz * v], fy = groundAt(...HW(b.cx, b.cz)), W = (u0, v0, u1, v1, y0, y1) => K.wall(...at(u0, v0), ...at(u1, v1), fy + y0, fy + y1, [], 0.35);
@@ -10472,44 +11254,64 @@ function hmBuild() {
     { const [ax, az] = HW(...at(1.2, -0.75)), [bx2, bz2] = HW(...at(1.2, -1.05)), [cx2, cz2] = HW(...at(1.25, 0.55)); C.slots.push({ x: ax, z: az, y: fy, nx: -b.nx, nz: -b.nz, f: 0, b: null, used: false, fox: true, p: [bx2, bz2], h: [cx2, cz2], grp: 'B', ring: b.ring, at: [b.cx, b.cz], bay: 'pb' + bi, door: true }); } });
   // the Syrian flag on the mast on the roof (in 1973 the Federation flag, the same red, white and black with the gold hawk as Egypt's): it flies
   // over the post the whole battle, and comes down at the end
-  { const [mx, mz] = HW(-16, 300.5); C.syFlag = flag(mx, mz, 'sy', 9, Math.PI * 0.4); C.syFlag.position.y = yR; }
-  // the roof parapet, looking out over the rings: the Syrians fire down from it while the rings are fought for
-  for (const [lx, lz, nx, nz] of [[-15, 294.5, 0, -1], [0, 294.5, 0, -1], [15, 294.5, 0, -1], [-20.5, 297, -1, 0], [-20.5, 304, -1, 0], [20.5, 297, 1, 0], [-12, 306.5, 0, 1], [0, 306.5, 0, 1], [12, 306.5, 0, 1]]) { const [wx, wz] = HW(lx, lz); C.slots.push({ x: wx, z: wz, y: yR, nx, nz, f: 2, b: null, used: false, fox: true, roof: true, p: [wx + nx * 0.25, wz + nz * 0.25], h: [wx - nx * 0.9, wz - nz * 0.9], grp: 'R' }); }
+  { const [mx, mz] = HW(...HM_MAST); C.syFlag = flag(mx, mz, 'sy', 9, Math.PI * 0.4); C.syFlag.position.y = yR; }
+  // the roof's edge, looking out over the rings: the Syrians fire down from it while the rings are fought for
+  for (const [lx, lz, nx, nz] of [[-15, 281.5, 0, -1], [0, 281.5, 0, -1], [16, 281.5, 0, -1], [-20.5, 287, -1, 0], [-20.5, 301, -1, 0], [20.5, 287, 1, 0], [-9, 306.5, 0, 1], [0, 306.5, 0, 1], [9.5, 306.5, 0, 1]]) { const [wx, wz] = HW(lx, lz); C.slots.push({ x: wx, z: wz, y: yR, nx, nz, f: 2, b: null, used: false, fox: true, roof: true, p: [wx + nx * 0.25, wz + nz * 0.25], h: [wx - nx * 0.9, wz - nz * 0.9], grp: 'R' }); }
   // the sangars in the yard between the inner ring and the bunker, facing out at the ring
   const sangar = (lx, lz, fx, fz, grp, k, hi = 0) => { const l = Math.hypot(fx, fz) || 1; fx /= l; fz /= l; const [wx, wz] = HW(lx, lz), y = groundAt(wx, wz) + hi, a0 = Math.atan2(fx, fz); for (let s = -95; s <= 95; s += 19) { const t = a0 + THREE.MathUtils.degToRad(s); stone.push([wx + Math.sin(t) * 1.35, wz + Math.cos(t) * 1.35, 0.35 + r() * 0.2, r() * 6, hmRock(r), 0.25, 0.6]); } addCover(wx - fx * 0.3, wz - fz * 0.3, fx, fz, 0.7);
     const s = { x: wx, z: wz, y: y - 0.05, nx: fx, nz: fz, f: 0, b: null, used: false, fox: true, p: [wx + fx * 0.2, wz + fz * 0.2], h: [wx - fx * 0.3, wz - fz * 0.3], grp, k }; C.slots.push(s); if (hi) stone.push([wx, wz, hi * 0.9, r() * 6, hmRock(r), 0.3, 0.72]); return s; };
   for (const [lx, lz, fx, fz] of [[0, 314, 0, 1], [-18, 313, -0.4, 0.92], [-8, 266, -0.3, -0.95], [16, 267, 0.3, -0.95], [-33, 296, -0.9, 0.3], [33, 284, 0.9, -0.3]]) { const s0 = sangar(lx, lz, fx, fz, 'Y', 0), l = Math.hypot(fx, fz), sx = -fz / l * 0.8, sz = fx / l * 0.8; C.slots.push({ ...s0, x: s0.x + sx, z: s0.z + sz, p: [s0.p[0] + sx, s0.p[1] + sz], h: [s0.h[0] + sx, s0.h[1] + sz] }); }
-  // ---- the cable-car station on the road: a concrete building, the pylon, the cable climbing to the summit, a stuck gondola ----
+  // ---- the cable-car station on the road: a concrete building, the pylon, the cable climbing to the summit ----
   { const [cx, cz] = HM_CABLE, gy = groundAt(...HW(cx, cz)) - 0.2, wl = (ax, az, bx, bz, g = []) => K.wall(ax, az, bx, bz, gy, gy + 3.2, g, 0.3);
     wl(cx - 6, cz - 4, cx + 6, cz - 4, [[2.6, 3.8], [8.4, 9.6]]); wl(cx - 6, cz + 4, cx + 6, cz + 4, [[5, 7]]); wl(cx - 6, cz - 4, cx - 6, cz + 4, [[3.4, 4.6]]); wl(cx + 6, cz - 4, cx + 6, cz + 4); wl(cx, cz - 4, cx, cz + 4, [[3.4, 4.6]]);
     K.slab(cx - 6.3, cx + 6.3, cz - 4.3, cz + 4.3, gy + 3.5, 0.3); const [wx, wz] = HW(cx, cz); K.con.push([boxUV(wx - 6, wx + 6, gy - 0.02, gy + 0.02, wz - 4, wz + 4, 2, 2), 0x8e8a82]);
-    for (const [lx, lz, f] of [[cx - 3, cz + 1.5, 'store'], [cx + 3, cz - 1.5, 'radio']]) { const top = K.fm('f_table_wood', lx, lz, gy, 0, true, 1, K.mdlC); const [ax, az] = HW(lx, lz - 0.8); COVER.push({ x: ax, z: az, nx: 0, nz: -1, h: 0.9, by: null }); const [tx, tz] = HW(lx, lz); propsOn('hermon', f === 'store' ? ['jerry', 'cans', 'ammo', 'lamp'] : ['radioBig', 'phone', 'cups', 'papers'], tx, tz, top, 1.5, 0.7, 0, 77, gy); }
-    { const [tx, tz] = HW(cx - 4.5, cz - 2.5); propAdd('hermon', 'crateS', tx, gy, tz, 0.3, gy); propAdd('hermon', 'bottles', tx, gy + 0.33, tz, 0, gy); const [ux, uz] = HW(cx + 4.8, cz + 2.8); propAdd('hermon', 'sack', ux, gy, uz, 0.5, gy); propAdd('hermon', 'jerry', ux + 0.6, gy, uz - 0.4, 0.2, gy); propAdd('hermon', 'helmet', ux - 0.5, gy, uz + 0.5, 0.9, gy); }
+    const M = K.mdlC;
+    for (const [lx, lz, f] of [[cx - 3, cz + 1.5, 'store'], [cx + 3, cz - 1.5, 'radio']]) { const top = K.fm('f_table_wood', lx, lz, gy, 0, true, 1, M); const [ax, az] = HW(lx, lz - 0.8); COVER.push({ x: ax, z: az, nx: 0, nz: -1, h: 0.9, by: null });
+      if (f === 'store') { K.fm('jerry', lx - 0.5, lz, top, 0.3, false, 1, M); K.fm('f_lamp_k', lx + 0.1, lz + 0.1, top, 0, false, 1, M); K.ft('akms', lx + 0.45, lz - 0.1, top, 1.4, 0, Math.PI / 2, false, M); }
+      else { K.fm('f_radio_set', lx - 0.3, lz + 0.12, top, Math.PI, false, 1, M); K.fm('f_radio_set', lx + 0.35, lz + 0.15, top, Math.PI + 0.2, false, 1, M); K.fm('f_chair', lx, lz - 0.75, gy, 0.2, false, 1, M); } }
+    K.pile(cx - 4.5, cz - 2.5, gy, 0.3, 2, 1, 2, true, M); K.fm('drum', cx + 4.8, cz + 2.8, gy, 0.5, true, 1, M); K.fm('jerry', cx + 4.2, cz + 2.4, gy, 0.2, false, 1, M); K.ft('f_chair', cx - 1.5, cz - 2.2, gy, 2.1, -Math.PI / 2, 0, false, M);
     const [px, pz] = HW(cx + 9, cz + 12), py = groundAt(px, pz); for (const [ox, oz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) K.prop.push([G.cyl(0.1, 0.14, 14, 5), 0x7e7e78, M4(px + ox * 0.8, py + 7, pz + oz * 0.8)]); K.prop.push([G.box(4.5, 0.4, 0.6), 0x6e6e68, M4(px, py + 14, pz)], [G.cyl(0.9, 0.9, 0.3, 16), 0x3a3a36, M4(px - 2, py + 14.3, pz, Math.PI / 2, 0, 0)]);
-    const [tx, tz] = HW(28, 304), ty = HM_PY + 12, cab = new THREE.CatmullRomCurve3([V3(px - 2, py + 14.2, pz), V3((px + tx) / 2, (py + ty) / 2 + 2, (pz + tz) / 2), V3(tx, ty, tz)]); K.prop.push([new THREE.TubeGeometry(cab, 40, 0.04, 4, false), 0x1a1a1a]); const gp = cab.getPoint(0.3); K.prop.push([G.box(1.6, 1.8, 1.4), 0xb8402a, M4(gp.x, gp.y - 2.2, gp.z)], [G.cyl(0.03, 0.03, 1.2, 4), 0x1a1a1a, M4(gp.x, gp.y - 0.7, gp.z)]); }
+    const [tx, tz] = HW(28, 304), ty = HM_PY + 12, cab = new THREE.CatmullRomCurve3([V3(px - 2, py + 14.2, pz), V3((px + tx) / 2, (py + ty) / 2 + 2, (pz + tz) / 2), V3(tx, ty, tz)]); K.prop.push([new THREE.TubeGeometry(cab, 40, 0.04, 4, false), 0x1a1a1a]); }
   // Syrian sangars on the slopes and commandos lying by the road: stone half-rings and hollows among the rocks
   for (let k = 0; k < HM_GATES0.length - 1; k++) { const A = HM_GATES0[k], B = HM_GATES0[k + 1], ddx = B[0] - A[0], ddz = B[1] - A[1], l = Math.hypot(ddx, ddz) || 1;
     for (let j = 0; j < 4; j++) { const t = 0.25 + j * 0.18, px = lerp(A[0], B[0], t), pz = lerp(A[1], B[1], t), sd = j % 2 ? 1 : -1, off = j < 2 ? rand(4, 7) : rand(10, 21); const [sx, sz] = corr(HM_ROAD, px - ddz / l * off * sd, pz + ddx / l * off * sd, 22, 3.5); sangar(sx, sz, -ddx / l, -ddz / l, j < 2 ? 'A' : 'S', k, j === 3 && k % 2 ? 1.6 : 0); } }
   // ---- dress the mountain ----
   const okS = (x, z) => { const [lx, lz] = L(x, z); return distPolyline(lx, lz, HM_ROAD_S) > 5 && distPolyline(lx, lz, HM_RING_O) > 3.6 && distPolyline(lx, lz, HM_RING_I) > 3.6 && hmDist(lx, lz) > 4.8 && Math.hypot(lx - HM_CABLE[0], lz - HM_CABLE[1]) > 9 && !HM_SPURS.some((s) => s && distPolyline(lx, lz, s) < 3.4) && !C.slots.some((s) => Math.hypot(s.x - x, s.z - z) < 2.2); };
   const X0 = HM.o.x - 225, X1 = HM.o.x + 225, Z0 = HM.o.z - 205, Z1 = HM.o.z + 340;
-  for (let k = 0; k < 16; k++) { const d = densify(HM_ROAD, 12), [x, z] = d[Math.floor(r() * d.length)], a = r() * 6, [wx, wz] = HW(x + (r() - 0.5) * 12, z + (r() - 0.5) * 12); if (okS(wx, wz)) hmProps(K.prop, K.wood, wx, wz, groundAt(wx, wz), a, r, [0, 1, 2, 7, 8][Math.floor(r() * 5)]); }
-  for (const [x, z, rr] of [[30, -70, 0.8], [-12, 70, 2.4]]) { const [wx, wz] = HW(x, z); vehicle(TRUCK_BURNT, wx, wz, rr, 3.3, 1.2, 2.6); }
+  for (let k = 0; k < 16; k++) { const d = densify(HM_ROAD, 12), [x, z] = d[Math.floor(r() * d.length)], a = r() * 6, [wx, wz] = HW(x + (r() - 0.5) * 12, z + (r() - 0.5) * 12); if (okS(wx, wz)) hmTrenchProp(K, wx, wz, groundAt(wx, wz), a, [0, 1, 3, 4][Math.floor(r() * 4)]); }
+  // the burnt-out wrecks on the road up: Syrian jeeps shot up on the way, and two of our tanks from the attempts before
+  for (const [x, z, rr] of [[30, -70, 0.8], [-12, 70, 2.4]]) { const [wx, wz] = HW(x, z); hmJeepWreck(wx, wz, rr); }
   for (const [x, z, b] of [[10, -40, 30], [-6, 130, 200]]) { const [wx, wz] = HW(x, z); placeTank(wx, wz, b, TANK_BURNT); }
   roadRibbon(HM_ROAD.map(([x, z]) => HW(x, z)), 6.5, 'asphalt');
   roadPoles(HM_ROAD.map(([x, z]) => HW(x, z)), 24, 6);
   { const fence = [[-14, 222], [-68, 230], [-76, 290], [-68, 350], [-14, 358], [14, 358], [68, 350], [76, 290], [68, 230], [14, 222]]; wireFence(fence.map(([x, z]) => HW(x, z)), 3); for (const [x, z] of densify(fence, 2.2)) { const [wx, wz] = HW(x + (x > 0 ? 1.6 : -1.6) * (Math.abs(x) > 40 ? 1 : 0), z + (z > 300 ? 1.6 : -1.6)); K.prop.push([G.tor(0.45, 0.02, 4, 16), 0x5a5a56, M4(wx, groundAt(wx, wz) + 0.4, wz, 0, Math.random() * 3, 0)]); } }
   { const [wx, wz] = HW(12, 226); fieldSign(wx, wz, 'מוצב החרמון', Math.PI, 1.5); const [a, b] = HW(48, 34); fieldSign(a, b, 'רכבל החרמון', 0.6, 1.3); }
   { const pt = plasterTex(2214, '#b4b0a6'); scene.add(SH(onLayer1(new THREE.Mesh(build(K.con), new THREE.MeshStandardMaterial({ vertexColors: true, map: pt, bumpMap: bumpOf(pt), bumpScale: 0.8, roughness: 0.95 }))))); }
+  // inside: the paint over a fine plaster, the screed floors, the board floors, the bulbs
+  { const pt = plasterTex(2215, '#f3f0e8'); scene.add(SH(onLayer1(new THREE.Mesh(build(K.skin), new THREE.MeshStandardMaterial({ vertexColors: true, map: pt, bumpMap: LITE ? null : bumpOf(pt), bumpScale: 0.45, roughness: 0.9 }))), false, true)); }
+  { const gt = TX.grime; if (K.floorC.length) scene.add(SH(onLayer1(new THREE.Mesh(build(K.floorC), new THREE.MeshStandardMaterial({ vertexColors: true, map: gt, bumpMap: LITE ? null : bumpOf(gt), bumpScale: 0.6, roughness: 0.96 }))), false, true));
+    const pk = !!MDL_TEX['props/plank/map'], wm = new THREE.MeshStandardMaterial({ vertexColors: true, map: pk ? mdlTex('props/plank/map') : plankTex(), roughness: 0.85 }); if (pk && !LITE && MDL_TEX['props/plank/nmap']) { wm.normalMap = mdlTex('props/plank/nmap', false); wm.normalScale.set(0.7, 0.7); }
+    if (K.floorW.length) scene.add(SH(onLayer1(new THREE.Mesh(build(K.floorW), wm)), false, true));
+    // a harder floor in the offices and the kitchen: polished screed, its fine aggregate showing (the road's grain, lightened), worn and cracked
+    if (K.floorT.length) scene.add(SH(onLayer1(new THREE.Mesh(build(K.floorT), new THREE.MeshStandardMaterial({ vertexColors: true, map: MAT.asphalt.map, roughness: 0.62, color: 0xdedbd4 }))), false, true)); }
+  if (K.bulb.length) scene.add(onLayer1(new THREE.Mesh(build(K.bulb), new THREE.MeshBasicMaterial({ vertexColors: true }))));
   scene.add(SH(onLayer1(new THREE.Mesh(build(K.prop), MAT.vc))));
   scene.add(SH(onLayer1(new THREE.Mesh(build(K.wood), new THREE.MeshStandardMaterial({ vertexColors: true, map: TX.wood, roughness: 0.92 })))));
   // the furniture models: all the copies of each in one draw; indoors under concrete, none casts a shadow. The post's can only be seen from close by:
   // both levels of detail are built and hmUpd shows the full models inside the post, the lighter ones from the yard and none from further out
   C.furn = [[], []]; for (const n in K.mdl) for (let l = 0; l < 2; l++) for (const m of mdlInst(n, l, K.mdl[n], null, false)) { m.visible = false; m.userData.dyn = true; C.furn[l].push(m); }
   for (const n in K.mdlC) mdlInst(n, LITE ? 1 : 0, K.mdlC[n], null, false);
+  for (const n in K.mdlT) mdlInst(n, 1, K.mdlT[n], null, false);   // along the trenches: the lighter models, seen from a few metres at the nearest
   if (K.gab.length) scene.add(SH(onLayer1(new THREE.Mesh(mergeGeometries(K.gab, false), MAT.gabion))));
-  // warm bulbs in the rooms: only a few real lights, the rest are glowing bulbs
-  for (const [lx, lz, y] of K.lamps.filter((_, i) => i % 4 === 0).slice(0, 3)) { const lt = new THREE.PointLight(0xffd9a0, 70, 14, 2); const [wx, wz] = HW(lx, lz); lt.position.set(wx, y, wz); scene.add(lt); }
+  // warm bulbs in the rooms: three real lights, moved to the bulbs nearest the eye (hmUpd); the rest only glow
+  C.lamps = K.lamps; C.plights = [0, 1, 2].map(() => { const lt = new THREE.PointLight(0xffd9a0, 0, 13, 2); lt.userData.dyn = true; scene.add(lt); return lt; }); C.plT = 0;
+  // the wall hangings: the staff maps of the radio room, the intelligence room and the commander's, a portrait, the clocks
+  { const W = (k, lx, yy, lz, ry, sd = 1) => { const [x, z] = HW(lx, lz); propWall('hermon', k, x, yy, z, ry, sd, 'e'); }, yl = y0, yu = y1, E = Math.PI / 2, Wf = -Math.PI / 2, N = Math.PI;
+    // each hangs a few centimetres off the painted face of its wall
+    W('map', 6.5, yl + 1.65, 296.24, 0, 3); W('map', 12.76, yl + 1.6, 301.5, Wf, 9); W('clock', 1.5, yl + 2.2, 296.24, 0); W('calendar', 0.24, yl + 1.5, 302.5, E, 1);
+    W('map', 18.2, yl + 1.65, 284.24, 0, 4); W('portrait', 21.4, yl + 1.75, 284.24, 0, 6); W('clock', 13.24, yl + 2.1, 300.0, E); W('calendar', 25.635, yl + 1.5, 295.0, Wf, 2);
+    W('portrait', 10.5, yl + 1.75, 272.365, 0, 5); W('clock', -6.5, yl + 2.2, 283.76, N); W('calendar', -25.635, yl + 1.6, 279.0, E, 1); W('clock', -19.5, yl + 2.2, 272.365, 0);
+    W('map', -2.5, yu + 1.65, 280.315, 0, 10); W('map', -21.685, yu + 1.6, 296.8, E, 11); W('portrait', -15.0, yu + 1.75, 294.24, 0, 7); W('map', 2.0, yu + 1.7, 294.24, 0, 12); W('clock', 12.76, yu + 2.2, 288.0, Wf); W('calendar', -9.24, yu + 1.6, 290.0, Wf, 2); }
   instScatter(ROCK_G, stone.concat(scatterIn(LITE ? 1400 : 3600, X0, X1, Z0, Z1, 2211, okS, (x, z, rr) => [x, z, 0.25 + rr() ** 2.5 * 1.5, rr() * 6, hmRock(rr), 0.2, 0.5]), scatterNear(HM_ROAD.map(([x, z]) => HW(x, z)), LITE ? 400 : 900, 5, 26, 2212, okS, (x, z, rr) => [x, z, 0.3 + rr() ** 2 * 1.3, rr() * 6, hmRock(rr), 0.2, 0.5])));
   { const bl = scatterNear(HM_ROAD.map(([x, z]) => HW(x, z)), LITE ? 70 : 160, 7, 24, 2213, okS, (x, z, rr) => [x, z, 1.1 + rr() * 1.8, rr() * 6, hmRock(rr), 0.3, 0.6]).concat(scatterIn(LITE ? 110 : 260, X0, X1, Z0, Z1, 2214, okS, (x, z, rr) => [x, z, 1.4 + rr() * 2.6, rr() * 6, hmRock(rr), 0.3, 0.55])); instScatter(BOULDER_G, bl); boulders(bl); }
   instScatter(BUSH_G, scatterIn(LITE ? 400 : 1000, X0, X1, Z0, Z1, 2215, okS, (x, z, rr) => [x, z, 0.25 + rr() * 0.4, rr() * 6, rr() < 0.5 ? 0x4a5038 : rr() < 0.5 ? 0x6e6650 : 0x5c5a48, -0.2, 0.45]));
@@ -10517,6 +11319,11 @@ function hmBuild() {
   for (const [x, z, s] of [[-600, 400, 40], [500, 200, 30], [-300, -500, 50]]) { const [wx, wz] = HW(x, z); smokeColumn(wx, wz, s, false); }
   BATCH.bag = sv; if (BAGS.length) scene.add(bagMesh(BAGS)); C.covers = COVER.slice(k0); for (const c of C.covers) if (c.floor === undefined) c.y = groundAt(c.x, c.z);
   hmPano();
+}
+// a Syrian jeep burnt out on the road: the modelled jeep in their paint, broken and on fire (the rules of the post: tanks and jeeps only)
+function hmJeepWreck(x, z, rot) {
+  if (typeof VEH_DATA === 'undefined' || !VEH_DATA.jeep) return; const rec = vehModel('jeep', 'e'), m = rec.g, g0 = groundAt(x, z); vehDamage(rec, true); rec.dead = true;
+  m.position.set(x, g0, z); m.rotation.y = rot; wreckTilt(m, rng(Math.round(x * 7 + z * 3) >>> 0)); scene.add(SH(onLayer1(m))); addCollider(x, z, 2.05, 0.95, rot, g0 + 2.0); coverBox(x, z, 2.05, 0.95, rot, 2.0); wreckFire(m, VEH_FIRE.jeep, 0.85);
 }
 /* ---------- the view from the top: the Golan, the Hula valley and the Galilee, Lebanon, the Damascus plain, all spread out below, 360 degrees ----------
    A far terrain sixty kilometres in radius round the post, heights in metres below it (the post stands at 2,070 m; the main summit, 2,814 m, is
@@ -10587,37 +11394,29 @@ function hmPano() {
   m.onAfterRender = (rr) => rr.clearDepth();
   sky.renderOrder = -1001; scene.add(m);
 }
-/* ---------- props for the trenches ---------- */
-function hmProps(parts, wood, x, z, y, a, r, kind) {
-  const R = (dx, dz) => [x + Math.cos(a) * dx - Math.sin(a) * dz, z + Math.sin(a) * dx + Math.cos(a) * dz];
-  const P = (geo, col, dx, dy, dz, rx = 0, ry = 0, rz = 0, list = parts) => { const [px, pz] = R(dx, dz); list.push([geo, col, M4(px, y + dy, pz, rx, -a + ry, rz)]); };
-  if (kind === 0) { for (let k = 0; k < 3; k++) P(G.box(0.62, 0.3, 0.32), 0x4d5a34, 0, 0.15 + k * 0.31, (k % 2) * 0.05, 0, (k - 1) * 0.12); P(G.box(0.63, 0.04, 0.12), 0xd8c84a, 0, 0.32, 0.17); }
-  else if (kind === 1) { for (let k = 0; k < 2; k++) P(G.box(0.36, 0.48, 0.17), 0x435033, k * 0.4, 0.24, 0, 0, r() * 0.4); }
-  else if (kind === 2) { P(G.sph(0.15, 10, 6, 0, Math.PI * 2, 0, Math.PI * 0.55), 0x4f5638, 0, 0.02, 0, Math.PI, 0, 0); P(G.box(0.08, 0.06, 1.05), 0x2b2a26, 0.4, 0.5, 0, 0.6, 0, 0.1); }
-  else if (kind === 3) { P(G.box(0.48, 0.34, 0.32), 0x56603c, 0, 0.2, 0); P(G.cyl(0.006, 0.006, 1.6, 4), 0x1a1a1a, 0.18, 1.1, 0.1); }
-  else if (kind === 4) { P(G.cyl(0.03, 0.03, 2.1, 6), 0x6b5a3e, 0, 0.12, -0.25, 0, 0, Math.PI / 2); P(G.cyl(0.03, 0.03, 2.1, 6), 0x6b5a3e, 0, 0.12, 0.25, 0, 0, Math.PI / 2); P(G.box(1.8, 0.02, 0.5), 0x6a6a52, 0, 0.13, 0); }
-  else if (kind === 5) { P(G.box(0.7, 0.42, 0.5), 0x8a6e48, 0, 0.21, 0, 0, 0, 0, wood); P(G.box(0.55, 0.32, 0.42), 0x7d6442, 0.1, 0.58, 0.02, 0, 0.3, 0, wood); }
-  else if (kind === 6) { for (let k = 0; k < 3; k++) P(G.tor(0.42, 0.02, 4, 18), 0x5a5a56, k * 0.3, 0.42, 0, 0, Math.PI / 2, 0); }
-  else if (kind === 7) { P(G.cap(0.16, 0.45, 4, 8), 0x55603c, 0, 0.18, 0, 0, 0, Math.PI / 2); P(G.cap(0.12, 0.6, 4, 8), 0x6a6248, 0.05, 0.42, 0.06, 0, 0.4, Math.PI / 2); }
-  else if (kind === 8) { for (let k = 0; k < 9; k++) P(G.cyl(0.012, 0.012, 0.06, 6), 0xc8a24a, (r() - 0.5) * 0.7, 0.02, (r() - 0.5) * 0.5, Math.PI / 2, r() * 3, 0); P(G.box(0.3, 0.18, 0.22), 0x6e5a3a, 0.2, 0.09, 0.1, 0, 0, 0, wood); }
-  else { P(G.cyl(0.18, 0.18, 0.12, 12), 0x3a3a34, 0, 0.06, 0, Math.PI / 2, 0, 0); P(G.box(0.2, 0.22, 0.12), 0x3f4a2f, 0.3, 0.11, 0); }
-}
 /* ---------- the advance, bound by bound ---------- */
 const HM_GATES0 = (() => { const d = densify(HM_ROAD.slice(4), 1), out = [d[0]]; let acc = 0; for (let i = 1; i < d.length; i++) { acc += Math.hypot(d[i][0] - d[i - 1][0], d[i][1] - d[i - 1][1]); if (acc >= 50) { out.push(d[i]); acc = 0; } } const e = d[d.length - 1]; if (Math.hypot(out[out.length - 1][0] - e[0], out[out.length - 1][1] - e[1]) > 30) out.push(e); else out[out.length - 1] = e; return out; })();
-/* the gate points of each stage of the post, in local coordinates (a third number is the floor height the player must be on) */
+/* the gate points of each stage of the post, in local coordinates (a third number is the floor height the player must be on; a fourth and fifth,
+   a point to face when the stage starts there). Inside, a point is a step through each door into the room it opens: bound k is room k */
 const HM_G = {
   1: [[5, 238], [-44, 252], [-60, 290], [-44, 328], [0, 342], [44, 328], [60, 290], [44, 252], [28, 246.3]],
   2: [[28, 246.3], [24, 264.8], [30, 266], [42, 290], [30, 314], [0, 320], [-30, 314], [-42, 290], [-30, 266], [0, 260], [6.5, 270, HM_L0 + 0.6]],
-  3: [[6.5, 273.5, HM_L0], [6.5, 280, HM_L0], [-6, 290, HM_L0], [-20, 290, HM_L0], [20, 290, HM_L0], [3.6, 284, HM_L0 + 0.4]],
-  4: [[11.8, 284, HM_PY], [0, 280, HM_PY], [-15, 295.5, HM_PY], [-3, 296.5, HM_PY], [10.5, 297, HM_PY], [23.9, 289.5, HM_PY]],
-  5: [[23.9, 289.5, HM_PY], [23.9, 301.5, HM_RY], [8, 300.5, HM_RY], [-4, 297, HM_RY], [-16, 300.5, HM_RY]],
+  3: [[6.5, 270.4, HM_L0 + 0.3, 6.5, 280], [-1.6, 281, HM_L0], [-14.6, 275, HM_L0], [-22, 297.6, HM_L0], [-11.4, 303, HM_L0], [1.6, 299, HM_L0], [14.6, 304, HM_L0], [11.4, 291.5, HM_L0], [1.2, 285.9, HM_L0]],
+  4: [[0.9, 285.9, HM_L0, 8, 285.9], [-1.6, 291, HM_PY], [-10.6, 283, HM_PY], [-19, 295.6, HM_PY], [-7.4, 304, HM_PY], [14.6, 298, HM_PY], [20.1, 296.6, HM_RY]],
+  5: [[20.1, 296.4, HM_RY, 20.1, 285], [14, 282.2, HM_RY], [5, 305.8, HM_RY], [-4, 282.2, HM_RY], [-13, 305.8, HM_RY], [-17.5, 294.6, HM_RY]],
 };
-const HM_LABEL = { 1: 'עמדה', 2: 'עמדה', 3: 'נקודה', 4: 'נקודה', 5: 'עמדה' };
-function hmRoomEnemy(f, lx, lz, tag, kind = 'rifle') { const [x, z] = HW(lx, lz), e = spawnEnemy(x, z, kind === 'rifle' ? (Math.random() < 0.45 ? 'smg' : 'rifle') : kind, null, null); if (!e) return null; e.pos.y = hmY(f); e.sz = 'room'; e.state = 'sz'; e.floor = f; e.cov = null; e.patience = rand(0, 4); e.cyc = rand(0.5, 1.5); e.peek = false; e.meleeCd = 0.5; e.sq = tag; e.sync(); return e; }
-/* ---------- who stands where: every position of a stage is manned when the stage begins and waits hidden ----------
-   a man wakes when his bound opens or the player comes within his waking distance; the roof fires down at the rings from far off */
+const HM_LABEL = { 1: 'עמדה', 2: 'עמדה', 3: 'חדר', 4: 'חדר', 5: 'עמדה' };
+const hmDiff = () => Math.max(0, DIFF.indexOf(diff));
+/* ---------- who stands where: every position of a stage is manned before the player can see it and waits hidden ----------
+   outside, a man wakes when his bound opens or the player comes within his waking distance; the roof fires down at the rings from far off.
+   Inside, the room being taken and the one behind the next shut door are manned, each man at his own place facing the door; the room
+   wakes as the player comes through its door */
+function hmPlaceRoom(f, k) {
+  const C = CHAP.hermon, D = hmDiff(), grp = f === 2 ? 'R2' : 'IN';
+  for (const s of C.slots) if (s.grp === grp && (f === 2 || s.fl === f) && s.room === k && !s.used && s.dmin <= D) fSlotPlace(s, s.kind === 'lmg' && D === 0 ? 'rifle' : s.kind, 'g' + k, { wakeG: k, wakeR: 3.5 });
+}
 function hmPlace(st, g0 = 0) {
-  const C = CHAP.hermon, pts = HM_G[st], seg = (lx, lz) => gateSegOf(pts, lx, lz), L = (s) => [s.x - HM.o.x, s.z - HM.o.z];
+  const C = CHAP.hermon, pts = HM_G[st], seg = (lx, lz) => gateSegOf(pts, lx, lz);
   const put = (s, kind, k, wakeR) => (k < g0 ? null : fSlotPlace(s, kind, 'g' + k, { wakeG: k, wakeR }));
   if (st === 1 || st === 2) {
     const ring = st === 1 ? 'o' : 'i', bays = [...new Set(C.slots.filter((s) => s.grp === 'T' && s.ring === ring).map((s) => s.bay))];
@@ -10625,22 +11424,7 @@ function hmPlace(st, g0 = 0) {
     C.slots.filter((s) => s.grp === 'B' && s.ring === ring && !s.used).forEach((s) => put(s, s.door ? 'rifle' : 'lmg', seg(...s.at), 30));   /* the trench bunkers: a machine gun at the slit, a rifleman at the door */
     { let n = 0; for (const s of C.slots) if (s.grp === 'R' && !s.used && n < (st === 1 ? 4 : 5)) { if (fSlotPlace(s, n === 1 ? 'lmg' : 'rifle', 'roof', { wakeR: 70 })) n++; } }   /* the roof over the rings: they fire down, and nobody goes up there */
   }
-  if (st === 3) {
-    const { z0, z1 } = HM_F, [c0, c1] = HM_CORR;
-    const R = (a, b, zA, zB, nz, k, n) => { if (k < g0) return; const far = nz > 0 ? zB - 3 : zA + 3, spots = [[a + 2.8, far], [b - 2.8, far], [(a + b) / 2 + 1.6, (zA + zB) / 2 + nz * 1.5]]; for (let i = 0; i < n; i++) hmRoomEnemy(0, spots[i][0], spots[i][1], 'g' + k, i === 2 ? 'lmg' : 'rifle'); };
-    if (g0 <= 0) { hmRoomEnemy(0, 1.6, 281, 'g0', 'smg'); hmRoomEnemy(0, 11.6, 281, 'g0', 'rifle'); hmRoomEnemy(0, 12.2, 273.8, 'g0', 'rifle'); }
-    R(0, 13, c1, z1, 1, 1, 3); R(-13, 0, c1, z1, 1, 1, 3); R(-13, 0, z0, c0, -1, 1, 3); if (g0 <= 1) hmRoomEnemy(0, -2.3, 288.6, 'g1', 'rifle');
-    R(-26, -13, c1, z1, 1, 2, 3); R(-26, -13, z0, c0, -1, 2, 3); if (g0 <= 2) hmRoomEnemy(0, -15.3, 291.4, 'g2', 'lmg');
-    R(13, 26, c1, z1, 1, 3, 3); R(13, 26, z0, c0, -1, 3, 3); if (g0 <= 3) hmRoomEnemy(0, 18.7, 291.4, 'g3', 'lmg');
-  }
-  if (st === 4) {
-    const U = HM_U; let i = 0;
-    for (const s of C.slots) if (s.grp === 'T2' && !s.used && i < 10) { fSlotPlace(s, i++ % 3 === 1 ? 'lmg' : 'rifle', 'g0', { dormant: false }); }
-    let n = 0; for (const s of C.slots) if (s.grp === 'R' && s.nz < -0.5 && !s.used && n < 3) { if (fSlotPlace(s, 'rifle', 'roof', { wakeR: 45 })) n++; }
-    const R = (a, b, k, n2) => { if (k < g0) return; const spots = [[a + 2.8, U.z1 - 3], [b - 2.8, U.z1 - 3], [(a + b) / 2 + 1.6, (U.z0 + U.z1) / 2 + 1.5], [(a + b) / 2 - 3, U.z0 + 4]]; for (let j = 0; j < n2; j++) hmRoomEnemy(1, spots[j][0], spots[j][1], 'g' + k, j === 2 ? 'lmg' : 'rifle'); };
-    R(U.x0, -8, 1, 3); R(-8, 8, 2, 4); R(8, U.x1, 3, 3);
-  }
-  if (st === 5) { let i = 0; const R2 = C.slots.filter((s) => s.grp === 'R2' && !s.used).sort((a, b) => b.x - a.x); for (const s of R2) { if (i >= 16) break; const [lx, lz] = L(s); put(s, i++ % 4 === 1 ? 'lmg' : 'rifle', Math.max(1, seg(lx, lz)), 14); } }
+  if (st >= 3) { const f = st - 3; hmPlaceRoom(f, g0); hmPlaceRoom(f, g0 + 1); }
 }
 /* a bound opens: a word on the radio, and two or three men come down the trench from two bounds ahead (or out of a door), in plain sight */
 function hmRunners(ring, pts, k, n, tag) {
@@ -10649,36 +11433,57 @@ function hmRunners(ring, pts, k, n, tag) {
   const path = d.slice(i1, i2 + 1).reverse();
   for (let j = 0; j < n; j++) DIRQ.push({ at: GAME.t + 1.5 + j * 1.4, spawn: true, gate: k, fn: () => { const [sx, sz] = path[0]; const e = fSpawnStreet(sx + rand(-0.5, 0.5), sz + rand(-0.5, 0.5), path.slice(1), 'rifle'); if (e) e.sq = tag; } });
 }
+const HM_SAY = {
+  3: ['חדר השמירה! רימון פנימה, ואז נכנסים!', 'המגורים! הם בין המיטות!', 'חדר האוכל - שולחנות הפוכים, הם מאחוריהם!', 'המטבח! לנקות!', 'המחסן! מאחורי הארגזים - ולא לירות לתוך התחמושת!', 'חדר הקשר! לא לתת להם לשדר!', 'מגורי הקצינים! שורת ארונות באמצע - חלק מהם מעבר לה!', 'האולם! שקי חול מול המדרגות - הקו האחרון שלהם למטה!'],
+  4: ['הם מעל המדרגות! רימון דרך הפתח, ואז למעלה!', 'חדר המודיעין!', 'עוד חדר מגורים, מלא!', 'החדר של המ״פ שלהם!', 'אולם התצפית! הם מאחורי השולחנות, מול החלונות!', 'המחסן! המדרגות לגג בקצה!'],
+  5: ['על הגג! קירות של סלסלות אבנים - דרך אחת, עד התורן!', 'מעבר לפינה! עוד שלושה מאחורי הגביונים!', 'השורה הבאה! רימונים!', 'עוד מעבר אחד!', 'התורן! העמדה האחרונה שלהם!'],
+};
 function hmWake(st, k) {
   const C = CHAP.hermon, pts = HM_G[st], tag = 'g' + k, last = pts.length - 2;
   if (k > 0 && k % 3 === 0 && k < last) { C.cpG = k; CP.stats = { ...STATS }; feed('נקודת שמירה', 'good'); }
   if (st === 1) { hmRunners(HM_RING_O, pts, k, 2 + (k >= 4 ? 1 : 0), tag); if (k > 0) radio('מ״פ', pick(['העמדה הבאה בתעלה! רימון מעבר למחסום!', 'יורים עליכם מהגג, ראש למטה!', 'הם רצים אלינו בתעלה! לחסל!', 'קסדות מעל שקי החול - לצלוף לפני שמתקרבים!']), 2.4); }
   if (st === 2) { if (k >= 1 && k < last) hmRunners(HM_RING_I, pts.slice(1), k - 1, 2, tag); if (k === last) { for (let j = 0; j < 3; j++) DIRQ.push({ at: GAME.t + 1 + j * 1.3, spawn: true, gate: k, fn: () => { const [sx, sz] = HW(6.5 + rand(-1, 1), 277); const e = fSpawnStreet(sx, sz, [HW(6.5, 270.5), HW(2 + rand(-1, 1), 263)], 'smg'); if (e) e.sq = tag; } }); radio('מ״פ', 'הם יוצאים מהבונקר! לירות! אחר כך, פנימה בעקבותיהם!', 3); } else if (k > 0) radio('צנחן', pick(['סנגר בחצר, מימין!', 'הטבעת הפנימית מאוישת - עמדה אחרי עמדה!', 'הם על הגג, מעלינו!', 'רימון לתוך העמדה!']), 2.2); }
-  if (st === 3) { if (k === 1) radio('לוחם', 'חדרים משני הצדדים! רימון, ואז נכנסים!', 2.4); if (k === 2) radio('לוחם', 'מקלע מאחורי שקי החול במסדרון!', 2.2); if (k === 3) radio('מ״פ', 'הזרוע המזרחית! עוד שני חדרים, ואז חזרה למדרגות!', 2.6); if (k === 4) { radio('מ״פ', 'הקומה נקייה. למדרגות שבאולם הכניסה - למעלה!', 2.6); hint('hm-up', 'המדרגות למרפסת נמצאות באולם הכניסה (◆). למעלה מחכות עמדות גביונים מול היציאה - רימון קודם.', 7); } }
-  if (st === 4) { if (k === 0) { for (let j = 0; j < 2; j++) DIRQ.push({ at: GAME.t + 2.5 + j * 1.5, spawn: true, gate: 0, fn: () => { const [sx, sz] = HW(j ? 15 : -15, 294.3); const e = fSpawnStreet(sx, sz, [HW(j ? 13 : -7, 285)], 'smg'); if (e) { e.pos.y = HM_PY; e.sq = 'g0'; } } }); radio('מ״פ', 'על המרפסת! גביונים מולכם ואש מהגג - מהר למחסה!', 2.8); } if (k === 1) radio('לוחם', 'חדר התצפית, משמאל!', 2); if (k === 3) radio('לוחם', 'החדר האחרון! ואז המדרגות החיצוניות, בצד המזרחי!', 2.6); if (k === 4) hint('hm-roof', 'המדרגות החיצוניות לגג בפינה המזרחית של המרפסת (◆). על הגג עיקר ההתנגדות: מחסום אחרי מחסום.', 7); }
-  if (st === 5) { if (k === 1) radio('מ״פ', 'הגג! הם מאחורי סלסלות האבנים, שורה אחרי שורה! רימונים!', 3); if (k === 2) for (let j = 0; j < 2; j++) DIRQ.push({ at: GAME.t + 1 + j * 1.2, spawn: true, gate: 2, fn: () => { const [sx, sz] = HW(-19 + j, 300.5 + (j ? 2 : -2)); const e = fSpawnStreet(sx, sz, [HW(-2, 300.5)], 'smg'); if (e) { e.pos.y = HM_RY; e.sq = 'g2'; } } }); if (k === 3) radio('מ״פ', 'העמדה האחרונה! לקצה הגג, ולהביא את הדגל!', 2.6); }
+  if (st >= 3) {
+    // the room is entered: its men are up, and counted from now (each is behind something solid, and a bound that has seen none of its men for
+    // a few seconds is taken as clear); the room behind the next door is manned
+    for (const e of UNITS.enemies) if (e.alive && e.sq === tag) { e.seenAt = GAME.t; e.dormant = false; }
+    hmPlaceRoom(st - 3, k + 1); if (k > 0 || st === 5) radio(k % 2 ? 'לוחם' : 'מ״פ', HM_SAY[st][k], 2.4);
+    if (st === 3 && k === 1) hint('hm-door', 'כל דלת בבונקר <b>נעולה</b> עד שהחדר שלפניה נקי - ואז נפתחת. כשהיא נפתחת, מאחוריה כבר מחכים: עמדו בצד הפתח, רימון פנימה, ואז נכנסים.', 8);
+    if (st === 5 && k === 0) hint('hm-lane', 'על הגג אין לאן לברוח: בין קירות הגביונים יש <b>מסלול אחד</b> שמתפתל מהפתח עד התורן. בכל קטע עמדה מחכה מול המעבר.', 7);
+  }
 }
 /* ---------- stages ---------- */
 function hmSetup(stage) {
   const C = CHAP.hermon; fieldSetupCommon(C, stage); resetTrail(); HM.msgs = {};
   if (C.syFlag) { C.syFlag.children[1].visible = true; C.syFlag.children[1].position.y = 8.2; } if (C.ilFlag) C.ilFlag.children[1].visible = false; C.lower = 0; C.raise = 0;
   P.mode = 'rifle'; vm.visible = true; if (TANK.g) TANK.g.visible = false;
-  const g0 = stage ? Math.min(C.cpG || 0, HM_G[stage].length - 2) : 0, pts = stage ? HM_G[stage] : HM_GATES0, at = pts[g0], nx = pts[Math.min(g0 + 1, pts.length - 1)], [x, z] = HW(at[0], at[1]);
+  const g0 = stage ? Math.min(C.cpG || 0, HM_G[stage].length - 2) : 0, pts = stage ? HM_G[stage] : HM_GATES0, at = pts[g0], nx = at[3] !== undefined ? [at[3], at[4]] : pts[Math.min(g0 + 1, pts.length - 1)], [x, z] = HW(at[0], at[1]);
   P.pos.set(x, at[2] !== undefined ? hAt(x, z, at[2] + 0.3) : groundAt(x, z), z); P.yaw = Math.atan2(-(nx[0] - at[0]), -(nx[1] - at[1])); P.pitch = 0.02;
-  const fw = [-Math.sin(P.yaw), -Math.cos(P.yaw)];
-  fieldFriends(HM_NAMES.map((name, i) => (i < 8 ? { name, x: P.pos.x - fw[0] * (2.2 + i * 1.3) + (i % 2 ? 0.8 : -0.8) * fw[1], z: P.pos.z - fw[1] * (2.2 + i * 1.3) - (i % 2 ? 0.8 : -0.8) * fw[0], y: stage >= 3 ? P.pos.y : undefined, state: 'follow', fi: i } : null)));
+  hmDoorsSet(stage, g0);
+  // the squad behind him, each man where he can stand: inside the post a spot behind him that is not in a wall, else at his heels
+  const fw = [-Math.sin(P.yaw), -Math.cos(P.yaw)], spot = (i) => { const b = 2.2 + i * 1.3, sd = i % 2 ? 0.8 : -0.8, cand = [[b, sd], [b, 0], [b * 0.6, sd], [b * 0.4, 0], [1.2, sd * 0.5]];
+    for (const [bb, s] of cand) { const px = P.pos.x - fw[0] * bb + s * fw[1], pz = P.pos.z - fw[1] * bb - s * fw[0], y = stage >= 3 ? hAt(px, pz, P.pos.y + 0.3) : groundAt(px, pz); if (stage < 3 || (!blocked(px, pz, 0.35, y) && Math.abs(y - P.pos.y) < 1.2)) return [px, pz, stage >= 3 ? y : undefined]; }
+    return [P.pos.x + (i % 3 - 1) * 0.4, P.pos.z + 0.3, stage >= 3 ? P.pos.y : undefined]; };
+  fieldFriends(HM_NAMES.map((name, i) => { if (i >= 8) return null; const [px, pz, py] = spot(i); return { name, x: px, z: pz, y: py, state: 'follow', fi: i }; }));
   hmStage(stage, g0);
 }
 function hmStage(i, g0 = 0) {
   const C = CHAP.hermon; fieldStage(C, i); HM.stage = i; C.t = 0; C.cpG = g0;
   fieldDespawn((e) => !!e.sz);
-  const go = (st, done, r = 6.5) => { const pts = HM_G[st].map(([x, z, y]) => [...HW(x, z), y]); gateStart(pts, (k) => { if (k >= g0) hmWake(st, k); }, done, HM_LABEL[st], r, st === 1 ? 1.45 : st === 2 ? [1.45, [HW(36, 249.1), ...pts.map((q) => [q[0], q[1]])]] : 0);   /* the inner stage's lane takes in the end of the outer trench, where the player stands when it begins */ if (g0) { GATE.i = g0; GATE.t = 0; GATE.clear = false; hmWake(st, g0); } };
+  // once inside, the men left on the roof edge over the rings are gone: the roof is fought for in its turn, along its own lane
+  if (i >= 3) for (const e of UNITS.enemies) if (e.alive && e.sq === 'roof') { e.alive = false; e.rig.root.visible = false; e.tag.visible = false; if (e.slot) { e.slot.used = false; e.slot = null; } }
+  // the last stage's survivors fight on where they are, but their bound numbers belong to the old stage: they no longer hold a bound of this one;
+  // and the men it still had on their way in (queued to run down a trench) are not sent - they would arrive tagged for a bound of this stage
+  for (const e of UNITS.enemies) if (e.alive && e.sq && e.sq !== 'roof') e.sq = 'was' + e.sq;
+  for (let j = DIRQ.length - 1; j >= 0; j--) if (DIRQ[j].spawn) DIRQ.splice(j, 1);
+  hmDoorsSet(i, g0);
+  const go = (st, done, r = 6.5) => { const pts = HM_G[st].map(([x, z, y]) => [...HW(x, z), y]); gateStart(pts, (k) => { if (k >= g0) hmWake(st, k); }, done, HM_LABEL[st], r, st === 1 ? 1.45 : st === 2 ? [1.45, [HW(36, 249.1), ...pts.map((q) => [q[0], q[1]])]] : 0);   /* the inner stage's lane takes in the end of the outer trench, where the player stands when it begins; inside the walls and the shut doors are the lane */ if (g0) { GATE.i = g0; GATE.t = 0; GATE.clear = false; hmWake(st, g0); } };
   if (i === 0) DIRQ.push({ at: GAME.t + 0.3, fn: () => hmIntroFilm() });
   if (i === 1) { hmPlace(1, g0); radio('מ״פ', 'הגענו לגדר! לתוך התעלה החיצונית, ומתקדמים בה סביב המוצב - עמדה אחרי עמדה, עד תעלת הקשר פנימה. לא יוצאים מהתעלה!', 4.6); hint('hm-ring', 'כל העמדות בתעלה <b>מאוישות מראש</b>: חפשו קסדות מעל שקי החול וצלפו מרחוק. העמדה הבאה מסומנת ב־◆; מי שרץ אליכם בתעלה - בא משתי עמדות קדימה.', 9); go(1, () => { feed('הטבעת החיצונית נקייה', 'good'); hmStage(2); }); }
   if (i === 2) { hmPlace(2, g0); radio('מ״פ', 'הטבעת החיצונית שלנו! בתעלת הקשר פנימה, מנקים את הטבעת הפנימית והסנגרים בחצר, ואז דלת הבונקר בדרום!', 4.4); go(2, () => { feed('החצר נקייה · לדלת הבונקר', 'good'); hmStage(3); }); }
-  if (i === 3) { hmPlace(3, g0); radio('מ״פ', 'נכנסים לבונקר! אולם כניסה, מסדרון ושמונה חדרים - כולם מלאים. רימון לפני כל דלת, ואף אחד לא נשאר מאחור.', 4.2); hint('hm-cqb', 'בתוך הבונקר יורים מטווח מטרים ספורים. עצרו לפני כל דלת, זרקו רימון, וכנסו רק אחרי הפיצוץ. קודם הזרוע המערבית של המסדרון, אחר כך המזרחית, ואז המדרגות באולם.', 9); go(3, () => { feed('הקומה התחתונה נקייה · למדרגות', 'good'); hmStage(4); }, 3.4); }
-  if (i === 4) { hmPlace(4, g0); radio('מ״פ', 'למעלה! המרפסת, ואז חדר התצפית, חדר הקשר וחדר המפקד!', 3.2); go(4, () => { feed('הקומה העליונה נקייה · למדרגות לגג', 'good'); hmStage(5); }, 3.4); }
-  if (i === 5) { hmPlace(5, g0); radio('מ״פ', 'הגג! במדרגות החיצוניות, ושם הם התבצרו - עמדה אחרי עמדה עד הדגל!', 3.4); go(5, () => { feed('המוצב בידינו', 'good'); radio('מ״פ', 'המוצב שלנו! להביא את הדגל!', 3.5); DIRQ.push({ at: GAME.t + 2, fn: hmEndFilm }); }, 3.4); }
+  if (i === 3) { hmPlace(3, g0); radio('מ״פ', 'נכנסים לבונקר! אין כאן מסדרון - חדר שנפתח לחדר, עד האולם עם המדרגות באמצע. חדר אחרי חדר, ואף אחד לא נשאר מאחור.', 4.4); hint('hm-cqb', 'בתוך הבונקר יורים מטווח מטרים ספורים. כל מגן יושב מאחורי משהו מוצק ומול הדלת: עצרו בצד הפתח, זרקו רימון, וכנסו רק אחרי הפיצוץ.', 9); go(3, () => { feed('הקומה התחתונה נקייה · למדרגות', 'good'); hmStage(4); }, 2.4); }
+  if (i === 4) { hmPlace(4, g0); if (!g0) radio('מ״פ', HM_SAY[4][0], 3); go(4, () => { feed('הקומה העליונה נקייה · לגג', 'good'); hmStage(5); }, 2.4); }
+  if (i === 5) { hmPlace(5, g0); go(5, () => { feed('המוצב בידינו', 'good'); radio('מ״פ', 'המוצב שלנו! להביא את הדגל!', 3.5); DIRQ.push({ at: GAME.t + 2, fn: hmEndFilm }); }, 3.0); }
 }
 function hmGate0(k) {
   const C = CHAP.hermon, N = HM_GATES0.length - 1, tag = 'g' + k;
@@ -10694,9 +11499,17 @@ function hmGate0(k) {
 function hmUpd(dt) {
   const C = CHAP.hermon; C.t += dt; if (Math.floor(C.t * 2) !== Math.floor((C.t - dt) * 2)) szEnemyCleanup();
   for (let i = DIRQ.length - 1; i >= 0; i--) if (DIRQ[i] && GAME.t >= DIRQ[i].at) { const q = DIRQ.splice(i, 1)[0]; q.fn(); }
-  updTrail(dt); gateUpd(dt);
+  // inside and on the roof every man of the room being taken counts until he is down, seen or not (one behind the wardrobes still holds the
+  // door shut; the marker leads to him); the framework's time limits on a bound still apply
+  if (HM.stage >= 3 && GATE.on) { const tag = 'g' + GATE.i; for (const e of UNITS.enemies) if (e.alive && e.sq === tag) e.seenAt = GAME.t; }
+  updTrail(dt); gateUpd(dt); hmDoorsUpd(dt);
   // the post's furniture: the full models inside the post (the lighter ones in the light setting), the lighter ones within 40 m of it, none further out
-  if (C.furn) { const d = hmDist(camera.position.x - HM.o.x, camera.position.z - HM.o.z), l = d < 4 && !LITE ? 0 : d < 40 ? 1 : -1; C.furn.forEach((list, k) => { for (const m of list) m.visible = k === l; }); }
+  const cd = hmDist(camera.position.x - HM.o.x, camera.position.z - HM.o.z);
+  if (C.furn) { const l = cd < 4 && !LITE ? 0 : cd < 40 ? 1 : -1; C.furn.forEach((list, k) => { for (const m of list) m.visible = k === l; }); }
+  // the three real lights go to the bulbs nearest the eye on its own floor; out of the post they are off
+  if (C.plights && (C.plT -= dt) <= 0) { C.plT = 0.3; const c = camera.position, fl = c.y < HM_PY - 0.2 ? 0 : 1, inside = cd < 1 && c.y < HM_RY;
+    const near = inside ? C.lamps.map((q) => [q, Math.hypot(q[0] - c.x, q[2] - c.z) + (q[3] === fl ? 0 : 60)]).sort((a, b) => a[1] - b[1]) : [];
+    C.plights.forEach((lt, i) => { const q = near[i]; if (q && q[1] < 22) { lt.position.set(q[0][0], q[0][1], q[0][2]); lt.intensity = 55; } else lt.intensity = 0; }); }
   if (!CINE.on && HM.stage === 0) { C.airT = (C.airT ?? 14) - dt; if (C.airT <= 0) { C.airT = rand(30, 44); const g = HM_GATES0[Math.min(GATE.i + 3, HM_GATES0.length - 1)], [tx, tz] = HW(g[0] + rand(-30, 30), g[1] + rand(10, 40)); sndJet(1.8); radio('קשר', pick(['סקייהוקים בדרך, מכים בעמדות מעליכם!', 'סיוע אווירי על הפסגה!']), 2.4); for (let k = 0; k < 3; k++) DIRQ.push({ at: GAME.t + 2.2 + k * 0.3, fn: () => { const p = V3(tx + rand(-12, 12), 0, tz + rand(-10, 10)); p.y = groundAt(p.x, p.z); fxExplosion(p, 2.4); sndBoom(p, 2.2); } }); } }
   if (C.lower && C.syCloth) { C.lower += dt; C.syCloth.position.y = lerp(8.2, 1.1, smooth(0, 3.4, C.lower)); }
   if (C.raise && C.ilCloth) { C.raise += dt; C.ilCloth.position.y = lerp(1.1, 8.2, smooth(0, 4.4, C.raise)); }
@@ -10723,18 +11536,19 @@ function hmIntroFilm() {
   });
 }
 function hmEndFilm() {
-  const C = CHAP.hermon, [mx, mz] = HW(-16, 300.5), my = HM_RY, mast = V3(mx, my, mz);
+  const C = CHAP.hermon, [mx, mz] = HW(...HM_MAST), my = HM_RY, mast = V3(mx, my, mz);
   for (const e of UNITS.enemies) if (e.alive) killEnemy(e, false);
   // the Syrian flag comes down the mast, ours goes up it: one pole, two cloths
   C.syCloth = C.syFlag.children[1]; C.syCloth.visible = true; C.syCloth.position.y = 8.2;
   if (!C.ilFlag) { C.ilFlag = flag(mx, mz, 'il', 9, Math.PI * 0.4); C.objs.push(C.ilFlag); C.ilFlag.children[0].visible = false; } C.ilFlag.position.y = my; C.ilCloth = C.ilFlag.children[1]; C.ilCloth.visible = false; C.ilCloth.position.y = 1.1; C.lower = 0; C.raise = 0;
-  FRIENDS.slice(0, 8).forEach((f, i) => { const u = f.unit; if (!u.rig.root.visible) return; f.state = 'post'; f.target = null; const [x, z] = HW(-11 + (i % 4) * 2.4, 297.5 + Math.floor(i / 4) * 2.6); u.place(x, z, HM_RY + 0.3); u.heading = Math.atan2(mx - x, mz - z); u.sync(); });
-  { const f = FRIENDS[0], u = f.unit; if (u.rig.root.visible) { f.state = 'bunker'; const [x, z] = HW(-15.1, 299.7); u.place(x, z, HM_RY + 0.3); u.heading = Math.atan2(mx - x, mz - z); u.rig.pose('idle', 0); const R = u.rig; R.sR.rotation.set(-2.7, 0, 0.15); R.eR.rotation.set(-0.5, 0, 0); R.sL.rotation.set(-2.3, 0, -0.15); R.eL.rotation.set(-0.7, 0, 0); R.gun.visible = false; u.sync(); } }   // the one at the halyard
+  // the squad round the mast, in the last stretch of the roof's lane (its walls stand on either side)
+  FRIENDS.slice(0, 8).forEach((f, i) => { const u = f.unit; if (!u.rig.root.visible) return; f.state = 'post'; f.target = null; const [x, z] = HW(HM_MAST[0] - 2.8 + (i % 4) * 1.7, HM_MAST[1] + 3.2 + Math.floor(i / 4) * 2.2); u.place(x, z, HM_RY + 0.3); u.heading = Math.atan2(mx - x, mz - z); u.sync(); });
+  { const f = FRIENDS[0], u = f.unit; if (u.rig.root.visible) { f.state = 'bunker'; const [x, z] = HW(HM_MAST[0] + 0.9, HM_MAST[1] - 0.8); u.place(x, z, HM_RY + 0.3); u.heading = Math.atan2(mx - x, mz - z); u.rig.pose('idle', 0); const R = u.rig; R.sR.rotation.set(-2.7, 0, 0.15); R.eR.rotation.set(-0.5, 0, 0); R.sL.rotation.set(-2.3, 0, -0.15); R.eL.rotation.set(-0.7, 0, 0); R.gun.visible = false; u.sync(); } }   // the one at the halyard
   playCine({ vid: 'hm_end',
     title: 'מוצב החרמון · 22 באוקטובר 1973 · 11:00',
     shots: [
-      { d: 4.2, cam: (u) => ({ p: mast.clone().add(V3(5.5, 1.7, -4.2)), l: mast.clone().add(V3(0, 7.2 - u * 4.5, 0)), fov: 44 }) },
-      { d: 5.0, cam: (u) => ({ p: mast.clone().add(V3(6.5 - u * 1.2, 1.3, -5.5)), l: mast.clone().add(V3(0, 2.6 + u * 5.2, 0)), fov: 42 }) },
+      { d: 4.2, cam: (u) => ({ p: mast.clone().add(V3(2.6, 1.7, 5.6)), l: mast.clone().add(V3(0, 7.2 - u * 4.5, 0)), fov: 46 }) },
+      { d: 5.0, cam: (u) => ({ p: mast.clone().add(V3(-2.4 + u * 1.2, 1.3, 7.0)), l: mast.clone().add(V3(0, 2.6 + u * 5.2, 0)), fov: 44 }) },
       { d: 9.4, cam: camOrbit(() => mast.clone().add(V3(0, 4, 0)), 30, 0.6, 4.4, 9, 60) },
     ],
     ev: [[0.4, () => { C.lower = 0.001; }], [4.2, () => { C.syCloth.visible = false; C.ilCloth.visible = true; C.raise = 0.001; }]],
@@ -10742,19 +11556,22 @@ function hmEndFilm() {
     end: () => { C.ilCloth.position.y = 8.2; DIRQ.push({ at: GAME.t + 0.3, fn: () => endGame(true) }); },
   });
 }
-function hmObj() { const en = ['קומנדו סורי', 'סורי בתעלה', 'סורי בחצר', 'סורי בחדר', 'סורי במרפסת', 'סורי על הגג'][HM.stage], pt = ['הסלע הבא', 'העמדה הבאה', 'העמדה הבאה', 'הנקודה הבאה', 'הנקודה הבאה', 'העמדה הבאה'][HM.stage]; return gateObj(en, pt); }
+function hmObj() { const en = ['קומנדו סורי', 'סורי בתעלה', 'סורי בחצר', 'סורי בחדר', 'סורי בחדר', 'סורי על הגג'][HM.stage], pt = ['הסלע הבא', 'העמדה הבאה', 'העמדה הבאה', 'החדר הבא', 'החדר הבא', 'המעבר הבא'][HM.stage]; return gateObj(en, pt); }
 function hmItems(items) { const S = HM_STAGES[HM.stage]; items.push(['go', S.goal || S.sub]); gateItem(items); const n = FRIENDS.filter((f) => f.state === 'follow').length; items.push([n < 3 ? 'warn' : '', `לוחמי גולני איתכם: ${n}`]); }
 function hmHints() { if (HM.stage === 0 && GATE.on && GATE.i >= 1) hint('hm-snip', 'הקומנדו הסורי כבר שוכב בעמדות לפניכם וקם כשאתם קרובים. סרקו את צדי הדרך, וצלפו קסדות מרחוק לפני שאתם מתקדמים.', 7); }
 function hmMini(g, X, poly, dot, k) {
-  const W = (pts) => pts.map(([x, z]) => HW(x, z)), { x0, x1, z0, z1 } = HM_F, U = HM_U;
-  miniField(g, X, poly, dot, k, { bg: 'rgba(158,154,142,.92)', polys: [[W([[x0, z0], [x1, z0], [x1, z1], [x0, z1]]), 'rgba(214,210,200,.95)'], [W([[U.x0, U.z0], [U.x1, U.z0], [U.x1, U.z1], [U.x0, U.z1]]), 'rgba(190,186,176,.95)'], [W([[HM_CABLE[0] - 6, HM_CABLE[1] - 4], [HM_CABLE[0] + 6, HM_CABLE[1] - 4], [HM_CABLE[0] + 6, HM_CABLE[1] + 4], [HM_CABLE[0] - 6, HM_CABLE[1] + 4]]), 'rgba(214,210,200,.95)']], lines: [[W(HM_ROAD), 4, 'rgba(120,104,84,.95)'], [W(HM_RING_O), 2.5, 'rgba(70,60,50,.95)'], [W(HM_RING_I), 2.5, 'rgba(70,60,50,.95)'], ...HM_SPURS.filter(Boolean).map((s) => [W(s), 2.5, 'rgba(70,60,50,.95)'])] });
+  const W = (pts) => pts.map(([x, z]) => HW(x, z)), { x0, x1, z0, z1 } = HM_F, U = HM_U, fl = HM.stage === 3 ? 0 : HM.stage === 4 ? 1 : -1;
+  // inside, the rooms of the floor the player is on, each outlined, so the chain from door to door can be read
+  const rooms = fl < 0 ? [] : HM_RM[fl].map((r) => [W([[r.x0, r.z0], [r.x1, r.z0], [r.x1, r.z1], [r.x0, r.z1], [r.x0, r.z0]]), 1.2, 'rgba(60,54,46,.9)']);
+  const walls = fl === 1 ? [] : HM_RW.map((x, i) => [W(i % 2 === 0 ? [[x, U.z0 + 3.5], [x, U.z1 - 0.9]] : [[x, U.z0 + 0.9], [x, U.z1 - 3.5]]), 1.6, 'rgba(92,86,76,.9)']);
+  miniField(g, X, poly, dot, k, { bg: 'rgba(158,154,142,.92)', polys: [[W([[x0, z0], [x1, z0], [x1, z1], [x0, z1]]), 'rgba(214,210,200,.95)'], [W([[U.x0, U.z0], [U.x1, U.z0], [U.x1, U.z1], [U.x0, U.z1]]), 'rgba(190,186,176,.95)'], [W([[HM_CABLE[0] - 6, HM_CABLE[1] - 4], [HM_CABLE[0] + 6, HM_CABLE[1] - 4], [HM_CABLE[0] + 6, HM_CABLE[1] + 4], [HM_CABLE[0] - 6, HM_CABLE[1] + 4]]), 'rgba(214,210,200,.95)']], lines: [[W(HM_ROAD), 4, 'rgba(120,104,84,.95)'], [W(HM_RING_O), 2.5, 'rgba(70,60,50,.95)'], [W(HM_RING_I), 2.5, 'rgba(70,60,50,.95)'], ...HM_SPURS.filter(Boolean).map((s) => [W(s), 2.5, 'rgba(70,60,50,.95)']), ...(fl < 0 && HM.stage >= 5 ? walls : []), ...rooms] });
 }
 function hmEnd(win, why) {
   const stats = [[STATS.kills, 'אויבים נפגעו'], [FRIENDS.filter((f) => f.state === 'follow' || f.state === 'post').length, 'לוחמים איתכם בסוף'], [HM.stage + 1, 'השלב שהגעתם אליו']];
   if (win) return ['החרמון שלנו', 'בלילה שבין 21 ל־22 באוקטובר 1973 עלו לוחמי גולני ממג׳דל שמס להחזיר את המוצב בחרמון, שנכבש בידי קומנדו סורי ביום הראשון למלחמה. הם נלחמו על הדרך, בסלעים, במבני הרכבל, בתעלות המוצב ובתוך הבונקר עצמו, ובאחת עשרה בבוקר הניפו עליו את הדגל. 55 מלוחמי גולני נפלו בקרב.', stats];
   return ['נפגעת', HM.stage >= 3 ? 'בתוך הבונקר יורים מטווח מטרים. עצרו לפני כל פינה, זרקו רימון, ותנו ללוחמים להיכנס איתכם.' : 'העמדות מאוישות מראש - צלפו את הקסדות מרחוק לפני שאתם מתקרבים, ואל תעלו על הסוללה מול הגג.', stats];
 }
-CHAP.hermon = { stages: HM_STAGES, st: () => HM.stage, dbg: () => ({ py: HM_PY, l0: HM_L0, ry: HM_RY }), cp: () => CHAP.hermon.cpN || 0, upd: hmUpd, obj: hmObj, hints: hmHints, items: hmItems, mini: hmMini, restore: fieldRestore, end: hmEnd, tank: false, dry: true, cloth: 0xf0eee6,
+CHAP.hermon = { stages: HM_STAGES, st: () => HM.stage, dbg: () => ({ py: HM_PY, l0: HM_L0, ry: HM_RY }), cp: () => CHAP.hermon.cpN || 0, upd: hmUpd, snapAfter: () => hmDoorsSet(HM.stage, GATE.on ? GATE.i : 0), obj: hmObj, hints: hmHints, items: hmItems, mini: hmMini, restore: fieldRestore, end: hmEnd, tank: false, dry: true, cloth: 0xf0eee6,
   tod: () => [7 * 60 + 40, 8 * 60 + 35, 9 * 60, 9 * 60 + 25, 9 * 60 + 50, 10 * 60 + 25][HM.stage] - START_MIN + CHAP.hermon.t / 6,
   build: () => chapterBuild(CHAP.hermon, hmBuild), setup: hmSetup, clock: '22.10.1973 · החרמון', toast: ['22 באוקטובר 1973 · לפנות בוקר', 'גולני עולים להחזיר את החרמון'], start: () => fieldStart('hermon') };
 
@@ -12335,9 +13152,9 @@ function snapRestore(s = SNAP.list[SNAP.list.length - 1]) {
   DIRQ.length = 0; for (const q of s.dirq) DIRQ.push({ ...q });
   if (MODE === 'mezach') { BARRS.forEach((B, i) => { const on = s.barrs[i]; B.on = on; B.g.visible = on; B.col.top = on ? B.top : -1e4; }); }
   if (typeof SMOKES !== 'undefined') smokesRestore(s.smokes || []);
-  // the player: as he was, but with full ammunition
-  snapPut(P, s.P, 2); P.alive = true; P.hp = Math.max(P.hp, 40); P.lastHit = GAME.t - 9; P.vy = 0; P.reloadT = 0; P.throwT = 0; P.fireCd = 0; P.hold = 0; P.ads = 0; P.recoil = 0; P.kick = 0;
-  P.mag = 20; P.reserve = Math.max(P.reserve, 160); P.gren = Math.max(P.gren, diff.gren0); if (P.smokeMax) P.smoke = P.smokeMax;
+  // the player: as he was, but with full health and ammunition
+  snapPut(P, s.P, 2); P.alive = true; P.hp = 100; P.lastHit = GAME.t - 9; P.vy = 0; P.reloadT = 0; P.throwT = 0; P.fireCd = 0; P.hold = 0; P.ads = 0; P.recoil = 0; P.kick = 0;
+  P.mag = 20; cpRefill();
   if (P.mode === 'carry' && P.carrying) { P.carrying.state = 'carried'; P.carrying.unit.rig.root.visible = false; }
   vm.visible = P.mode === 'rifle' && !(P.ride && P.ride.mg); INPUT.fire = INPUT.mFire = INPUT.kFire = false; INPUT.keys = {};
   if (CH() && CH().snapAfter) CH().snapAfter(s); else if (MODE === 'suez') szShow(true);
@@ -12359,7 +13176,7 @@ function snapOnDeath() {
    the hill, the hold in the ditch, the landing). Every bound and every small event saves only on the easiest level; there is no save on a timer */
 /* the checkpoints are fixed: one at the start of every stage of every chapter. Coming back puts the stage back exactly as it begins - the same
    place, the same time of day, the same enemies - whatever the player had done in it. Nothing is saved mid-stage */
-function snapRequest(why = 'stage') { if (why === 'stage' && GAME.t > 1) snapMark(); }
+function snapRequest(why = 'stage') { if (why !== 'stage') return; cpRefill(); if (GAME.t > 1) snapMark(); }   // a stage's start is the checkpoint: it gives back full health and ammunition (cpRefill)
 // the moment is calm enough to keep: alive, not in a film, not just hit, no enemy on top of him, nothing in the air at him
 function snapCalm(strict) {
   if (GAME.state !== 'play' || !P.alive || CINE.on || SLOW.left > 0 || SURV.on || P.mode === 'carry') return false;
@@ -12408,7 +13225,7 @@ const CHM = {
     arrows: [['blue', 'M842 884 C 860 846, 880 798, 898 762']] },
   suez: { short: 'סואץ', day: 23.5, when: 'רביעי, 24 באוקטובר 1973, בוקר', where: 'העיר סואץ', who: 'טנקים וצנחנים',
     vs: { e: [5000, 'אלפים', 'חי״ר, קומנדו ומיליציה בעיר'], f: [1000, 'כ־1,000', 'טנקים וצנחנים בטור'] }, story: 'שעות לפני הפסקת האש, הטור נכנס לעיר סואץ. ברחובות ובכיכר מחכים מארבים, והצנחנים נאחזים בבניין עם הפצועים, עד שתגיע שיירת חילוץ.',
-    obj: ['פרצו עם הטנק ברחובות העיר', 'חצו את הכיכר ממחסה למחסה', 'טהרו את הבניין קומה אחרי קומה', 'הגנו על התאג״ד המאולתר עד שהשיירה מגיעה', 'חפו על השיירה וחלצו את הפצועים'], pin: [502, 836], view: [380, 740, 320, 240],
+    obj: ['פרצו עם הטנק ברחובות העיר', 'אגפו את הכיכר בסמטאות', 'טהרו את הבניין חדר אחרי חדר', 'הגנו על התאג״ד מהקומה הראשונה', 'חפו על השיירה וחלצו את הפצועים'], pin: [502, 836], view: [380, 740, 320, 240],
     arrows: [['blue', 'M418 524 C 440 604, 466 704, 490 834']] },
   army: { short: 'הכיתור', day: 24.5, when: 'רביעי, 24 באוקטובר 1973, 14:50', where: 'כביש סואץ–קהיר ונמל עדבייה', who: 'חטיבת שריון',
     vs: { e: [45000, '45,000', 'הארמיה השלישית · 250 טנקים'], f: [10000, 'כ־10,000', 'אוגדת אדן · ~200 טנקים'] }, story: 'הטורים מנתקים את כביש סואץ–קהיר מאחורי הארמיה השלישית ויורדים אל מפרץ סואץ. בחמש אחר הצהריים נכנסת הפסקת האש לתוקף.',
