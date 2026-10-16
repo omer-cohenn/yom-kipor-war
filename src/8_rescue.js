@@ -104,7 +104,7 @@ function rsBuild() {
   // the rescue force: Shaul's tank (the battalion commander), the artillery liaison officer's tank, and the four light vehicles of company Yod behind (jeeps: the only light vehicle model in the game)
   C.shaul = addVeh({ mode: 'rescue', side: 'f', kind: 'tank', geo: TANK_GEO, half: [3.4, 2.6, 1.9], guns: true, follow: { gap: 26 }, sturdy: true, hitP: 0.14, shellDmg: 22, name: 'הטנק של שאול' });
   C.ksha = addVeh({ mode: 'rescue', side: 'f', kind: 'tank', geo: TANK_GEO, half: [3.4, 2.6, 1.9], guns: true, follow: { gap: 50 }, sturdy: true, hitP: 0.14, shellDmg: 22, name: 'טנק הקש״א' });
-  C.apc = [74, 90, 106, 122].map((gap, i) => addVeh({ mode: 'rescue', side: 'f', kind: 'jeep', geo: HT_GEO, half: [3.0, 2.2, 1.2], guns: i < 2, follow: { gap }, name: `ג׳יפ ${i + 1}` }));
+  C.apc = [74, 90, 106, 122].map((gap, i) => addVeh({ mode: 'rescue', side: 'f', kind: 'jeep', geo: JEEP_GEO, half: [3.0, 2.2, 1.2], guns: i < 2, follow: { gap }, name: `ג׳יפ ${i + 1}` }));
   C.t55 = [[-1100, 60], [-1050, -180], [-950, -430], [-760, -60], [-740, 40]].map(() => addVeh({ mode: 'rescue', kind: 't55', geo: T55_HULL, turGeo: T55_TUR, turAt: [0.3, 1.42, 0], half: [3.2, 2.3, 1.75], armor: 0, hp: 100, shoots: true, vmax: 5 }));
   // the rest of the garrison: twenty-one more men, so that thirty-three climb onto one tank
   C.riders = Array.from({ length: 21 }, (_, i) => { const u = new Unit('f', 'rifle'); scene.remove(u.tag); u.alive = true; u.rig.root.visible = false; u.rig.root.userData.dyn = true; u.stance = 'stand'; u.rig.pose('idle', i); return { u, state: 'hide', seat: null }; });
@@ -243,11 +243,11 @@ function rsStage(i) {
     DIRQ.push({ at: GAME.t + 12, fn: () => { rsGreenFlare(); hint('rs-flare', 'הזיקוק הירוק עולה מערבה. סובבו את המבט אליו והחזיקו אותו בכוונת כמה שניות — ככה מזהים את המיקום. אם פספסתם, הוא יירה עוד אחד.', 9); } });
   }
   if (i === 2 && RS.hillCp) { RS.msgs.h1 = RS.msgs.h2 = RS.msgs.h3 = RS.msgs.c2 = true; for (const k of [0, 1, 3]) vehDestroy(C.apc[k], true); radio('מח״ט', 'שאול, עצור. קבוצת חיילים יורדת מהגבעה אליכם — אל תירו עד שמזהים.', 4); }
-  else if (i === 2) { radio('מח״ט', 'אני נכנס איתכם, הטנק שלי משמאל. חטיבה 421 מגבירה אש. כולם — גז, לא עוצרים!', 4.5); rsGroupSpawn('C'); rsGroupSpawn('N'); rsSquad('C', 10); }
+  else if (i === 2) { radio('מח״ט', 'אני נכנס איתכם, הטנק שלי משמאל. חטיבה 421 מגבירה אש. כולם — גז, לא עוצרים!', 4.5); rsGroupSpawn('C', 14, 9); rsGroupSpawn('N', 18, 9); rsSquad('C', 10); }
   if (i === 3) { radio('שאול', 'אני בנקודת המפגש! הם רצים אליי מאחורי הדיונה. תחפה עליי מהגבעה — הסאגרים יחפשו אותי עכשיו.', 5); const nW = rsGroupSpawn('W', 10, 9); rsGroupSpawn('S', 10 + nW * 9 - 4, 9); for (const v of C.t55.slice(3)) { v.shown = true; v.g.visible = true; v.shoots = true; } rsBoardStart(); hint('rs-cover', 'הטנק של שאול עומד במקום עד ש־33 איש עולים עליו. סימון צהוב מהבהב = מפעיל סאגר מכוון אליו: הרגו אותו לפני שהטיל מגיע. טנק מצרי — פגז (G).', 10); }
   if (i === 4) { radio('שאול', 'כולם עליי! שלושים ושלושה. אני זז מזרחה — תישאר צמוד אליי.', 4); DIRQ.push({ at: GAME.t + 6, fn: () => radio('מח״ט', 'כל הדרך הביתה הם יחכו לכם בשוחות. מי שמרים ראש — מקבל.', 3.5) }); }
 }
-function rsSquad(id, n) { const C = CHAP.rescue, sl = C.slots.filter((q) => q.grp === id), r = rng(5300 + id.charCodeAt(0) * 31 + n); n = Math.round(n * [0.6, 1, 1.25][rsD()]); for (let k = 0; k < n && sl.length; k++) { const s = sl[k % sl.length], [lx, lz] = corr(RS_TRACK, s.x - RS.o.x + (r() - 0.5) * 50, s.z - RS.o.z + (r() - 0.5) * 12, 24, 10), [mx, mz] = corr(RS_TRACK, lx + (r() - 0.5) * 20, lz * 0.5, 14, 4), [x, z] = RW(lx, lz), [tx, tz] = RW(mx, mz); const e = fSpawnStreet0(x, z, [[tx, tz]], k % 4 === 3 ? 'rpg' : 'rifle'); if (e) { e.sq = id; e.tac = k % 4 < [1, 2, 3][rsD()] ? 'storm' : 'hold'; } } }
+function rsSquad(id, n) { const C = CHAP.rescue, sl = C.slots.filter((q) => q.grp === id), r = rng(5300 + id.charCodeAt(0) * 31 + n); n = Math.round(n * [0.6, 1, 1.25][rsD()]); for (let k = 0; k < n && sl.length; k++) { const s = sl[k % sl.length], [lx, lz] = corr(RS_TRACK, s.x - RS.o.x + (r() - 0.5) * 50, s.z - RS.o.z + (r() - 0.5) * 12, 24, 10), [mx, mz] = corr(RS_TRACK, lx + (r() - 0.5) * 20, lz * 0.5, 14, 4), [x, z] = RW(lx, lz), [tx, tz] = RW(mx, mz); const e = fSpawnStreet0(x, z, [[tx, tz]], k % 4 === 3 ? 'rpg' : 'rifle'); if (e) { e.sq = id; e.tac = k % 4 < [1, 2, 3][rsD()] ? 'storm' : 'hold'; e.rpgMiss = rsD() === 0 || (rsD() === 1 && k % 8 === 3); } } }
 /* an ambush of the drive comes up: the men in the holes rise and open fire at once - a spray at a column moving fast in the dark, inaccurate
    below the hard level (wild) - and the riflemen come running in to their sandbag wall. Most RPGs land short and shake the tank: all of them
    on the easy level, all but one in three ambushes' first rocket on the middle one, every other one on the hard one, whose ambushes also
@@ -256,7 +256,7 @@ function rsAmbSpawn(a) {
   const n = [2, 3, 4][rsD()], easy = rsD() === 0, dir = RS.stage === 4 ? 1 : -1; let right = 0, left = 0;
   a.sh.slice(0, n).forEach((q, k) => { let e = null;
     // the Sagger crews of the ambushes are the hard level's (the positions astride the track keep theirs on every level); below it an RPG team holds the hole
-    if (q.how === 'pit') { e = fSlotSpawn(q.kind === 'atgm' && rsD() < 2 ? 'rpg' : q.kind, (sl) => sl === q.slot, 'am'); if (e) { e.peek = true; e.cyc = 1.3 + k * 0.4; e.rpgCd = e.atgm ? 8 + k * 1.5 : 2.5 + k; e.rpgMiss = e.kind === 'rpg' && (easy || (rsD() === 1 ? k > 0 || RS.ambN % 3 > 0 : k % 2 === 1)); e.wild = rsD() < 2; } }
+    if (q.how === 'pit') { e = fSlotSpawn(q.kind === 'atgm' && rsD() < 2 ? 'rpg' : q.kind, (sl) => sl === q.slot, 'am'); if (e) { e.peek = true; e.cyc = 1.3 + k * 0.4; e.rpgCd = e.atgm ? 8 + k * 1.5 : 2.5 + k; e.rpgMiss = e.kind === 'rpg' && (easy || (rsD() === 1 ? k > 0 || RS.ambN % 3 > 0 || RS.stage === 2 : k % 2 === 1)); e.wild = rsD() < 2; } }
     else { e = fSpawnStreet0(q.from[0], q.from[1], [q.dest], q.kind); if (e) { e.sq = 'am'; e.tac = 'hold'; e.rpgMiss = easy; } }
     if (e) { e.ambId = a.id; if (q.side * dir > 0) right++; else left++; } });
   const n0 = RS.ambN++; if (n0 % 2 === 0) radio('תותחן', right && left ? ['מארב משני צדי הציר!', 'יורים עלינו משני הצדדים!', 'שוחות מימין ומשמאל!'][n0 / 2 % 3] : right ? ['שוחות מימין!', 'מארב מימין, על הדיונה!'][n0 / 2 % 2] : ['שוחות משמאל!', 'מארב משמאל, בין השיחים!'][n0 / 2 % 2], 2);
@@ -272,7 +272,8 @@ function rsAmbUpd(dt) {
   RS.ambCk -= dt; if (RS.ambCk > 0) return; RS.ambCk = 0.5;
   for (const e of UNITS.enemies) if (e.alive && e.sz && (e.sq === 'am' || 'ABCN'.includes(e.sq || '#')) && (e.pos.x - RS.o.x - tx) * dir < -140 && !fieldSees(e, 110)) { e.alive = false; e.rig.root.visible = false; e.tag.visible = false; if (e.slot) { e.slot.used = false; e.slot = null; } }
 }
-function rsGroupSpawn(id, first = 9, gap = 8) { const C = CHAP.rescue; let k = 0; for (const s of C.slots) if (s.grp === id && !s.used) { const e = fSlotSpawn(s.kind, (q) => q === s, id); if (e && e.atgm) { e.rpgCd = first + (k++) * gap; } } return k; }
+// (below the hard level every other RPG of a position lands short: the column now meets far more of them on every drive)
+function rsGroupSpawn(id, first = 9, gap = 8) { const C = CHAP.rescue; let k = 0, r = 0; for (const s of C.slots) if (s.grp === id && !s.used) { const e = fSlotSpawn(s.kind, (q) => q === s, id); if (e && e.atgm) { e.rpgCd = first + (k++) * gap; } else if (e && e.kind === 'rpg') e.rpgMiss = rsD() === 0 || (rsD() === 1 && r++ % 2 === 0); } return k; }
 /* the thirty Egyptians on the hill: they stand in the open, unmarked, until the tank is a hundred metres away */
 function rsHillGroup() {
   // thirty men come down off the hill toward the halted column in a loose file, unmarked, as if they were ours: each one walks to a place

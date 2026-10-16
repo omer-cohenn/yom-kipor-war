@@ -103,10 +103,13 @@ function arBuild() {
   // our own position at the junction: a horseshoe of sandbags round the tank's place (low: it does not stop a shot)
   { const arc = []; for (let a = -110; a <= 110; a += 20) { const t = THREE.MathUtils.degToRad(a); arc.push(AW(AR_J[0] + Math.sin(t) * 6.5, AR_J[1] + 3 + Math.cos(t) * 6.5)); } bagWall(arc, 3, null, false); }
   const nearW = (x, z) => C.walls.some((w) => Math.abs(w[0] - x) < 3 && Math.abs(w[1] - z) < 3);
+  // the lines of fire from each firing position to its dug-in tanks are kept clear of boulders (a rock in the way would take every shell)
+  const lanes = []; for (const [id, R, st] of [['Q', AR_ROUTE0, AR_STOP1], ['K', AR_ROUTE0, AR_STOP2], ['S', AR_ROUTE0, pathLen(AR_ROUTE0) - 0.5], ['P', AR_ROUTE2, AR2_STOP]]) { const [sx, sz] = pathAt(R, st); for (const p of AR_PITS[id]) lanes.push([[sx, sz], [p[0], p[1]]]); }
+  const nearLane = (lx, lz) => lanes.some((l) => distPolyline(lx, lz, l) < 7) || Math.hypot(lx - AR_J[0], lz - AR_J[1]) < 28;   // and the junction's own field of fire
   // the road: asphalt, telephone poles, a kilometre stone, burnt-out jeeps from the morning
   roadRibbon([[-1150, AR_ROAD], [1150, AR_ROAD]].map(([x, z]) => AW(x, z)), 8, 'asphalt'); roadRibbon(AR_ROUTE0.map(([x, z]) => AW(x, z)), 6, 'dirt'); roadRibbon(AR_ROUTE2.map(([x, z]) => AW(x, z)), 6, 'dirt'); rsRoadWrecks([[-1100, AR_ROAD], [1100, AR_ROAD]].map(([x, z]) => AW(x, z)), 7, 10117, 7);
   powerLine([[-1150, AR_ROAD - 12], [1150, AR_ROAD - 12]].map(([x, z]) => AW(x, z)), 48, 7.5); roadPoles([[-1150, AR_ROAD], [1150, AR_ROAD]].map(([x, z]) => AW(x, z)), 50, 5.2);
-  { const L = (x, z) => [x - AR.o.x, z - AR.o.z], ok = (x, z) => { const [lx, lz] = L(x, z); return Math.abs(lz - AR_ROAD) > 9 && distPolyline(lx, lz, AR_ROUTE0) > 9 && distPolyline(lx, lz, AR_ROUTE2) > 9 && lz < coastZ(lx) - 8 && !C.slots.some((s) => Math.hypot(s.x - x, s.z - z) < 4) && !nearW(x, z) && !nearWork(lx, lz); };
+  { const L = (x, z) => [x - AR.o.x, z - AR.o.z], ok = (x, z) => { const [lx, lz] = L(x, z); return Math.abs(lz - AR_ROAD) > 9 && distPolyline(lx, lz, AR_ROUTE0) > 9 && distPolyline(lx, lz, AR_ROUTE2) > 9 && lz < coastZ(lx) - 8 && !C.slots.some((s) => Math.hypot(s.x - x, s.z - z) < 4) && !nearW(x, z) && !nearWork(lx, lz) && !nearLane(lx, lz); };
     const X0 = AR.o.x - 520, X1 = AR.o.x + 980, Z0 = AR.o.z - 1180, Z1 = AR.o.z + 600;
     const RT = [...AR_ROUTE0, ...AR_ROUTE2].map(([x, z]) => AW(x, z)), RD = [[-1150, AR_ROAD], [1150, AR_ROAD]].map(([x, z]) => AW(x, z));
     concealPatches([...patchesNear(RT, 40, 14, 120, 790, ok, 4, 8), ...patchesNear(RD, 30, 12, 90, 791, ok, 4, 8)], C, 792, 0.25);
@@ -134,10 +137,10 @@ function arBuild() {
   BATCH.bag = sv; if (BAGS.length) scene.add(bagMesh(BAGS)); C.covers = COVER.slice(k0); for (const c of C.covers) c.y = groundAt(c.x, c.z);
   // our column; the Egyptian jeeps and tanks of the assaults; the tanks dug in at the lines and the port
   C.wings = [18, 34, 64].map((gap) => addVeh({ mode: 'army', side: 'f', kind: 'tank', geo: TANK_GEO, half: [3.4, 2.6, 1.9], guns: true, follow: { gap } }));
-  C.ht = addVeh({ mode: 'army', side: 'f', kind: 'jeep', geo: HT_GEO, half: [3.0, 2.2, 1.2], guns: true, follow: { gap: 48 } });
-  C.ht2 = addVeh({ mode: 'army', side: 'f', kind: 'jeep', geo: HT_GEO, half: [3.0, 2.2, 1.2], guns: true, follow: { gap: 80 } });
+  C.ht = addVeh({ mode: 'army', side: 'f', kind: 'jeep', geo: JEEP_GEO, half: [3.0, 2.2, 1.2], guns: true, follow: { gap: 48 } });
+  C.ht2 = addVeh({ mode: 'army', side: 'f', kind: 'jeep', geo: JEEP_GEO, half: [3.0, 2.2, 1.2], guns: true, follow: { gap: 80 } });
   const t55 = () => addVeh({ mode: 'army', kind: 't55', geo: T55_HULL, turGeo: T55_TUR, turAt: [0.3, 1.42, 0], half: [3.2, 2.3, 1.75], armor: 0, shoots: true, vmax: 7 });
-  C.ej = [0, 1, 2].map(() => addVeh({ mode: 'army', kind: 'jeep', geo: ETRUCK_GEO, half: [3.2, 2.6, 1.2], armor: 0.14, hp: 60, mg: true, vmax: 9 }));
+  C.ej = [0, 1, 2].map(() => addVeh({ mode: 'army', kind: 'jeep', geo: JEEP_GEO, half: [3.2, 2.6, 1.2], armor: 0.14, hp: 60, mg: true, vmax: 9 }));
   C.et = [0, 1, 2, 3].map(t55);
   C.dug = {}; for (const [id, list] of Object.entries(AR_PITS)) C.dug[id] = list.map((p) => { const v = t55(); v.pit = p; return v; });
 }
