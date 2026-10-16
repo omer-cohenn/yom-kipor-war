@@ -285,7 +285,7 @@ function allyFire(v, dt) {
   if (v.kind === 'tank') for (const w of VEH) { if (w.mode !== MODE || !w.alive || w.side !== 'e' || !w.g.visible) continue; const c = w.g.position.clone(); c.y += 1.4; const d = from.distanceTo(c); if (d < 1200 && d < bd * 1.5 && losW(from.x, from.y, from.z, c.x, c.y, c.z)) { bd = d; best = { v: w, p: c }; } }
   if (!best) return;
   if (best.v) { fxMuzzle(from, true); sndBoom(from, 0.6); fxTracer(from, best.p, false); if (Math.random() < 0.45 * (CH() && CH().allyK || 1)) vehDestroy(best.v); else fxExplosion(best.p.clone().add(V3(rand(-3, 3), -1, rand(-3, 3))), 0.7); v.fireCd = rand(6, 9); return; }
-  fxMuzzle(from, false); sndShot('fal-npc', from); fxTracer(from, best.p, false); if (Math.random() < (v.kind === 'tank' ? 0.2 : 0.14) * clamp(1 - bd / 600, 0.3, 1) * ((CH() && CH().allyInf && CH().allyInf()) ?? 1)) killEnemy(best.u, false); else fxDust(best.p.clone().add(V3(rand(-1, 1), -0.8, rand(-1, 1))));
+  fxMuzzle(from, false); sndShot('fal-npc', from); fxTracer(from, best.p, false); if (Math.random() < (v.kind === 'tank' ? 0.2 : 0.14) * clamp(1 - bd / 600, 0.3, 1) * ((CH() && CH().allyInf && CH().allyInf()) ?? 1)) killEnemy(best.u, false); else { supPin(best.u, 0.3); fxDust(best.p.clone().add(V3(rand(-1, 1), -0.8, rand(-1, 1)))); }
 }
 /* Egyptian tanks and anti-tank guns: they shoot at the player's tank (or at the player on foot) when they see it */
 function enemyVehFire(v, dt) {
@@ -639,7 +639,7 @@ function fSpawnStreet(x, z, path, kind = 'rifle') {
   DIRQ.push({ at: GAME.t + rand(0.5, 1.2), spawn: true, fn: () => { if (!e.alive || e.hunter || e.wild || e.climbV || e.climb || e.state !== 'sz' || e.sz !== 'street') return; const c = fSpawnStreet0(e.pos.x + rand(-1.6, 1.6), e.pos.z + rand(-1.6, 1.6), e.path.slice(e.pi), e.kind); if (c) { c.sq = e.sq; c.tac = 'storm'; } } });
   return e;
 }
-function fSpawnStreet0(x, z, path, kind = 'rifle') { const e = spawnEnemy(x, z, varyKind(kind, x, z), null, null); if (!e) return null; e.sz = 'street'; e.state = 'sz'; e.path = path.map((p) => [p[0], p[1]]); e.pi = 0; e.cov = null; e.patience = 0; e.climb = false; e.cyc = 1; e.peek = false; e.meleeCd = 0.5; e.rpgCd = rand(7, 13); return e; }
+function fSpawnStreet0(x, z, path, kind = 'rifle') { const e = spawnEnemy(x, z, varyKind(kind, x, z), null, null); if (!e) return null; e.sz = 'street'; e.state = 'sz'; e.alert = true; e.path = path.map((p) => [p[0], p[1]]); e.pi = 0; e.cov = null; e.patience = 0; e.climb = false; e.cyc = 1; e.peek = false; e.meleeCd = 0.5; e.rpgCd = rand(7, 13); return e; }
 function fSlotSpawn(kind, filter, tag) { const e = szSpawnSlot(kind === 'atgm' ? 'rpg' : kind, filter); if (e) { e.atgm = kind === 'atgm'; e.sq = tag; e.guide = null; if (e.atgm) e.rpgCd = rand(9, 16); } return e; }
 /* ---------- defenders placed ahead of the advance ----------
    A position is manned before the player can see it, not when he reaches it: the man sits in his hole, hidden, and comes alive when the

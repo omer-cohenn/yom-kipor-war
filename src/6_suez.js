@@ -1384,19 +1384,19 @@ function szCovFaces(c, th) { if (!P.alive) return true; const tx = P.pos.x - c.x
 /* choosing cover: only a place that puts something between him and the player, that he can run to in a straight line; a man who storms takes the
    next one closer to the player, a man who holds the best one near him at about the range he is at. Tall cover - a wall, a doorway - is preferred */
 function szPickCover(e, mode, dE) {
-  let best = null, bs = 1e9; const R = mode === 'storm' ? 22 : 16, pp = P.pos;
+  let best = null, bs = 1e9; const R = mode === 'storm' ? 22 : mode === 'fall' ? 26 : 16, pp = P.pos;
   for (const c of SZ.covers || []) {
     if (c.floor !== undefined || (c.by && c.by !== e)) continue;
     const de = Math.hypot(c.x - e.pos.x, c.z - e.pos.z); if (de > R) continue;
     let sc = de;
     if (P.alive) { const tx = pp.x - c.x, tz = pp.z - c.z, dc = Math.hypot(tx, tz); if (dc < 4.5 || (tx * c.nx + tz * c.nz) / dc < 0.45) continue;
-      if (mode === 'storm') { if (dc > dE - 2.5) continue; sc = de * 0.8 + dc * 0.5; } else sc = de + Math.abs(dc - dE) * 0.15;
+      if (mode === 'storm') { if (dc > dE - 2.5) continue; sc = de * 0.8 + dc * 0.5; } else if (mode === 'fall') { if (dc < dE + 6 || de > 26) continue; sc = de * 0.6 + Math.abs(dc - dE - 12) * 0.3; } else sc = de + Math.abs(dc - dE) * 0.15;
       sc -= (c.h > 1.5 ? 1.5 : 0) + (c.door ? 1 : 0); }
     if (sc - 1.5 >= bs) continue;
     const cy = c.y ?? e.pos.y; if (segHitT(e.pos.x, e.pos.y + 1.0, e.pos.z, c.x, cy + 1.0, c.z, 0.3) >= 0) continue;
     sc += (((c.x * 7.13 + c.z * 3.71) % 1) + 1) % 1 * 1.5; if (sc < bs) { bs = sc; best = c; }   // a fixed tie-break per place, not a roll: the same man takes the same cover every time
   }
-  return best || (mode === 'storm' ? szPickCover(e, 'hold', dE) : null);
+  return best || (mode === 'storm' ? szPickCover(e, 'hold', dE) : null);   // (falling back finds nothing: he stays where he is)
 }
 function suezEnemyStep(e, dt, shoot, aimPitch) {
   if (e.dormant && dormantStep(e, dt)) return;
@@ -1410,8 +1410,10 @@ function suezEnemyStep(e, dt, shoot, aimPitch) {
     // a chapter may offer the Sagger crews another target (the rescue: Shaul's loaded tank); the missile then kills or damages that vehicle
     if (e.atgm && e.peek && e.rpgCd <= 0 && CH() && CH().atgmTarget) { const fn = CH().atgmTarget(e); if (fn) { const tp = fn(), mz = e.muzzle(); if (mz.distanceTo(tp) < 900 && losW(mz.x, mz.y + 0.3, mz.z, tp.x, tp.y, tp.z)) { e.face(tp.x, tp.z); const q = fireAtgm(e, fn); q.vt = true; e.rpgCd = rand(28, 38); return; } } }
     if (e.atgm && e.peek && e.rpgCd <= 0 && P.mode === 'tank' && TANK.alive) { const tp = tankTurretWorld(), mz = e.muzzle(); if (mz.distanceTo(tp) < (MODE === 'armor' ? 1000 : 330) && losW(mz.x, mz.y + 0.3, mz.z, tp.x, tp.y, tp.z)) { e.face(tp.x, tp.z); fireAtgm(e); e.rpgCd = rand(28, 38); return; } }
+    const pin = pinned(e) && e.kind !== 'rpg' && P.mode !== 'tank'; if (pin && e.peek) { e.peek = false; e.cyc = Math.max(e.cyc, rand(0.5, 1.1)); }
     if (e.peek && aimed) { e.aimT += dt; if (e.aimT > (P.mode === 'tank' ? 1.4 : 0.8) && e.kind !== 'rpg') e.cyc = Math.min(e.cyc, 0); } else e.aimT = 0;
-    if (e.cyc <= 0) { e.peek = !e.peek; if (e.peek && aimed && Math.random() < 0.6) e.peek = false; e.cyc = e.peek ? (e.kind === 'rpg' ? 2.6 : rand(1.8, 2.8)) : rand(1.2, 2.4); if (e.peek) { e.scanCd = 0; e.burst = 0; e.fireCd = rand(0.3, 0.6); e.rpgAim = 0; } }
+    if (e.cyc <= 0) { e.peek = !e.peek; if (e.peek && (pin || (aimed && Math.random() < 0.6))) e.peek = false; e.cyc = e.peek ? (e.kind === 'rpg' ? 2.6 : rand(1.2, 3.0)) : rand(0.9, 2.8); if (e.peek) { e.scanCd = 0; e.burst = 0; e.fireCd = rand(0.3, 0.6); e.rpgAim = 0; } }
+    if (!e.peek && pin && tacKnows(e, 4)) { e.blindCd = (e.blindCd ?? rand(0.8, 1.6)) - dt; if (e.blindCd <= 0) { e.blindCd = rand(1.6, 3.2); tacFireAt(e, 0.1); } }
     const tg = e.peek ? s.p : s.h, k = 1 - Math.exp(-dt * 7); e.pos.x += (tg[0] - e.pos.x) * k; e.pos.z += (tg[1] - e.pos.z) * k; e.pos.y = s.y;
     if (e.peek) {
       e.stance = 'stand';
@@ -1450,11 +1452,19 @@ function suezEnemyStep(e, dt, shoot, aimPitch) {
     if (e.wild) { e.stance = 'stand'; if (e.target) shoot(); e.rig.pose('aim', e.anim, aimPitch()); return; }
     // each man fights one of two ways: he storms (cover to cover, always closer, the last metres at a run) or he holds (the best cover in reach, kept while it still covers him)
     if (!e.tac) e.tac = e.kind === 'rpg' || e.kind === 'lmg' || e.kind === 'sniper' || ((((e.path && e.path[0] ? e.path[0][0] * 1.37 + e.path[0][1] * 2.11 : 0) % 1) + 1) % 1) > diff.storm ? 'hold' : 'storm';   // who storms and who holds is fixed by where he comes in
-    if (e.tac === 'storm' && P.alive && sameFloor && dP < 7.5 && seesP) { if (e.cov) { e.cov.by = null; e.cov = null; } assault(); return; }
+    if (e.tac === 'storm' && P.alive && sameFloor && dP < 7.5 && seesP && (e.supp || 0) < 0.9) { if (e.cov) { e.cov.by = null; e.cov = null; } assault(); return; }
+    const sq = sqOf(e);
+    // a squad that has lost most of its men falls back once, to cover further off, and holds there
+    if (sq && sq.broken && !e.fellBack && P.alive) { e.fellBack = true; e.tac = 'hold'; const fc = szPickCover(e, 'fall', dP); if (fc) { if (e.cov) e.cov.by = null; fc.by = e; e.cov = fc; e.inCov = false; e.covRunT = 0; e.coverT = rand(8, 12); e.cyc = rand(0.4, 1); e.peek = false; } }
+    // the player has stayed put against this squad: its first rifleman goes round to a cover off to his side
+    if (sq && !sq.broken && P.alive && PSTILL.t > tacK().flank && GAME.t - sq.flankT > 18 && tacKnows(e, 5) && !e.flanking && (e.kind === 'rifle' || e.kind === 'smg')) {
+      let first = null; for (const m of sq.men) if (m.alive && sqKey(m) === sqKey(e) && m.sz === 'street' && !m.dormant && (m.kind === 'rifle' || m.kind === 'smg')) { first = m; break; }
+      if (first === e) { sq.flankT = GAME.t; const fc = szPickFlank(e, sq); if (fc) { if (e.cov) e.cov.by = null; fc.by = e; e.cov = fc; e.inCov = false; e.covRunT = 0; e.flanking = true; e.coverT = rand(10, 14); e.tac = 'hold'; } } }
     // the cover is judged against where the player is now: once he is beside it or behind it, it covers nothing and the man moves
     e.covChk = (e.covChk || 0) - dt;
     if (e.cov && e.covChk <= 0) { e.covChk = 0.5; if (!szCovFaces(e.cov, 0.1)) { e.cov.by = null; e.cov = null; e.inCov = false; } }
     e.noCovT = (e.noCovT || 0) - dt;
+    if (e.cov && e.inCov && e.coverT <= 0 && !sqMayMove(e)) e.coverT = rand(0.8, 1.6);   // not yet: too many of his squad are out in the open
     if ((!e.cov || (e.inCov && e.coverT <= 0)) && e.noCovT <= 0) {
       const old = e.cov, nc = szPickCover(e, e.tac, dP);
       if (nc && nc !== old) { if (old) old.by = null; nc.by = e; e.cov = nc; e.inCov = false; e.cyc = rand(0.4, 1.0); e.peek = false; e.covRunT = 0; }
@@ -1462,10 +1472,10 @@ function suezEnemyStep(e, dt, shoot, aimPitch) {
       if (e.cov) e.coverT = e.tac === 'storm' ? rand(2.8, 5) : rand(6, 10);
     }
     if (e.cov) { const d = Math.hypot(e.cov.x - e.pos.x, e.cov.z - e.pos.z);
-      if (d > 0.5 && !e.inCov) { e.covRunT = (e.covRunT || 0) + dt; if (e.covRunT > 7) { e.cov.by = null; e.cov = null; e.noCovT = 2; return; } e.anim += dt * 9.5; steer(e, e.cov.x, e.cov.z, e.tac === 'storm' ? 4.8 : 4.2, dt); e.rig.pose('run', e.anim); if (seesP && Math.random() < dt * 0.6) { e.face(P.pos.x, P.pos.z); enemyFire(e); } return; }
-      e.inCov = true; coverCycle(e, dt, e.cov, shoot, aimPitch); return; }
+      if (d > 0.5 && !e.inCov) { e.covRunT = (e.covRunT || 0) + dt; if (e.covRunT > (e.flanking ? 14 : 7)) { e.cov.by = null; e.cov = null; e.noCovT = 2; e.flanking = false; return; } e.anim += dt * 9.5; steer(e, e.cov.x, e.cov.z, e.tac === 'storm' ? 4.8 : 4.2, dt); e.rig.pose('run', e.anim); if (seesP && Math.random() < dt * 0.6) { e.face(P.pos.x, P.pos.z); enemyFire(e); } return; }
+      e.inCov = true; e.flanking = false; coverCycle(e, dt, e.cov, shoot, aimPitch); return; }
     // no cover within reach: a man who storms comes on in short rushes, down on a knee to fire between them; a man who holds kneels where he is
-    if (e.tac === 'storm' && P.alive && seesP && dP > 7.5) {
+    if (e.tac === 'storm' && P.alive && seesP && dP > 7.5 && !pinned(e)) {
       e.rushTm = (e.rushTm ?? rand(0.3, 1.2)) - dt;
       if (e.rushTm <= 0) { e.rushRun = !e.rushRun; e.rushTm = e.rushRun ? rand(1.8, 3.2) : rand(1.3, 2.4); e.rushSide = rand(-0.55, 0.55); if (!e.rushRun) { e.fireCd = Math.min(e.fireCd, 0.3); e.burst = 0; } }
       if (e.rushRun) { const a = Math.atan2(P.pos.x - e.pos.x, P.pos.z - e.pos.z) + e.rushSide; e.anim += dt * 9.5; e.stance = 'stand'; steer(e, e.pos.x + Math.sin(a) * 5, e.pos.z + Math.cos(a) * 5, 4.6, dt); e.rig.pose('run', e.anim); return; }
