@@ -68,10 +68,7 @@ const HM_PY = hmBase(0, 290) + 0.2, HM_L0 = HM_PY - 3.2, HM_U1 = HM_PY + 3.2, HM
 const hmH = (x, z) => hmCarve(x, z, hmNat(x, z));
 /* past the map's box the ground is the map's far country (the backdrop's own heights and colour), so the mountain falls away to the Golan
    and the Hula on every side instead of running on as a flat shelf */
-function hmOuter(x, z) {
-  const F = MAPS.hermon && MAPS.hermon.far; if (!F) return hmNat(x, z);
-  const [u, v] = mapUV(F, x, z); COL[0] = mapCh(F.c, u, v, 0); COL[1] = mapCh(F.c, u, v, 1); COL[2] = mapCh(F.c, u, v, 2); return mapBil(F.h, F.W, F.H, u, v);
-}
+function hmOuter(x, z) { const [rel, c] = hmFar(x - HM.o.x, z - HM.o.z); COL[0] = c[0]; COL[1] = c[1]; COL[2] = c[2]; return HM_PY + rel; }
 const hmY = (f) => (f === 2 ? HM_RY : f ? HM_PY : HM_L0);
 const hmDist = (lx, lz) => { const dx = Math.max(HM_F.x0 - lx, 0, lx - HM_F.x1), dz = Math.max(HM_F.z0 - lz, 0, lz - HM_F.z1); return Math.hypot(dx, dz); };
 /* the mountain itself (hmNat, or the map) and the post's works carved into it (hmCarve): the road, the levelled summit, the trenches, the bunker's floor */
@@ -378,7 +375,7 @@ function hmTrenchProp(K, x, z, y, a, kind) {
   else K.ft('akms', ...at(0, 0), y, ry, 0, Math.PI / 2, false, T);
 }
 function hmBuild() {
-  const C = CHAP.hermon; C.ground = makeGround({ x0: HM.o.x - 230, x1: HM.o.x + 230, z0: HM.o.z - 210, z1: HM.o.z + 345, step: 1.6, h: mapH('hermon', hmOuter, hmCarve), map: 'hermon', vegOk: (x, z) => { const lx = x - HM.o.x, lz = z - HM.o.z; return distPolyline(lx, lz, HM_ROAD_S) > 5 && hmDist(lx, lz) > 70; } }); GROUND = C.ground;
+  const C = CHAP.hermon; C.ground = makeGround({ x0: HM.o.x - 230, x1: HM.o.x + 230, z0: HM.o.z - 210, z1: HM.o.z + 345, step: 1.6, ext: 1500, h: mapH('hermon', hmOuter, hmCarve), map: 'hermon', vegOk: (x, z) => { const lx = x - HM.o.x, lz = z - HM.o.z; return distPolyline(lx, lz, HM_ROAD_S) > 5 && hmDist(lx, lz) > 70; } }); GROUND = C.ground;
   const BAGS = [], sv = BATCH.bag; BATCH.bag = BAGS; const k0 = COVER.length; C.slots = [];
   const K = hmBuildKit(), r = rng(2210), stone = [], L = (x, z) => [x - HM.o.x, z - HM.o.z], y0 = HM_L0, y1 = HM_PY, yR = HM_RY;
   const { x0, x1, z0, z1 } = HM_F, [dx] = HM_DOOR, U = HM_U, ST = HM_STAIR, RS = HM_RSTAIR;
@@ -524,6 +521,77 @@ function hmJeepWreck(x, z, rot) {
    six kilometres to the north-east along the ridge). North is +z, east is -x. It is drawn first, shrunk toward the eye (a shrink centred on the eye
    changes no direction, so from wherever the camera stands it looks exactly as the real one would, and it fits the depth range finely), and the
    depth is cleared after it, so the mountain itself is always drawn over it */
+/* the country round the Hermon as it really lies, in km east and km north of the post and metres above the sea, so that from the post the
+   whole of it is in sight to the true horizon: the massif along its crest up to the summit (2,814 m, 15 km to the north-east) and on into the
+   Anti-Lebanon; the Golan plateau with its cones, falling south to the Kinneret; the Hula and the Jordan in the rift, under the Naftali cliff;
+   the Galilee hills with Meron, south Lebanon with the Litani, Mount Lebanon far to the north; the coastal plain and the sea from Beirut past
+   Haifa and the Carmel; the Damascus plain to the east. The massif's sides fall steeply, a kilometre and more in the first two or three */
+const HM_CREST = [[-7, -9, 650], [-3.6, -4.6, 1250], [0, 0, 2070], [3.5, 5, 2450], [7.6, 12.9, 2814], [14, 22, 2450], [25, 35, 2150], [40, 55, 2350], [60, 80, 2150], [85, 115, 1900]];
+const HM_COAST = [[90, -18], [75, -24], [66, -28.5], [48, -30], [29, -38], [15, -45], [4.4, -50], [-3.3, -55], [-14, -60], [-23, -63], [-33, -64], [-42, -65], [-49, -67.5], [-53.5, -76], [-68, -78], [-89, -83], [-135, -93], [-190, -102]];   // [km north, km east of the shore], north to south: Beirut, Damour, Sidon, the Litani's mouth, Tyre, Rosh HaNikra, Nahariya, Acre, Haifa bay, the Carmel's cape, Atlit, Caesarea, Tel Aviv
+const HM_RIFT = [[-19.5, 12, 520], [-19, -5, 260], [-18.4, -11, 110], [-16.8, -20, 70], [-15.8, -30, 68], [-14, -35, 40], [-15, -42, -120], [-16.5, -45.5, -212], [-17, -64, -212], [-17.5, -90, -250], [-18, -150, -300]];   // the rift's floor: the Ayun valley, Kiryat Shmona, the Hula, the Jordan's gorge, the Kinneret, the Jordan valley
+const HM_RIFT_N = HM_RIFT.map((q) => [q[1], q[0], q[2]]);   // by km north, for hmAlong
+const HM_LEB = [[-22, 38, 1700], [-14, 58, 2100], [-2, 82, 2500], [12, 104, 3000], [30, 122, 2600]];   // the crest of Mount Lebanon: the Barouk, the Kneisseh, Sannine, Qurnat as-Sawda
+const HM_TOWNS = [[-65, -42, 2.2], [-71, -54, 3.5], [-64, -33, 1.8], [-55, -3.3, 2], [-38, 29, 2.2], [-27, 66, 4], [-19, -10, 1.5], [-0.5, -4, 0.8], [-2, -9, 0.6], [-7.5, -6.6, 0.5], [48, 23, 6], [-28, -37, 1.6], [-30, -51, 2]];   // Acre, Haifa, Nahariya, Tyre, Sidon, Beirut, Kiryat Shmona, Majdal Shams, Mas'ade, Banias, Damascus, Safed, Tiberias's hills
+function hmAlong(L, N, i0 = 0, i1 = 1) { if (N >= L[0][0]) return [L[0][i0 + 1], L[0][i1 + 1]]; for (let i = 0; i < L.length - 1; i++) { const a = L[i], b = L[i + 1]; if (N <= a[0] && N >= b[0]) { const t = (a[0] - N) / (a[0] - b[0]); return [lerp(a[i0 + 1], b[i0 + 1], t), lerp(a[i1 + 1], b[i1 + 1], t)]; } } const z = L[L.length - 1]; return [z[i0 + 1], z[i1 + 1]]; }
+const hmCoastE = (N) => hmAlong(HM_COAST, N)[0];
+function hmLine(L, E, N) { let best = 1e9, hh = 0; for (let i = 0; i < L.length - 1; i++) { const [ax, az, ah] = L[i], [bx, bz, bh] = L[i + 1], dx = bx - ax, dz = bz - az, t = clamp(((E - ax) * dx + (N - az) * dz) / (dx * dx + dz * dz), 0, 1), d = Math.hypot(E - ax - dx * t, N - az - dz * t); if (d < best) { best = d; hh = lerp(ah, bh, t); } } return [best, hh]; }
+/* the Kinneret's own shore, the harp: [km east, km north] round from the Jordan's mouth - Bethsaida, Kursi, Ein Gev, Ha'on, Tzemah, the
+   Jordan's outlet at Degania, Tiberias, the bay of Ginosar under Arbel, Tabgha, Capernaum */
+const HM_KIN = [[-13.1, -43.8], [-12.9, -44.9], [-11.7, -48.2], [-11.2, -52.7], [-11.5, -55.6], [-11.9, -58.2], [-12.6, -61], [-13.8, -63.2], [-15.6, -65.2], [-17.3, -66.5], [-18.5, -66.0], [-19.4, -64.9], [-19.9, -62.3], [-20.3, -59.9], [-21.0, -57.1], [-22.6, -55.1], [-24.0, -53.2], [-24.1, -51.9], [-23.5, -50.7], [-22.2, -49.1], [-20.7, -48.0], [-18.2, -47.0], [-15.9, -45.5]];
+function hmLake(E, N) { if (N > -43 || N < -67 || E < -25 || E > -10.5) return false; let inside = false; for (let i = 0, j = HM_KIN.length - 1; i < HM_KIN.length; j = i++) { const [xi, yi] = HM_KIN[i], [xj, yj] = HM_KIN[j]; if ((yi > N) !== (yj > N) && E < ((xj - xi) * (N - yi)) / (yj - yi) + xi) inside = !inside; } return inside; }
+const hmLakeD = (E, N) => distPolyline(E, N, HM_KIN.concat([HM_KIN[0]]));   // km to its shore
+/* height (m above the sea) and what the ground is: 0 sea, 1 lake, 2 rift floor, 3 west hills, 4 plateau and plains east, 5 massif */
+function hmGeo(E, N) {
+  const inl = E - hmCoastE(N);
+  if (inl < 0) return [-15, 0];
+  if (hmLake(E, N)) return [-212, 1];
+  const [rE, rf] = hmAlong(HM_RIFT_N, N), rd = Math.abs(E - rE), side = smooth(-1.5, 1.5, E - rE);   // side: 0 west of the rift, 1 east of it
+  // west: the coastal plain, then the hills (Galilee ~500-900 m and Meron, south Lebanon), the Carmel
+  const plainW = 3 + 4 * smooth(-25, -45, N);
+  let w = 25 + 8 * inl + (380 + 160 * fbm(E / 9, N / 9, 3)) * smooth(plainW, plainW + 9, inl);
+  w += 430 * Math.exp(-(((E + 35) / 13) ** 2 + ((N + 29) / 11) ** 2)) + 200 * Math.exp(-((E + 34) ** 2 + (N + 33) ** 2) / 8) + 230 * Math.exp(-(((E + 31) / 15) ** 2 + ((N - 9) / 13) ** 2));
+  w -= 260 * smooth(-42, -58, N) * smooth(-30, -18, -E);
+  { const rg = 1 - Math.abs(noise(E / 2.4 + 31, N / 2.4)); w += 110 * (rg * rg - 0.35) * smooth(plainW, plainW + 6, inl); }   // the hills' ridges and valleys
+  { const [cd] = hmLine([[-76, -53, 0], [-57, -76, 0]], E, N); w += 430 * Math.exp(-(cd * cd) / 7); }
+  // east: the Golan, high in the north and falling south, its basalt cones; the Damascus plain beyond
+  let e = lerp(1080, 330, smooth(-9, -58, N)) - 480 * smooth(3, -12, E) * smooth(-7, -18, N); e = lerp(e, 720, smooth(16, 32, E)); e += 35 * fbm(E / 7, N / 7, 3);   // its western half low (the rim over the Hula ~400-600 m), so the lake is seen over it
+  for (const [ce, cn, hh, r] of HM_CONES) { const dd = Math.hypot(E - ce, N - cn); if (dd < r * 3.5) e += hh * Math.exp(-(dd * dd) / (r * r)); }
+  { const wd = 1 - Math.abs(noise(E / 3.2 + 7, N / 1.1)); e -= 70 * wd ** 6 * smooth(-8, -20, N); }   // the wadis cut west across the plateau to the rift
+  let h = lerp(w, e, side), k = side > 0.5 ? 4 : 3;
+  // the rift: a floor 3.5 km wide under the steep Naftali cliff on the west and the Golan's edge on the east
+  { const hw = lerp(3.5, 7.5, smooth(-42, -47, N) * (1 - smooth(-64, -69, N))); if (rd < hw + 3) { const t = 1 - smooth(hw, hw + (E < rE ? 1.8 : 2.8), rd); h = lerp(h, rf + 6 * fbm(E / 2, N / 2, 2), t); if (t > 0.6) k = 2; } }   // the west wall the steeper
+  // Mount Lebanon
+  { const [d, hh] = hmLine(HM_LEB, E, N); if (d < 40) { const t = Math.exp(-d / 6); h = Math.max(h, h + (hh - h) * t + 120 * t * fbm(E / 4, N / 4, 3)); } }
+  // the massif: steep sides off its crest
+  { const [d, hh] = hmLine(HM_CREST, E, N), L = 1.15 + 0.25 * smooth(4, 20, Math.hypot(E, N)); if (hh > h) { const t = Math.exp(-d / L), rg = 1 - Math.abs(noise(E / 0.85 + 3, N / 0.85)), m = h + (hh - h) * t + t * (1 - t) * 4 * (70 * fbm(E / 1.6, N / 1.6, 3) + 60 * (rg * rg - 0.4));   // spurs and gullies down its sides
+    if (m > h + 40) k = 5; h = Math.max(h, m); } }
+  return [h + (k === 4 ? 7 : k === 5 ? 30 : 18) * fbm(E / 0.6, N / 0.6, 2), k];   // the plateau's basalt lies flat; the mountain is rough
+}
+/* the colour of that country in October (sRGB): dry ochre and black basalt on the Golan, green fields and fish ponds in the Hula, grey-green
+   scrub and pale limestone in the Galilee and Lebanon, the patchwork of the coastal plain, grey towns, the deep blue of the lake and the sea */
+function hmGeoCol(E, N, h, k) {
+  if (k === 0) { const sh = smooth(0, -5, E - hmCoastE(N)); return [lerp(0.34, 0.3, sh), lerp(0.48, 0.45, sh), lerp(0.56, 0.62, sh)]; }   // seen from far and high, the water is blue and bright with the sky
+  if (k === 1) { const sh = smooth(0, 1.2, hmLakeD(E, N)); return [lerp(0.4, 0.33, sh), lerp(0.55, 0.5, sh), lerp(0.58, 0.68, sh)]; }
+  const n1 = fbm(E / 1.7 + 7, N / 1.7, 3), cell = Math.abs(Math.sin(Math.floor(E / 0.5) * 12.9898 + Math.floor(N / 0.4) * 78.233) * 43758.5 % 1);
+  const mix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+  let c;
+  if (k === 2) c = cell < 0.12 && N < -18 && N > -34 ? [0.36, 0.46, 0.5] : cell < 0.55 ? [0.36, 0.45, 0.25] : [0.55, 0.5, 0.36];
+  else if (k === 5 || h > 1700) c = mix(mix([0.7, 0.69, 0.66], [0.55, 0.53, 0.49], smooth(-0.2, 0.5, n1)), [0.6, 0.53, 0.4], smooth(1900, 1100, h) * 0.8);
+  else if (k === 4) { const n2 = fbm(E / 4.5 + 3, N / 4.5, 3);   // the Golan: dry grass between broad dark fields of basalt, a few tilled plots and orchards round the villages
+    c = E > 18 && E < 60 && Math.abs(N - 23) < 8 && cell < 0.6 ? [0.36, 0.42, 0.26] : mix(mix([0.56, 0.5, 0.37], [0.3, 0.28, 0.25], smooth(-0.12, 0.3, n2) * 0.8), [0.4, 0.37, 0.31], smooth(0.1, 0.5, n1) * 0.5);
+    if (cell < 0.1 && n2 < 0.1) c = mix(c, [0.42, 0.46, 0.3], 0.6); else if (cell > 0.93) c = mix(c, [0.62, 0.55, 0.42], 0.5); }
+  else { const plain = E - hmCoastE(N) < 3 + 4 * smooth(-25, -45, N); c = plain ? (cell < 0.4 ? [0.4, 0.48, 0.28] : cell < 0.75 ? [0.6, 0.53, 0.38] : [0.32, 0.4, 0.25]) : mix([0.35, 0.38, 0.27], [0.62, 0.6, 0.54], smooth(-0.1, 0.5, n1) * 0.75); if (h > 1300) c = mix(c, [0.68, 0.67, 0.64], smooth(1300, 2200, h)); }
+  for (const [vx, vz, vr] of HM_TOWNS) { const d = Math.hypot(E - vx, N - vz); if (d < vr) c = mix(c, [0.74, 0.72, 0.68], 0.65 * (1 - d / vr) + 0.2); }
+  return c;
+}
+/* the ground round the post as both the near ground (15 km of it) and the backdrop draw it: height against the post's and sRGB colour. Inside
+   1.8 km the map's own mountain, made steeper the further out; past that the real country, and the Earth's curve */
+function hmFar(lx, lz) {
+  const E = -lx / 1000, N = (lz - 290) / 1000, km = Math.hypot(E, N), [gh, gk] = hmGeo(E, N), F = MAPS.hermon && MAPS.hermon.far; let rel = gh - 2070, c = hmGeoCol(E, N, gh, gk);
+  if (F && km < 1.8) { const [u, v] = mapUV(F, HM.o.x + lx, HM.o.z + lz), fw = 1 - smooth(0.6, 1.8, km); rel = lerp(rel, (mapBil(F.h, F.W, F.H, u, v) - HM_PY) * (1 + 0.8 * smooth(0.25, 1.2, km)), fw);
+    for (let q = 0; q < 3; q++) c[q] = lerp(c[q], mapCh(F.c, u, v, q) * 0.86, fw * 0.45); }   // the map's pale limestone only in part, and a shade darker: on the steep sunlit slopes it read as snow
+  return [rel - km * km / 12.742, c, gk];
+}
 let HM_PANO = null;
 const HM_RIDGE = [[-3.5, -5, -900], [0, 0, 0], [3.4, 4.9, 740], [12, 16, 360], [30, 36, 120], [48, 52, -250]];   // the crest of the massif: km east, km north, metres
 const HM_CONES = [[3, -12, 300, 1.3], [2, -9, 260, 1.1], [4, -27, 320, 1.4], [3, -29, 350, 1.5], [0.5, -33, 220, 1.2], [2, -40, 240, 1.3], [5, -45, 200, 1.2], [15, -15, 300, 1.6], [12, -25, 280, 1.5], [9, -31, 240, 1.3], [-2, -18, 160, 1.0], [7, -19, 200, 1.1]];   // the volcanic cones of the Golan: Odem, Hermonit, Bental, Avital, and on the Syrian side Tel Shams, Tel Antar and others
@@ -547,44 +615,34 @@ function hmPanoH(E, N) {
 }
 function hmPano() {
   if (HM_PANO) return;
-  const NR = LITE ? 70 : 112, NA = LITE ? 180 : 300, R0 = 0.12, R1 = 62, [cx, cz] = HW(0, 290), post = HM_PY, F = MAPS.hermon && MAPS.hermon.far;   // the far country from the map when it has one
-  const pos = new Float32Array((NR + 1) * NA * 3), col = new Float32Array((NR + 1) * NA * 3), hz = new Float32Array((NR + 1) * NA), K = 1 / 0.787, C = (r, g, b) => [lin(r) * K, lin(g) * K, lin(b) * K], r = rng(2290);
-  const LIME = C(0.68, 0.67, 0.64), ROCK = C(0.52, 0.5, 0.47), OCHRE = C(0.58, 0.5, 0.37), SCRUB = C(0.37, 0.38, 0.28), DRY = C(0.64, 0.57, 0.4), BASALT = C(0.33, 0.31, 0.28), FIELD = C(0.42, 0.48, 0.3), FIELD2 = C(0.56, 0.5, 0.36), ORCH = C(0.3, 0.37, 0.24), WATER = C(0.24, 0.36, 0.46), VILL = C(0.72, 0.7, 0.66);
-  const mixc = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+  const NR = LITE ? 150 : 240, NA = LITE ? 420 : 720, R0 = 0.12, R1 = 180, [cx, cz] = HW(0, 290), post = HM_PY;
+  const pos = new Float32Array((NR + 1) * NA * 3), col = new Float32Array((NR + 1) * NA * 3), hz = new Float32Array((NR + 1) * NA), hh = new Float32Array(NR * NA), wet = new Uint8Array(NR * NA), K = 1 / 0.787, C = (r, g, b) => [lin(r) * K, lin(g) * K, lin(b) * K], r = rng(2290);
   for (let i = 0; i < NR; i++) { const km = R0 * Math.pow(R1 / R0, i / (NR - 1));
     for (let j = 0; j < NA; j++) { const a = (j / NA) * Math.PI * 2, E = Math.sin(a) * km, N = Math.cos(a) * km, lx = -E * 1000, lz = 290 + N * 1000;
-      // near the post the mountain of the map itself, far off the country round it
-      // the far map is drawn with its distances squeezed past 4 km (r' = 4 + 0.42 (r - 4)), so it is read at the squeezed radius
-      let far, fc = null; if (F) { const q = km > 4 ? (4 + (km - 4) * 0.42) / km : 1, [u, v] = mapUV(F, HM.o.x + lx * q, HM.o.z + 290 + (lz - 290) * q); const fr = mapCh(F.c, u, v, 0), fg = mapCh(F.c, u, v, 1), fb = mapCh(F.c, u, v, 2), dry = 1 - smooth(0.02, 0.08, fb - fr); far = mapBil(F.h, F.W, F.H, u, v) - post + dry * (6 + 40 * smooth(0.3, 4, km)) * fbm(E / 0.4, N / 0.4, 3); fc = C(fr, fg, fb); } else far = hmPanoH(E, N);
-      const near = hmBase(lx, lz) + 2.6 * fbm(lx / 42, lz / 42, 3) - post, w = F ? smooth(0.16, 0.42, km) : smooth(0.35, 1.6, km), h = lerp(near, far, w), o = (i * NA + j) * 3;
-      pos[o] = cx + lx; pos[o + 1] = post + h; pos[o + 2] = cz + lz - 290;
-      // the colour: limestone on the heights, dry ochre slopes, the yellow plateau with its black basalt, green fields in the valleys, the lake
-      const n1 = fbm(E / 1.7 + 7, N / 1.7, 3), cell = Math.sin(Math.floor(E / 0.55) * 12.9898 + Math.floor(N / 0.42) * 78.233) * 43758.5 % 1, cv = Math.abs(cell);
-      let c = h > -450 ? mixc(LIME, ROCK, smooth(-0.2, 0.5, n1)) : h > -1000 ? mixc(OCHRE, SCRUB, smooth(0.0, 0.5, n1) * 0.7) : mixc(DRY, BASALT, smooth(0.05, 0.45, n1));
-      if (h < -1250 && h > -1700) c = mixc(c, cv < 0.5 ? FIELD2 : DRY, 0.5);
-      if (h <= -1700) c = mixc(cv < 0.45 ? FIELD : cv < 0.85 ? FIELD2 : C(0.4, 0.5, 0.54), c, 0.15);
-      if (E > 12 && h < -1300) c = mixc(c, cv < 0.4 ? ORCH : FIELD2, 0.55 * smooth(12, 30, E));
-      if (h < -2270) c = WATER;
-      for (const [vx, vz, vr] of [[0.4, -5.6, 0.7], [1.6, -4.8, 0.45], [3.2, -6.4, 0.4], [-9, -14.5, 0.6], [24, -12, 1.2], [38, 6, 3.2]]) if (Math.hypot(E - vx, N - vz) < vr) c = mixc(c, VILL, 0.55);   // Majdal Shams, Mas'ade, Buq'ata, Banias; Sasa and Damascus far off
-      if (h > -250) c = mixc(c, LIME, smooth(-250, 300, h) * 0.5);
-      if (fc) c = mixc(c, fc, w * (fc[2] > fc[0] * 1.15 ? 1 : 0.78));   // the map's own country (its lake drawn in its colour), keeping a little of the patchwork above so its smooth slopes are not one flat grey
+      const [h, cs, gk] = hmFar(lx, lz), o = (i * NA + j) * 3; hh[i * NA + j] = h; wet[i * NA + j] = gk < 2 ? 1 : 0;
+      pos[o] = cx + lx; pos[o + 1] = post + h; pos[o + 2] = cz + lz - 290;   // (hmFar has the Earth's curve: 785 m down at 100 km, so the land ends at the true horizon)
+      const c = C(cs[0], cs[1], cs[2]);
       col[o] = c[0]; col[o + 1] = c[1]; col[o + 2] = c[2];
-      hz[i * NA + j] = Math.min(0.9, 1 - Math.exp(-km / 24)) * (0.85 + 0.15 * smooth(-1500, 0, -h)); } }
-  // a haze bank round the outer edge, rising to the post's own level: from up here the land ends a degree below the horizon, and the sky under
-  // the horizon would show there as a black band
-  for (let j = 0; j < NA; j++) { const o = ((NR - 1) * NA + j) * 3, o2 = (NR * NA + j) * 3; pos[o2] = pos[o]; pos[o2 + 1] = post + 40; pos[o2 + 2] = pos[o + 2]; col[o2] = col[o]; col[o2 + 1] = col[o + 1]; col[o2 + 2] = col[o + 2]; hz[NR * NA + j] = 1; }
-  const idx = []; for (let i = 0; i < NR; i++) for (let j = 0; j < NA; j++) { const a = i * NA + j, b = i * NA + (j + 1) % NA, c2 = (i + 1) * NA + j, d = (i + 1) * NA + (j + 1) % NA; idx.push(a, c2, b, b, c2, d); }
+      hz[i * NA + j] = (0.5 * (1 - Math.exp(-km / 75)) + 0.04) * smooth(1.5, 10, km) * (gk < 2 ? 0.45 : 1); } }   // a light haze, which the water's brightness shows through: the lake at 55 km and the sea at 70-90 km in sight
+  // the slopes: steep ground bare rock, the gullies in shadow, so the mountainsides read in their folds
+  { const rock = [lin(0.5) / 0.787, lin(0.48) / 0.787, lin(0.44) / 0.787];
+    for (let i = 1; i < NR - 1; i++) { const km = R0 * Math.pow(R1 / R0, i / (NR - 1)), dR = km * 1000 * (Math.pow(R1 / R0, 1 / (NR - 1)) - 1), dA = km * 1000 * Math.PI * 2 / NA;
+      for (let j = 0; j < NA; j++) { const q = i * NA + j; if (wet[q]) continue; const jn = i * NA + (j + 1) % NA, jp = i * NA + (j + NA - 1) % NA, iu = q + NA, id = q - NA;
+        const sl = Math.hypot((hh[iu] - hh[id]) / (2 * dR), (hh[jn] - hh[jp]) / (2 * dA)), lap = hh[q] - (hh[iu] + hh[id] + hh[jn] + hh[jp]) / 4, t = smooth(0.4, 1.0, sl) * 0.55, dk = 1 - 0.28 * smooth(0, -Math.max(6, dA * 0.05), lap), o = q * 3;
+        for (let c = 0; c < 3; c++) col[o + c] = lerp(col[o + c], rock[c], t) * dk; } } }
+  // past the last ring, a strip of the horizon's own air up to eye level: the land ends 1.5 degrees under the horizon (the sea's edge, 170 km off),
+  // and the sky under the horizon would show there as a black band
+  for (let j = 0; j < NA; j++) { const o = ((NR - 1) * NA + j) * 3, o2 = (NR * NA + j) * 3; pos[o2] = pos[o]; pos[o2 + 1] = post; pos[o2 + 2] = pos[o + 2]; col[o2] = col[o]; col[o2 + 1] = col[o + 1]; col[o2 + 2] = col[o + 2]; hz[NR * NA + j] = 1; }
+  const idx = []; for (let i = 0; i < NR; i++) for (let j = 0; j < NA; j++) { const a = i * NA + j, b = i * NA + (j + 1) % NA, c2 = (i + 1) * NA + j, d = (i + 1) * NA + (j + 1) % NA; idx.push(a, b, c2, b, d, c2); }   // wound so the faces' fronts look up: the land is seen from above (wound the other way it was culled, and only the far sides of the ridges showed)
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.BufferAttribute(col, 3)); g.setAttribute('aHaze', new THREE.BufferAttribute(hz, 1)); g.setIndex(idx); g.computeVertexNormals();
-  // the rings run the other way round to the faces' front, so the computed normals point down: turned over, the near slopes take the sun (they were lit from below, black under the haze)
-  { const nn = g.attributes.normal.array; for (let i = 0; i < nn.length; i++) nn[i] = -nn[i]; }
   const mat = new THREE.MeshLambertMaterial({ vertexColors: true, fog: false });
   const uHaze = { value: new THREE.Color(0xb8c4ce) };
   mat.onBeforeCompile = (sh) => { sh.uniforms.uHaze = uHaze; sh.vertexShader = 'attribute float aHaze;\nvarying float vHaze;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvHaze = aHaze;');
     sh.fragmentShader = 'uniform vec3 uHaze;\nvarying float vHaze;\n' + sh.fragmentShader.replace('#include <tonemapping_fragment>', 'gl_FragColor.rgb = mix(gl_FragColor.rgb, uHaze, vHaze);\n#include <tonemapping_fragment>'); };
   mat.customProgramCacheKey = () => 'hmpano';
   const m = HM_PANO = new THREE.Mesh(g, mat); m.frustumCulled = false; m.matrixAutoUpdate = false; m.renderOrder = -1000; m.castShadow = false; m.receiveShadow = false; m.userData.dyn = true;
-  const KS = 0.02;
-  m.onBeforeRender = (rr, sc, cam) => { const p = cam.position; m.matrixWorld.makeScale(KS, KS, KS).setPosition(p.x * (1 - KS), p.y * (1 - KS), p.z * (1 - KS)); if (scene.fog) uHaze.value.copy(scene.fog.color).lerp(new THREE.Color(1, 1, 1), 0.12); };
+  const KS = 0.01;
+  m.onBeforeRender = (rr, sc, cam) => { const p = cam.position; m.matrixWorld.makeScale(KS, KS, KS).setPosition(p.x * (1 - KS), p.y * (1 - KS), p.z * (1 - KS)); if (scene.fog) uHaze.value.copy(scene.fog.color).lerp(new THREE.Color(1, 1, 1), 0.3); };
   m.onAfterRender = (rr) => rr.clearDepth();
   sky.renderOrder = -1001; scene.add(m);
 }

@@ -42,7 +42,7 @@ function terrainMat() {
   return (TERRAIN_MAT = m);
 }
 function makeGround(d) {
-  const s0 = LITE ? d.step * 1.6 : d.step, ext = 15000;
+  const s0 = LITE ? d.step * 1.6 : d.step, ext = d.ext || 15000;   // ext: how far past the box the ground runs (the Hermon's backdrop takes over sooner)
   // fine bands: where a cut in the ground is narrow (a ditch along a field's edge) the grid is drawn tighter, so the floor stays a floor
   const fine = (bands, v) => { for (const [b0, b1, st] of bands || []) if (v >= b0 - st && v <= b1) return LITE ? st * 1.4 : st; return s0; };
   const ax = (a0, a1, bands) => { const a = []; for (let v = a0; v < a1; v += fine(bands, v)) a.push(v); a.push(a1); const lo = [], hi = []; let s = s0, u = a0; while (u > a0 - ext) { s *= 1.2; u -= s; lo.push(u); } s = s0; u = a1; while (u < a1 + ext) { s *= 1.2; u += s; hi.push(u); } return lo.reverse().concat(a, hi); };

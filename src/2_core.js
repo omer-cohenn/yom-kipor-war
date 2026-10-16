@@ -636,7 +636,7 @@ function setTimeOfDay(min) {
   hemi.intensity = lerp(0.42, 0.78, dusk); hemi.color.copy(HEMI_DAY[0]).lerp(HEMI_NIGHT[0], dusk); hemi.groundColor.copy(HEMI_DAY[1]).lerp(HEMI_NIGHT[1], dusk); scene.fog.color.copy(FOG_DAY).lerp(FOG_NIGHT, dusk); renderer.toneMappingExposure = lerp(0.5, 0.72, dusk) + 0.08 * (1 - day) * (1 - dusk);
   const N = NIGHT_LOOK, C0 = CHAP[MODE], deep = NIGHT_DEEP = C0 && C0.night && MODE !== 'mezach' ? 1 - smooth(N.from, N.to, d.y) : 0; let skyMin = 0.03;
   if (deep > 0) { sun.intensity = lerp(sun.intensity, N.moonI, deep); sun.color.lerp(_nc.setHex(N.moonCol), deep); hemi.intensity = lerp(hemi.intensity, N.hemiI, deep); hemi.color.lerp(_nc.setHex(N.hemiSky), deep); hemi.groundColor.lerp(_nc.setHex(N.hemiGnd), deep); scene.fog.color.lerp(_nc.setHex(N.fog), deep); renderer.toneMappingExposure = lerp(renderer.toneMappingExposure, N.exp, deep); skyMin = lerp(0.03, N.skyY, deep); }
-  if (scene.fog.isFogExp2) scene.fog.density = 0.00013 * lerp(1, N.fogK, deep); nightSkySet(deep);
+  if (scene.fog.isFogExp2) scene.fog.density = 0.00013 * lerp(1, N.fogK, deep) * (MODE === 'hermon' ? 0.15 : 1);   // the Hermon's clear mountain air nightSkySet(deep);
   // the Mezach: dust and smoke over the canal at Port Tewfik - a pale sand-grey haze that softens the far bank and swallows the city behind it
   const hz = MODE === 'mezach' ? 1 - 0.6 * dusk : 0; if (hz > 0) { if (scene.fog.isFogExp2) scene.fog.density = Math.max(scene.fog.density, 0.0014 * hz); scene.fog.color.lerp(_nc.setHex(0xc4b9a0), 0.8 * hz); }
   if (water && water.material.uniforms && water.material.uniforms.waterColor) water.material.uniforms.waterColor.value.copy(WATER_BASE).lerp(WATER_HAZE, 0.65 * hz);
