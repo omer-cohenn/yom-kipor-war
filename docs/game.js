@@ -2801,7 +2801,7 @@ for (const ev of ['pointerdown', 'pointermove', 'wheel', 'keydown', 'touchmove',
 function facesIdle() { if (!FACEQ.length) return; if (!LD.busy && !document.hidden && performance.now() - FACEIDLE.last > 800) facePaint(FACEQ.shift()); setTimeout(facesIdle, 250); }
 { const F = { f: FACES.f.map((_, v) => faceSlot('f', v)), e: FACES.e.map((_, v) => faceSlot('e', v)) }; MAT.faces = { f: F.f.map((x) => x[0]), e: F.e.map((x) => x[0]) }; MAT.facesShut = { f: F.f.map((x) => x[1]), e: F.e.map((x) => x[1]) }; }
 /* soldiers stand out: slightly larger, with a coloured rim light (red enemies, blue friends) and a marker over the head */
-const US = 1.18;
+const US = 1.14;
 function rimMat(hex, k) {
   const m = MAT.cloth.clone(); const col = new THREE.Color(hex).multiplyScalar(k);
   m.onBeforeCompile = (sh) => { sh.uniforms.uRim = { value: col }; sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform vec3 uRim;').replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n  { float rr = 1.0 - clamp(abs(dot(normalize(vNormal), normalize(vViewPosition))), 0.0, 1.0); totalEmissiveRadiance += uRim * rr * rr * rr * rr; }'); };
@@ -4348,7 +4348,7 @@ function castShot(o, d, maxD, fromSide) {
   if (fromSide !== 'f') for (const f of FRIENDS) { if (f.state === 'carried' || !f.unit.rig.root.visible) continue; const [a, b, r] = f.unit.capsule(); const h = rayCapsule(o, d, a, b, r * 0.9); if (h && h.t < best.t && h.t > 1.0) best = { t: h.t, kind: 'friend', f }; }
   { const wt = segHitT(o.x, o.y, o.z, o.x + d.x * best.t, o.y + d.y * best.t, o.z + d.z * best.t, 0.35); if (wt >= 0) best = { t: wt * best.t, kind: 'wall' }; }
   if (fromSide !== 'e') { const ph = propRay(o, d, best.t); if (ph) best = { t: ph.t, kind: 'prop', prop: ph.item }; }
-  best.p = V3(o.x + d.x * best.t, o.y + d.y * best.t, o.z + d.z * best.t); best.dir = d;
+  best.p = V3(o.x + d.x * best.t, o.y + d.y * best.t, o.z + d.z * best.t); best.dir = d; best.o = o;
   return best;
 }
 function rayBox(o, d, x0, x1, y0, y1, z0, z1) {
@@ -4472,7 +4472,7 @@ function updFriend(f, dt, time) {
         if (f.target.boat) pHit *= 0.15; pHit *= diff.fAcc * (mzEase() ? mzEase().fAcc : 1);
         const hit = Math.random() < pHit; const end = tp.clone(); if (!hit) end.add(V3(rand(-1.5, 1.5), rand(-0.6, 1.2), rand(-1.5, 1.5)));
         if (isMag && Math.random() < 0.4) fxTracer(from, end, false);
-        if (hit) { if (f.target.u) killEnemy(f.target.u, false); else killSeat(f.target.boat, f.target.seat); } else fxDust(V3(end.x, surfAt(end.x, end.z) + 0.2, end.z), groundAt(end.x, end.z) < 0);
+        if (hit) { if (f.target.u) killEnemy(f.target.u, false); else killSeat(f.target.boat, f.target.seat); } else { if (f.target.u) supPin(f.target.u, isMag ? 0.12 : 0.2); } if (!hit) fxDust(V3(end.x, surfAt(end.x, end.z) + 0.2, end.z), groundAt(end.x, end.z) < 0);
       }
       u.stance = 'stand'; u.rig.pose('aim', u.anim, f.aimP);
     } else { u.heading = lerp(u.heading, Math.atan2(p.fx, p.fz), 0.05); u.stance = 'stand'; u.rig.pose('idle', u.anim); }
@@ -4503,7 +4503,8 @@ function spawnEnemy(x, z, kind, group, path, opts = {}) {
   e.thrT = -99; e.arcT = -9; e.shotT = -9;   /* nothing he did in an earlier life counts as fire at the player */
   if (e.mmHide || e.pitHid) fmDisguise(e, false); e.mmHide = false; e.pitHid = false;   /* a man last used as a disguised figure in a crater gets his own colours back */
   e.side = 'e'; e.setKind(kind); e.alive = true; e.hp = 100; e.fall = -1; e.stance = 'stand'; e.place(x, z); e.rig.root.visible = true; e.rig.gun.visible = true; e.deadAt = undefined; e.rig.shut = false; e.rig.head.material = MAT.faces[e.side][e.rig.faceV]; e.rig.deadOpen = Math.random() < 0.35; e.rig.blinkT = rand(1, 4);
-  Object.assign(e, { state: 'move', path, pi: 0, group, t: 0, fireCd: rand(0.5, 1.5), burst: 0, scanCd: 0, target: null, stopCd: rand(2, 5), engageT: 0, gCd: diff.gren > 0 ? rand(8, 20) / diff.gren : 1e9, rpgCd: rand(4, 9), flameT: 0, hold: opts.hold ?? -1, speed: rand(3.9, 4.6), inside: false, goalCd: 0, charge: false, plan: null, ps: 0, tcov: null, tcovCd: 0, inCov: false, usedTrav: null, k: 0, meleeCd: 0, throwT: 0, cover: null, sz: null, slot: null, cov: null, dormant: false, wakeG: undefined, wakeR: 24, climb: false, raid: false, sq: undefined, guide: null, peek: false, rpgAim: 0, wild: false, rpgMiss: false, noTag: false });
+  Object.assign(e, { state: 'move', path, pi: 0, group, t: 0, fireCd: rand(0.5, 1.5), burst: 0, scanCd: 0, target: null, stopCd: rand(2, 5), engageT: 0, gCd: diff.gren > 0 ? rand(8, 20) / diff.gren : 1e9, rpgCd: rand(4, 9), flameT: 0, hold: opts.hold ?? -1, speed: rand(3.9, 4.6), inside: false, goalCd: 0, charge: false, plan: null, ps: 0, tcov: null, tcovCd: 0, inCov: false, usedTrav: null, k: 0, meleeCd: 0, throwT: 0, cover: null, sz: null, slot: null, cov: null, dormant: false, wakeG: undefined, wakeR: 24, climb: false, raid: false, sq: undefined, guide: null, peek: false, rpgAim: 0, wild: false, rpgMiss: false, noTag: false,
+    sqAuto: 'g' + Math.round(GAME.t / 4) + ':' + Math.round(x / 50) + ':' + Math.round(z / 50), supp: 0, seeT: 0, alert: false, lkp: null, lkpT: -99, fellBack: false, flanking: false, peekOff: 0, blindCd: undefined, blindN: 0, blindK: undefined, tac: undefined, flankD: false, reactCd: undefined, reactT: 0 });   // (a pooled body keeps nothing of how his last owner fought)
   if (opts.jump) { e.state = 'jump'; e.j0 = opts.jump.clone(); e.j1 = V3(x, groundAt(x, z), z); e.pos.copy(e.j0); }
   e.sync(); return e;
 }
@@ -4551,11 +4552,95 @@ function enemyFire(e) {
   fxMuzzle(from, W.snd === 'lmg'); sndShot(W.snd, from);
   let hit = false; const eye = e.eye(); const wt = segHitT(eye.x, eye.y, eye.z, tp.x, tp.y, tp.z, FIELDM() ? 0.25 : 0.7);
   if (wt >= 0) { const wp = V3(lerp(eye.x, tp.x, wt), lerp(eye.y, tp.y, wt), lerp(eye.z, tp.z, wt)); if (Math.random() < 0.5) fxTracer(from, wp, true); fxDust(wp); e.scanCd = 0; return; }
-  if (tgt.player) { let p = W.acc * (FIELDM() ? (CH().hard || 0.7) : 1) * (SURV.on ? SURV.acc : 1) * diff.acc * rangeF * (d < 12 ? 2 : 1) * (P.mode === 'tank' ? 0.45 : 1) * (P.crouch ? 0.55 : 1) * (moving() ? 0.7 : 1) * (P.post ? 0.8 : 1) * (e.stance === 'crouch' ? 1.1 : 1) * (FIELDM() && P.mode === 'rifle' && inConceal(P.pos.x, P.pos.z) ? 0.45 : 1) * (e.wild ? 0.3 : 1) * (mz ? mz.acc * (SCENES[Math.max(0, D.scene)].acc || 1) : 1); hit = Math.random() < p; if (hit && P.mode === 'tank' && P.crouch) { hit = false; fxDust(tp.clone().add(V3(rand(-0.6, 0.6), rand(-0.3, 0.3), rand(-0.6, 0.6)))); } if (hit) hurtPlayer(rand(diff.dmg[0], diff.dmg[1]) * W.dmg, from); else if (d < 60 && Math.random() < 0.35) sndWhiz(); }
-  else { hit = Math.random() < diff.accF * rangeF * (FIELDM() ? 0.45 : 1) * (tgt.f.duckT > 0 ? 0.25 : 1) * (mz ? mz.fHit : 1); if (hit) woundFriend(tgt.f, Math.random() < 0.18); else tgt.f.supp = (tgt.f.supp || 0) + 1; }
+  if (tgt.player) { let p = W.acc * (FIELDM() ? (CH().hard || 0.7) : 1) * (SURV.on ? SURV.acc : 1) * diff.acc * rangeF * (d < 12 ? 2 : 1) * (P.mode === 'tank' ? 0.45 : 1) * (P.crouch ? 0.55 : 1) * (moving() ? 0.7 : 1) * (P.post ? 0.8 : 1) * (e.stance === 'crouch' ? 1.1 : 1) * (FIELDM() && P.mode === 'rifle' && inConceal(P.pos.x, P.pos.z) ? 0.45 : 1) * (e.wild ? 0.3 : 1) * (mz ? mz.acc * (SCENES[Math.max(0, D.scene)].acc || 1) : 1) * (e.wild ? 1 : tacAcc(e)); hit = Math.random() < p; if (hit && P.mode === 'tank' && P.crouch) { hit = false; fxDust(tp.clone().add(V3(rand(-0.6, 0.6), rand(-0.3, 0.3), rand(-0.6, 0.6)))); } if (hit) hurtPlayer(rand(diff.dmg[0], diff.dmg[1]) * W.dmg, from); else if (d < 60 && Math.random() < 0.35) sndWhiz(); }
+  else { hit = Math.random() < diff.accF * (1 - 0.6 * clamp(e.supp || 0, 0, 1)) * rangeF * (FIELDM() ? 0.45 : 1) * (tgt.f.duckT > 0 ? 0.25 : 1) * (mz ? mz.fHit : 1); if (hit) woundFriend(tgt.f, Math.random() < 0.18); else tgt.f.supp = (tgt.f.supp || 0) + 1; }
   const end = tp.clone(); if (!hit) end.add(V3(rand(-1.4, 1.4), rand(-0.4, 1.4), rand(-1.4, 1.4)));
   if (Math.random() < ((CH() && CH().tracers) || W.tracer || 0.5)) fxTracer(from, end, true);
   if (!hit && Math.random() < 0.4) fxDust(V3(end.x, groundAt(end.x, end.z) + 0.2, end.z));
+}
+/* ================= how the enemy fights (every chapter) =================
+   Suppression: rounds that crack close past a man, blasts near him and his comrades' danger pin him - he ducks, stops showing himself and
+   fires blind over his cover; it wears off in a few seconds. Fair aim: a man who has just caught sight of the player throws his first rounds
+   wide and closes in the longer the player stays in his sight. Awareness: a man posted at a window or a parapet sees what is in front of him
+   until he is alerted - by seeing the player, by fire near him, by a comrade - and every man remembers where he last saw the player: his
+   grenades go there, and when he cannot see him he fires at that place to keep his head down. Squads (the men who share a tag): only so many
+   leave cover at once while the rest fire to cover them, under smoke if they have it; a player who stays in one place draws a flanker round
+   his side; a squad that has lost most of its men falls back to cover further off. Nothing is said aloud - it shows in what they do */
+const TAC = [   // by level: how easily fire pins them, how fast it wears off, how long their aim takes to close in, the time a player may stay put before he is flanked, the share of a squad that may move at once, the losses that break a squad, smoke
+  { supp: 1.35, sDecay: 0.42, ramp: 3.0, flank: 26, mover: 0.3, fall: 0.5, smoke: false },
+  { supp: 1.0, sDecay: 0.36, ramp: 2.1, flank: 16, mover: 0.38, fall: 0.6, smoke: true },
+  { supp: 0.72, sDecay: 0.3, ramp: 1.4, flank: 11, mover: 0.5, fall: 0.72, smoke: true },
+];
+const tacK = () => TAC[Math.max(0, DIFF.indexOf(diff))] || TAC[1];
+const pinned = (e) => (e.supp || 0) > 0.55;
+const sqKey = (e) => e.sq || e.sqAuto;   // his squad: the chapter's tag, or else the men who came in with him (spawned together, close by)
+const SQ = {};   // the squads by tag: their men, how many they were, where they last saw the player, their last flank and smoke, broken
+const PSTILL = { x: 0, z: 0, t: 0, at: -1 };   // how long the player has stayed within a few metres of one place
+function tacReset() { for (const k in SQ) delete SQ[k]; PSTILL.t = 0; PSTILL.at = -1; }
+function tacFrame() {   // once a frame: the player's stillness, and the smoke of the enemy's grenades outside the farm (which runs its own)
+  if (PSTILL.at === GAME.t) return; const dt = PSTILL.at < 0 ? 0 : clamp(GAME.t - PSTILL.at, 0, 0.1); PSTILL.at = GAME.t;
+  if (Math.hypot(P.pos.x - PSTILL.x, P.pos.z - PSTILL.z) > 4) { PSTILL.x = P.pos.x; PSTILL.z = P.pos.z; PSTILL.t = 0; } else PSTILL.t += dt;
+  if (MODE !== 'farm' && SMOKES.length) { smokeUpd(dt); SMOKE_POOL.update(dt); }
+}
+function sqOf(e) {
+  const key = sqKey(e); if (!key) return null; let s = SQ[key]; if (!s) s = SQ[key] = { men: new Set(), n0: 0, lkp: null, lkpT: -99, flankT: -99, smokeT: -99, broken: false };
+  if (!s.men.has(e)) { s.men.add(e); } let n = 0; for (const m of s.men) if (m.alive && sqKey(m) === key) n++; s.n0 = Math.max(s.n0, n); return s;
+}
+function sqAlive(s, tag) { let n = 0; for (const m of s.men) if (m.alive && sqKey(m) === tag) n++; return n; }
+/* a round from o that ended at p pins every enemy it cracked close past, or struck beside */
+function suppressAlong(o, p, k = 1) {
+  const dx = p.x - o.x, dy = p.y - o.y, dz = p.z - o.z, L2 = dx * dx + dy * dy + dz * dz || 1, g = tacK().supp * k;
+  for (const e of UNITS.enemies) { if (!e.alive || e.state === 'film' || e.dormant) continue; const c = e.chest(), t = clamp(((c.x - o.x) * dx + (c.y - o.y) * dy + (c.z - o.z) * dz) / L2, 0, 1);
+    const qx = o.x + dx * t - c.x, qy = o.y + dy * t - c.y, qz = o.z + dz * t - c.z, d = Math.sqrt(qx * qx + qy * qy + qz * qz); if (d < 2.2) { e.supp = Math.min(1.6, (e.supp || 0) + g * 0.42 * (1 - d / 2.2)); e.alert = true; } }
+}
+function supPin(e, a) { if (e && e.alive) { e.supp = Math.min(1.6, (e.supp || 0) + a * tacK().supp); e.alert = true; } }
+/* what he can see of the player: a man still unalerted at his post sees in front of him (or right beside him) */
+function tacSees(e) {
+  if (e.alert || !e.slot || e.sz !== 'win') return true;
+  const s = e.slot, tx = P.pos.x - e.pos.x, tz = P.pos.z - e.pos.z, d = Math.hypot(tx, tz) || 1; return d < 8 || (tx * s.nx + tz * s.nz) / d > 0.17;
+}
+/* per frame for every live man: suppression wearing off, how long he has had the player in sight, what he remembers, his squad */
+function tacTick(e, dt) {
+  tacFrame(); const K = tacK();
+  if (e.supp > 0) e.supp = Math.max(0, e.supp - K.sDecay * dt);
+  const sees = !!(e.target && e.target.player); e.seeT = sees ? (e.seeT || 0) + dt : Math.max(0, (e.seeT || 0) - dt * 2.5);
+  const s = sqOf(e);
+  if (sees) { e.alert = true; e.lkp = (e.lkp || V3()).copy(P.pos); e.lkpT = GAME.t; if (s) { s.lkp = (s.lkp || V3()).copy(P.pos); s.lkpT = GAME.t; } }
+  else if (s && s.lkpT > (e.lkpT ?? -99) && GAME.t - s.lkpT < 6) { e.lkp = (e.lkp || V3()).copy(s.lkp); e.lkpT = s.lkpT; e.alert = true; }   // a comrade's warning: silent, but he knows
+  if (s && !s.broken && s.n0 >= 3 && 1 - sqAlive(s, sqKey(e)) / s.n0 >= K.fall) s.broken = true;
+}
+const tacKnows = (e, sec = 6) => e.lkp && GAME.t - (e.lkpT ?? -99) < sec;
+/* the accuracy of one round at the player: closing in with the time in sight, spoiled by suppression, wild when fired blind */
+function tacAcc(e) { return clamp(0.12 + (e.seeT || 0) / tacK().ramp, 0.12, 1) * (1 - 0.75 * clamp(e.supp || 0, 0, 1)) * (e.blindK ?? 1); }
+/* fire at where he believes the player is (blind over cover, or to keep a hidden player's head down): the round goes for the player, but at a
+   fraction of the chance, and it stops at whatever is in the way */
+function tacFireAt(e, k) {
+  if (!P.alive) return; const keep = e.target; e.target = { player: true, p: playerEye() }; e.blindK = k; e.face(e.lkp ? e.lkp.x : P.pos.x, e.lkp ? e.lkp.z : P.pos.z); enemyFire(e); e.blindK = undefined; e.target = keep;
+}
+/* a squad lets a man leave his cover only while enough of the others stay behind theirs to fire */
+function sqMoving(s, tag) { let n = 0; for (const m of s.men) if (m.alive && sqKey(m) === tag && m.cov && !m.inCov) n++; return n; }
+function sqMayMove(e) {
+  const s = sqOf(e); if (!s) return true; const key = sqKey(e), n = sqAlive(s, key); if (n <= 1) return true;
+  if (sqMoving(s, key) >= Math.max(1, Math.round(n * tacK().mover))) return false;
+  // the first of a bound under the player's eyes: a puff of smoke between them first, if the squad has it
+  if (tacK().smoke && n >= 3 && GAME.t - s.smokeT > 50 && e.target && e.target.player) { const dP = Math.hypot(P.pos.x - e.pos.x, P.pos.z - e.pos.z); if (dP > 22 && dP < 85) { s.smokeT = GAME.t; const p = V3(lerp(e.pos.x, P.pos.x, 0.32), 0, lerp(e.pos.z, P.pos.z, 0.32)); p.y = groundAt(p.x, p.z); smokeAdd(p); e.throwT = 0.5; } }
+  return true;
+}
+/* while one of them is out in the open the others fire to cover him */
+function sqCovering(e) { const key = sqKey(e), s = key && SQ[key]; return !!(s && sqMoving(s, key) > 0); }
+/* a new spot along the cover each time he shows himself, so he cannot be waited for with the sights on one place */
+function tacPeekOff(e, c) {
+  const r = Math.random(), o = r < 0.36 ? 0 : r < 0.68 ? 0.55 : -0.55; if (!o || c.px !== undefined || c.door) return 0;
+  const x = c.x - c.nz * o, z = c.z + c.nx * o; return blocked(x, z, 0.3, e.pos.y) ? 0 : o;
+}
+/* a flanker: a player who stays put a while against a squad draws one of its men to a cover off to his side */
+function szPickFlank(e, s) {
+  if (!SZ.covers || !P.alive) return null; let cx = 0, cz = 0, n = 0; const key = sqKey(e); for (const m of s.men) if (m.alive && sqKey(m) === key) { cx += m.pos.x; cz += m.pos.z; n++; } if (!n) return null; cx /= n; cz /= n;
+  const ax = cx - P.pos.x, az = cz - P.pos.z, al = Math.hypot(ax, az) || 1; let best = null, bs = 1e9;
+  for (const c of SZ.covers) { if (c.floor !== undefined || (c.by && c.by !== e)) continue; const tx = c.x - P.pos.x, tz = c.z - P.pos.z, dc = Math.hypot(tx, tz); if (dc < 7 || dc > 30) continue;
+    if ((tx * ax + tz * az) / (dc * al) > 0.55) continue; if (!szCovFaces(c, 0.4)) continue; const de = Math.hypot(c.x - e.pos.x, c.z - e.pos.z); if (de > 40) continue;
+    const sc = de + dc * 0.4; if (sc < bs) { bs = sc; best = c; } }
+  return best;
 }
 function moveAlong(e, dt, speed) {
   const w = e.path[e.pi]; if (!w) return true;
@@ -4586,7 +4671,8 @@ function updEnemy(e, dt) {
   if (e.state === 'dead') { if (e.deadAt !== undefined && GAME.t - e.deadAt > 30) { e.rig.root.visible = false; if (e.tag) e.tag.visible = false; } return; }   /* a body is cleared away half a minute after he fell */
   if (e.state === 'film') { e.sync(); return; }
   e.inside = inPoly(e.pos.x, e.pos.z, YARD);
-  e.scanCd -= dt; if (e.scanCd <= 0) { e.scanCd = rand(0.5, 0.9); const was = !!(e.target && e.target.player); e.target = targetsFor(e); if (!was && e.target && e.target.player) e.fireCd = Math.max(e.fireCd, diff.react * rand(0.8, 1.2) * (mzEase() ? mzEase().react : 1)); }   /* a man who has just seen the player needs a moment before he fires: longer on the easy level */
+  tacTick(e, dt);
+  e.scanCd -= dt; if (e.scanCd <= 0) { e.scanCd = rand(0.5, 0.9); const was = !!(e.target && e.target.player); e.target = targetsFor(e); if (e.target && e.target.player && !tacSees(e)) e.target = null; if (!was && e.target && e.target.player) e.fireCd = Math.max(e.fireCd, diff.react * rand(0.8, 1.2) * (mzEase() ? mzEase().react : 1)); }   /* a man who has just seen the player needs a moment before he fires: longer on the easy level */
   const g = e.group;
   if (e.state === 'jump') {
     const u = clamp(e.t / 0.7, 0, 1); e.pos.lerpVectors(e.j0, e.j1, u); e.pos.y += Math.sin(u * Math.PI) * 0.6; e.face(e.j1.x + 1, e.j1.z);
@@ -4732,23 +4818,28 @@ function lobGrenade(e, tp) {
 }
 function coverCycle(e, dt, c, shoot, aimPitch) {
   e.coverT -= dt; e.cyc -= dt;
-  const aimed = aimedAt(e);
+  const aimed = aimedAt(e), pin = pinned(e), covering = !pin && sqCovering(e);
+  if (pin && e.peek) { e.peek = false; e.cyc = Math.max(e.cyc, rand(0.5, 1.0)); }   // pinned: down behind the cover at once
   if (e.peek && aimed) { e.aimT = (e.aimT || 0) + dt; if (e.aimT > 0.35) e.cyc = Math.min(e.cyc, 0); } else e.aimT = 0;
   if (e.cyc <= 0) {
-    e.peek = !e.peek; if (e.peek && aimed && Math.random() < 0.7) e.peek = false;
-    e.cyc = e.peek ? rand(0.9, 1.6) : rand(0.9, 1.8) + (aimed ? 0.7 : 0);
-    if (e.peek) { e.scanCd = 0; e.burst = 0; e.fireCd = rand(0.25, 0.5); }
+    e.peek = !e.peek; if (e.peek && (pin || (aimed && Math.random() < 0.7))) e.peek = false;
+    e.cyc = e.peek ? rand(0.7, 2.0) + (covering ? 0.8 : 0) : covering ? rand(0.3, 0.7) : rand(0.8, 2.4) + (aimed ? 0.7 : 0);
+    if (e.peek) { e.scanCd = 0; e.burst = 0; e.fireCd = rand(0.25, 0.5); e.peekOff = tacPeekOff(e, c); }
   }
   const tp = e.target ? e.target.p : null;
   if (e.peek) {
-    const hasP = c.px !== undefined, tall = hasP || c.h > 1.5; e.stance = tall ? 'stand' : 'crouch';
-    steer(e, hasP ? c.px : c.x, hasP ? c.pz : c.z, 3.4, dt); if (tp) e.face(tp.x, tp.z); else e.heading = Math.atan2(c.nx, c.nz);
-    shoot(); e.rig.pose(tall ? 'aim' : 'crouch', e.anim, aimPitch());
+    const hasP = c.px !== undefined, tall = hasP || c.h > 1.5, o = e.peekOff || 0; e.stance = tall ? 'stand' : 'crouch';
+    steer(e, hasP ? c.px : c.x - c.nz * o, hasP ? c.pz : c.z + c.nx * o, 3.4, dt); if (tp) e.face(tp.x, tp.z); else if (tacKnows(e)) e.face(e.lkp.x, e.lkp.z); else e.heading = Math.atan2(c.nx, c.nz);
+    if (tp) shoot(); else if (covering && tacKnows(e, 5)) { e.fireCd -= dt; if (e.fireCd <= 0) { e.fireCd = rand(0.25, 0.6); tacFireAt(e, 0.2); } }   // he cannot see the player, but fires at where he was to cover a comrade on the move
+    e.rig.pose(tall ? 'aim' : 'crouch', e.anim, aimPitch());
   } else {
     if (c.door) { e.stance = 'stand'; steer(e, c.x, c.z, 3.4, dt); e.heading = Math.atan2(c.px - c.x, c.pz - c.z); e.rig.pose('idle', e.anim); }   /* flat against the wall beside the doorway, rifle up, waiting */
     else { e.stance = 'hide'; steer(e, c.x, c.z, 3.4, dt); e.heading = Math.atan2(c.nx, c.nz); e.rig.pose('hide', e.anim); }
-    const dP = Math.hypot(P.pos.x - e.pos.x, P.pos.z - e.pos.z);
-    if (P.alive && e.kind !== 'rpg' && e.gCd <= 0 && GAME.gCd <= 0 && dP > 5 && dP < 19 && e.cyc > 0.6) lobGrenade(e, V3(P.pos.x + rand(-1.5, 1.5), P.pos.y, P.pos.z + rand(-1.5, 1.5)));
+    // pinned, he holds his rifle up over the cover and fires blind at where the player was
+    if (pin && tacKnows(e, 4)) { e.blindCd = (e.blindCd ?? rand(0.6, 1.4)) - dt; if (e.blindCd <= 0) { e.blindCd = rand(0.15, 0.3); e.blindN = (e.blindN || 0) + 1; tacFireAt(e, 0.12); if (e.blindN >= Math.floor(rand(3, 6))) { e.blindN = 0; e.blindCd = rand(1.4, 2.8); } } }
+    // his grenade goes to where he last saw the player, not to where the player really is
+    const lk = tacKnows(e) ? e.lkp : null, dP = lk ? Math.hypot(lk.x - e.pos.x, lk.z - e.pos.z) : 99;
+    if (P.alive && lk && e.kind !== 'rpg' && e.gCd <= 0 && GAME.gCd <= 0 && dP > 5 && dP < 19 && e.cyc > 0.6) lobGrenade(e, V3(lk.x + rand(-1.2, 1.2), lk.y, lk.z + rand(-1.2, 1.2)));
   }
   return e.coverT <= 0;
 }
@@ -5219,7 +5310,7 @@ function explode(p, size, radius, dmg, src) {
   const own = src === 'player' || src === 'cannon';
   // our blasts wreck vehicles: a recoilless round or a bomb kills anything, a grenade kills a jeep and only scratches a tank
   if (own) for (const v of VEH) { if (v.mode !== MODE || v.side !== 'e' || !v.alive || !v.g.visible) continue; const dv = Math.hypot(v.g.position.x - p.x, v.g.position.z - p.z); if (dv < radius * 0.9 + 2.5) vehHit(v, src === 'cannon' || size >= 2.5 ? 200 : v.heavy ? 12 : 60, p); }
-  if (own || src === 'shell') for (const e of UNITS.enemies) { if (!e.alive) continue; const de = e.pos.distanceTo(p); if (src === 'shell' && de >= radius && de < radius * 2.4 && e.sz === 'win') { e.peek = false; e.cyc = rand(2.2, 3.6); } if (FIELDM() && de > 1.2 && src !== 'shell') { const c = e.chest(); if (segHitT(p.x, p.y + 0.4, p.z, c.x, c.y, c.z, 0.1) >= 0) continue; } if (de < radius * 0.75 || (de < radius && Math.random() < 0.5)) { killEnemy(e, false); hitmark(true); } }
+  if (own || src === 'shell') for (const e of UNITS.enemies) { if (!e.alive) continue; const de = e.pos.distanceTo(p); if (de < radius * 2.6) supPin(e, 0.9 * (1 - de / (radius * 2.6))); if (src === 'shell' && de >= radius && de < radius * 2.4 && e.sz === 'win') { e.peek = false; e.cyc = rand(2.2, 3.6); } if (FIELDM() && de > 1.2 && src !== 'shell') { const c = e.chest(); if (segHitT(p.x, p.y + 0.4, p.z, c.x, c.y, c.z, 0.1) >= 0) continue; } if (de < radius * 0.75 || (de < radius && Math.random() < 0.5)) { killEnemy(e, false); hitmark(true); } }
   if (own) for (const bt of BOATS) { if (bt.dead || !bt.g.visible) continue; bt.seats.forEach((s, i) => { if (s.alive && !s.gone && bt.seatWorld(i).distanceTo(p) < radius * 0.7) killSeat(bt, i); }); if (bt.g.position.distanceTo(p) < radius * 0.6) bt.hp -= 300; }
   for (const f of FRIENDS) { if (f.state !== 'post' && f.state !== 'follow') continue; const df = f.unit.pos.distanceTo(p); if (FIELDM() && df > 1.2) { const c = f.unit.chest(); if (segHitT(p.x, p.y + 0.4, p.z, c.x, c.y, c.z, 0.1) >= 0) continue; } if (df < radius * 0.55 && Math.random() < (FIELDM() ? 0.3 : 0.8 * (mzEase() ? mzEase().fHit : 1))) woundFriend(f, df < radius * (FIELDM() ? 0.1 : 0.2)); }
 }
@@ -5292,6 +5383,7 @@ function rideMG() {
   applyHit(hit, 140);
 }
 function applyHit(hit, dmg) {
+  if (hit.o) suppressAlong(hit.o, hit.p, dmg > 120 ? 1.5 : 1);   // every round of ours pins the men it cracks past
   if (hit.kind === 'enemy') { const e = hit.u; const dd = hit.head ? dmg * 2.5 : dmg; e.hp -= dd; const kill = e.hp <= 0; if (kill) killEnemy(e, hit.head); hitmark(kill); fxDust(hit.p.clone(), false); if (e.dormant || kill) wakeNear(e.pos, 9); }
   else if (hit.kind === 'seat') { killSeat(hit.boat, hit.seat); hitmark(true); }
   else if (hit.kind === 'boat') { hit.boat.hp -= dmg * 0.2; fxDust(hit.p.clone(), true); hitmark(false); }
@@ -5677,7 +5769,7 @@ function placeFriendAtPost(f) { f.post.occupant = f; f.state = 'post'; f.bleed =
 /* a checkpoint gives everything back (the user's rule, on every chapter): on reaching one - a stage begins (snapRequest) - and on coming back
    to it after a death. Full health, a full magazine, the reserve, the grenades and the smoke, the machine-gun belts, and the tank he fights from */
 function cpRefill() {
-  if (SURV.on) return;
+  tacReset(); if (SURV.on) return;
   P.hp = 100; P.lastHit = -99; P.mag = Math.max(P.mag, 20); P.reserve = Math.max(P.reserve, 160); P.gren = Math.max(P.gren, diff.gren0); if (P.smokeMax) P.smoke = Math.max(P.smoke || 0, P.smokeMax);
   for (const p of POSTS) if (p.mag) { p.mag.belt = p.mag.cap || 200; p.mag.reload = 0; }
   if (P.mode === 'tank' && TANK.alive) { TANK.hp = 100; TANK.gunT = 0; }
@@ -7359,19 +7451,19 @@ function szCovFaces(c, th) { if (!P.alive) return true; const tx = P.pos.x - c.x
 /* choosing cover: only a place that puts something between him and the player, that he can run to in a straight line; a man who storms takes the
    next one closer to the player, a man who holds the best one near him at about the range he is at. Tall cover - a wall, a doorway - is preferred */
 function szPickCover(e, mode, dE) {
-  let best = null, bs = 1e9; const R = mode === 'storm' ? 22 : 16, pp = P.pos;
+  let best = null, bs = 1e9; const R = mode === 'storm' ? 22 : mode === 'fall' ? 26 : 16, pp = P.pos;
   for (const c of SZ.covers || []) {
     if (c.floor !== undefined || (c.by && c.by !== e)) continue;
     const de = Math.hypot(c.x - e.pos.x, c.z - e.pos.z); if (de > R) continue;
     let sc = de;
     if (P.alive) { const tx = pp.x - c.x, tz = pp.z - c.z, dc = Math.hypot(tx, tz); if (dc < 4.5 || (tx * c.nx + tz * c.nz) / dc < 0.45) continue;
-      if (mode === 'storm') { if (dc > dE - 2.5) continue; sc = de * 0.8 + dc * 0.5; } else sc = de + Math.abs(dc - dE) * 0.15;
+      if (mode === 'storm') { if (dc > dE - 2.5) continue; sc = de * 0.8 + dc * 0.5; } else if (mode === 'fall') { if (dc < dE + 6 || de > 26) continue; sc = de * 0.6 + Math.abs(dc - dE - 12) * 0.3; } else sc = de + Math.abs(dc - dE) * 0.15;
       sc -= (c.h > 1.5 ? 1.5 : 0) + (c.door ? 1 : 0); }
     if (sc - 1.5 >= bs) continue;
     const cy = c.y ?? e.pos.y; if (segHitT(e.pos.x, e.pos.y + 1.0, e.pos.z, c.x, cy + 1.0, c.z, 0.3) >= 0) continue;
     sc += (((c.x * 7.13 + c.z * 3.71) % 1) + 1) % 1 * 1.5; if (sc < bs) { bs = sc; best = c; }   // a fixed tie-break per place, not a roll: the same man takes the same cover every time
   }
-  return best || (mode === 'storm' ? szPickCover(e, 'hold', dE) : null);
+  return best || (mode === 'storm' ? szPickCover(e, 'hold', dE) : null);   // (falling back finds nothing: he stays where he is)
 }
 function suezEnemyStep(e, dt, shoot, aimPitch) {
   if (e.dormant && dormantStep(e, dt)) return;
@@ -7385,8 +7477,10 @@ function suezEnemyStep(e, dt, shoot, aimPitch) {
     // a chapter may offer the Sagger crews another target (the rescue: Shaul's loaded tank); the missile then kills or damages that vehicle
     if (e.atgm && e.peek && e.rpgCd <= 0 && CH() && CH().atgmTarget) { const fn = CH().atgmTarget(e); if (fn) { const tp = fn(), mz = e.muzzle(); if (mz.distanceTo(tp) < 900 && losW(mz.x, mz.y + 0.3, mz.z, tp.x, tp.y, tp.z)) { e.face(tp.x, tp.z); const q = fireAtgm(e, fn); q.vt = true; e.rpgCd = rand(28, 38); return; } } }
     if (e.atgm && e.peek && e.rpgCd <= 0 && P.mode === 'tank' && TANK.alive) { const tp = tankTurretWorld(), mz = e.muzzle(); if (mz.distanceTo(tp) < (MODE === 'armor' ? 1000 : 330) && losW(mz.x, mz.y + 0.3, mz.z, tp.x, tp.y, tp.z)) { e.face(tp.x, tp.z); fireAtgm(e); e.rpgCd = rand(28, 38); return; } }
+    const pin = pinned(e) && e.kind !== 'rpg' && P.mode !== 'tank'; if (pin && e.peek) { e.peek = false; e.cyc = Math.max(e.cyc, rand(0.5, 1.1)); }
     if (e.peek && aimed) { e.aimT += dt; if (e.aimT > (P.mode === 'tank' ? 1.4 : 0.8) && e.kind !== 'rpg') e.cyc = Math.min(e.cyc, 0); } else e.aimT = 0;
-    if (e.cyc <= 0) { e.peek = !e.peek; if (e.peek && aimed && Math.random() < 0.6) e.peek = false; e.cyc = e.peek ? (e.kind === 'rpg' ? 2.6 : rand(1.8, 2.8)) : rand(1.2, 2.4); if (e.peek) { e.scanCd = 0; e.burst = 0; e.fireCd = rand(0.3, 0.6); e.rpgAim = 0; } }
+    if (e.cyc <= 0) { e.peek = !e.peek; if (e.peek && (pin || (aimed && Math.random() < 0.6))) e.peek = false; e.cyc = e.peek ? (e.kind === 'rpg' ? 2.6 : rand(1.2, 3.0)) : rand(0.9, 2.8); if (e.peek) { e.scanCd = 0; e.burst = 0; e.fireCd = rand(0.3, 0.6); e.rpgAim = 0; } }
+    if (!e.peek && pin && tacKnows(e, 4)) { e.blindCd = (e.blindCd ?? rand(0.8, 1.6)) - dt; if (e.blindCd <= 0) { e.blindCd = rand(1.6, 3.2); tacFireAt(e, 0.1); } }
     const tg = e.peek ? s.p : s.h, k = 1 - Math.exp(-dt * 7); e.pos.x += (tg[0] - e.pos.x) * k; e.pos.z += (tg[1] - e.pos.z) * k; e.pos.y = s.y;
     if (e.peek) {
       e.stance = 'stand';
@@ -7425,11 +7519,19 @@ function suezEnemyStep(e, dt, shoot, aimPitch) {
     if (e.wild) { e.stance = 'stand'; if (e.target) shoot(); e.rig.pose('aim', e.anim, aimPitch()); return; }
     // each man fights one of two ways: he storms (cover to cover, always closer, the last metres at a run) or he holds (the best cover in reach, kept while it still covers him)
     if (!e.tac) e.tac = e.kind === 'rpg' || e.kind === 'lmg' || e.kind === 'sniper' || ((((e.path && e.path[0] ? e.path[0][0] * 1.37 + e.path[0][1] * 2.11 : 0) % 1) + 1) % 1) > diff.storm ? 'hold' : 'storm';   // who storms and who holds is fixed by where he comes in
-    if (e.tac === 'storm' && P.alive && sameFloor && dP < 7.5 && seesP) { if (e.cov) { e.cov.by = null; e.cov = null; } assault(); return; }
+    if (e.tac === 'storm' && P.alive && sameFloor && dP < 7.5 && seesP && (e.supp || 0) < 0.9) { if (e.cov) { e.cov.by = null; e.cov = null; } assault(); return; }
+    const sq = sqOf(e);
+    // a squad that has lost most of its men falls back once, to cover further off, and holds there
+    if (sq && sq.broken && !e.fellBack && P.alive) { e.fellBack = true; e.tac = 'hold'; const fc = szPickCover(e, 'fall', dP); if (fc) { if (e.cov) e.cov.by = null; fc.by = e; e.cov = fc; e.inCov = false; e.covRunT = 0; e.coverT = rand(8, 12); e.cyc = rand(0.4, 1); e.peek = false; } }
+    // the player has stayed put against this squad: its first rifleman goes round to a cover off to his side
+    if (sq && !sq.broken && P.alive && PSTILL.t > tacK().flank && GAME.t - sq.flankT > 18 && tacKnows(e, 5) && !e.flanking && (e.kind === 'rifle' || e.kind === 'smg')) {
+      let first = null; for (const m of sq.men) if (m.alive && sqKey(m) === sqKey(e) && m.sz === 'street' && !m.dormant && (m.kind === 'rifle' || m.kind === 'smg')) { first = m; break; }
+      if (first === e) { sq.flankT = GAME.t; const fc = szPickFlank(e, sq); if (fc) { if (e.cov) e.cov.by = null; fc.by = e; e.cov = fc; e.inCov = false; e.covRunT = 0; e.flanking = true; e.coverT = rand(10, 14); e.tac = 'hold'; } } }
     // the cover is judged against where the player is now: once he is beside it or behind it, it covers nothing and the man moves
     e.covChk = (e.covChk || 0) - dt;
     if (e.cov && e.covChk <= 0) { e.covChk = 0.5; if (!szCovFaces(e.cov, 0.1)) { e.cov.by = null; e.cov = null; e.inCov = false; } }
     e.noCovT = (e.noCovT || 0) - dt;
+    if (e.cov && e.inCov && e.coverT <= 0 && !sqMayMove(e)) e.coverT = rand(0.8, 1.6);   // not yet: too many of his squad are out in the open
     if ((!e.cov || (e.inCov && e.coverT <= 0)) && e.noCovT <= 0) {
       const old = e.cov, nc = szPickCover(e, e.tac, dP);
       if (nc && nc !== old) { if (old) old.by = null; nc.by = e; e.cov = nc; e.inCov = false; e.cyc = rand(0.4, 1.0); e.peek = false; e.covRunT = 0; }
@@ -7437,10 +7539,10 @@ function suezEnemyStep(e, dt, shoot, aimPitch) {
       if (e.cov) e.coverT = e.tac === 'storm' ? rand(2.8, 5) : rand(6, 10);
     }
     if (e.cov) { const d = Math.hypot(e.cov.x - e.pos.x, e.cov.z - e.pos.z);
-      if (d > 0.5 && !e.inCov) { e.covRunT = (e.covRunT || 0) + dt; if (e.covRunT > 7) { e.cov.by = null; e.cov = null; e.noCovT = 2; return; } e.anim += dt * 9.5; steer(e, e.cov.x, e.cov.z, e.tac === 'storm' ? 4.8 : 4.2, dt); e.rig.pose('run', e.anim); if (seesP && Math.random() < dt * 0.6) { e.face(P.pos.x, P.pos.z); enemyFire(e); } return; }
-      e.inCov = true; coverCycle(e, dt, e.cov, shoot, aimPitch); return; }
+      if (d > 0.5 && !e.inCov) { e.covRunT = (e.covRunT || 0) + dt; if (e.covRunT > (e.flanking ? 14 : 7)) { e.cov.by = null; e.cov = null; e.noCovT = 2; e.flanking = false; return; } e.anim += dt * 9.5; steer(e, e.cov.x, e.cov.z, e.tac === 'storm' ? 4.8 : 4.2, dt); e.rig.pose('run', e.anim); if (seesP && Math.random() < dt * 0.6) { e.face(P.pos.x, P.pos.z); enemyFire(e); } return; }
+      e.inCov = true; e.flanking = false; coverCycle(e, dt, e.cov, shoot, aimPitch); return; }
     // no cover within reach: a man who storms comes on in short rushes, down on a knee to fire between them; a man who holds kneels where he is
-    if (e.tac === 'storm' && P.alive && seesP && dP > 7.5) {
+    if (e.tac === 'storm' && P.alive && seesP && dP > 7.5 && !pinned(e)) {
       e.rushTm = (e.rushTm ?? rand(0.3, 1.2)) - dt;
       if (e.rushTm <= 0) { e.rushRun = !e.rushRun; e.rushTm = e.rushRun ? rand(1.8, 3.2) : rand(1.3, 2.4); e.rushSide = rand(-0.55, 0.55); if (!e.rushRun) { e.fireCd = Math.min(e.fireCd, 0.3); e.burst = 0; } }
       if (e.rushRun) { const a = Math.atan2(P.pos.x - e.pos.x, P.pos.z - e.pos.z) + e.rushSide; e.anim += dt * 9.5; e.stance = 'stand'; steer(e, e.pos.x + Math.sin(a) * 5, e.pos.z + Math.cos(a) * 5, 4.6, dt); e.rig.pose('run', e.anim); return; }
@@ -7954,7 +8056,7 @@ function allyFire(v, dt) {
   if (v.kind === 'tank') for (const w of VEH) { if (w.mode !== MODE || !w.alive || w.side !== 'e' || !w.g.visible) continue; const c = w.g.position.clone(); c.y += 1.4; const d = from.distanceTo(c); if (d < 1200 && d < bd * 1.5 && losW(from.x, from.y, from.z, c.x, c.y, c.z)) { bd = d; best = { v: w, p: c }; } }
   if (!best) return;
   if (best.v) { fxMuzzle(from, true); sndBoom(from, 0.6); fxTracer(from, best.p, false); if (Math.random() < 0.45 * (CH() && CH().allyK || 1)) vehDestroy(best.v); else fxExplosion(best.p.clone().add(V3(rand(-3, 3), -1, rand(-3, 3))), 0.7); v.fireCd = rand(6, 9); return; }
-  fxMuzzle(from, false); sndShot('fal-npc', from); fxTracer(from, best.p, false); if (Math.random() < (v.kind === 'tank' ? 0.2 : 0.14) * clamp(1 - bd / 600, 0.3, 1) * ((CH() && CH().allyInf && CH().allyInf()) ?? 1)) killEnemy(best.u, false); else fxDust(best.p.clone().add(V3(rand(-1, 1), -0.8, rand(-1, 1))));
+  fxMuzzle(from, false); sndShot('fal-npc', from); fxTracer(from, best.p, false); if (Math.random() < (v.kind === 'tank' ? 0.2 : 0.14) * clamp(1 - bd / 600, 0.3, 1) * ((CH() && CH().allyInf && CH().allyInf()) ?? 1)) killEnemy(best.u, false); else { supPin(best.u, 0.3); fxDust(best.p.clone().add(V3(rand(-1, 1), -0.8, rand(-1, 1)))); }
 }
 /* Egyptian tanks and anti-tank guns: they shoot at the player's tank (or at the player on foot) when they see it */
 function enemyVehFire(v, dt) {
@@ -8308,7 +8410,7 @@ function fSpawnStreet(x, z, path, kind = 'rifle') {
   DIRQ.push({ at: GAME.t + rand(0.5, 1.2), spawn: true, fn: () => { if (!e.alive || e.hunter || e.wild || e.climbV || e.climb || e.state !== 'sz' || e.sz !== 'street') return; const c = fSpawnStreet0(e.pos.x + rand(-1.6, 1.6), e.pos.z + rand(-1.6, 1.6), e.path.slice(e.pi), e.kind); if (c) { c.sq = e.sq; c.tac = 'storm'; } } });
   return e;
 }
-function fSpawnStreet0(x, z, path, kind = 'rifle') { const e = spawnEnemy(x, z, varyKind(kind, x, z), null, null); if (!e) return null; e.sz = 'street'; e.state = 'sz'; e.path = path.map((p) => [p[0], p[1]]); e.pi = 0; e.cov = null; e.patience = 0; e.climb = false; e.cyc = 1; e.peek = false; e.meleeCd = 0.5; e.rpgCd = rand(7, 13); return e; }
+function fSpawnStreet0(x, z, path, kind = 'rifle') { const e = spawnEnemy(x, z, varyKind(kind, x, z), null, null); if (!e) return null; e.sz = 'street'; e.state = 'sz'; e.alert = true; e.path = path.map((p) => [p[0], p[1]]); e.pi = 0; e.cov = null; e.patience = 0; e.climb = false; e.cyc = 1; e.peek = false; e.meleeCd = 0.5; e.rpgCd = rand(7, 13); return e; }
 function fSlotSpawn(kind, filter, tag) { const e = szSpawnSlot(kind === 'atgm' ? 'rpg' : kind, filter); if (e) { e.atgm = kind === 'atgm'; e.sq = tag; e.guide = null; if (e.atgm) e.rpgCd = rand(9, 16); } return e; }
 /* ---------- defenders placed ahead of the advance ----------
    A position is manned before the player can see it, not when he reaches it: the man sits in his hole, hidden, and comes alive when the
