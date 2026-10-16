@@ -1023,8 +1023,14 @@ function throwGrenade(from, vel, owner) {
   if (owner !== 'player') { const el = document.createElement('div'); el.className = 'mk'; el.innerHTML = '<span style="color:#ff6f5e;font-size:18px;font-weight:700">⚠</span><small>רימון</small>'; p.marker = new CSS2DObject(el); p.marker.center.set(0.5, 1); scene.add(p.marker); }
   PROJ.push(p);
 }
+/* a bazooka round: it must be seen leaving the tube and flying at its target - a bigger body, a burning motor at its tail, a thick trail,
+   and a speed the eye can follow; it starts a metre out of the tube and is armed only after a few metres (a sandbag or a window sill at
+   the shooter's own position does not set it off) */
+const ROCKET_FLAME = new THREE.SpriteMaterial({ map: FXT.flash, color: new THREE.Color(HDRK * 1.0, HDRK * 0.62, HDRK * 0.28), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending });
+const ROCKET_SPEED = 85;
 function fireRocket(from, to, owner) {
-  const m = new THREE.Mesh(ROCKET_GEO, MAT.vc); m.position.copy(from); m.lookAt(to); onLayer1(m); scene.add(m);
-  const dir = to.clone().sub(from).normalize();
-  PROJ.push({ type: 'rocket', m, v: dir.multiplyScalar(115), owner, life: 3.5, target: to.clone() });
+  const dir = to.clone().sub(from).normalize(), p0 = from.clone().addScaledVector(dir, 1.0);
+  const m = new THREE.Mesh(ROCKET_GEO, MAT.vc); m.scale.setScalar(1.7); m.position.copy(p0); m.lookAt(to);
+  const fl = new THREE.Sprite(ROCKET_FLAME); fl.position.set(0, 0, -0.45); fl.scale.setScalar(0.5); m.add(fl); onLayer1(m); scene.add(m);
+  PROJ.push({ type: 'rocket', m, fl, v: dir.multiplyScalar(ROCKET_SPEED), owner, age: 0, life: Math.min(6, p0.distanceTo(to) / ROCKET_SPEED + 1.2), target: to.clone() });
 }
