@@ -121,7 +121,7 @@ const MAT_BURNT = new THREE.MeshStandardMaterial({ color: 0x23201d, roughness: 1
 function addVeh(o) {
   if ((o.geo === HT_GEO || o.geo === ETRUCK_GEO || o.geo === JEEP_GEO) && typeof VEH_DATA !== 'undefined' && VEH_DATA.jeep) { const r = vehModel('jeep', o.geo === ETRUCK_GEO || (o.side || 'e') === 'e' ? 'e' : 'f'); scene.add(SH(onLayer1(r.g))); o = Object.assign({}, o, { g: r.g, half: [2.05, 2.0, 0.95] }); if (o.mg) Object.assign(o, { mgM: r.mg, mgOff: 0 }); }   // the half-tracks and trucks of the old set are jeeps now
   if (o.geo === TANK_GEO && typeof VEH_DATA !== 'undefined' && VEH_DATA.magach) { const r = vehModel('magach', 'f'); scene.add(SH(onLayer1(r.g))); o = Object.assign({}, o, { g: r.g, tur: r.tur, half: [3.5, 2.6, 1.8] }); }   // the modelled Magach
-  if (o.geo === T55_HULL && typeof VEH_DATA !== 'undefined' && VEH_DATA.t55) { const r = vehModel('t55', 'e'); scene.add(SH(onLayer1(r.g))); o = Object.assign({}, o, { g: r.g, tur: r.tur, half: [3.5, 2.3, 1.7] }); delete o.turGeo; }   // the modelled T-55
+  if (o.geo === T55_HULL && typeof VEH_DATA !== 'undefined' && VEH_DATA.t55) { const r = vehModel('t55', 'e'); scene.add(SH(onLayer1(r.g))); o = Object.assign({}, o, { g: r.g, tur: r.tur, half: [3.5, 2.3, 1.7], hit: T55_HIT }); delete o.turGeo; }   // the modelled T-55
   const v = Object.assign({ mode: MODE, side: 'e', kind: 'truck', alive: true, hp: 100, armor: 0.12, s: 0, speed: 0, vmax: 7, path: null, fireCd: rand(4, 7), half: [3.2, 2.6, 1.2], fwdX: true, hdV: null, x: 0, z: 0, burnT: 0, fires: [] }, o);
   if (!v.g) { v.g = new THREE.Group(); const m = new THREE.Mesh(v.geo, MAT.vc); v.g.add(m); v.body = m; if (v.geo === TANK_GEO) tankMarks(m, TANK_GEO); if (v.turGeo) { v.tur = new THREE.Group(); v.tur.position.set(v.turAt[0], v.turAt[1], v.turAt[2]); v.tur.add(new THREE.Mesh(v.turGeo, MAT.vc)); v.g.add(v.tur); } scene.add(SH(onLayer1(v.g))); }
   if (v.g.userData.vl) v.g.userData.vl.crew = true;   // a modelled vehicle in the battle has its man at the gun or in the hatch
@@ -259,13 +259,20 @@ function vehDestroy(v, quiet = false) {
   if (v.crew) for (const c of v.crew) c.visible = false;
   if (v.onDead) v.onDead(v);
 }
+/* the T-55 is hit where it is seen: its hull, the stowage on the rear deck, and the turret and gun in the turret's own frame (it turns).
+   The modelled turret stands 3.2 m over the ground - a single box of the hull's height left its upper half unhittable, and a tank dug in
+   hull-down shows nothing else. Boxes in the model's frame (x forward): [x0, x1, y0, y1, z0, z1] */
+const T55_HIT = { hull: [[-3.6, 3.8, 0, 1.98, -1.8, 1.7], [-3.2, -1.5, 1.9, 2.2, -1.67, 1.67]], tur: [[-1.32, 1.5, -0.05, 1.42, -1.12, 1.12], [1.4, 5.62, 0.18, 0.54, -0.17, 0.17]] };
 const _vi = new THREE.Matrix4(), _vo = V3(), _vd = V3();
 function rayVeh(o, d, maxT) {
   let best = null, bt = maxT;
   for (const v of VEH) { if (v.mode !== MODE || v.side !== 'e' || !v.g.visible) continue; if (Math.hypot(v.g.position.x - o.x, v.g.position.z - o.z) > maxT + 10) continue;
     _vi.copy(v.g.matrixWorld).invert(); _vo.copy(o).applyMatrix4(_vi); _vd.copy(d).transformDirection(_vi); const [hx, hy, hz] = v.half;
-    let t = v.fwdX ? rayBox(_vo, _vd, -hx, hx, 0, hy, -hz, hz) : rayBox(_vo, _vd, -hz, hz, 0, hy, -hx, hx);
-    if (v.box2) { const b = v.box2, t2 = rayBox(_vo, _vd, b[0], b[1], b[2], b[3], b[4], b[5]); if (t2 !== null && (t === null || t2 < t)) t = t2; }   // a second box in the vehicle's own frame (a tank's cupola and the man in its hatch, above the hull box)
+    let t = null; const hb = (b) => { const q = rayBox(_vo, _vd, b[0], b[1], b[2], b[3], b[4], b[5]); if (q !== null && (t === null || q < t)) t = q; };
+    if (v.hit) v.hit.hull.forEach(hb);
+    else t = v.fwdX ? rayBox(_vo, _vd, -hx, hx, 0, hy, -hz, hz) : rayBox(_vo, _vd, -hz, hz, 0, hy, -hx, hx);
+    if (v.box2) hb(v.box2);   // a second box in the vehicle's own frame (a tank's cupola and the man in its hatch, above the hull box)
+    if (v.hit && v.tur && v.hit.tur) { v.tur.updateMatrixWorld(); _vi.copy(v.tur.matrixWorld).invert(); _vo.copy(o).applyMatrix4(_vi); _vd.copy(d).transformDirection(_vi); v.hit.tur.forEach(hb); }   // last: it moves the ray into the turret's frame
     if (t !== null && t < bt && t > 0.5) { bt = t; best = { t, kind: 'veh', v }; } }
   return best;
 }

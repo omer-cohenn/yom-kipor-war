@@ -952,22 +952,55 @@ function fxExplosion(p, size = 1) {
   LIGHTS.boom.position.set(p.x, p.y + 3, p.z); LIGHTS.boom.intensity = 24000 * size; FX.boomT = 0;
   if (land && size >= 0.7) addScorch(p, 3.4 * size + Math.random() * 1.2);
 }
-const FLARES = [];
+/* illumination rounds: each one pops at its height, then hangs under its parachute and comes down at a steady, visible rate (5-12 m/s),
+   drifting with the wind and trailing its smoke, until it lands; it burns a moment longer on the sand and dies out. The light is set by
+   what it gives the ground beneath it (lux = I / h^2): brightest at the top, where it lights the widest circle, and a small hot pool once it
+   is low. The arguments keep their old meaning (life ~ the seconds it hangs), so every chapter's flares work the same way */
+const FLARES = [], FLARE_GROUND = 2.6, FLARE_FADE = 3.5;
 function spawnFlare(x = rand(-380, -60), z = rand(-260, 260), y = rand(260, 320), life = 32, scale = 26, glow = 1) {
-  const light = FLARES.length % 2 ? LIGHTS.flareB : LIGHTS.flareA;
-  const old = FLARES.find((f) => f.light === light); if (old) { old.s.visible = false; scene.remove(old.s); FLARES.splice(FLARES.indexOf(old), 1); }
+  // two lights: a new round takes the light of the one nearest to its end (which goes out a little early)
+  const busy = (l) => FLARES.find((f) => f.light === l), light = !busy(LIGHTS.flareA) ? LIGHTS.flareA : !busy(LIGHTS.flareB) ? LIGHTS.flareB : busy(LIGHTS.flareA).t / busy(LIGHTS.flareA).life > busy(LIGHTS.flareB).t / busy(LIGHTS.flareB).life ? LIGHTS.flareA : LIGHTS.flareB;
+  const old = busy(light); if (old) { old.s.visible = false; scene.remove(old.s); FLARES.splice(FLARES.indexOf(old), 1); }
+  if (light.userData.pool) light.userData.pool.visible = false;
   const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: FXT.flare, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, fog: false, toneMapped: false })); s.scale.setScalar(scale); scene.add(s);
-  const f = { s, light, x, z, y, t: 0, life, glow, vx: rand(-1.5, 1.5), vz: rand(-1, 1) };
+  const g0 = Math.max(groundAt(x, z), 0), vy = clamp((y - g0 - 1) / Math.max(6, life - 7), 4.5, 12), tD = (y - g0) / vy;
+  const f = { s, light, x, z, y, t: 0, life: tD + FLARE_GROUND + FLARE_FADE, glow, scale, vy, vx: rand(-1.5, 1.5), vz: rand(-1, 1), k: 0, h: y - g0, land: -1, smT: 0 };
   FLARES.push(f); return f;
 }
+/* the pool of light a round throws on the ground under it: a warm glow laid over the terrain (it follows the ground's shape), faint and wide
+   while the round is high, small and hot as it comes down, burning on with it on the sand and dying with it. On a phone, or at medium
+   quality, where the rounds carry no real light, this is the light on the ground; with real lights it only warms their pool a little */
+const FLARE_POOL_N = 14, FLARE_POOL_TEX = radialTex([[0, 'rgba(255,240,205,1)'], [0.3, 'rgba(255,226,172,.6)'], [0.65, 'rgba(255,212,150,.18)'], [1, 'rgba(255,200,140,0)']]);
+function flarePool(light) {
+  if (light.userData.pool) return light.userData.pool; const n = FLARE_POOL_N + 1, pos = new Float32Array(n * n * 3), uv = new Float32Array(n * n * 2), idx = [];
+  for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) { uv[(j * n + i) * 2] = i / (n - 1); uv[(j * n + i) * 2 + 1] = j / (n - 1); if (i < n - 1 && j < n - 1) { const a = j * n + i; idx.push(a, a + n, a + 1, a + 1, a + n, a + n + 1); } }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); g.setIndex(idx);
+  const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ map: FLARE_POOL_TEX, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false, color: 0x000000, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4 }));
+  m.frustumCulled = false; m.renderOrder = 2; m.visible = false; scene.add(onLayer1(m)); return (light.userData.pool = m);
+}
+function flarePoolSet(f) {
+  const m = flarePool(f.light), op = f.k * (1 - smooth(25, 150, f.h)); m.visible = op > 0.01; if (!m.visible) return;
+  const R = 18 + 0.8 * f.h, n = FLARE_POOL_N + 1, a = m.geometry.attributes.position, gain = op * (LITE ? 0.95 : 0.35);
+  for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) { const x = f.x + (i / (n - 1) - 0.5) * 2 * R, z = f.z + (j / (n - 1) - 0.5) * 2 * R; a.setXYZ(j * n + i, x, Math.max(groundAt(x, z), 0) + 0.15, z); }
+  a.needsUpdate = true; m.material.color.setRGB(0.95 * gain, 0.78 * gain, 0.52 * gain);
+}
+// how much a flare brightens the whole scene for a man at (x, z) (FLARE_LIGHT): a high round reaches far, one on the ground only its own pool
+function flareAmb(x, z) { let a = 0; for (const f of FLARES) { const reach = 90 + 2.6 * f.h, str = 0.5 + 0.7 * smooth(15, 150, f.h); a = Math.max(a, f.k * str * clamp(1 - Math.hypot(f.x - x, f.z - z) / reach, 0, 1)); } return a; }
 function updateFlares(dt) {
-  let fl = 0;
+  let fl = 0; for (const l of [LIGHTS.flareA, LIGHTS.flareB]) if (l.userData.pool && !FLARES.some((f) => f.light === l)) l.userData.pool.visible = false;   // a chapter that cleared its rounds leaves no pool behind
   for (const f of [...FLARES]) {
-    f.t += dt; f.y -= 4.2 * dt; f.x += f.vx * dt; f.z += f.vz * dt;
-    const k = f.t < 1.5 ? f.t / 1.5 : f.t > f.life - 4 ? Math.max(0, (f.life - f.t) / 4) : 1;
-    const flick = 0.85 + 0.15 * Math.sin(f.t * 23) * Math.sin(f.t * 7.3);
-    f.s.position.set(f.x, f.y, f.z); f.light.position.set(f.x, f.y, f.z); f.light.intensity = 9e5 * (f.glow ?? 1) * k * flick * Math.pow(Math.max(f.y, 60) / 280, 2); f.s.material.opacity = k; fl = Math.max(fl, k);
-    if (f.t > f.life || f.y < 20) { f.s.visible = false; scene.remove(f.s); f.light.intensity = 0; FLARES.splice(FLARES.indexOf(f), 1); }
+    f.t += dt; const g = Math.max(groundAt(f.x, f.z), 0);
+    if (f.land < 0) { f.y -= f.vy * dt; f.x += f.vx * dt; f.z += f.vz * dt; if (f.y <= g + 0.5) { f.y = g + 0.5; f.land = f.t; f.life = Math.min(f.life, f.t + FLARE_GROUND + FLARE_FADE); } }
+    f.h = Math.max(0, f.y - g);
+    const k = f.t < 1.2 ? f.t / 1.2 : f.t > f.life - FLARE_FADE ? Math.max(0, (f.life - f.t) / FLARE_FADE) : 1; f.k = k;
+    const flick = 0.85 + 0.15 * Math.sin(f.t * 23) * Math.sin(f.t * 7.3), gl = f.glow ?? 1;
+    // the light on the ground straight below: 1.7x the old rounds at the top, rising a little as it comes down; never closer than 7 m for the maths
+    const lux = 22 * gl * (1 + 0.8 * (1 - smooth(20, 160, f.h))), hh = Math.max(f.h, 7);
+    f.s.position.set(f.x, f.y, f.z); f.light.position.set(f.x, f.y + 0.6, f.z); f.light.intensity = lux * hh * hh * k * flick;
+    f.s.scale.setScalar(f.scale * (0.3 + 0.7 * smooth(4, 90, f.h)) * (0.92 + 0.08 * flick)); f.s.material.opacity = k; fl = Math.max(fl, k); flarePoolSet(f);
+    // the smoke it trails: left hanging where it was made, so the round is seen to drop away beneath it; lit near the flare, greying as it thins
+    if (f.land < 0 || f.t - f.land < FLARE_GROUND) { f.smT -= dt; if (f.smT <= 0) { f.smT = LITE ? 0.5 : 0.24; const q = FX.smoke.get(); q.life = LITE ? 4 : 6.5; q.s.position.set(f.x + rand(-0.4, 0.4), f.y + 1.2, f.z + rand(-0.4, 0.4)); q.s.material.color.setRGB(0.86, 0.82, 0.74); q.upd = (qq, u, dt2) => { qq.s.position.y += 0.6 * dt2; qq.s.position.x += 0.9 * dt2; qq.s.scale.setScalar(1.6 + u * 7); qq.s.material.opacity = 0.42 * (1 - u) * Math.min(1, u * 12); const c = 0.86 - 0.5 * u; qq.s.material.color.setRGB(c, c * 0.95, c * 0.86); }; } }
+    if (f.t > f.life) { f.s.visible = false; scene.remove(f.s); f.light.intensity = 0; if (f.light.userData.pool) f.light.userData.pool.visible = false; FLARES.splice(FLARES.indexOf(f), 1); }
   }
   vmFlare.intensity = fl * 1.2;
 }
