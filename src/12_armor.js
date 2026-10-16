@@ -1,18 +1,23 @@
 
 /* ================= chapter 3: the great tank battle, 14 October 1973 =================
-   The Egyptian army comes out of its bridgeheads with hundreds of tanks. You command a tank and drive it yourself: hold the position
-   clear of the enemy until the clock runs out, then the order comes to reinforce the next position along the ridge, where they broke through. */
-const AM = { o: { x: -7000, z: -7000 }, stage: 0, msgs: {}, zi: 0, zs: 'go', hold: 0, wave: 0 };
+   The Egyptian army comes out of its bridgeheads with hundreds of tanks. You command a tank and drive it yourself. Each position on the
+   ridge takes an armoured assault: a broad front of T-55s rolling up out of the valley with a few infantrymen riding on them. The assault
+   is broken when its last tank burns; then the order comes to reinforce the next position along the ridge, where they broke through.
+   Almost all armour: about ten tanks and twenty men on each position (fewer on the easy level, more on the hard one). */
+const AM = { o: { x: -7000, z: -7000 }, stage: 0, msgs: {}, zi: 0, zs: 'go', ech: 0, nAct: 0 };
 const AMW = toWorld(AM.o);
-// four positions along the ridge, south to north: where they are, how big, how long to hold, and the waves that come at each
+/* four positions along the ridge, south to north: where they are, how big, the tanks already inside the line when we get there (breach),
+   and the assault's echelons: [tanks, seconds after the position is clear]. Two men ride on every tank of an echelon (and two come with
+   every tank of a breach), so the infantry is always twice the tanks */
 const AM_Z = [
-  { x: 0, z: 0, r: 70, t: 45, name: 'עמדה "אבירם"', waves: [[4, 1, 6], [4, 2, 10]] },
-  { x: 14, z: 250, r: 70, t: 50, name: 'עמדה "ברק"', breach: [2, 1, 10], waves: [[4, 1, 10], [5, 2, 12]] },
-  { x: -18, z: 500, r: 70, t: 55, name: 'עמדה "גלעד"', breach: [3, 1, 12], waves: [[5, 2, 12], [5, 2, 14]], sagger: true },
-  { x: 6, z: 740, r: 75, t: 60, name: 'עמדה "דקל"', breach: [3, 2, 14], waves: [[5, 2, 12], [6, 2, 14], [6, 3, 16]], sagger: true } ];
-const AM_STAGES = AM_Z.map((z, i) => ({ title: i === 0 ? 'הרכס' : `${z.name} נפרצה`, sub: i === 0 ? 'ארבעה־עשר באוקטובר, שבע בבוקר. מאות טנקים מצריים עולים מהגשרים אל הרכסים, ואתם הטנק בעמדה. שום דבר לא עובר עד שהשעון נגמר.' : `${z.name} נפרצה: טנקים מצריים כבר בתוך העמדה, והצוותים שם מחזיקים בשיניים. גז לשם — נקו אותה והחזיקו עד שהשעון נגמר.`, goal: i === 0 ? 'החזיקו את העמדה עד שהשעון נגמר. W/S נסיעה, A/D סיבוב' : `${z.name}: נקו את העמדה והחזיקו עד שהשעון נגמר` }));
-const OTRUCK_GEO = build(truckParts({ B: 0x5f6146, D: 0x55573e, K: 0x1f1e1b, C: 0x6a6c50 }));
-const BTR_GEO = build([[G.box(6.6, 1.0, 2.6), 0x8e8058, M4(0, 1.1, 0)], [G.box(1.5, 0.75, 2.5), 0x857852, M4(3.6, 1.05, 0, 0, 0, -0.45)], [G.box(1.2, 0.7, 2.5), 0x857852, M4(-3.45, 1.0, 0, 0, 0, 0.35)], [G.box(5.4, 0.5, 2.2), 0x8a7c55, M4(-0.2, 1.8, 0)], [G.cyl(0.45, 0.52, 0.5, 12), 0x7d7050, M4(0.9, 2.3, 0)], [G.cyl(0.04, 0.04, 1.3, 6), 0x2a2a26, M4(1.6, 2.4, 0, 0, 0, Math.PI / 2)], ...[-2.4, -0.8, 0.8, 2.4].flatMap((x) => [-1, 1].map((sd) => [G.cyl(0.55, 0.55, 0.36, 14), 0x22201c, M4(x, 0.55, sd * 1.25, Math.PI / 2, 0, 0)]))]);
+  { x: 0, z: 0, r: 70, name: 'עמדה "אבירם"', waves: [[6, 0], [4, 30]] },
+  { x: 14, z: 250, r: 70, name: 'עמדה "ברק"', breach: 2, waves: [[5, 4], [3, 32]] },
+  { x: -18, z: 500, r: 70, name: 'עמדה "גלעד"', breach: 2, waves: [[5, 4], [3, 32]], sagger: true },
+  { x: 6, z: 740, r: 75, name: 'עמדה "דקל"', breach: 3, waves: [[5, 4], [4, 30]], sagger: true } ];
+const AM_STAGES = AM_Z.map((z, i) => ({ title: i === 0 ? 'הרכס' : `${z.name} נפרצה`, sub: i === 0 ? 'ארבעה־עשר באוקטובר, שבע בבוקר. מאות טנקים מצריים עולים מהגשרים אל הרכסים, ואתם הטנק בעמדה. ההסתערות נשברת כשאחרון הטנקים שלה בוער.' : `${z.name} נפרצה: טנקים מצריים כבר בתוך העמדה, והצוותים שם מחזיקים בשיניים. גז לשם — נקו אותה ושברו את ההסתערות הבאה.`, goal: i === 0 ? 'שברו את ההסתערות: השמידו את הטנקים לפני שהם נכנסים לעמדה. W/S נסיעה, A/D סיבוב' : `${z.name}: נקו את העמדה ושברו את ההסתערות` }));
+// the level sets the size of every assault (the infantry follows the tanks, two to one) and how well their gunners shoot
+const amDi = () => Math.max(0, DIFF.indexOf(diff));
+const amN = (n) => Math.max(1, Math.round(n * [0.7, 1, 1.3][amDi()]));
 const MARK_GEO = build([[G.cyl(0.06, 0.08, 2.2, 6), 0x3a3a34, M4(0, 1.1, 0)], [G.box(0.02, 0.5, 0.8), 0xe8641e, M4(0, 1.9, 0.4)]]);
 const amCrest = (lz) => 8 * Math.sin(lz / 180) + 4 * Math.sin(lz / 67 + 1.3);   // the ridge line wanders a little
 /* the ground in two parts: the land itself (amNat - or the map, when the chapter has one) and what the battle needs exactly on top of it (amCarve) */
@@ -32,6 +37,13 @@ function amCarve(x, z, h) {
   { const d = Math.abs(cx - 38); if (d < 5) mixIn([0.52, 0.46, 0.36], 0.55 * (1 - smooth(2, 5, d))); }
   return h;
 }
+/* the wrecks on the field are tanks and jeeps only, like everything else that drives in this war: a T-55 knocked out in the first week,
+   or a jeep burnt out on the road - each with its collider and cover, sooted, crooked and smouldering */
+function amWreck(name, x, z, rot, seed) {
+  const r = rng(seed), rec = vehModel(name, name === 'magach' ? 'f' : 'e'), m = rec.g, g0 = groundAt(x, z), [hx, hz, h] = name === 'jeep' ? [2.05, 0.95, 2.0] : [3.6, 1.8, 2.6];
+  vehDamage(rec, true); rec.dead = true; rec.crew = false; m.position.set(x, g0, z); m.rotation.y = rot; wreckTilt(m, r); scene.add(SH(onLayer1(m)));
+  addCollider(x, z, hx, hz, rot, g0 + h); coverBox(x, z, hx, hz, rot, Math.min(2.2, h)); wreckFire(m, VEH_FIRE[name], name === 'jeep' ? 0.85 : 1.4); return m;
+}
 function amBuild() {
   const C = CHAP.armor; C.ground = makeGround({ x0: AM.o.x - 1150, x1: AM.o.x + 260, z0: AM.o.z - 220, z1: AM.o.z + 920, step: 3.2, h: mapH('armor', amNat, amCarve), map: 'armor', vegOk: (x, z) => { const lx = x - AM.o.x, lz = z - AM.o.z; return !AM_Z.some((Z) => Math.hypot(lx - Z.x, lz - Z.z) < 36) && Math.abs(lz - 366) > 6; } }); GROUND = C.ground;
   const BAGS = [], sv = BATCH.bag; BATCH.bag = BAGS; const k0 = COVER.length; C.slots = [];
@@ -43,47 +55,114 @@ function amBuild() {
   instScatter(BUSH_G, scatterIn(LITE ? 280 : 680, X0, X1, Z0, Z1, 702, ok, (x, z, r) => [x, z, 0.35 + r() * 0.6, r() * 6, dryBush(r), 0, 0.72]).concat(nb));
   { const bl = scatterIn(LITE ? 40 : 80, X0, X1, Z0, Z1, 703, ok, (x, z, r) => [x, z, 1.2 + r() * 1.8, r() * 6, rockCol(r), 0.3, 0.72]); instScatter(BOULDER_G, bl); boulders(bl); }
   dressArea(X0, X1, Z0, Z1, ok, 710, 0.9, 0.06);
-  // wrecks of the first week, a road and telegraph poles across the valley, ruined huts, the supply trucks behind the ridge
+  // wrecks of the first week (our Magachs, their T-55s), a road with burnt-out jeeps and telegraph poles across the valley, ruined huts, the supply jeeps behind the ridge
   for (const [x, z, b] of [[-420, -150, 80], [-760, 120, 300], [-300, 330, 40], [-520, 610, 120], [-260, 820, 200]]) { const [wx, wz] = AMW(x, z); placeTank(wx, wz, b, TANK_BURNT); }
-  for (const [x, z, r] of [[-880, -60, 0.6], [-480, 400, 2.2], [-700, 700, 1.1]]) { const [wx, wz] = AMW(x, z); vehicle(TRUCK_BURNT, wx, wz, r, 3.3, 1.2, 2.6); }
-  roadRibbon([[-1140, 366], [250, 366]].map(([x, z]) => AMW(x, z)), 7, 'asphalt'); roadWrecks([[-1100, 366], [200, 366]].map(([x, z]) => AMW(x, z)), 5, 12117, 7);
+  for (const [x, z, r] of [[-880, -60, 0.6], [-480, 400, 2.2], [-700, 700, 1.1]]) { const [wx, wz] = AMW(x, z); amWreck('t55', wx, wz, r, Math.round(x * 3 - z)); }
+  roadRibbon([[-1140, 366], [250, 366]].map(([x, z]) => AMW(x, z)), 7, 'asphalt');
+  for (const [x, sd, nm, r] of [[-1010, 1, 'jeep', 0.5], [-770, -1, 't55', 0.2], [-560, 1, 'jeep', -0.4], [-150, -1, 'jeep', 2.6], [130, 1, 't55', 2.9]]) { const [wx, wz] = AMW(x, 366 + sd * 8.5); amWreck(nm, wx, wz, r, 12117 + x); }
   powerLine([[-1140, 380], [250, 380]].map(([x, z]) => AMW(x, z)), 46, 7); roadPoles([[-1140, 366], [250, 366]].map(([x, z]) => AMW(x, z)), 40, 5);
   for (const [x, z] of [[-700, 360], [-300, 140]]) { const [wx, wz] = AMW(x, z); smallHut(wx, wz, 6, 5, 2.6, '#c8b796', 0x7d6e58, true); }
-  for (const [x, z, r] of [[95, -40, 1.5], [105, 270, 1.6], [90, 520, 1.4], [100, 760, 1.5]]) { const [wx, wz] = AMW(x, z); vehicle(OTRUCK_GEO, wx, wz, r, 3.3, 1.2, 2.6); fieldDrums(wx + 6, wz + 4, 5); }
+  for (const [x, z, r] of [[95, -40, 1.5], [105, 270, 1.6], [90, 520, 1.4], [100, 760, 1.5]]) { const [wx, wz] = AMW(x, z); vehicle(JEEP_GEO, wx, wz, r, 2.05, 0.95, 2.0); fieldDrums(wx + 6, wz + 4, 5); }
   for (const [x, z, s] of [[-1600, -300, 70], [-1800, 300, 90], [-1500, 800, 60], [400, -700, 30]]) { const [wx, wz] = AMW(x, z); smokeColumn(wx, wz, s, true); }
   // the zone markers: orange flags in a ring around each position, so it is clear where the line is held
   C.marks = AM_Z.map((Z) => { const items = []; for (let k = 0; k < 18; k++) { const a = k / 18 * Math.PI * 2, [wx, wz] = AMW(Z.x + Math.cos(a) * Z.r, Z.z + Math.sin(a) * Z.r); items.push([wx, wz, 1, a, 0xffffff, 0, 1]); } return instScatter(MARK_GEO, items, MAT.vc, false); });
   BATCH.bag = sv; if (BAGS.length) scene.add(bagMesh(BAGS)); C.covers = COVER.slice(k0); for (const c of C.covers) c.y = groundAt(c.x, c.z);
-  // our tanks at the positions, and the Egyptian armour
+  // our tanks at the positions, and the Egyptian armour. A T-55's hit box takes in the whole of its turret, roof and all (the shared box
+  // stops at 2.3 m, under the turret roof), and a second box the cupola and the commander standing in his hatch: a tank down behind a
+  // berm with only its turret showing can always be hit where it is seen
   C.mates = []; AM_Z.forEach((Z, zi) => { for (const oz of [-28, 28]) { const v = addVeh({ mode: 'armor', side: 'f', kind: 'tank', geo: TANK_GEO, half: [3.4, 2.6, 1.9], guns: true, vmax: 0 }); v.zi = zi; v.at = [Z.x - 4, Z.z + oz]; C.mates.push(v); } });
-  C.foes = []; for (let i = 0; i < 44; i++) C.foes.push(addVeh({ mode: 'armor', kind: 't55', geo: T55_HULL, turGeo: T55_TUR, turAt: [0.3, 1.42, 0], half: [3.2, 2.3, 1.75], armor: 0, hp: 100, shoots: true, vmax: 4.6 }));
-  for (let i = 0; i < 18; i++) C.foes.push(addVeh({ mode: 'armor', kind: 'btr', geo: BTR_GEO, half: [3.4, 2.3, 1.3], armor: 0, hp: 60, shoots: false, vmax: 5.2 }));
+  C.foes = []; for (let i = 0; i < 44; i++) { const v = addVeh({ mode: 'armor', kind: 't55', geo: T55_HULL, turGeo: T55_TUR, turAt: [0.3, 1.42, 0], half: [3.2, 2.3, 1.75], armor: 0, hp: 100, shoots: true, vmax: 4.6 }); v.half = [3.75, 2.8, 1.85]; v.box2 = [-0.8, 1.9, 2.7, 3.3, -1.25, 1.25]; C.foes.push(v); }
+  AML.ring = amLockRing(); scene.add(AML.ring);
 }
-/* ---------- waves: columns roll in from the valley toward the position; those that get there are inside the line ---------- */
-function amSend(zi, nT, nB, nI, breach = false) {
-  const C = CHAP.armor, Z = AM_Z[zi], free = (k) => C.foes.filter((v) => v.kind === k && !v.used); let i = 0;
-  const go = (v) => { v.used = true; v.zi = zi; vehRevive(v, v.kind === 'btr' ? 60 : 100); v.shown = true; v.g.visible = true; const lane = rand(-60, 60), tx = Z.x + rand(-26, 8), tz = Z.z + rand(-40, 40);
-    if (breach) { const [wx, wz] = AMW(Z.x + rand(-40, 10), Z.z + rand(-45, 45)); v.path = null; vehPose(v, wx, wz, Math.PI / 2 + rand(-0.6, 0.6)); v.s = 0; v.stop = undefined; v.hdV = null; v.fireCd = rand(1, 4); v.inside = true; return; }
-    const x0 = Z.x - 900 - i * 30 - rand(0, 60); i++; v.path = [AMW(x0, Z.z + lane * 1.6), AMW(Z.x - 500, Z.z + lane + rand(-15, 15)), AMW(Z.x - 220, Z.z + lane * 0.6 + rand(-15, 15)), AMW(tx, tz)]; v.s = 0; v.vmax = v.kind === 'btr' ? 5.2 : 4.6; v.hdV = null; v.ended = false;
-    v.halts = [rand(150, 260), rand(420, 560)]; v.hold = 0; v.stop = v.halts.shift(); v.fireCd = rand(3, 7); v.dropped = false; v.inside = false; vehPose(v, ...v.path[0], Math.PI / 2); };
-  free('t55').slice(0, nT).forEach(go); free('btr').slice(0, nB).forEach(go);
-  for (let k = 0; k < nI; k++) { const [x, z] = breach ? [Z.x + rand(-45, 15), Z.z + rand(-45, 45)] : [Z.x - 210 - rand(0, 70), Z.z + rand(-50, 50)], [tx, tz] = [Z.x + rand(-30, 10), Z.z + rand(-40, 40)]; DIRQ.push({ at: GAME.t + k * (breach ? 0.2 : 0.9), spawn: true, fn: () => { const e = fSpawnStreet(...AMW(x, z), [AMW(tx, tz)], k % 4 === 1 ? 'rpg' : 'rifle'); if (e) { e.sq = 'z' + zi; e.inZone = zi; } } }); }
+/* ---------- the assault: a broad front of T-55s rolls up out of the valley at the position, along fixed lanes from fixed starts, halting
+   twice to fire; two men ride on each and jump off 250 m short of the line. A breach: tanks and their men already inside the line ---------- */
+const amFree = () => CHAP.armor.foes.find((v) => !v.used || (!v.alive && !v.g.visible));   // a wreck that has gone is free again
+function amMan(zi, x, z, tx, tz, rpg) { const e = fSpawnStreet(x, z, [[tx, tz]], rpg ? 'rpg' : 'rifle'); if (e) { e.sq = 'z' + zi; e.inZone = zi; e.amRet = false; } return e; }
+function amSend(zi, n, ech, breach = false) {
+  const Z = AM_Z[zi], r = rng(1000 + zi * 37 + ech * 11 + n);
+  for (let i = 0; i < n; i++) { const v = amFree(); if (!v) break;
+    v.used = true; v.zi = zi; v.ech = ech; v.ri = i; vehRevive(v, 100); v.shown = true; v.g.visible = true; v.sinkY = null; v.riders = breach ? 0 : 2; v.hold = 0; v.halts = [];
+    if (breach) { const [wx, wz] = AMW(Z.x - 30 + r() * 36, Z.z - 40 + 80 * (i + 0.5) / n); v.path = null; vehPose(v, wx, wz, Math.PI / 2 + (r() - 0.5) * 1.2); v.stop = undefined; v.fireCd = 1.5 + r() * 3; v.inside = true; continue; }
+    const lane = n > 1 ? -70 + 140 * i / (n - 1) : 0, tx = Z.x - 22 + r() * 26, tz = Z.z + clamp(lane * 0.5, -40, 40) + (r() - 0.5) * 10, x0 = Z.x - 640 - (i % 2) * 50 - r() * 30;
+    v.path = [AMW(x0, Z.z + lane * 1.3), AMW(Z.x - 420, Z.z + lane + (r() - 0.5) * 20), AMW(Z.x - 190, Z.z + lane * 0.7 + (r() - 0.5) * 16), AMW(tx, tz)];
+    v.vmax = 5.2 + r() * 0.8; v.ended = false; v.halts = [140 + r() * 60, 330 + r() * 60]; v.stop = v.halts.shift(); v.fireCd = 3 + r() * 5; v.inside = false; vehPose(v, ...v.path[0], Math.PI / 2);
+  }
+  if (breach) for (let k = 0; k < n * 2; k++) { const [x, z] = AMW(Z.x - 40 + r() * 55, Z.z - 45 + r() * 90), [tx, tz] = AMW(Z.x - 25 + r() * 30, Z.z - 40 + r() * 80); DIRQ.push({ at: GAME.t + k * 0.2, spawn: true, fn: () => amMan(zi, x, z, tx, tz, k % 4 === 1) }); }
 }
 function amFoes(dt) {
-  const C = CHAP.armor;
-  for (const v of C.foes) { if (!v.used || !v.alive || !v.g.visible) continue;
-    if (v.path && v.stop !== undefined && v.s >= v.stop - 0.6) { v.hold += dt; if (v.hold > 6) { v.hold = 0; v.stop = v.halts.length ? v.halts.shift() : undefined; } }
-    if (v.kind === 'btr' && v.path && !v.dropped && v.s > 380) { v.dropped = true; const p = v.g.position, Z = AM_Z[v.zi]; for (let k = 0; k < 6; k++) { const e = fSpawnStreet(p.x + rand(-2, 2), p.z + rand(-2, 2), [AMW(Z.x + rand(-30, 5), Z.z + rand(-35, 35))], k === 1 ? 'rpg' : 'rifle'); if (e) { e.sq = 'z' + v.zi; e.inZone = v.zi; } } }
+  const C = CHAP.armor; let n = 0;
+  for (const v of C.foes) { if (!v.used || !v.g.visible) continue;
+    if (!v.alive) { amSink(v, dt); continue; } n++;
+    if (v.path && v.stop !== undefined && v.s >= v.stop - 0.6) { v.hold += dt; if (v.hold > 5) { v.hold = 0; v.stop = v.halts.length ? v.halts.shift() : undefined; } }
+    // the riders jump down from the back deck when the tank is 250 m from the line, and run on to where it is going
+    if (v.riders > 0 && v.path) { const Z = AM_Z[v.zi], p = v.g.position; if (Math.hypot(p.x - AM.o.x - Z.x, p.z - AM.o.z - Z.z) < 250) {
+      const h = v.hdV, end = v.path[v.path.length - 1]; for (let k = 0; k < v.riders; k++) { const sd = k ? 1 : -1; amMan(v.zi, p.x + Math.cos(h) * 2.7 * sd - Math.sin(h) * 2, p.z - Math.sin(h) * 2.7 * sd - Math.cos(h) * 2, end[0] + sd * 4, end[1] + rand(-3, 3), (v.ri + k) % 4 === 1); } v.riders = 0; } }
   }
+  for (const v of C.mates) if (!v.alive && v.g.visible) amSink(v, dt);
+  AM.nAct = n;
+}
+/* only in this chapter: a knocked-out tank burns for half a minute, then its fire dies down and it settles into the sand in a cloud of
+   dust and is gone - the wreck, its fire and its hit box (the moving tanks have no colliders of their own to free) */
+function amSink(v, dt) {
+  if (v.burnT < 30) return; const p = v.g.position, w = v.wreck;
+  if (v.sinkY == null) { v.sinkY = p.y; if (w) w.k0 = w.k0 ?? w.k; for (let i = 0; i < 8; i++) dustPuff(V3(p.x + rand(-4, 4), 0, p.z + rand(-3, 3)), groundAt(p.x, p.z), 2.6, 1.5, 1); }
+  const u = Math.min(1, (v.burnT - 30) / 4); p.y = v.sinkY - u * u * 3.8; if (w) w.k = w.k0 * Math.max(0.04, 1 - u * 1.6);
+  if (Math.random() < dt * 5) dustPuff(V3(p.x + rand(-3, 3), 0, p.z + rand(-2, 2)), groundAt(p.x, p.z), 2, 1.2, 0.8);
+  if (u >= 1) { v.g.visible = false; v.shown = false; v.sinkY = null; if (w) w.k = w.k0; if (v.tag) v.tag.visible = false; }
 }
 function amInZone(p, Z, pad = 0) { return Math.hypot(p.x - (AM.o.x + Z.x), p.z - (AM.o.z + Z.z)) < Z.r + pad; }
-// how many of the enemy are inside the line of this position (tanks, carriers and men)
-function amInside(zi) { const Z = AM_Z[zi]; let n = 0; for (const v of CHAP.armor.foes) if (v.used && v.alive && v.g.visible && amInZone(v.g.position, Z)) n++; for (const e of UNITS.enemies) if (e.alive && e.sz && amInZone(e.pos, Z)) n++; return n; }
-function amLeft(zi) { let n = 0; for (const v of CHAP.armor.foes) if (v.used && v.zi === zi && v.alive && v.g.visible) n++; return n + szAlive((e) => e.inZone === zi); }
+// how many of the enemy are inside the line of this position (tanks and men)
+function amInside(zi) { const Z = AM_Z[zi]; let n = 0; for (const v of CHAP.armor.foes) if (v.used && v.alive && v.g.visible && amInZone(v.g.position, Z)) n++; for (const e of UNITS.enemies) if (e.alive && e.sz && !e.amRet && amInZone(e.pos, Z)) n++; return n; }
+function amTanks(zi) { let n = 0; for (const v of CHAP.armor.foes) if (v.used && v.zi === zi && v.alive && v.g.visible) n++; return n; }
+function amLeft(zi) { return amTanks(zi) + szAlive((e) => e.inZone === zi); }
+// the assault's tanks still to come or still fighting, out of all it brings
+function amAssault() { const Z = AM_Z[AM.zi]; let tot = 0, left = 0; Z.waves.forEach((w, k) => { const n = amN(w[0]); tot += n; if (k >= AM.ech) left += n; }); for (const v of CHAP.armor.foes) if (v.used && v.zi === AM.zi && v.ech >= 0 && v.alive && v.g.visible) left++; return [left, tot]; }
+/* ---------- one route at a time: in a position the tank stays inside its ring of orange flags, and on the way to the next one, on the
+   ridge between the two. The valley in front is where they come from, not somewhere to drive to ---------- */
+function amKeep() {
+  if (!TANK.free || !TANK.alive || CINE.on) return; const Z = AM_Z[AM.zi], lx = TANK.fx - AM.o.x, lz = TANK.fz - AM.o.z; let cx = Z.x, cz = Z.z, R = Z.r + 4;
+  if (AM.zs === 'go' && AM.zi > 0) { const A = AM_Z[AM.zi - 1], dx = Z.x - A.x, dz = Z.z - A.z, t = clamp(((lx - A.x) * dx + (lz - A.z) * dz) / (dx * dx + dz * dz), 0, 1); cx = A.x + dx * t; cz = A.z + dz * t; R = Math.max(A.r, Z.r) + 4; }
+  const ex = lx - cx, ez = lz - cz, d = Math.hypot(ex, ez); if (d <= R) return;
+  TANK.fx = AM.o.x + cx + ex / d * R; TANK.fz = AM.o.z + cz + ez / d * R; TANK.speed *= 0.3;
+  if (!AM.msgs.edge) { AM.msgs.edge = true; hint('am-edge' + AM.zs, AM.zs === 'go' ? 'סעו לאורך הרכס אל העמדה (◆): משם הם פרצו.' : 'הטנק מחזיק את העמדה: לא יוצאים מעבר לדגלים הכתומים. מכאן יורים בהם כשהם עולים מהעמק.', 6); }
+}
+/* ---------- the gunner's sight locks on: a tank near the cross-hairs and in plain view gets a red ring round it, and the shell goes to it.
+   The lock lets go when the shell is fired (a moment later it takes the next tank), when the tank burns, or when it leaves the sight ---------- */
+const AML = { v: null, t: 0, ck: 0, aim: null, ring: null };
+function amLockRing() {
+  const c = canvas(128), g = c.getContext('2d'), ring = (w, col) => { g.lineWidth = w; g.strokeStyle = col; g.beginPath(); g.arc(64, 64, 50, 0, 7); g.stroke(); for (let k = 0; k < 4; k++) { const a = k * Math.PI / 2; g.beginPath(); g.moveTo(64 + Math.cos(a) * 38, 64 + Math.sin(a) * 38); g.lineTo(64 + Math.cos(a) * 61, 64 + Math.sin(a) * 61); g.stroke(); } };
+  ring(12, 'rgba(0,0,0,0.5)'); ring(6, '#ff2a18');   // a dark rim under the red, so it reads on bright sand and on smoke alike
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex(c), transparent: true, depthTest: false, depthWrite: false, fog: false, toneMapped: false })); s.renderOrder = 9; s.visible = false; s.userData.dyn = true; s.frustumCulled = false; return onLayer1(s);
+}
+// a point of the tank the gun can see from here: the hull, else the turret, else its roof (a tank down behind a berm shows only that)
+const AM_AIMP = [[0.1, 1.15, 0], [0.6, 2.2, 0], [0.6, 2.6, 0]], _amA = V3();
+const amPt = (v, x, y, z) => (v.g.updateMatrix(), _amA.set(x, y, z).applyMatrix4(v.g.matrix));   // a point of the tank as it stands this frame (its group sits right in the scene)
+function amSeePt(v, o) { for (const q of AM_AIMP) { const p = amPt(v, q[0], q[1], q[2]); if (losW(o.x, o.y, o.z, p.x, p.y, p.z) && los(o.x, o.y, o.z, p.x, p.y - 0.25, p.z)) return p.clone(); } return null; }
+function amOff(v, o, f) { const d = amPt(v, 0.1, 1.4, 0).sub(o), L = d.length(); return Math.acos(clamp(d.dot(f) / L, -1, 1)); }
+function amLockUpd(dt) {
+  const L = AML, r = L.ring; if (!r) return;
+  const on = P.mode === 'tank' && P.ads > 0.5 && TANK.alive && !CINE.on && GAME.state === 'play';
+  if (!on || (L.v && (!L.v.alive || !L.v.g.visible))) L.v = null;
+  if (on && TANK.gunT < 3.2) {
+    const o = camera.position, f = camForward(V3()); L.ck -= dt;
+    if (L.v) { if (amOff(L.v, o, f) > 0.1) L.v = null; else if (L.ck <= 0) { L.ck = 0.25; L.aim = amSeePt(L.v, o); if (!L.aim) L.v = null; } }
+    if (!L.v && L.ck <= 0) { L.ck = 0.15; let best = null, ba = 0.055;
+      for (const v of CHAP.armor.foes) { if (!v.used || !v.alive || !v.g.visible || v.g.position.distanceTo(o) > 1500) continue; const a = amOff(v, o, f); if (a < ba) { const p = amSeePt(v, o); if (p) { ba = a; best = v; L.aim = p; } } }
+      if (best) { L.v = best; L.t = 0; L.ck = 0.25; hint('am-lock', `הכוונת <b>ננעלה</b> על טנק: הטבעת האדומה סביבו. ${TOUCH ? '<kbd>רימון</kbd>' : K('G')} — והפגז הולך אליו.`, 6); } }
+  }
+  if (!L.v) { r.visible = false; return; }
+  // the ring wraps the tank as it shows from here: long side on, short head on, never under 46 pixels; it closes in on the tank as it locks
+  L.t += dt; const v = L.v, c = amPt(v, 0.1, 1.4, 0).clone(), cp = camera.position, d = c.distanceTo(cp), side = Math.abs(Math.sin(v.hdV - Math.atan2(c.x - cp.x, c.z - cp.z)));
+  const minS = 46 * 2 * d * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) / Math.max(200, renderer.domElement.clientHeight || 450);
+  const s = Math.max(minS, (4.4 + 3.6 * side) * 1.35) * (1 + 1.4 * Math.max(0, 1 - L.t / 0.3));
+  r.position.copy(c); r.scale.set(s, s, 1); r.material.opacity = 0.82 + 0.18 * Math.sin(L.t * 9); r.visible = true;
+}
+// the shell is away: it goes to the locked tank (to the part of it the gun sees), and the lock lets go
+function amLockShot() { const L = AML, o = camera.position; let d = null; if (L.v && L.v.alive && L.v.g.visible) { const p = amSeePt(L.v, o) || L.aim; if (p) d = p.clone().sub(o).normalize(); } L.v = null; L.ck = 0; if (L.ring) L.ring.visible = false; return d; }
 /* ---------- stages: one position each ---------- */
 function amSetup(stage) {
-  const C = CHAP.armor; fieldSetupCommon(C, stage); AM.msgs = {};
-  for (const v of VEH) if (v.mode === 'armor') { vehRevive(v); v.used = false; v.path = null; v.stop = undefined; v.ended = false; v.shown = v.side === 'f'; v.g.visible = v.shown; v.onEnd = null; v.speed = 0; }
+  const C = CHAP.armor; fieldSetupCommon(C, stage); AM.msgs = {}; AML.v = null; if (AML.ring) AML.ring.visible = false;
+  for (const v of VEH) if (v.mode === 'armor') { vehRevive(v); v.used = false; v.path = null; v.stop = undefined; v.ended = false; v.shown = v.side === 'f'; v.g.visible = v.shown; v.onEnd = null; v.speed = 0; v.sinkY = null; v.riders = 0; if (v.wreck && v.wreck.k0) v.wreck.k = v.wreck.k0; }
   for (const v of C.mates) { const [wx, wz] = AMW(...v.at); v.hdV = null; vehPose(v, wx, wz, -Math.PI / 2); }
   const Z = AM_Z[stage], start = stage === 0 ? [Z.x + 10, Z.z] : [AM_Z[stage - 1].x + 20, AM_Z[stage - 1].z + 30];
   tankStart([AMW(start[0], start[1]), AMW(start[0] - 1, start[1])], (x, z) => [x, z], 0, []); const [sx, sz] = AMW(...start); Object.assign(TANK, { free: true, fx: sx, fz: sz, hd: stage === 0 ? -Math.PI / 2 : 0, vmax: 7, bounds: [AM.o.x - 900, AM.o.x + 240, AM.o.z - 200, AM.o.z + 900] });
@@ -91,32 +170,39 @@ function amSetup(stage) {
   fieldFriends([]); amStage(stage);
 }
 function amStage(i) {
-  const C = CHAP.armor, Z = AM_Z[i]; fieldStage(C, i); AM.stage = i; AM.zi = i; AM.msgs = {}; C.t = 0; AM.hold = 0; AM.wave = 0;
+  const C = CHAP.armor, Z = AM_Z[i]; fieldStage(C, i); AM.stage = i; AM.zi = i; AM.msgs = {}; C.t = 0; C.holdT = 0; AM.ech = 0;
   C.marks.forEach((m, k) => { m.visible = k === i; });
   if (i === 0) { AM.zs = 'intro'; DIRQ.push({ at: GAME.t + 0.3, fn: () => amIntroFilm() }); }
-  else { AM.zs = 'go'; amSend(i, ...Z.breach, true); radio('מג״ד', `${Z.name} נפרצה! טנקים מצריים בתוך העמדה. סע לשם מיד ונקה אותה!`, 4.5); for (const v of C.mates) if (v.zi === i && v.alive && Math.random() < 0.6) vehDestroy(v, true); }
+  else { AM.zs = 'go'; amSend(i, amN(Z.breach), -1, true); radio('מג״ד', `${Z.name} נפרצה! טנקים מצריים בתוך העמדה. סע לשם מיד ונקה אותה!`, 4.5); const m = C.mates.find((v) => v.zi === i && v.alive); if (m) vehDestroy(m, true); }
+}
+function amHold() { const C = CHAP.armor; AM.zs = 'hold'; C.holdT = 0; AM.ech = 0; radio('מג״ד', 'העמדה נקייה. הסתערות חדשה עולה מהעמק — שבור אותה לפני שהיא מגיעה לקו!', 3.6); }
+// the assault is broken: the men it brought fall back into the valley (those out of sight are simply gone), and on to the next position
+function amBroken() {
+  const C = CHAP.armor, Z = AM_Z[AM.zi], zi = AM.zi; feed(`${Z.name} החזיקה · ההסתערות נשברה`, 'good'); TANK.hp = 100; radio('נהג', 'תיקנו מה שאפשר, יש פגזים. זזים!', 2.4);
+  fieldDespawn((e) => e.inZone === zi || e.sq === 'S' + zi);
+  for (const e of UNITS.enemies) if (e.alive && e.sz && (e.inZone === zi || e.sq === 'S' + zi)) { e.amRet = true; e.inZone = -1; e.path = [AMW(Z.x - 700, e.pos.z - AM.o.z)]; e.pi = 0; e.cov = null; }
+  if (zi < AM_Z.length - 1) amStage(zi + 1); else if (!AM.msgs.end) { AM.msgs.end = true; AM.zs = 'done'; DIRQ.push({ at: GAME.t + 1.5, fn: amEndFilm }); }
 }
 function amUpd(dt) {
-  const C = CHAP.armor, Z = AM_Z[AM.zi]; C.t += dt; if (Math.floor(C.t * 2) !== Math.floor((C.t - dt) * 2)) szEnemyCleanup();
+  const C = CHAP.armor, Z = AM_Z[AM.zi]; C.t += dt; C.allyK = [0.35, 0.25, 0.18][amDi()];   // our tanks on the ridge: steadier help on the easy level
+  for (const v of C.mates) v.guns = v.zi === AM.zi;   // only the crews of this position fight it: the others along the ridge have their own battle
+  if (Math.floor(C.t * 2) !== Math.floor((C.t - dt) * 2)) { szEnemyCleanup(); fieldDespawn((e) => e.amRet); }
   for (let i = DIRQ.length - 1; i >= 0; i--) if (DIRQ[i] && GAME.t >= DIRQ[i].at) { const q = DIRQ.splice(i, 1)[0]; q.fn(); }
-  amFoes(dt); if (C.mass && C.mass.visible) amMass(true, dt);
+  amFoes(dt); if (C.mass && C.mass.visible) amMass(true, dt); amKeep(); amLockUpd(dt);
   // Egyptian artillery keeps falling on the positions
   if (!CINE.on) { C.shT = (C.shT ?? 3) - dt; if (C.shT <= 0) { C.shT = rand(1.4, 3.4); const near = Math.random() < 0.35, p = near ? TANK.g.position.clone().add(V3(rand(-30, 30), 0, rand(-30, 30))) : V3(AM.o.x + Z.x + rand(-60, 60), 0, AM.o.z + Z.z + rand(-70, 70)); p.y = groundAt(p.x, p.z); if (near) sndWhistle(0.9); DIRQ.push({ at: GAME.t + 0.9, fn: () => { fxExplosion(p, 1.2); sndBoom(p, 1.1); if (TANK.alive && p.distanceTo(TANK.g.position) < 6) tankHit(p.clone(), false, 10); } }); } }
-  const pIn = amInZone(TANK.g.position, Z, 6), inside = amInside(AM.zi);
+  const inside = amInside(AM.zi);
   if (AM.zs === 'go') {
-    if (pIn) { AM.zs = 'clear'; radio('תותחן', 'אנחנו בתוך העמדה! טנקים מצריים, קרוב!', 2.6); }
+    if (amInZone(TANK.g.position, Z)) { AM.zs = 'clear'; radio('תותחן', 'אנחנו בתוך העמדה! טנקים מצריים, קרוב!', 2.6); }
   } else if (AM.zs === 'clear') {
-    if (inside === 0) { AM.zs = 'hold'; AM.hold = 0; AM.wave = 0; C.nextWave = 6; radio('מג״ד', `העמדה נקייה. תחזיק אותה. גל חדש בדרך מהעמק.`, 3.5); }
+    if (inside === 0) amHold();
   } else if (AM.zs === 'hold') {
-    // the clock runs while you are inside the line and none of them are
-    const running = pIn && inside === 0; if (running) AM.hold += dt;
-    if (!pIn && !AM.msgs.out) { AM.msgs.out = true; hint('am-out', 'יצאתם מתחום העמדה (הדגלים הכתומים). השעון עוצר עד שחוזרים פנימה.', 6); } if (pIn) AM.msgs.out = false;
+    C.holdT += dt;
     if (inside > 0 && !AM.msgs.br) { AM.msgs.br = true; radio('תצפית', 'הם בתוך העמדה! תשמיד אותם!', 2.4); } if (inside === 0) AM.msgs.br = false;
-    C.nextWave -= dt; if (C.nextWave <= 0 && AM.wave < Z.waves.length) { amSend(AM.zi, ...Z.waves[AM.wave]); radio('תצפית', ['טנקים יוצאים מהעשן בעמק!', 'עוד גל! טנקים ונגמ״שים!', 'הם שולחים הכול! כל העמק מלא!'][Math.min(AM.wave, 2)], 3); AM.wave++; C.nextWave = Z.t / Z.waves.length; if (Z.sagger && AM.wave === 1) for (const s of C.nests) if (s.zi === AM.zi) fSlotSpawn('atgm', (q) => q === s, 'S' + AM.zi); }
-    if (AM.hold >= Z.t) { feed(`${Z.name} החזיקה`, 'good'); TANK.hp = Math.min(100, TANK.hp + 35); fieldDespawn((e) => e.inZone === AM.zi || e.sq === 'S' + AM.zi); for (const v of C.foes) if (v.used && v.zi === AM.zi && v.alive && !amInZone(v.g.position, Z, 120)) { v.alive = false; v.g.visible = false; }
-      if (AM.zi < AM_Z.length - 1) amStage(AM.zi + 1); else if (!AM.msgs.end) { AM.msgs.end = true; DIRQ.push({ at: GAME.t + 1.5, fn: amEndFilm }); } }
+    if (AM.ech < Z.waves.length && C.holdT >= Z.waves[AM.ech][1]) { amSend(AM.zi, amN(Z.waves[AM.ech][0]), AM.ech); radio('תצפית', AM.ech === 0 ? 'טנקים יוצאים מהעשן בעמק! חזית רחבה, ישר עלינו!' : 'עוד גל טנקים! חי״ר רוכב עליהם!', 3); AM.ech++; if (Z.sagger && AM.ech === 1) C.nests.filter((s) => s.zi === AM.zi).slice(0, amDi() + 1).forEach((s) => fSlotSpawn('atgm', (q) => q === s, 'S' + AM.zi)); }
+    if (AM.ech >= Z.waves.length && amTanks(AM.zi) === 0 && inside === 0) amBroken();
   }
-  if (AM.zs !== 'intro') meter(AM.zs === 'hold' ? `${Z.name} · מחזיקים` : AM.zs === 'clear' ? `${Z.name} · נקו את העמדה` : `סעו אל ${Z.name}`, AM.zs === 'hold' ? AM.hold / Z.t : 0, AM.zs === 'hold' && inside > 0 ? 'warn' : '');
+  if (AM.zs !== 'intro' && AM.zs !== 'done') { const [left, tot] = amAssault(); meter(AM.zs === 'hold' ? `${Z.name} · שוברים את ההסתערות` : AM.zs === 'clear' ? `${Z.name} · נקו את העמדה` : `סעו אל ${Z.name}`, AM.zs === 'hold' ? 1 - left / tot : 0, AM.zs === 'hold' && inside > 0 ? 'warn' : ''); }
 }
 /* ---------- films ---------- */
 // the opening film's mass: four dozen more T-55s out in the valley behind the first wave, rolling east in a broad front (one instanced mesh, seen only in the film)
@@ -131,7 +217,7 @@ function amMass(on, dt = 0) {
   C.dustT -= dt; if (C.dustT <= 0) { C.dustT = 0.12; const q = pick(C.massP), [x, z] = AMW(q[0] - 3.5, q[1]); dustPuff(V3(x, 0, z), groundAt(x, z), 2.2, 1.2, 0.6); }
 }
 function amIntroFilm() {
-  const C = CHAP.armor; amSend(0, 4, 1, 0); amMass(true); const col = () => { const v = C.foes.find((q) => q.used && q.alive) || C.foes[0]; return v.g.position.clone(); };
+  const C = CHAP.armor; amSend(0, amN(AM_Z[0].waves[0][0]), 0); AM.ech = 1; amMass(true); const col = () => { const v = C.foes.find((q) => q.used && q.alive) || C.foes[0]; return v.g.position.clone(); };
   playCine({ vid: 'am_intro',
     title: 'החזית הדרומית, מזרחית לתעלה · 14 באוקטובר 1973 · 06:15',
     shots: [
@@ -140,7 +226,7 @@ function amIntroFilm() {
       { d: 4.0, cam: (u) => ({ p: TANK.g.position.clone().add(V3(14 - u * 3, 4, 10)), l: TANK.g.position.clone().add(V3(-40, 1, 0)), fov: 50 }) },
     ],
     caps: [[0.3, '<b>14 באוקטובר 1973.</b> אחרי שבוע של בלימה, הצבא המצרי יוצא מראשי הגשר שלו למתקפה הגדולה.', 4.2], [4.7, 'מאות טנקים מתקדמים מזרחה, אל הרכסים שבהם מחכים הטנקים שלנו.', 3.8], [8.6, '<b>מג״ד:</b> כל טנק שומר על העמדה שלו. אף טנק מצרי לא נכנס לקו!', 3.6]],
-    end: () => { amMass(false); AM.zs = 'hold'; AM.hold = 0; AM.wave = 1; CHAP.armor.nextWave = 30; hint('am-drive', `אתם <b>נוהגים בטנק</b>: ${TOUCH ? 'ג׳ויסטיק' : 'W/S'} נסיעה, ${TOUCH ? 'ג׳ויסטיק לצדדים' : 'A/D'} סיבוב, והצריח פונה לאן שאתם מסתכלים. החזיקו את העמדה (בתוך הדגלים הכתומים) נקייה מאויב עד שהמד מתמלא. סוללות החול מסתירות את גוף הטנק.`, 12); },
+    end: () => { amMass(false); AM.zs = 'hold'; CHAP.armor.holdT = 12.4; AM.ech = 1; hint('am-drive', `אתם <b>נוהגים בטנק</b>: ${TOUCH ? 'ג׳ויסטיק' : 'W/S'} נסיעה, ${TOUCH ? 'ג׳ויסטיק לצדדים' : 'A/D'} סיבוב, והצריח פונה לאן שאתם מסתכלים. ההסתערות עולה מהעמק: השמידו את הטנקים לפני שהם נכנסים לעמדה (הדגלים הכתומים). בכוונת התותחן ${TOUCH ? '' : '(לחצן ימני) '}הכוונת ננעלת על טנק ומקיפה אותו באדום. סוללות החול מסתירות את גוף הטנק.`, 12); },
   });
 }
 function amEndFilm() {
@@ -160,16 +246,16 @@ function amObj() {
   const Z = AM_Z[AM.zi];
   if (AM.zs === 'go') { const [x, z] = AMW(Z.x, Z.z); return [x, groundAt(x, z) + 3, z, Z.name]; }
   let best = null, bd = 1e9; for (const v of CHAP.armor.foes) if (v.used && v.alive && v.g.visible) { const d = v.g.position.distanceTo(TANK.g.position) * (amInZone(v.g.position, Z) ? 0.3 : 1); if (d < bd) { bd = d; best = v; } }
-  if (best) { const p = best.g.position; return [p.x, p.y + 3, p.z, amInZone(p, Z) ? 'בתוך העמדה!' : best.kind === 'btr' ? 'נגמ״ש' : 'טנק מצרי']; }
+  if (best) { const p = best.g.position; return [p.x, p.y + 3, p.z, amInZone(p, Z) ? 'בתוך העמדה!' : 'טנק מצרי']; }
   const e = fieldNearest((q) => q.inZone === AM.zi); if (e) return [e.pos.x, e.pos.y + 2, e.pos.z, 'חי״ר בעמדה'];
   return null;
 }
 function amItems(items) {
-  const Z = AM_Z[AM.zi], S = AM_STAGES[AM.stage]; items.push(['go', (S.goal || S.sub) + (OBJ.on ? ' (◆)' : '')]);
+  const S = AM_STAGES[AM.stage]; items.push(['go', (S.goal || S.sub) + (OBJ.on ? ' (◆)' : '')]);
   items.push([TANK.hp < 40 ? 'warn' : '', `מצב הטנק: ${Math.max(0, Math.round(TANK.hp))}% · פגז: ${TANK.gunT > 0 ? `טוען ${Math.ceil(TANK.gunT)}` : 'מוכן'}`]);
-  if (AM.zs === 'hold') { const left = Math.max(0, Math.ceil(Z.t - AM.hold)), ins = amInside(AM.zi); items.push([ins ? 'warn' : 'next', ins ? `האויב בתוך העמדה (${ins}): השעון עוצר` : `להחזיק עוד ${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`]); }
+  if (AM.zs === 'hold') { const [left, tot] = amAssault(), ins = amInside(AM.zi); items.push([ins ? 'warn' : 'next', ins ? `האויב בתוך העמדה (${ins})!` : `טנקים בהסתערות: ${left} מתוך ${tot}`]); }
   if (AM.zs === 'clear') items.push(['warn', `מצרים בתוך העמדה: ${amInside(AM.zi)}`]);
-  items.push(['', `טנקים ונגמ״שים מצריים בגזרה: ${amLeft(AM.zi)}`]);
+  items.push(['', `טנקים וחי״ר מצריים בגזרה: ${amLeft(AM.zi)}`]);
   if (PROJ.some((q) => q.type === 'atgm')) items.push(['warn', 'סאגר באוויר! זוזו, הסתתרו מאחורי סוללה, או הרגו את המפעיל']);
 }
 function amHints() { if (GAME.t > 1) hint('sz-tank', TOUCH ? `אתם מפקד הטנק ונוהג בו. <kbd>אש</kbd> = מקלע 0.5, <kbd>רימון</kbd> = פגז, <kbd>כוונת</kbd> = כוונת התותחן.` : `${K('לחיצה ממושכת')} מקלע 0.5, ${K('G')} פגז מהתותח, לחצן ימני כוונת תותחן. טנק שזז קשה יותר לפגוע בו.`, 9); }
@@ -179,12 +265,16 @@ function amMini(g, X, poly, dot, k) {
   AM_Z.forEach((Z, i) => { const [a, b] = X(...AMW(Z.x, Z.z)), [a2] = X(...AMW(Z.x + Z.r, Z.z)); g.strokeStyle = i === AM.zi ? '#ffcf73' : i < AM.zi ? 'rgba(111,168,255,.7)' : 'rgba(255,207,115,.35)'; g.lineWidth = i === AM.zi ? 3 : 1.5; g.beginPath(); g.arc(a, b, Math.abs(a2 - a), 0, 6.283); g.stroke(); });
 }
 function amEnd(win, why) {
-  const stats = [[STATS.kills, 'טנקים, נגמ״שים וחיילים הושמדו'], [Math.max(0, Math.round(TANK.hp)), 'מצב הטנק %'], [AM.zi + 1, 'עמדות שהגעתם אליהן']];
+  const stats = [[STATS.kills, 'טנקים וחיילים הושמדו'], [Math.max(0, Math.round(TANK.hp)), 'מצב הטנק %'], [AM.zi + 1, 'עמדות שהגעתם אליהן']];
   if (win) return ['הרכס החזיק', 'ב־14 באוקטובר 1973 יצאו כמה מאות טנקים מצריים למתקפה מראשי הגשר שלהם. הטנקים של צה״ל החזיקו את העמדות על הרכסים, עברו מעמדה לעמדה לסגור פרצות, וההתקפה נשברה. מאות טנקים מצריים הושמדו, ויומיים אחר כך חצה צה״ל את התעלה.', stats];
-  if (why === 'tank') return ['הטנק הושמד', 'טנק שעומד במקום חשוף הוא מטרה. זוזו בין הסוללות, ירו פגז, ושנו מקום לפני שהם מכוונים שוב.', stats];
+  if (why === 'tank') return ['הטנק הושמד', 'טנק שעומד במקום חשוף הוא מטרה. זוזו בין הסוללות, ירו פגז על הטנק שהכוונת ננעלה עליו, ושנו מקום לפני שהם מכוונים שוב.', stats];
   return ['נפגעת', 'כשהמקלעים שלהם יורים, היכנסו לצריח (C) וירו בכוונת התותחן.', stats];
 }
-CHAP.armor = { stages: AM_STAGES, st: () => AM.stage, dbg: () => { const Z = AM_Z[AM.zi], [x, z] = AMW(Z.x, Z.z); return { zi: AM.zi, zs: AM.zs, hold: +AM.hold.toFixed(1), wave: AM.wave, x, z, ins: amInside(AM.zi), left: amLeft(AM.zi) }; }, cp: () => CHAP.armor.cpN || 0, upd: amUpd, obj: amObj, hints: amHints, items: amItems, mini: amMini, restore: fieldRestore, end: amEnd, tank: true, dry: true, burnLong: true,
-  hitK: () => (Math.abs(TANK.speed) > 2 ? 0.3 : 0.6), allyK: 0.3,
+/* their gunners: a tank on the move is half as easy to hit, the level sets the rest; and however many T-55s are on the field, no more than a
+   few of them are laying on you at a time (the rest are firing at the other tanks on the ridge) - so a front of ten is fought, not a firing squad */
+CHAP.armor = { stages: AM_STAGES, st: () => AM.stage, dbg: () => { const Z = AM_Z[AM.zi], [x, z] = AMW(Z.x, Z.z), [left, tot] = amAssault(); return { zi: AM.zi, zs: AM.zs, ech: AM.ech, holdT: +(CHAP.armor.holdT || 0).toFixed(1), x, z, ins: amInside(AM.zi), left: amLeft(AM.zi), aLeft: left, aTot: tot, act: AM.nAct }; }, cp: () => CHAP.armor.cpN || 0, upd: amUpd, obj: amObj, hints: amHints, items: amItems, mini: amMini, restore: fieldRestore, end: amEnd, tank: true, dry: true, burnLong: true,
+  hitK: () => (Math.abs(TANK.speed) > 2 ? 0.5 : 1) * [0.12, 0.28, 0.4][amDi()] * Math.min(1, [3.5, 4, 5][amDi()] / Math.max(1, AM.nAct)), allyK: 0.3,
+  // a bazooka man laying on a tank in the open: his rocket passes within a couple of metres of the turret, nearer on the harder levels
+  rpgTarget: () => { if (P.mode !== 'tank' || !TANK.alive) return null; const r = [8, 5.5, 4][amDi()]; return tankTurretWorld().add(V3(rand(-r, r), rand(-0.6, 1.4), rand(-r, r))); },
   tod: () => [8 * 60 + 10, 8 * 60 + 35, 9 * 60, 9 * 60 + 30][AM.stage] - START_MIN + CHAP.armor.t / 6,
   build: () => chapterBuild(CHAP.armor, amBuild), setup: amSetup, clock: '14.10.1973 · הרכסים מזרחית לתעלה', toast: ['14 באוקטובר 1973 · 06:15', 'המתקפה המצרית הגדולה'], start: () => fieldStart('armor') };

@@ -531,9 +531,10 @@ function updTank(dt) {
     if (Math.random() < dt * 5) { const s = FX.smoke.get(); s.life = 6; s.s.position.set(TANK.g.position.x + rand(-1, 1), gy + 3, TANK.g.position.z + rand(-1, 1)); s.s.material.color.set(0x1a1816); s.upd = (q, u, dt2) => { q.s.position.y += 3 * dt2; q.s.scale.setScalar(2 + u * 9); q.s.material.opacity = 0.75 * (1 - u); }; }
     LIGHTS.fire.position.set(TANK.g.position.x, gy + 3, TANK.g.position.z); LIGHTS.fire.intensity = (MODE === 'suez' && SZ.stage >= 2 ? 90 : 22000) * (0.8 + 0.2 * Math.sin(GAME.t * 13)); }   // on foot in daylight, beside it: a glow, not a second sun
 }
-function tankHit(p, big = false, dmg = null) {
+function tankHit(p, big = false, dmg = null, from = null) {   // from: where the shot came from (the shooter), for the hit-direction mark
   fxExplosion(p, big ? 1.4 : camera.position.distanceTo(p) < 4.5 ? 0.4 : 0.9); sndBoom(p, big ? 1.4 : 0.9); FX.shake = Math.max(FX.shake, big ? 1.1 : 0.6);
-  if (!TANK.alive || GOD()) return; TANK.hp -= dmg ?? (big ? 60 : 11); if (P.mode === 'tank' && !P.crouch) hurtPlayer(rand(4, 9), p, true);
+  if (!TANK.alive || GOD()) return; TANK.hp -= dmg ?? (big ? 60 : 11); if (P.mode === 'tank' && !P.crouch) hurtPlayer(rand(4, 9), from || p, true);
+  else if (P.mode === 'tank' && P.alive && GAME.state === 'play' && !CINE.on) { $('#flashHit').style.opacity = '0.5'; showDmgDir(from || p); }   // down in the turret he is not hurt, but he still sees the hit and where it came from
   radio('נהג', TANK.hp > 50 ? pick(['פגיעה בצד! ממשיכים!', 'אר־פי־ג׳י! לא חדר!']) : pick(['עוד פגיעה! המנוע מתחמם!', 'הטנק לא יחזיק עוד הרבה!']), 2.2);
   if (TANK.hp <= 0 && MODE !== 'suez') { TANK.hp = 0; TANK.alive = false; TANK.burning = true; endGame(false, 'tank'); }
   else if (TANK.hp <= 0 && SZ.stage <= 1) { if (SZ.stage === 1) bailOut(); else { TANK.alive = false; TANK.burning = true; endGame(false, 'tank'); } }
@@ -570,7 +571,7 @@ function tankMG() {
 function tankMainGun() {
   if (TANK.gunT > 0 || !TANK.alive) { sndClick(800, 0.15); return; }
   TANK.gunT = 4.0; TANK.recoil = 1; const from = TANK.gun.localToWorld(V3(0, 0, TANK.gunL ?? 4.8)), d = V3(0, 0, 1).transformDirection(TANK.gun.matrixWorld);
-  const o = camera.position.clone(), dir = aimAssist(o, camForward(V3()), 0.12);
+  const o = camera.position.clone(), dir = (MODE === 'armor' && amLockShot()) || aimAssist(o, camForward(V3()), 0.12);   // the tank battle: the shell goes to the tank the sight is locked on
   const hit = castShot(o, dir, MODE === 'armor' ? 1400 : 900, 'f');
   fxMuzzle(from, true); fxExplosion(from, 0.5); sndBoom(from, 1.3); FX.shake = Math.max(FX.shake, 0.9);
   for (let i = 0; i < 8; i++) fxDust(V3(TANK.g.position.x + rand(-3, 3), TANK.g.position.y + 0.4, TANK.g.position.z + rand(-3, 3)));
