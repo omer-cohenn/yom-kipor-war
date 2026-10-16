@@ -60,6 +60,8 @@ button:focus-visible{outline:2px solid var(--sand);outline-offset:2px}
 #flashHit{inset:0;background:rgba(160,20,10,.28);opacity:0}
 #fade{inset:0;background:#000;opacity:0}
 #dmg{left:50%;top:50%;width:0;height:0}
+#threats{inset:0;z-index:4;pointer-events:none}
+#threats i{position:absolute;left:0;top:0;width:0;height:0;margin:-12px 0 0 -11px;border-left:11px solid transparent;border-right:11px solid transparent;border-bottom:22px solid rgba(255,72,52,.92);filter:drop-shadow(0 0 3px rgba(0,0,0,.9));opacity:0;transition:opacity .25s}
 #flashHit,#dmg{z-index:4} /* over the tank gunner's sight (#tsight, later in the page): he sees he is hit and from where */
 #dmg b{position:absolute;left:-90px;top:-90px;width:180px;height:180px;border-radius:50%;border-top:6px solid rgba(230,40,30,.9);opacity:0;transition:opacity .9s}
 #fire{left:50%;top:50%;width:0;height:0}
@@ -770,6 +772,7 @@ button:focus-visible{outline:2px solid var(--sand);outline-offset:2px}
   <div class="hud" id="flashHit"></div>
   <div class="hud" id="fade"></div>
   <div class="hud" id="dmg"></div>
+  <div class="hud" id="threats"></div>
   <div class="hud" id="fire"></div>
   <div class="hud" id="covst" role="status" aria-live="polite"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1 L14 3.5 V8 C14 11.5 11.4 14 8 15 C4.6 14 2 11.5 2 8 V3.5 Z" fill="currentColor"/></svg><span></span></div>
   <div id="cine" hidden><div class="bar t"></div><div class="bar b"></div><div id="cineTitle"></div><div id="cineCap"></div><button id="cineSkip" type="button">דלג ▸</button></div>
@@ -859,7 +862,7 @@ button:focus-visible{outline:2px solid var(--sand);outline-offset:2px}
         <div class="keys" id="keysDesk">
           <span><kbd>W A S D</kbd> תנועה</span><span><kbd>Shift</kbd> ריצה</span>
           <span><kbd>עכבר</kbd> כיוון · <kbd>לחיצה</kbd> או <kbd>M</kbd> ירי</span><span><kbd>לחצן ימני</kbd> או <kbd>Q</kbd> כוונת</span>
-          <span><kbd>R</kbd> טעינה</span><span><kbd>G</kbd> רימון</span><span><kbd>T</kbd> רימון עשן (בחווה הסינית)</span>
+          <span><kbd>R</kbd> טעינה</span><span><kbd>G</kbd> רימון</span>
           <span><kbd>C</kbd> כריעה</span><span><kbd>E</kbd> מא״ג, תחמושת, הרמת פצוע</span>
           <span><kbd>F</kbd> (להחזיק) עזרה ראשונה</span><span><kbd>Esc</kbd> עצירה</span>
         </div>
@@ -1025,7 +1028,7 @@ window.LD = (function () {
 <script>
 /* the game's code is one big file: fetched here so the loading screen can show how much of it has arrived, then run as a module */
 (function () {
-  var SRC = 'game.js?v=79e5d5a627', SIZE = 13180759, mb = function (n) { return (n / 1048576).toFixed(1); };
+  var SRC = 'game.js?v=933407e923', SIZE = 13184367, mb = function (n) { return (n / 1048576).toFixed(1); };
   LD.plan([['dl', 'מוריד את המשחק', 5], ['code', 'מכין את המשחק', 4]], { img: 'img/mezach.jpg', clip: 'mezach' }); LD.step('dl'); LD.note('0.0 מתוך ' + mb(SIZE) + ' מ״ב');
   function fail() { LD.error('ההורדה נכשלה. בדקו את החיבור לאינטרנט ורעננו את הדף.'); }
   function start(s) { LD.step('code'); LD.frac(0.15, 2500); s.type = 'module'; document.body.appendChild(s); }
