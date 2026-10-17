@@ -22,6 +22,7 @@ const LITE0 = !QS.has('full') && (QS.has('lite') || TOUCH || /iPhone|iPad|iPod|A
 // version (the old key) is not carried over, so every phone starts at the full picture
 const QUAL = (() => { let q = QS.get('q'); if (!q) try { q = localStorage.getItem('yk73.q2'); } catch (e) {} return ['high', 'med', 'low'].includes(q) ? q : 'high'; })();
 const LITE = QUAL !== 'high';
+const PHONE = LITE0;   // a phone or tablet on the full picture: a fifth less of the heaviest things (resolution, shadow map, near soldiers, plants) so it loads and runs smoothly
 const SHADOWS = QUAL !== 'low' && !QS.has('noshadow');   // the sun's shadows on medium too (a smaller map): a phone draws them well enough, and the frame governor in 5_game.js takes the resolution down first if not
 const QLOD = { high: [16, 48], med: [9, 30], low: [0, 15] }[QUAL];
 const FAR = LITE ? 11000 : 30000;
@@ -259,7 +260,7 @@ function terrainAt0(x, z) {
 /* ================= renderer / scene / cameras ================= */
 const stage = $('#stage');
 const renderer = new THREE.WebGLRenderer({ antialias: QUAL !== 'low' && !QS.has('noaa'), powerPreference: LITE ? 'default' : 'high-performance', logarithmicDepthBuffer: !LITE });
-renderer.setPixelRatio(QUAL === 'low' ? 1 : Math.min(window.devicePixelRatio || 1, QUAL === 'high' ? 3 : 2));   // a phone's own pixels, up to three to one
+renderer.setPixelRatio(QUAL === 'low' ? 1 : Math.min(window.devicePixelRatio || 1, QUAL === 'high' ? (PHONE ? 2.4 : 3) : 2));   // a phone's own pixels, up to 2.4 to one
 renderer.domElement.addEventListener('webglcontextlost', (e) => { e.preventDefault(); const l = $('#loading'); l.classList.remove('done'); $('#loadMsg').textContent = 'הזיכרון הגרפי של המכשיר נגמר והמשחק נעצר. סגרו לשוניות ואפליקציות אחרות ורעננו, או שחקו במחשב.'; });
 renderer.setSize(stage.clientWidth, stage.clientHeight);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -559,7 +560,7 @@ function nightSkySet(deep) {
 }
 const hemi = new THREE.HemisphereLight(0xc4d6ee, 0x9c8466, 0.42); scene.add(hemi);
 const sun = new THREE.DirectionalLight(0xfff0da, 3.1); scene.add(sun, sun.target);
-if (SHADOWS) { sun.castShadow = true; sun.shadow.mapSize.set(LITE ? 2048 : 3072, LITE ? 2048 : 3072); const sc = sun.shadow.camera; sc.left = -88; sc.right = 88; sc.top = 88; sc.bottom = -88; sc.near = 1; sc.far = 900; sun.shadow.bias = -0.00025; sun.shadow.normalBias = 0.06; }
+if (SHADOWS) { sun.castShadow = true; sun.shadow.mapSize.set(LITE || PHONE ? 2048 : 3072, LITE || PHONE ? 2048 : 3072); const sc = sun.shadow.camera; sc.left = -88; sc.right = 88; sc.top = 88; sc.bottom = -88; sc.near = 1; sc.far = 900; sun.shadow.bias = -0.00025; sun.shadow.normalBias = 0.06; }
 const SUN = { dir: V3(0, 1, 0), lastEnv: -99 };
 /* ---- waves: three trains of swell and chop. The same sum is evaluated in GLSL (the surface is displaced) and in JS (everything that
    floats rides it), so a boat sits on the water it is drawn on. The grid is camera-centred: fine cells underfoot, growing toward the horizon. */
@@ -1540,7 +1541,7 @@ function saguaros(list) {   // [x, z, height, turn, shape]
 /* the plants of a desert chapter over a box: in clumps (where water once ran), many of them within sight of the route (near: its points),
    off ok's ground; k scales the counts (by the box's area too). A hawk sits on top of three saguaros; two more circle high over the box */
 function desertFlora(x0, x1, z0, z1, seed, ok, k = 1, near = null) {
-  const A = Math.abs((x1 - x0) * (z1 - z0)) / 1.4e6, n = (c) => Math.max(1, Math.round(c * k * A * (LITE ? 0.5 : 1)));
+  const A = Math.abs((x1 - x0) * (z1 - z0)) / 1.4e6, n = (c) => Math.max(1, Math.round(c * k * A * (LITE ? 0.5 : PHONE ? 0.6 : 1)));
   // clump centres: some over the whole box, some along the route; round each, a handful of the kind within rad
   const clumps = (nc, per, rad, sd, size) => { const r = rng(seed * 7 + sd), cs = scatterIn(Math.ceil(nc * 0.55), x0, x1, z0, z1, seed + sd, ok, (x, z) => [x, z]); if (near) cs.push(...scatterNear(near, Math.ceil(nc * 0.45), 14, 130, seed + sd + 50, ok, (x, z) => [x, z]));
     const out = []; for (const [cx, cz] of cs) { const m = 1 + Math.floor(r() * per); for (let q = 0; q < m; q++) { const a = r() * 6.283, d = Math.sqrt(r()) * rad, x = cx + Math.cos(a) * d, z = cz + Math.sin(a) * d; if (ok(x, z)) out.push([x, z, size[0] + r() * size[1], r() * 6]); } } return out; };
@@ -4028,9 +4029,9 @@ function nsShow(R, on) {
 }
 /* who wears it: a man nearer than NS_D (by what the eye sees: closer through a sight, and the far enemies drawn larger count as far),
    its own distance - not the old figure's levels of detail, which on medium and low quality never reach the finest */
-const NS_D = { high: 42, med: 24, low: 12 }[QUAL], NS_MAX = { high: 20, med: 11, low: 6 }[QUAL];   // and never more than NS_MAX at once: the nearest
+const NS_D = { high: PHONE ? 34 : 42, med: 24, low: 12 }[QUAL], NS_MAX = { high: PHONE ? 16 : 20, med: 11, low: 6 }[QUAL];   // and never more than NS_MAX at once: the nearest
 // the figure's level of detail by that same distance: whole near, a third of its triangles past NS_L[0], an eighth past NS_L[1]
-const NS_L = { high: [32, 60], med: [18, 38], low: [11, 26] }[QUAL];   // whole near, as the showroom shows them
+const NS_L = { high: PHONE ? [26, 50] : [32, 60], med: [18, 38], low: [11, 26] }[QUAL];   // whole near, as the showroom shows them
 const NSB = { t: -1, allow: new Set(), cand: [] };
 function nsDecide(u) {
   const R = u.rig; if (!R) return; const far = camera.position.distanceTo(u.pos), eff = far * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2) / 0.7265 / (u.vs || 1);
@@ -6112,7 +6113,7 @@ function setQual(q, live) {
   for (const x of document.querySelectorAll('#qual button')) x.setAttribute('aria-pressed', String(x.dataset.q === q)); if (!live) return;
   try { localStorage.setItem('yk73.q2', q); } catch (e) {}
   const L = { high: [16, 48], med: [9, 30], low: [0, 15] }[q]; QLOD[0] = L[0]; QLOD[1] = L[1];
-  const dpr = window.devicePixelRatio || 1; renderer.setPixelRatio(q === 'low' ? 1 : Math.min(dpr, q === 'high' ? 3 : 2)); GOV.cap = renderer.getPixelRatio(); window.dispatchEvent(new Event('resize'));
+  const dpr = window.devicePixelRatio || 1; renderer.setPixelRatio(q === 'low' ? 1 : Math.min(dpr, q === 'high' ? (PHONE ? 2.4 : 3) : 2)); GOV.cap = renderer.getPixelRatio(); window.dispatchEvent(new Event('resize'));
   const n = $('#qualNote'); if (n) n.hidden = q === QUAL;
 }
 { const el = $('#qual'); if (el) el.addEventListener('click', (e) => { const b = e.target.closest('button'); if (b && b.dataset.q) setQual(b.dataset.q, true); }); setQual(QUAL, false);
@@ -6122,7 +6123,7 @@ try { const sv = Number(localStorage.getItem('yk73.diff')); if (sv >= 0 && sv <=
 /* ================= main loop ================= */
 let composer = null, vmPass = null;
 function setupComposer() {
-  if (LITE) return;
+  if (LITE || PHONE) return;   // a phone draws straight to the screen with the GPU's own antialiasing: the post-processing's big half-float buffers are what some phones cannot hold (parts of the picture stayed black)
   try {
     const w = stage.clientWidth, h = stage.clientHeight;
     composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(w, h, { type: THREE.HalfFloatType }));
@@ -6134,7 +6135,15 @@ function setupComposer() {
     composer.setPixelRatio(renderer.getPixelRatio()); composer.setSize(w, h);
   } catch (e) { console.warn('post-processing off', e); composer = null; }
 }
-function resize() { const w = stage.clientWidth, h = stage.clientHeight; renderer.setSize(w, h); labelRenderer.setSize(w, h); if (composer) composer.setSize(w, h); camera.aspect = w / h; camera.updateProjectionMatrix(); vmCamera.aspect = w / h; vmCamera.updateProjectionMatrix(); }
+const GOV = { acc: 0, n: 0, cd: 6, cap: renderer.getPixelRatio() };   // the frame governor's state (govTick, below)
+function resize() { const w = stage.clientWidth, h = stage.clientHeight; renderer.setSize(w, h); fitBuffer(w, h); labelRenderer.setSize(w, h); if (composer) composer.setSize(w, h); camera.aspect = w / h; camera.updateProjectionMatrix(); vmCamera.aspect = w / h; vmCamera.updateProjectionMatrix(); }
+/* a browser that cannot give the canvas every pixel asked for (a phone's limit on the drawing buffer, or on a texture the post-processing
+   draws into) hands over fewer, and part of the picture then stays black: ask for no more than it gives and the GPU allows */
+function fitBuffer(w, h) {
+  const gl = renderer.getContext(), pr = renderer.getPixelRatio(), lim = Math.min(gl.getParameter(gl.MAX_TEXTURE_SIZE), gl.getParameter(gl.MAX_RENDERBUFFER_SIZE), ...gl.getParameter(gl.MAX_VIEWPORT_DIMS));
+  let k = Math.min(1, lim / Math.max(1, w * pr, h * pr)); const c = renderer.domElement; if (gl.drawingBufferWidth < c.width - 1 || gl.drawingBufferHeight < c.height - 1) k = Math.min(k, gl.drawingBufferWidth / c.width, gl.drawingBufferHeight / c.height);
+  if (k < 0.999) { const np = Math.max(1, Math.floor(pr * k * 20) / 20); renderer.setPixelRatio(np); renderer.setSize(w, h); GOV.cap = Math.min(GOV.cap, np); if (composer) composer.setPixelRatio(np); }
+}
 window.addEventListener('resize', resize);
 function update(dt, time) {
   const rdt = dt; if (CINE.on) dt *= CINE.slow; FDT = dt;
@@ -6178,7 +6187,6 @@ function slowStep(real) { if (SLOW.left > 0) { SLOW.left -= real; const u = clam
 /* the frame governor: the game starts at the sharpest the quality allows (up to twice the CSS pixels) and, when the frames come slower than
    about 33 a second for a few seconds running, draws a quarter less finely; at plain resolution and still slow (a weak phone) the sun's
    shadows go too. When there is room again it climbs back, a step at a time */
-const GOV = { acc: 0, n: 0, cd: 6, cap: renderer.getPixelRatio() };
 function govSet(pr) { renderer.setPixelRatio(pr); if (composer) composer.setPixelRatio(pr); resize(); }
 function govTick(real) {
   if (QUAL === 'low' || GAME.state !== 'play' || document.hidden || CINE.on) { GOV.acc = 0; GOV.n = 0; return; }
