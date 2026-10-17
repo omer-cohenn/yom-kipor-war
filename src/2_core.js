@@ -17,7 +17,9 @@ const TOUCH = matchMedia('(pointer: coarse)').matches;
    draws at a lower resolution, with a coarser sea and soldiers in less detail. QLOD: the distances (m) at which a soldier steps down
    to the next level of detail - near men in full, far ones in a few hundred triangles */
 const LITE0 = !QS.has('full') && (QS.has('lite') || TOUCH || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || Math.min(screen.width, screen.height) < 700 || (navigator.deviceMemory && navigator.deviceMemory <= 4));
-const QUAL = (() => { let q = QS.get('q'); if (!q) try { q = localStorage.getItem('yk73.q'); } catch (e) {} return ['high', 'med', 'low'].includes(q) ? q : QS.has('full') ? 'high' : LITE0 ? 'med' : 'high'; })();
+// high everywhere unless the player picks less (phones too: the frame governor in 5_game.js keeps them smooth); a choice saved before this
+// version (the old key) is not carried over, so every phone starts at the full picture
+const QUAL = (() => { let q = QS.get('q'); if (!q) try { q = localStorage.getItem('yk73.q2'); } catch (e) {} return ['high', 'med', 'low'].includes(q) ? q : 'high'; })();
 const LITE = QUAL !== 'high';
 const SHADOWS = QUAL !== 'low' && !QS.has('noshadow');   // the sun's shadows on medium too (a smaller map): a phone draws them well enough, and the frame governor in 5_game.js takes the resolution down first if not
 const QLOD = { high: [16, 48], med: [9, 30], low: [0, 15] }[QUAL];
@@ -255,8 +257,8 @@ function terrainAt0(x, z) {
 
 /* ================= renderer / scene / cameras ================= */
 const stage = $('#stage');
-const renderer = new THREE.WebGLRenderer({ antialias: QUAL !== 'low', powerPreference: LITE ? 'default' : 'high-performance', logarithmicDepthBuffer: !LITE });
-renderer.setPixelRatio(QUAL === 'low' ? 1 : Math.min(window.devicePixelRatio || 1, 2));
+const renderer = new THREE.WebGLRenderer({ antialias: QUAL !== 'low' && !QS.has('noaa'), powerPreference: LITE ? 'default' : 'high-performance', logarithmicDepthBuffer: !LITE });
+renderer.setPixelRatio(QUAL === 'low' ? 1 : Math.min(window.devicePixelRatio || 1, QUAL === 'high' ? 3 : 2));   // a phone's own pixels, up to three to one
 renderer.domElement.addEventListener('webglcontextlost', (e) => { e.preventDefault(); const l = $('#loading'); l.classList.remove('done'); $('#loadMsg').textContent = 'הזיכרון הגרפי של המכשיר נגמר והמשחק נעצר. סגרו לשוניות ואפליקציות אחרות ורעננו, או שחקו במחשב.'; });
 renderer.setSize(stage.clientWidth, stage.clientHeight);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;

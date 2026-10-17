@@ -1723,9 +1723,9 @@ for (const id of ['#diff', '#diffP']) { const el = $(id); if (el) el.addEventLis
    when the game loads, so those follow on the next load */
 function setQual(q, live) {
   for (const x of document.querySelectorAll('#qual button')) x.setAttribute('aria-pressed', String(x.dataset.q === q)); if (!live) return;
-  try { localStorage.setItem('yk73.q', q); } catch (e) {}
+  try { localStorage.setItem('yk73.q2', q); } catch (e) {}
   const L = { high: [16, 48], med: [9, 30], low: [0, 15] }[q]; QLOD[0] = L[0]; QLOD[1] = L[1];
-  const dpr = window.devicePixelRatio || 1; renderer.setPixelRatio(q === 'low' ? 1 : Math.min(dpr, 2)); GOV.cap = renderer.getPixelRatio(); window.dispatchEvent(new Event('resize'));
+  const dpr = window.devicePixelRatio || 1; renderer.setPixelRatio(q === 'low' ? 1 : Math.min(dpr, q === 'high' ? 3 : 2)); GOV.cap = renderer.getPixelRatio(); window.dispatchEvent(new Event('resize'));
   const n = $('#qualNote'); if (n) n.hidden = q === QUAL;
 }
 { const el = $('#qual'); if (el) el.addEventListener('click', (e) => { const b = e.target.closest('button'); if (b && b.dataset.q) setQual(b.dataset.q, true); }); setQual(QUAL, false);
@@ -1789,15 +1789,15 @@ function slowMo(dur, k = 0.25, lookAt = null) { SLOW.left = dur; SLOW.k0 = k; SL
 function slowStep(real) { if (SLOW.left > 0) { SLOW.left -= real; const u = clamp(SLOW.left / SLOW.fade, 0, 1); SLOW.k = SLOW.left > 0 ? lerp(1, SLOW.k0, u) : 1; if (SLOW.left <= 0) SLOW.look = null; } else SLOW.k = 1;
   if (SLOW.look && P.alive) { const L = SLOW.look, e = playerEye(), dx = L.x - e.x, dy = L.y - e.y, dz = L.z - e.z, yaw = Math.atan2(-dx, -dz), pitch = Math.atan2(dy, Math.hypot(dx, dz)), kk = 1 - Math.exp(-real * 5); P.yaw += wrapPi(yaw - P.yaw) * kk; P.pitch += (pitch - P.pitch) * kk; } }
 /* the frame governor: the game starts at the sharpest the quality allows (up to twice the CSS pixels) and, when the frames come slower than
-   about 33 a second for a few seconds running, draws a quarter less finely; at plain resolution and still slow (a weak phone on medium) the
-   sun's shadows go too. When there is room again it climbs back, a step at a time */
+   about 33 a second for a few seconds running, draws a quarter less finely; at plain resolution and still slow (a weak phone) the sun's
+   shadows go too. When there is room again it climbs back, a step at a time */
 const GOV = { acc: 0, n: 0, cd: 6, cap: renderer.getPixelRatio() };
 function govSet(pr) { renderer.setPixelRatio(pr); if (composer) composer.setPixelRatio(pr); resize(); }
 function govTick(real) {
   if (QUAL === 'low' || GAME.state !== 'play' || document.hidden || CINE.on) { GOV.acc = 0; GOV.n = 0; return; }
   GOV.acc += real; GOV.n++; GOV.cd -= real; if (GOV.acc < 2.5) return; const ft = GOV.acc / GOV.n, pr = renderer.getPixelRatio(); GOV.acc = 0; GOV.n = 0; if (GOV.cd > 0) return;
   if (ft > 0.03 && pr > 1.01) { govSet(Math.max(1, pr - 0.25)); GOV.cd = 3; }
-  else if (ft > 0.036 && LITE && sun.castShadow) { sun.castShadow = false; renderer.shadowMap.enabled = false; GOV.cd = 6; }
+  else if (ft > 0.036 && sun.castShadow) { sun.castShadow = false; renderer.shadowMap.enabled = false; GOV.cd = 6; }
   else if (ft < 0.019 && pr < GOV.cap - 0.01) { govSet(Math.min(GOV.cap, pr + 0.25)); GOV.cd = 10; }
 }
 function frameInner() {
