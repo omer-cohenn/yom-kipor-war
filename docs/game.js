@@ -21,8 +21,10 @@ const LITE0 = !QS.has('full') && (QS.has('lite') || TOUCH || /iPhone|iPad|iPod|A
 // high everywhere unless the player picks less (phones too: the frame governor in 5_game.js keeps them smooth); a choice saved before this
 // version (the old key) is not carried over, so every phone starts at the full picture
 const QUAL = (() => { let q = QS.get('q'); if (!q) try { q = localStorage.getItem('yk73.q2'); } catch (e) {} return ['high', 'med', 'low'].includes(q) ? q : 'high'; })();
-const LITE = QUAL !== 'high';
-const PHONE = LITE0;   // a phone or tablet on the full picture: a fifth less of the heaviest things (resolution, shadow map, near soldiers, plants) so it loads and runs smoothly
+const PHONE = LITE0;   // a phone or tablet: the soldiers in full, the map and its objects lighter (below)
+// LITE: the lighter map and objects - fewer plants and stones, a coarser ground and sea, smaller effect pools. On medium and low, and on a
+// phone at high too: there the soldiers stay in full detail (they follow QUAL, not LITE), the ground keeps its textures and the sun its shadows
+const LITE = QUAL !== 'high' || PHONE;
 const SHADOWS = QUAL !== 'low' && !QS.has('noshadow');   // the sun's shadows on medium too (a smaller map): a phone draws them well enough, and the frame governor in 5_game.js takes the resolution down first if not
 const QLOD = { high: [16, 48], med: [9, 30], low: [0, 15] }[QUAL];
 const FAR = LITE ? 11000 : 30000;
@@ -260,7 +262,7 @@ function terrainAt0(x, z) {
 /* ================= renderer / scene / cameras ================= */
 const stage = $('#stage');
 const renderer = new THREE.WebGLRenderer({ antialias: QUAL !== 'low' && !QS.has('noaa'), powerPreference: LITE ? 'default' : 'high-performance', logarithmicDepthBuffer: !LITE });
-renderer.setPixelRatio(QUAL === 'low' ? 1 : Math.min(window.devicePixelRatio || 1, QUAL === 'high' ? (PHONE ? 2.4 : 3) : 2));   // a phone's own pixels, up to 2.4 to one
+renderer.setPixelRatio(QUAL === 'low' ? 1 : Math.min(window.devicePixelRatio || 1, QUAL === 'high' ? (PHONE ? 2 : 3) : 2));   // a phone: two device pixels to one
 renderer.domElement.addEventListener('webglcontextlost', (e) => { e.preventDefault(); const l = $('#loading'); l.classList.remove('done'); $('#loadMsg').textContent = 'הזיכרון הגרפי של המכשיר נגמר והמשחק נעצר. סגרו לשוניות ואפליקציות אחרות ורעננו, או שחקו במחשב.'; });
 renderer.setSize(stage.clientWidth, stage.clientHeight);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -1536,12 +1538,12 @@ function saguaros(list) {   // [x, z, height, turn, shape]
   const G = saguaroGeos(), mm = new THREE.Matrix4(), q = new THREE.Quaternion(), up = V3(0, 1, 0), c = new THREE.Color();
   G.forEach((g, k) => { const it = list.filter((s) => s[4] === k); if (!it.length) return; const m = new THREE.InstancedMesh(g, FLORA.sagMat, it.length);
     it.forEach(([x, z, h, r], i) => { m.setMatrixAt(i, mm.compose(V3(x, groundAt(x, z) - 0.15, z), q.setFromAxisAngle(up, r), V3(h, h, h))); m.setColorAt(i, c.setRGB(0.9 + 0.15 * ((i * 0.618) % 1), 0.95 + 0.1 * ((i * 0.382) % 1), 0.9)); });
-    SH(m, true, true); scene.add(onLayer1(m)); });
+    SH(m, !LITE, true); scene.add(onLayer1(m)); });   // (on the lighter map they cast no shadow)
 }
 /* the plants of a desert chapter over a box: in clumps (where water once ran), many of them within sight of the route (near: its points),
    off ok's ground; k scales the counts (by the box's area too). A hawk sits on top of three saguaros; two more circle high over the box */
 function desertFlora(x0, x1, z0, z1, seed, ok, k = 1, near = null) {
-  const A = Math.abs((x1 - x0) * (z1 - z0)) / 1.4e6, n = (c) => Math.max(1, Math.round(c * k * A * (LITE ? 0.5 : PHONE ? 0.6 : 1)));
+  const A = Math.abs((x1 - x0) * (z1 - z0)) / 1.4e6, n = (c) => Math.max(1, Math.round(c * k * A * (LITE ? 0.45 : 1)));
   // clump centres: some over the whole box, some along the route; round each, a handful of the kind within rad
   const clumps = (nc, per, rad, sd, size) => { const r = rng(seed * 7 + sd), cs = scatterIn(Math.ceil(nc * 0.55), x0, x1, z0, z1, seed + sd, ok, (x, z) => [x, z]); if (near) cs.push(...scatterNear(near, Math.ceil(nc * 0.45), 14, 130, seed + sd + 50, ok, (x, z) => [x, z]));
     const out = []; for (const [cx, cz] of cs) { const m = 1 + Math.floor(r() * per); for (let q = 0; q < m; q++) { const a = r() * 6.283, d = Math.sqrt(r()) * rad, x = cx + Math.cos(a) * d, z = cz + Math.sin(a) * d; if (ok(x, z)) out.push([x, z, size[0] + r() * size[1], r() * 6]); } } return out; };
@@ -3041,7 +3043,7 @@ class Rig {
     } else if (kind === 'aim' || kind === 'crouch') {
       if (kind === 'crouch') { T.hipsY = 0.55; R.legs(-1.35, 1.45, -0.2, 1.95); T.torsoX = 0.12; }
       else R.legs(-0.12, 0.12, 0.16, 0.1);
-      T.torsoX += -pitch * 0.7 + Math.sin(t * 0.9) * 0.008; T.torsoY = 0.18;
+      T.torsoX += -pitch * 0.7 + Math.sin(t * 0.9) * 0.008 + Math.sin(t * 1.55 + 0.4) * 0.006; T.torsoY = 0.18 + Math.sin(t * 0.37) * 0.025; T.hipsX = Math.sin(t * 0.29 + 1.1) * 0.012; T.torsoZ = Math.sin(t * 0.47) * 0.012;   // never quite still: breath and balance
       if (R.wkind === 'rpg') R.gunAt(-0.15, 0.53, 0.02, -pitch * 0.3, -0.18, 0);
       else if (R.nsOn) { const B = NS_AIM[R.wkind === 'rifle' && R.side === 'f' ? 'fal' : R.wkind] || NS_AIM.rifle; T.torsoY = -NS_BLADE; R.gunAt(B[0], B[1] + Math.sin(t * 1.1) * 0.004, B[2], -pitch * 0.3, NS_BLADE, 0); R.hYaw = NS_BLADE; }
       else R.gunAt(-0.1, 0.45 + Math.sin(t * 1.1) * 0.004, 0.4, -pitch * 0.3, -0.2, 0);
@@ -3051,7 +3053,9 @@ class Rig {
       // standing easy: weight shifts slowly from foot to foot, the chest rises with the breath
       const b = Math.sin(t * 0.8), w = Math.sin(t * 0.31);
       R.legs(-0.05 + w * 0.03, 0.05 + Math.max(0, w) * 0.06, 0.05 - w * 0.03, 0.05 + Math.max(0, -w) * 0.06); T.hipsX = w * 0.025; T.hipsZ = w * 0.03; T.torsoX = 0.03 + b * 0.02; T.torsoZ = -w * 0.03; T.torsoY = w * 0.05;
-      if (R.wkind === 'rpg') R.gunAt(-0.16, 0.56 + b * 0.004, 0.16, -0.35, -0.08, 0); else R.gunAt(-0.03, 0.24 + b * 0.004, 0.25, 0.55, 0.4, 0);   // the RPG rests on the shoulder
+      R.fidT = (R.fidT ?? rand(3, 9)) - FDT; if (R.fidT < -1.4) R.fidT = rand(6, 14); const fd = R.fidT < 0 ? Math.sin(-R.fidT / 1.4 * Math.PI) : 0;   // a fidget: the rifle lifted and looked at, a shoulder rolled
+      if (R.wkind === 'rpg') R.gunAt(-0.16, 0.56 + b * 0.004, 0.16, -0.35, -0.08, 0); else R.gunAt(-0.03 + fd * 0.06, 0.24 + b * 0.004 + fd * 0.12, 0.25 + fd * 0.05, 0.55 - fd * 0.45, 0.4 - fd * 0.2, fd * 0.2);   // the RPG rests on the shoulder
+      T.torsoZ += fd * 0.05; T.torsoY += fd * 0.12;
     } else if (kind === 'prone') {
       T.rootX = -Math.PI / 2; R.legs(0.05, 0.1, -0.05, 0.25 + Math.sin(t * 1.3) * 0.1);
       R.arms(-0.2 + Math.sin(t * 2) * 0.15, -0.6, -2.4 + Math.sin(t * 1.7) * 0.3, -0.5, 0.2, -0.2); R.gunAt(0.3, 0.1, -0.4, 0, 0.8, 1.4);
@@ -3127,12 +3131,14 @@ class Rig {
   /* what a living body does on its own: the chest rises and falls, the head looks about a little (less with a rifle at the shoulder), the eyes blink */
   life(kind) {
     const R = this; R.breath += FDT; if (REDUCED) return;
-    const quick = kind === 'run' ? 2.8 : kind === 'walk' ? 1.9 : 1.25, b = 0.011 * Math.sin(R.breath * quick) * (kind === 'fall' ? 0.3 : 1); R.torso.scale.set(1 + b * 0.4, 1 + b, 1 + b * 0.8);
+    const quick = kind === 'run' ? 2.8 : kind === 'walk' ? 1.9 : 1.25, b = 0.017 * Math.sin(R.breath * quick) * (kind === 'fall' ? 0.3 : 1); R.torso.scale.set(1 + b * 0.5, 1 + b, 1 + b * 0.9); R.torso.rotation.x -= b * 0.5;   // the chest rises with each breath
     if (kind === 'fall') { R.headP.rotation.set(0.12, 0, 0.1); if (!R.shut && !R.deadOpen && R.blendT <= 0) { R.shut = true; R.head.material = MAT.facesShut[R.side][R.faceV]; } return; }
     const calm = kind === 'idle' ? 1 : kind === 'walk' ? 0.8 : kind === 'aim' || kind === 'crouch' || kind === 'hide' || kind === 'prone' ? 0.25 : 0.45, t = R.breath;
     R.hY = (R.hY || 0) + ((R.hYaw || 0) - (R.hY || 0)) * Math.min(1, FDT * 8);   // a man standing bladed to his rifle keeps his eyes on the target
-    R.headP.rotation.set((0.045 * Math.sin(t * 0.7 + 1) + 0.015 * Math.sin(t * 2.3)) * calm, (0.16 * Math.sin(t * 0.41) + 0.07 * Math.sin(t * 1.13 + 2)) * calm + R.hY, 0.035 * Math.sin(t * 0.53 + 0.7) * calm);
-    R.blinkT -= FDT; if (R.blinkT <= 0) { R.shut = !R.shut; R.head.material = R.shut ? MAT.facesShut[R.side][R.faceV] : MAT.faces[R.side][R.faceV]; R.blinkT = R.shut ? 0.11 : (Math.random() < 0.2 ? 0.25 : rand(2.2, 6.5)); }
+    { const G = R.gz || (R.gz = { t: rand(1, 4), y: 0, p: 0, cy: 0, cp: 0 }); G.t -= FDT; if (G.t <= 0) { const look = Math.random() < 0.6; G.y = look ? rand(-0.75, 0.75) * (calm > 0.5 ? 1 : 0.35) : 0; G.p = look ? rand(-0.18, 0.12) : 0; G.t = look ? rand(0.7, 2.2) : rand(1.5, 4.5); }
+      const gk = 1 - Math.exp(-FDT * 9); G.cy += (G.y - G.cy) * gk; G.cp += (G.p - G.cp) * gk;   // a glance: the head goes quickly, holds, comes back
+      R.headP.rotation.set((0.045 * Math.sin(t * 0.7 + 1) + 0.015 * Math.sin(t * 2.3)) * calm + G.cp + b * 0.6, (0.16 * Math.sin(t * 0.41) + 0.07 * Math.sin(t * 1.13 + 2)) * calm + R.hY + G.cy, 0.035 * Math.sin(t * 0.53 + 0.7) * calm); }
+    R.blinkT -= FDT; if (R.blinkT <= 0) { R.shut = !R.shut; R.head.material = R.shut ? MAT.facesShut[R.side][R.faceV] : MAT.faces[R.side][R.faceV]; R.blinkT = R.shut ? 0.11 : (Math.random() < 0.22 ? 0.22 : rand(1.6, 5.2)); }
   }
 }
 
@@ -3968,6 +3974,44 @@ function nsBindPaint(m, glsl, tag) {
   };
   m.customProgramCacheKey = () => key + '|' + tag; return m;
 }
+/* the creases of the drill: folds where a uniform folds - rings round the sleeve at the elbow and bunched at the cuff, from the armpit across
+   chest and back, rings round the trouser leg at the knee and over the boots, the shirt bunched above the belt, creases at the hip - and the
+   cloth's own crumple everywhere. A height read from the figure's bind position (so the folds go where the joints are, whatever the pose),
+   turned into the shading normal through the screen derivatives (Mikkelsen's bump, unscaled: millimetres of cloth as millimetres), the
+   hollows a shade darker; the fine ones fade where they would be smaller than a pixel. On every new soldier, ours and theirs */
+const NS_WRK_FN = `float nsWH(vec3 p) { return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453); }
+float nsWN(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(mix(nsWH(i), nsWH(i + vec3(1.0, 0.0, 0.0)), f.x), mix(nsWH(i + vec3(0.0, 1.0, 0.0)), nsWH(i + vec3(1.0, 1.0, 0.0)), f.x), f.y),
+             mix(mix(nsWH(i + vec3(0.0, 0.0, 1.0)), nsWH(i + vec3(1.0, 0.0, 1.0)), f.x), mix(nsWH(i + vec3(0.0, 1.0, 1.0)), nsWH(i + vec3(1.0, 1.0, 1.0)), f.x), f.y), f.z); }
+float nsFold(vec3 b) {
+  float fw = length(fwidth(b)), fine = 1.0 - smoothstep(0.003, 0.009, fw), mid = 1.0 - smoothstep(0.006, 0.02, fw), ax = abs(b.x), h = 0.0;
+  float arm = smoothstep(0.2, 0.26, ax) * (1.0 - smoothstep(0.1, 0.16, abs(b.y - 0.477)));
+  float var = 0.35 + 0.95 * nsWN(b * 11.0 + 3.7);   // folds of uneven depth: some deep, some barely there
+  float e = (ax - 0.46) / 0.075; h += arm * exp(-e * e) * sin(ax * 230.0 + (b.y + b.z) * 60.0 + nsWN(b * 30.0) * 5.0) * 0.0045 * var;
+  float c = (ax - 0.665) / 0.045; h += arm * exp(-c * c) * sin(ax * 280.0 + (b.y - b.z) * 70.0 + nsWN(b * 44.0) * 4.5) * 0.0024 * var;
+  float sh = smoothstep(0.07, 0.13, ax) * (1.0 - smoothstep(0.23, 0.3, ax)) * smoothstep(0.3, 0.38, b.y) * (1.0 - smoothstep(0.46, 0.52, b.y));
+  h += sh * sin((ax * 0.85 - b.y) * 150.0 + nsWN(b * 30.0) * 2.2) * 0.003;
+  float leg = (1.0 - smoothstep(0.17, 0.22, ax)) * (1.0 - smoothstep(-0.02, 0.02, b.y));
+  float k = (b.y + 0.42) / 0.075; h += leg * exp(-k * k) * sin(b.y * 220.0 + (b.x + b.z) * 55.0 + nsWN(b * 32.0) * 5.0) * 0.0045 * var;
+  float bl = (b.y + 0.755) / 0.05; h += leg * exp(-bl * bl) * sin(b.y * 280.0 + b.z * 60.0 + nsWN(b * 40.0) * 4.5) * 0.0042 * var;
+  float w = smoothstep(0.155, 0.175, b.y) * (1.0 - smoothstep(0.24, 0.3, b.y)) * (1.0 - smoothstep(0.2, 0.25, ax));
+  h += w * sin(atan(b.x, b.z) * 24.0 + nsWN(b * 25.0) * 3.0) * 0.0032;
+  float hp = smoothstep(-0.2, -0.06, b.y) * (1.0 - smoothstep(-0.04, 0.04, b.y)) * (1.0 - smoothstep(0.15, 0.2, ax));
+  h += hp * sin((ax * 1.3 + b.y) * 130.0 + nsWN(b * 33.0) * 2.0) * 0.0022;
+  h *= mid;
+  h += ((nsWN(b * 34.0) - 0.5) * 0.004 + (nsWN(b * 95.0) - 0.5) * 0.0013) * fine;
+  return h;
+}
+vec3 nsPerturb(vec3 sp, vec3 sn, vec2 dH, float fd) { vec3 sx = dFdx(sp), sy = dFdy(sp), r1 = cross(sy, sn), r2 = cross(sn, sx); float det = dot(sx, r1) * fd; vec3 g = sign(det) * (dH.x * r1 + dH.y * r2); return normalize(abs(det) * sn - g); }
+float nsFH = 0.0;`;
+function nsWrinkle(m, tag) {   // after nsBindPaint (it declares vBindP)
+  const prev = m.onBeforeCompile, key = m.customProgramCacheKey ? m.customProgramCacheKey() : '';
+  m.onBeforeCompile = (sh, r) => { if (prev) prev.call(m, sh, r);
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\n' + NS_WRK_FN)
+      .replace('#include <map_fragment>', '#include <map_fragment>\nnsFH = nsFold(vBindP) * 1.5; diffuseColor.rgb *= 1.0 - 0.3 * smoothstep(0.0, 0.006, -nsFH) + 0.06 * smoothstep(0.0, 0.006, nsFH);')
+      .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\nnormal = nsPerturb(-vViewPosition, normal, vec2(dFdx(nsFH), dFdy(nsFH)) * 1.8, faceDirection);'); };
+  m.customProgramCacheKey = () => key + '|wrk' + tag; return m;
+}
 // woven web: a fine basket weave and the stitched edge of each strap, pale so the material colour is the colour
 function nsWebTex() {
   const W = 64, c = canvas(W, W), g = c.getContext('2d'); g.fillStyle = '#d8d4c8'; g.fillRect(0, 0, W, W);
@@ -3984,7 +4028,7 @@ function nsMaterials() {
   const head = nsImage(T.head), headAr = nsImage(T.headAr || T.head), hands = nsImage(T.hands), eyes = nsImage(T.eyes), net = nsNet();
   const hidden = new THREE.MeshBasicMaterial({ visible: false });
   const skin = (map, tint) => std({ map, roughness: 0.6, color: tint });
-  const web = nsWebTex(), belt = (side, color) => nsBindPaint(cloth(side, web, color), NS_BELT, 'belt' + side), waist = (m, side) => nsBindPaint(m, NS_WAIST, 'waist' + side);
+  const web = nsWebTex(), belt = (side, color) => nsBindPaint(cloth(side, web, color), NS_BELT, 'belt' + side), waist = (m, side) => nsWrinkle(nsBindPaint(m, NS_WAIST, 'waist' + side), side);
   const f = [waist(cloth('f', uniF, 0xffffff), 'f'), belt('f', 0x8a8458), std({ color: 0x4a2c1c, roughness: 0.55 }), skin(head, 0xffffff), skin(hands, 0xffffff), std({ map: eyes, roughness: 0.15 }),
     std({ map: net, roughness: 0.8 }), std({ color: 0x3a3a2a, roughness: 0.85 }), hidden];
   const e = [waist(cloth('e', NEWSOL.camo.eg, 0xffffff), 'e'), belt('e', 0x5e4c32), std({ color: 0x1d1b19, roughness: 0.55 }), skin(headAr, 0xf0d5ba), skin(hands, 0xf0d5ba), std({ map: eyes, roughness: 0.15 }),
@@ -4029,9 +4073,9 @@ function nsShow(R, on) {
 }
 /* who wears it: a man nearer than NS_D (by what the eye sees: closer through a sight, and the far enemies drawn larger count as far),
    its own distance - not the old figure's levels of detail, which on medium and low quality never reach the finest */
-const NS_D = { high: PHONE ? 34 : 42, med: 24, low: 12 }[QUAL], NS_MAX = { high: PHONE ? 16 : 20, med: 11, low: 6 }[QUAL];   // and never more than NS_MAX at once: the nearest
+const NS_D = { high: 42, med: 24, low: 12 }[QUAL], NS_MAX = { high: 20, med: 11, low: 6 }[QUAL];   // and never more than NS_MAX at once: the nearest
 // the figure's level of detail by that same distance: whole near, a third of its triangles past NS_L[0], an eighth past NS_L[1]
-const NS_L = { high: PHONE ? [26, 50] : [32, 60], med: [18, 38], low: [11, 26] }[QUAL];   // whole near, as the showroom shows them
+const NS_L = { high: [32, 60], med: [18, 38], low: [11, 26] }[QUAL];   // whole near, as the showroom shows them
 const NSB = { t: -1, allow: new Set(), cand: [] };
 function nsDecide(u) {
   const R = u.rig; if (!R) return; const far = camera.position.distanceTo(u.pos), eff = far * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2) / 0.7265 / (u.vs || 1);
@@ -4351,14 +4395,18 @@ const SAND_FRAG = `{
     vec2 pp = vSdP.xz, gs = vec2(0.0); float fwS = length(fwidth(pp)), patchS = sdN(pp / 9.0 + 1.7), hs = 0.5, hw = 0.0;
     float a1 = (1.0 - smoothstep(0.15, 0.35, fwS / 0.12)) * flS;
     if (a1 > 0.0) { vec3 r = sdRip(pp, 0.12); gs += r.yz * 0.0065 * a1 * (0.5 + 0.8 * patchS); hs = r.x; hw = a1; }
+#ifndef SAND_LITE
     float a2 = (1.0 - smoothstep(0.15, 0.35, fwS / 0.9)) * flS * smoothstep(0.45, 0.85, sdN(pp / 31.0 + 4.2));
     if (a2 > 0.0) { vec3 r = sdRip(mat2(0.96, -0.28, 0.28, 0.96) * pp + 3.1, 0.9); gs += r.yz * 0.012 * a2; hs = mix(hs, r.x, a2 * 0.3 * (1.0 - hw * 0.5)); }
+#endif
     diffuseColor.rgb *= mix(1.0, 0.93 + 0.11 * hs, hw * 0.85);
     nWs = normalize(nWs - vec3(gs.x, 0.0, gs.y)); normal = normalize((viewMatrix * vec4(nWs, 0.0)).xyz);
+#ifndef SAND_LITE
     vec2 q = vec2(dot(pp, SDW), dot(pp, SDC));
     float s1 = sdN(vec2(q.x * 0.3 - uSandT * 2.4, q.y * 1.8)), s2 = sdN(vec2(q.x * 0.05 - uSandT * 0.45, q.y * 0.22) + 7.0);
     float stk = smoothstep(0.62, 0.95, s1) * smoothstep(0.5, 0.85, s2) * (1.0 - smoothstep(25.0, 70.0, cdS)) * skS;
     diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * 1.16 + 0.012, stk * 0.6);
+#endif
   }
 }`;
 function sandify(m) {
@@ -4367,7 +4415,7 @@ function sandify(m) {
   m.onBeforeCompile = (sh, r) => { prev.call(m, sh, r); sh.uniforms.uSandT = SAND.uT;
     sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute float aSand; varying float vSandK; varying vec3 vSdP;')
       .replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\nvSandK = aSand; vSdP = (modelMatrix * vec4(transformed, 1.0)).xyz;');
-    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\n' + SAND_GLSL).replace('#include <emissivemap_fragment>', SAND_FRAG + '\n#include <emissivemap_fragment>')
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\n' + (LITE ? '#define SAND_LITE\n' : '') + SAND_GLSL).replace('#include <emissivemap_fragment>', SAND_FRAG + '\n#include <emissivemap_fragment>')
       .replace('a0 = mix(a0, b0, 0.35);', 'a0 = mix(a0, b0, 0.35); a0.rgb = mix(a0.rgb, uAvg[0], 0.85 * vSandK);').replace('vec2 t = (n0 * gB.x', 'n0 = mix(n0, vec2(0.5), 0.85 * vSandK); vec2 t = (n0 * gB.x'); };   /* the map's sand texture is a tile of straight stripes: flattened where the wind's own ripples are */
   m.customProgramCacheKey = () => key + '+sand'; m.needsUpdate = true; return m;
 }
@@ -4641,7 +4689,8 @@ function updFriend(f, dt, time) {
     const isMag = p.mag && p.occupant === f;
     let tp = null; if (f.target) tp = f.target.u ? (f.target.u.alive ? f.target.u.chest() : null) : (f.target.boat.seats[f.target.seat].alive ? f.target.boat.seatWorld(f.target.seat).add(V3(0, 0.7, 0)) : null);
     if (!tp) f.target = null;
-    if (f.duckT > 0) { if (tp) u.face(tp.x, tp.z); u.stance = 'hide'; u.rig.pose('hide', u.anim); }
+    f.peekT = (f.peekT || 0) - dt;
+    if (f.duckT > 0 || (f.peekT > 0 && tp && !isMag)) { if (tp) u.face(tp.x, tp.z); u.stance = 'hide'; u.rig.pose('hide', u.anim); if (f.peekT > 0) f.fireCd -= dt; }
     else if (tp) {
       u.face(tp.x, tp.z); const eye = u.eye(); f.aimP = Math.atan2(tp.y - eye.y, Math.hypot(tp.x - eye.x, tp.z - eye.z));
       if (isMag) { const yaw = Math.atan2(tp.x - p.mag.pivot.position.x, tp.z - p.mag.pivot.position.z); p.mag.pivot.rotation.set(-f.aimP, yaw, 0); }
@@ -4649,6 +4698,7 @@ function updFriend(f, dt, time) {
       if (f.fireCd <= 0) {
         if (f.burst <= 0) { f.burst = isMag ? Math.floor(rand(6, 11)) : Math.floor(rand(1, 3)); }
         f.burst--; f.fireCd = f.burst > 0 ? (isMag ? 0.09 : 0.35) : rand(1.1, 2.4) * (isMag ? 1.2 : 1) * diff.fgun;
+        if (f.burst <= 0 && !isMag && Math.random() < 0.6) f.peekT = f.fireCd * rand(0.5, 0.85);   // the burst fired, he drops behind his cover and comes up again for the next
         const from = isMag ? p.mag.pivot.localToWorld(V3(0, 0.012, 0.9)) : u.muzzle(); fxMuzzle(from, isMag); sndShot('fal-npc', from);
         const d = from.distanceTo(tp); const rangeF = clamp(1 - d / 420, 0.2, 1);
         let pHit = (isMag ? 0.0018 : FIELDM() ? 0.013 : 0.0045) * rangeF;
@@ -6113,7 +6163,7 @@ function setQual(q, live) {
   for (const x of document.querySelectorAll('#qual button')) x.setAttribute('aria-pressed', String(x.dataset.q === q)); if (!live) return;
   try { localStorage.setItem('yk73.q2', q); } catch (e) {}
   const L = { high: [16, 48], med: [9, 30], low: [0, 15] }[q]; QLOD[0] = L[0]; QLOD[1] = L[1];
-  const dpr = window.devicePixelRatio || 1; renderer.setPixelRatio(q === 'low' ? 1 : Math.min(dpr, q === 'high' ? (PHONE ? 2.4 : 3) : 2)); GOV.cap = renderer.getPixelRatio(); window.dispatchEvent(new Event('resize'));
+  const dpr = window.devicePixelRatio || 1; renderer.setPixelRatio(q === 'low' ? 1 : Math.min(dpr, q === 'high' ? (PHONE ? 2 : 3) : 2)); GOV.cap = renderer.getPixelRatio(); window.dispatchEvent(new Event('resize'));
   const n = $('#qualNote'); if (n) n.hidden = q === QUAL;
 }
 { const el = $('#qual'); if (el) el.addEventListener('click', (e) => { const b = e.target.closest('button'); if (b && b.dataset.q) setQual(b.dataset.q, true); }); setQual(QUAL, false);
