@@ -20,6 +20,7 @@ function nsGeometry() {
   H.groups.forEach((g, gi) => {
     const q = new Int16Array(buf, g.pos, g.v * 3); for (let k = 0; k < g.v * 3; k++) pos[v0 * 3 + k] = H.min[k % 3] + ((q[k] + 32768) / 65535) * H.span[k % 3];
     nrm.set(new Int8Array(buf, g.nrm, g.v * 3), v0 * 3); uv.set(new Float32Array(buf, g.uv, g.v * 2), v0 * 2); si.set(new Uint8Array(buf, g.si, g.v * 4), v0 * 4); sw.set(new Uint8Array(buf, g.sw, g.v * 4), v0 * 4);
+    if (g.name === 'm1' || g.name === 'm1fit' || g.name === 'sov') nsHelmetUp(pos, nrm, v0, g.v);   // worn as they wore it in 1973: up off the brow
     const ix = new Uint16Array(buf, g.idx, g.i); for (let k = 0; k < g.i; k++) idx[i0 + k] = ix[k] + v0;
     geo.addGroup(i0, g.i, NS_GROUPS.indexOf(g.name)); v0 += g.v; i0 += g.i;
   });
@@ -36,6 +37,13 @@ function nsGeometry() {
     g2.setIndex(new THREE.BufferAttribute(ix2, 1)); g2.boundingSphere = geo.boundingSphere; NEWSOL.geos.push(g2);
   }
   return (NEWSOL.geo = geo);
+}
+/* the helmet sat high in 1973 - pushed back off the brow, the face open under it: raised 2 cm and tipped back 10 degrees about the head */
+const NS_HU = { a: -0.17, py: 0.7, pz: 0.02, dy: 0.02 };
+function nsHelmetUp(pos, nrm, v0, n) {
+  const c = Math.cos(NS_HU.a), s = Math.sin(NS_HU.a);
+  for (let k = v0; k < v0 + n; k++) { const y = pos[k * 3 + 1] - NS_HU.py, z = pos[k * 3 + 2] - NS_HU.pz; pos[k * 3 + 1] = NS_HU.py + y * c - z * s + NS_HU.dy; pos[k * 3 + 2] = NS_HU.pz + y * s + z * c;
+    const ny = nrm[k * 3 + 1], nz = nrm[k * 3 + 2]; nrm[k * 3 + 1] = Math.round(ny * c - nz * s); nrm[k * 3 + 2] = Math.round(ny * s + nz * c); }
 }
 /* the cloth: blotches of each colour where a tileable noise field passes its threshold - stretched sideways for the Egyptian brush strokes,
    round for the Syrian forest pattern - and the weave over it; the same recipe as chars.html */
@@ -58,12 +66,19 @@ function nsCamo(c) {
 }
 const NS_CAMO = { eg: { seed: 7, base: 0xb5a072, layers: [[0x8c7148, 0.55, 4, 10], [0x6c6946, 0.63, 5, 12], [0xcbb98b, 0.68, 8, 18]] },
   sy: { seed: 31, base: 0x5f6a43, layers: [[0x37462b, 0.52, 5, 6], [0x5b4630, 0.6, 6, 7], [0x20261b, 0.69, 9, 10]] } };
-function nsNet() {   // the M1's net: knotted cord in diamonds over the olive paint
-  const N = 256, c = canvas(N), g = c.getContext('2d'); g.fillStyle = '#5a5c3e'; g.fillRect(0, 0, N, N);
-  for (let i = 0; i < 900; i++) { g.fillStyle = `rgba(${Math.random() < 0.5 ? '40,42,28' : '110,108,84'},0.12)`; g.fillRect(Math.random() * N, Math.random() * N, 2 + Math.random() * 8, 1 + Math.random() * 2); }
-  g.strokeStyle = 'rgba(38,36,24,0.9)'; g.lineWidth = 2.4; for (let k = -N; k < 2 * N; k += 32) { g.beginPath(); g.moveTo(k, 0); g.lineTo(k + N, N); g.stroke(); g.beginPath(); g.moveTo(k, N); g.lineTo(k + N, 0); g.stroke(); }
-  const t = tex(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; return t;
+function nsNet() {   // the IDF's M1 in 1973: a burlap cover, coarse woven jute, under a net of tan cord
+  const N = 512, c = canvas(N), g = c.getContext('2d'), r = rng(73); g.fillStyle = '#a48c64'; g.fillRect(0, 0, N, N);
+  for (let y = 0; y < N; y += 3) { g.fillStyle = `rgba(${r() < 0.5 ? '120,98,64' : '190,170,128'},${0.25 + r() * 0.2})`; g.fillRect(0, y, N, 1); }   // the weft
+  for (let x = 0; x < N; x += 3) { g.fillStyle = `rgba(${r() < 0.5 ? '110,90,58' : '180,160,118'},${0.2 + r() * 0.2})`; g.fillRect(x, 0, 1, N); }   // the warp
+  for (let i = 0; i < 1400; i++) { g.fillStyle = `rgba(${r() < 0.5 ? '70,58,38' : '200,182,140'},${0.08 + r() * 0.1})`; g.fillRect(r() * N, r() * N, 3 + r() * 14, 1 + r() * 3); }   // slubs, dirt, sun-bleach
+  g.strokeStyle = 'rgba(92,76,50,0.95)'; g.lineWidth = 3.2; for (let k = -N; k < 2 * N; k += 48) { g.beginPath(); g.moveTo(k, 0); g.lineTo(k + N, N); g.stroke(); g.beginPath(); g.moveTo(k, N); g.lineTo(k + N, 0); g.stroke(); }
+  g.strokeStyle = 'rgba(190,170,130,0.5)'; g.lineWidth = 1; for (let k = -N; k < 2 * N; k += 48) { g.beginPath(); g.moveTo(k - 1, 0); g.lineTo(k + N - 1, N); g.stroke(); }
+  const t = tex(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = ANISO; return t;
 }
+const NS_BAND = `{ vec3 o = vBindP - vec3(0.0, ${NS_HU.py.toFixed(3)} + ${NS_HU.dy.toFixed(3)}, ${NS_HU.pz.toFixed(3)}); float ca = cos(${(-NS_HU.a).toFixed(3)}), sa = sin(${(-NS_HU.a).toFixed(3)}); float oy = o.y * ca - o.z * sa + ${NS_HU.py.toFixed(3)};
+  float band = smoothstep(0.684, 0.69, oy) * (1.0 - smoothstep(0.73, 0.736, oy));   // a band of inner tube round the cover, to tuck brush into
+  float mot = fract(sin(dot(floor(vBindP * 260.0), vec3(12.9898, 78.233, 37.719))) * 43758.5453);
+  diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.055, 0.052, 0.048) * (0.75 + 0.5 * mot), band); }`;
 function nsImage(url) { const t = new THREE.TextureLoader().load(url); t.flipY = false; t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = ANISO; return t; }
 /* the waist: the figure's cloth is one piece from the collar to the boots, so the paint draws where the shirt ends and the trousers begin -
    the trousers a shade darker, a dark seam where the shirt is tucked in, the shirt a little bunched above it - and the web belt gets a woven
@@ -74,6 +89,27 @@ const NS_WAIST = `{ float yb = vBindP.y;
   float seam = smoothstep(0.072, 0.086, yb) * (1.0 - smoothstep(0.092, 0.106, yb));
   diffuseColor.rgb *= 1.0 - 0.5 * seam;
   diffuseColor.rgb *= 1.0 + 0.07 * smoothstep(0.1, 0.112, yb) * (1.0 - smoothstep(0.125, 0.17, yb)); }`;
+/* the shirt's pockets (two on the chest, flapped and buttoned) and the trousers' side pockets, as seams and flaps on the cloth; both sides */
+const NS_POCKETS = `{ vec3 b = vBindP; float ax = abs(b.x), fr = smoothstep(0.02, 0.07, b.z);
+  float px = smoothstep(0.045, 0.05, ax) * (1.0 - smoothstep(0.14, 0.145, ax)), py = smoothstep(0.355, 0.36, b.y) * (1.0 - smoothstep(0.45, 0.455, b.y)), pk = px * py * fr;
+  float edge = pk * (1.0 - smoothstep(0.0, 0.004, min(min(ax - 0.05, 0.14 - ax), min(b.y - 0.36, 0.45 - b.y))));
+  float flap = pk * smoothstep(0.418, 0.422, b.y), flapEdge = pk * (1.0 - smoothstep(0.0, 0.003, abs(b.y - 0.42)));
+  float btn = fr * (1.0 - smoothstep(0.004, 0.007, length(vec2(ax - 0.095, b.y - 0.428))));
+  diffuseColor.rgb *= 1.0 - 0.35 * edge - 0.4 * flapEdge + 0.05 * flap; diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * 0.55, btn);
+  float tl = smoothstep(0.1, 0.12, ax) * (1.0 - smoothstep(0.2, 0.21, ax)) * smoothstep(-0.3, -0.295, b.y) * (1.0 - smoothstep(-0.13, -0.125, b.y)) * smoothstep(-0.05, 0.0, b.z * sign(b.x) + 0.02);
+  float tle = tl * (1.0 - smoothstep(0.0, 0.004, min(min(b.y + 0.295, -0.13 - b.y), min(ax - 0.12, 0.2 - ax))));
+  diffuseColor.rgb *= 1.0 - 0.3 * tle - 0.3 * tl * (1.0 - smoothstep(0.0, 0.003, abs(b.y + 0.165))); }`;
+/* our men as they looked: the shirt open at the neck - a V of sunburnt chest, hair on it, the collar's edges turned back - and the sleeves
+   rolled up above the forearm; the skin is skin, so the cloth's creases leave it */
+const NS_OPEN_F = `{ vec3 b = vBindP; float ax = abs(b.x);
+  float vw = (b.y - 0.47) * 0.62, vee = smoothstep(0.47, 0.49, b.y) * (1.0 - smoothstep(vw - 0.004, vw, ax)) * smoothstep(0.0, 0.04, b.z);
+  float lap = smoothstep(0.47, 0.49, b.y) * (1.0 - smoothstep(0.0, 0.012, abs(ax - vw - 0.006))) * smoothstep(0.0, 0.04, b.z) * (1.0 - vee);
+  float roll = smoothstep(0.555, 0.56, ax) * (1.0 - smoothstep(0.1, 0.16, abs(b.y - 0.477))), cuff = smoothstep(0.525, 0.53, ax) * (1.0 - smoothstep(0.555, 0.56, ax)) * (1.0 - smoothstep(0.1, 0.16, abs(b.y - 0.477)));
+  float skin = max(vee, roll);
+  float hair = vee * smoothstep(0.62, 0.8, fract(sin(dot(floor(vec2(b.x * 700.0 + sin(b.y * 900.0) * 0.6, b.y * 260.0)), vec2(12.9898, 78.233))) * 43758.5453)) * (1.0 - smoothstep(0.55, 0.6, b.y));
+  vec3 sk = vec3(0.47, 0.26, 0.16) * (0.9 + 0.2 * fract(sin(dot(floor(b.xy * 140.0), vec2(4.1, 7.7))) * 437.5));
+  diffuseColor.rgb = mix(diffuseColor.rgb, sk, skin); diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.07, 0.05, 0.035), hair * 0.85);
+  diffuseColor.rgb *= 1.0 + 0.12 * cuff - 0.25 * lap; nsFH *= 1.0 - skin; }`;
 const NS_BELT = `{ vec3 bp = vBindP;
   float buckle = (1.0 - smoothstep(0.022, 0.03, abs(bp.x))) * (1.0 - smoothstep(0.016, 0.024, abs(bp.y - 0.152))) * smoothstep(0.12, 0.16, bp.z);
   diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.62, 0.6, 0.55), buckle * 0.85); }`;
@@ -135,14 +171,14 @@ function nsMaterials() {
   if (NEWSOL.mats) return NEWSOL.mats;
   const T = SOLDIER_DATA.tex, std = (o) => new THREE.MeshStandardMaterial(Object.assign({ roughness: 0.9, metalness: 0 }, o));
   const cloth = (side, map, color) => { const m = rimMat(side === 'e' ? 0xff4020 : 0x5f9cff, side === 'e' ? 0 : 0.22); m.vertexColors = false; m.map = map; m.bumpMap = null; m.color.set(color); m.roughness = 0.95; m.customProgramCacheKey = () => 'nsRim' + side; return m; };
-  const uniF = nsCamo({ seed: 3, base: 0x5f5a3a, layers: [] });   // the IDF's plain olive drill
+  const uniF = nsCamo({ seed: 3, base: 0x7a7a56, layers: [] });   // the IDF's plain olive drill, sun-faded
   NEWSOL.camo.eg = nsCamo(NS_CAMO.eg);
   const head = nsImage(T.head), headAr = nsImage(T.headAr || T.head), hands = nsImage(T.hands), eyes = nsImage(T.eyes), net = nsNet();
   const hidden = new THREE.MeshBasicMaterial({ visible: false });
-  const skin = (map, tint) => std({ map, roughness: 0.6, color: tint });
-  const web = nsWebTex(), belt = (side, color) => nsBindPaint(cloth(side, web, color), NS_BELT, 'belt' + side), waist = (m, side) => nsWrinkle(nsBindPaint(m, NS_WAIST, 'waist' + side), side);
+  const skin = (map, tint) => std({ map, roughness: 0.6, color: tint, emissive: 0x1a120c, emissiveMap: map });   // a little light of their own: the face shows under the helmet's shadow
+  const web = nsWebTex(), belt = (side, color) => nsBindPaint(cloth(side, web, color), NS_BELT, 'belt' + side), waist = (m, side) => nsWrinkle(nsBindPaint(m, NS_WAIST + NS_POCKETS + (side === 'f' ? NS_OPEN_F : ''), 'waist' + side), side);
   const f = [waist(cloth('f', uniF, 0xffffff), 'f'), belt('f', 0x8a8458), std({ color: 0x4a2c1c, roughness: 0.55 }), skin(head, 0xffffff), skin(hands, 0xffffff), std({ map: eyes, roughness: 0.15 }),
-    std({ map: net, roughness: 0.8 }), std({ color: 0x3a3a2a, roughness: 0.85 }), hidden];
+    nsBindPaint(std({ map: net, roughness: 0.92 }), NS_BAND, 'band'), std({ color: 0x3a3a2a, roughness: 0.85 }), hidden];
   const e = [waist(cloth('e', NEWSOL.camo.eg, 0xffffff), 'e'), belt('e', 0x5e4c32), std({ color: 0x1d1b19, roughness: 0.55 }), skin(headAr, 0xf0d5ba), skin(hands, 0xf0d5ba), std({ map: eyes, roughness: 0.15 }),
     hidden, hidden, std({ color: 0x7a7150, roughness: 0.6 })];
   NEWSOL.mats = { f, e }; nsUniformFor(MODE); return NEWSOL.mats;
@@ -185,9 +221,9 @@ function nsShow(R, on) {
 }
 /* who wears it: a man nearer than NS_D (by what the eye sees: closer through a sight, and the far enemies drawn larger count as far),
    its own distance - not the old figure's levels of detail, which on medium and low quality never reach the finest */
-const NS_D = { high: 42, med: 24, low: 12 }[QUAL], NS_MAX = { high: 20, med: 11, low: 6 }[QUAL];   // and never more than NS_MAX at once: the nearest
+const NS_D = { high: PHONE ? 28 : 36, med: 22, low: 12 }[QUAL], NS_MAX = { high: PHONE ? 10 : 16, med: 9, low: 6 }[QUAL];   // and never more than NS_MAX at once: the nearest (a crowded rampart is many men)
 // the figure's level of detail by that same distance: whole near, a third of its triangles past NS_L[0], an eighth past NS_L[1]
-const NS_L = { high: [32, 60], med: [18, 38], low: [11, 26] }[QUAL];   // whole near, as the showroom shows them
+const NS_L = { high: PHONE ? [12, 28] : [20, 42], med: [14, 30], low: [10, 24] }[QUAL];   // whole near - every crease, as the showroom shows them - lighter where the detail is too small to see
 const NSB = { t: -1, allow: new Set(), cand: [] };
 function nsDecide(u) {
   const R = u.rig; if (!R) return; const far = camera.position.distanceTo(u.pos), eff = far * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2) / 0.7265 / (u.vs || 1);
@@ -199,7 +235,7 @@ function nsDecide(u) {
   const w = near && NSB.allow.has(u); if (w !== !!R.nsOn) nsShow(R, w);
   if (w && R.ns && NEWSOL.geos && NEWSOL.geos.length > 1) {
     const cur = R.nsLod ?? 0, h = cur === 0 ? 1.1 : 0.92, l = eff < NS_L[0] * (cur === 0 ? h : 1) ? 0 : eff < NS_L[1] * (cur <= 1 ? 1.08 : 0.94) ? 1 : 2;   /* a little hysteresis: no flicker on the line */
-    if (l !== cur) { R.nsLod = l; R.ns.geometry = NEWSOL.geos[Math.min(l, NEWSOL.geos.length - 1)]; R.ns.castShadow = SHADOWS && l < 2; }   /* the farthest cast no shadow */
+    if (l !== cur) { R.nsLod = l; R.ns.geometry = NEWSOL.geos[Math.min(l, NEWSOL.geos.length - 1)]; R.ns.castShadow = SHADOWS && l < (PHONE ? 1 : 2); }   /* the farthest cast no shadow */
   }
 }
 { const _sync = Unit.prototype.sync; Unit.prototype.sync = function () { _sync.call(this); nsDecide(this); }; }

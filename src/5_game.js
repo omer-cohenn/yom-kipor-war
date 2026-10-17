@@ -94,9 +94,9 @@ function rideFov() { const a = camera.aspect || 1.6, v = 2 * Math.atan(Math.tan(
 /* a touch of third person at a vehicle's gun (the jeep's MG, the tank's hatch): the eye some 1.1 m behind and above the player's own head,
    in the frame of his look, so his helmet and shoulders sit low in the picture whichever way he turns and the crosshair stays where it is;
    k eases it away on aim, when the eye goes back into his head. TPV.r is his figure: our soldier, standing at the gun */
-const TPV = { B: 1.02, U: 0.46, S: 0.13, r: null, v: V3() };
-function tpvCam(e, k) {
-  const sy = Math.sin(P.yaw), cy = Math.cos(P.yaw), sp = Math.sin(P.pitch), cp = Math.cos(P.pitch), B = TPV.B * k, U = TPV.U * k, S = TPV.S * k;
+const TPV = { B: 1.02, U: 0.46, S: 0.13, rB: 1.15, rU: 0.95, r: null, v: V3() };   // rB, rU: on the jeep's gun, higher - over the jeep, the road ahead in view
+function tpvCam(e, k, ride = false) {
+  const sy = Math.sin(P.yaw), cy = Math.cos(P.yaw), sp = Math.sin(P.pitch), cp = Math.cos(P.pitch), B = (ride ? TPV.rB : TPV.B) * k, U = (ride ? TPV.rU : TPV.U) * k, S = TPV.S * k;
   camera.position.set(e.x + sy * cp * B + sy * sp * U + cy * S, e.y - sp * B + cp * U, e.z + cy * cp * B + cy * sp * U - sy * S);
 }
 function tpvBody(on, e) {
@@ -254,7 +254,13 @@ function updFriend(f, dt, time) {
     let tp = null; if (f.target) tp = f.target.u ? (f.target.u.alive ? f.target.u.chest() : null) : (f.target.boat.seats[f.target.seat].alive ? f.target.boat.seatWorld(f.target.seat).add(V3(0, 0.7, 0)) : null);
     if (!tp) f.target = null;
     f.peekT = (f.peekT || 0) - dt;
-    if (f.duckT > 0 || (f.peekT > 0 && tp && !isMag)) { if (tp) u.face(tp.x, tp.z); u.stance = 'hide'; u.rig.pose('hide', u.anim); if (f.peekT > 0) f.fireCd -= dt; }
+    if (f.duckT > 0 || (f.peekT > 0 && tp && !isMag)) {
+      if (tp) u.face(tp.x, tp.z); u.stance = 'hide'; u.rig.pose('hide', u.anim); if (f.peekT > 0) f.fireCd -= dt;
+      // moving along his cover, crouched, to come up somewhere the enemy is not looking (a post on the ground; men at windows stay at theirs)
+      if (f.peekKind === 'move' && f.state === 'post' && p && p.fx !== undefined && p.x !== undefined && p.y === undefined) { const bx = p.stand ? p.stand[0] : p.x, bz = p.stand ? p.stand[1] : p.z; u.anim += dt * 3; steer(u, bx + p.fz * f.peekOff, bz - p.fx * f.peekOff, 1.6, dt); if (tp) u.face(tp.x, tp.z); }
+      // pinned down, he still answers: the rifle up over the cover and a few blind rounds toward the enemy
+      if (f.duckT > 0 && tp && f.target && f.target.u) { f.blindCd = (f.blindCd ?? rand(0.4, 0.9)) - dt; if (f.blindCd <= 0) { f.blindCd = rand(0.18, 0.4); const from = u.muzzle().add(V3(0, 0.35, 0)); fxMuzzle(from, false); sndShot('fal-npc', from); if (Math.random() < 0.5) supPin(f.target.u, 0.12); } }
+    }
     else if (tp) {
       u.face(tp.x, tp.z); const eye = u.eye(); f.aimP = Math.atan2(tp.y - eye.y, Math.hypot(tp.x - eye.x, tp.z - eye.z));
       if (isMag) { const yaw = Math.atan2(tp.x - p.mag.pivot.position.x, tp.z - p.mag.pivot.position.z); p.mag.pivot.rotation.set(-f.aimP, yaw, 0); }
@@ -262,7 +268,11 @@ function updFriend(f, dt, time) {
       if (f.fireCd <= 0) {
         if (f.burst <= 0) { f.burst = isMag ? Math.floor(rand(6, 11)) : Math.floor(rand(1, 3)); }
         f.burst--; f.fireCd = f.burst > 0 ? (isMag ? 0.09 : 0.35) : rand(1.1, 2.4) * (isMag ? 1.2 : 1) * diff.fgun;
-        if (f.burst <= 0 && !isMag && Math.random() < 0.6) f.peekT = f.fireCd * rand(0.5, 0.85);   // the burst fired, he drops behind his cover and comes up again for the next
+        if (f.burst <= 0 && !isMag) {   // the burst fired: he works his cover - down and up again from another spot along it, a magazine changed behind it every few bursts, or he stays up on his target
+          f.magN = (f.magN || 0) + 1; const r = Math.random();
+          if (f.magN >= 4) { f.magN = 0; f.peekT = rand(2.2, 3.0); f.peekKind = 'reload'; f.fireCd = Math.max(f.fireCd, f.peekT + 0.15); }
+          else if (r < 0.7) { f.peekT = f.fireCd * rand(0.55, 0.9); f.peekKind = 'move'; f.peekOff = clamp((f.peekOff || 0) + (Math.random() < 0.5 ? -1 : 1) * rand(0.5, 0.9), -0.9, 0.9); }
+        }
         const from = isMag ? p.mag.pivot.localToWorld(V3(0, 0.012, 0.9)) : u.muzzle(); fxMuzzle(from, isMag); sndShot('fal-npc', from);
         const d = from.distanceTo(tp); const rangeF = clamp(1 - d / 420, 0.2, 1);
         let pHit = (isMag ? 0.0018 : FIELDM() ? 0.013 : 0.0045) * rangeF;
@@ -456,6 +466,16 @@ function insideGoal(e) {
   const gp = pick(YARD_GOALS); return [gp[0] + rand(-4, 4), gp[1] + rand(-4, 4)];
 }
 const YARD_GOALS = [[-20, 0], [0, -22], [12, 12], [-12, 30], [-30, 12], [-4, -38], [20, -30], [-40, -30], [24, 36]];
+/* a man who sees a grenade land near him runs from it - a few long strides away and down - unless he is at a window or in a trench bay he
+   cannot leave; then he goes back to what he was doing */
+function nadeDodge(e, dt) {
+  if (e.dodgeT > 0) { e.dodgeT -= dt; e.anim += dt * 10; e.stance = 'stand'; const d = steer(e, e.dodgeX, e.dodgeZ, 5.6, dt); e.rig.pose(d > 0.6 ? 'run' : 'hide', e.anim); return true; }
+  if (e.sz === 'win' || e.state === 'trench' || e.state === 'jump' || e.inside || !e.alive) return false;
+  e.dodgeCd = (e.dodgeCd || 0) - dt; if (e.dodgeCd > 0) return false; e.dodgeCd = 0.25;
+  for (const q of PROJ) { if (q.type !== 'gren' || q.owner !== 'player' || q.fuse < 0.6) continue; const dx = e.pos.x - q.m.position.x, dz = e.pos.z - q.m.position.z, d = Math.hypot(dx, dz);
+    if (d < 6.5 && q.m.position.y - groundAt(q.m.position.x, q.m.position.z) < 1.5) { const k = (7.5 - d) / (d || 1); e.dodgeX = e.pos.x + dx * k + rand(-1, 1); e.dodgeZ = e.pos.z + dz * k + rand(-1, 1); e.dodgeT = Math.min(q.fuse + 0.4, 1.6); e.peek = false; return true; } }
+  return false;
+}
 function updEnemy(e, dt) {
   e.t += dt;
   if (e.state === 'dying') {
@@ -467,6 +487,7 @@ function updEnemy(e, dt) {
   }
   if (e.state === 'dead') { if (e.deadAt !== undefined && GAME.t - e.deadAt > 30) { e.rig.root.visible = false; if (e.tag) e.tag.visible = false; } return; }   /* a body is cleared away half a minute after he fell */
   if (e.state === 'film') { e.sync(); return; }
+  if (nadeDodge(e, dt)) { e.sync(); return; }
   e.inside = inPoly(e.pos.x, e.pos.z, YARD);
   tacTick(e, dt);
   e.scanCd -= dt; if (e.scanCd <= 0) { e.scanCd = rand(0.5, 0.9); const was = !!(e.target && e.target.player); e.target = targetsFor(e); if (e.target && e.target.player && !tacSees(e)) e.target = null; if (!was && e.target && e.target.player) e.fireCd = Math.max(e.fireCd, diff.react * rand(0.8, 1.2) * (mzEase() ? mzEase().react : 1)); }   /* a man who has just seen the player needs a moment before he fires: longer on the easy level */
@@ -534,7 +555,8 @@ function updEnemy(e, dt) {
     if (e.target && Math.random() < dt * 0.35) { e.state = 'engage'; e.engageT = rand(1, 2); e.stance = 'stand'; e.backTo = 'hold'; }
     e.rig.pose('crouch', e.anim, aimPitch()); if (e.target) e.face(e.target.p.x, e.target.p.z);
   } else if (e.state === 'engage') {
-    e.engageT -= dt; shoot(); e.rig.pose(e.stance === 'crouch' ? 'crouch' : 'aim', e.anim, aimPitch());
+    e.engageT -= dt; shoot(); if (aimedAt(e)) { e.stance = 'crouch'; e.sideT = (e.sideT ?? rand(0.6, 1.4)) - dt; if (e.sideT <= 0) { e.sideT = rand(0.8, 1.6); e.sideD = Math.random() < 0.5 ? -1 : 1; } if (e.sideD) { const h = e.heading + Math.PI / 2 * e.sideD; steer(e, e.pos.x + Math.sin(h), e.pos.z + Math.cos(h), 1.4, dt); if (e.target) e.face(e.target.p.x, e.target.p.z); } }   // in the open, aimed at: down to a knee, a step aside
+    e.rig.pose(e.stance === 'crouch' ? 'crouch' : 'aim', e.anim, aimPitch());
     if (e.engageT <= 0) { e.state = e.backTo || 'move'; e.backTo = null; }
   } else if (e.state === 'toCover') {
     const c = e.cover; e.toCoverT += dt;
@@ -621,11 +643,12 @@ function coverCycle(e, dt, c, shoot, aimPitch) {
   if (e.cyc <= 0) {
     e.peek = !e.peek; if (e.peek && (pin || (aimed && Math.random() < 0.7))) e.peek = false;
     e.cyc = e.peek ? rand(0.7, 2.0) + (covering ? 0.8 : 0) : covering ? rand(0.3, 0.7) : rand(0.8, 2.4) + (aimed ? 0.7 : 0);
-    if (e.peek) { e.scanCd = 0; e.burst = 0; e.fireCd = rand(0.25, 0.5); e.peekOff = tacPeekOff(e, c); }
+    if (e.peek) { e.scanCd = 0; e.burst = 0; e.fireCd = rand(0.25, 0.5); e.peekOff = tacPeekOff(e, c); e.peekN = (e.peekN || 0) + 1; e.peekLow = Math.random() < 0.4;
+      if (e.peekN >= 3 + Math.floor(Math.random() * 3)) { e.peekN = 0; e.peek = false; e.cyc = rand(2.0, 3.2); e.reloading = true; } else e.reloading = false; }   // the magazine: changed down behind the cover, and that is the moment to move on him
   }
   const tp = e.target ? e.target.p : null;
   if (e.peek) {
-    const hasP = c.px !== undefined, tall = hasP || c.h > 1.5, o = e.peekOff || 0; e.stance = tall ? 'stand' : 'crouch';
+    const hasP = c.px !== undefined, tall = (hasP || c.h > 1.5) && !(e.peekLow && !hasP), o = (e.peekOff || 0) * (e.peekLow ? 1.25 : 1); e.stance = tall ? 'stand' : 'crouch';   // on tall cover sometimes from a knee at its corner
     steer(e, hasP ? c.px : c.x - c.nz * o, hasP ? c.pz : c.z + c.nx * o, 3.4, dt); if (tp) e.face(tp.x, tp.z); else if (tacKnows(e)) e.face(e.lkp.x, e.lkp.z); else e.heading = Math.atan2(c.nx, c.nz);
     if (tp) shoot(); else if (covering && tacKnows(e, 5)) { e.fireCd -= dt; if (e.fireCd <= 0) { e.fireCd = rand(0.25, 0.6); tacFireAt(e, 0.2); } }   // he cannot see the player, but fires at where he was to cover a comrade on the move
     e.rig.pose(tall ? 'aim' : 'crouch', e.anim, aimPitch());
@@ -1297,7 +1320,7 @@ function updPlayer(dt) {
   } else if (P.ride) {
     const rp = P.ride.pos(); P.pos.copy(rp); P.crouch = true; P.sprint = false; const e = playerEye(); if (P.ride.mg || P.ride.novm) vm.visible = false;
     // a touch of third person on a vehicle: just behind and above his helmet (tpvCam); the shot still goes through the crosshair's centre
-    const k = P.ads > 0.5 ? 0 : 1 - P.ads * 2; tpvCam(e, k); tpvBody(k > 0.3 && !CINE.on, e);
+    const k = P.ads > 0.5 ? 0 : 1 - P.ads * 2; tpvCam(e, k, true); tpvBody(k > 0.3 && !CINE.on, e);
   } else {
     let fwd = (k.KeyW || k.ArrowUp ? 1 : 0) - (k.KeyS || k.ArrowDown ? 1 : 0) - INPUT.joy.y, str = (k.KeyD || k.ArrowRight ? 1 : 0) - (k.KeyA || k.ArrowLeft ? 1 : 0) + INPUT.joy.x;
     const l = Math.hypot(fwd, str); if (l > 1) { fwd /= l; str /= l; }
