@@ -253,7 +253,8 @@ function updFriend(f, dt, time) {
     const isMag = p.mag && p.occupant === f;
     let tp = null; if (f.target) tp = f.target.u ? (f.target.u.alive ? f.target.u.chest() : null) : (f.target.boat.seats[f.target.seat].alive ? f.target.boat.seatWorld(f.target.seat).add(V3(0, 0.7, 0)) : null);
     if (!tp) f.target = null;
-    if (f.duckT > 0) { if (tp) u.face(tp.x, tp.z); u.stance = 'hide'; u.rig.pose('hide', u.anim); }
+    f.peekT = (f.peekT || 0) - dt;
+    if (f.duckT > 0 || (f.peekT > 0 && tp && !isMag)) { if (tp) u.face(tp.x, tp.z); u.stance = 'hide'; u.rig.pose('hide', u.anim); if (f.peekT > 0) f.fireCd -= dt; }
     else if (tp) {
       u.face(tp.x, tp.z); const eye = u.eye(); f.aimP = Math.atan2(tp.y - eye.y, Math.hypot(tp.x - eye.x, tp.z - eye.z));
       if (isMag) { const yaw = Math.atan2(tp.x - p.mag.pivot.position.x, tp.z - p.mag.pivot.position.z); p.mag.pivot.rotation.set(-f.aimP, yaw, 0); }
@@ -261,6 +262,7 @@ function updFriend(f, dt, time) {
       if (f.fireCd <= 0) {
         if (f.burst <= 0) { f.burst = isMag ? Math.floor(rand(6, 11)) : Math.floor(rand(1, 3)); }
         f.burst--; f.fireCd = f.burst > 0 ? (isMag ? 0.09 : 0.35) : rand(1.1, 2.4) * (isMag ? 1.2 : 1) * diff.fgun;
+        if (f.burst <= 0 && !isMag && Math.random() < 0.6) f.peekT = f.fireCd * rand(0.5, 0.85);   // the burst fired, he drops behind his cover and comes up again for the next
         const from = isMag ? p.mag.pivot.localToWorld(V3(0, 0.012, 0.9)) : u.muzzle(); fxMuzzle(from, isMag); sndShot('fal-npc', from);
         const d = from.distanceTo(tp); const rangeF = clamp(1 - d / 420, 0.2, 1);
         let pHit = (isMag ? 0.0018 : FIELDM() ? 0.013 : 0.0045) * rangeF;
@@ -1725,7 +1727,7 @@ function setQual(q, live) {
   for (const x of document.querySelectorAll('#qual button')) x.setAttribute('aria-pressed', String(x.dataset.q === q)); if (!live) return;
   try { localStorage.setItem('yk73.q2', q); } catch (e) {}
   const L = { high: [16, 48], med: [9, 30], low: [0, 15] }[q]; QLOD[0] = L[0]; QLOD[1] = L[1];
-  const dpr = window.devicePixelRatio || 1; renderer.setPixelRatio(q === 'low' ? 1 : Math.min(dpr, q === 'high' ? (PHONE ? 2.4 : 3) : 2)); GOV.cap = renderer.getPixelRatio(); window.dispatchEvent(new Event('resize'));
+  const dpr = window.devicePixelRatio || 1; renderer.setPixelRatio(q === 'low' ? 1 : Math.min(dpr, q === 'high' ? (PHONE ? 2 : 3) : 2)); GOV.cap = renderer.getPixelRatio(); window.dispatchEvent(new Event('resize'));
   const n = $('#qualNote'); if (n) n.hidden = q === QUAL;
 }
 { const el = $('#qual'); if (el) el.addEventListener('click', (e) => { const b = e.target.closest('button'); if (b && b.dataset.q) setQual(b.dataset.q, true); }); setQual(QUAL, false);

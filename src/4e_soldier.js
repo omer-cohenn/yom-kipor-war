@@ -86,6 +86,44 @@ function nsBindPaint(m, glsl, tag) {
   };
   m.customProgramCacheKey = () => key + '|' + tag; return m;
 }
+/* the creases of the drill: folds where a uniform folds - rings round the sleeve at the elbow and bunched at the cuff, from the armpit across
+   chest and back, rings round the trouser leg at the knee and over the boots, the shirt bunched above the belt, creases at the hip - and the
+   cloth's own crumple everywhere. A height read from the figure's bind position (so the folds go where the joints are, whatever the pose),
+   turned into the shading normal through the screen derivatives (Mikkelsen's bump, unscaled: millimetres of cloth as millimetres), the
+   hollows a shade darker; the fine ones fade where they would be smaller than a pixel. On every new soldier, ours and theirs */
+const NS_WRK_FN = `float nsWH(vec3 p) { return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453); }
+float nsWN(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(mix(nsWH(i), nsWH(i + vec3(1.0, 0.0, 0.0)), f.x), mix(nsWH(i + vec3(0.0, 1.0, 0.0)), nsWH(i + vec3(1.0, 1.0, 0.0)), f.x), f.y),
+             mix(mix(nsWH(i + vec3(0.0, 0.0, 1.0)), nsWH(i + vec3(1.0, 0.0, 1.0)), f.x), mix(nsWH(i + vec3(0.0, 1.0, 1.0)), nsWH(i + vec3(1.0, 1.0, 1.0)), f.x), f.y), f.z); }
+float nsFold(vec3 b) {
+  float fw = length(fwidth(b)), fine = 1.0 - smoothstep(0.003, 0.009, fw), mid = 1.0 - smoothstep(0.006, 0.02, fw), ax = abs(b.x), h = 0.0;
+  float arm = smoothstep(0.2, 0.26, ax) * (1.0 - smoothstep(0.1, 0.16, abs(b.y - 0.477)));
+  float var = 0.35 + 0.95 * nsWN(b * 11.0 + 3.7);   // folds of uneven depth: some deep, some barely there
+  float e = (ax - 0.46) / 0.075; h += arm * exp(-e * e) * sin(ax * 230.0 + (b.y + b.z) * 60.0 + nsWN(b * 30.0) * 5.0) * 0.0045 * var;
+  float c = (ax - 0.665) / 0.045; h += arm * exp(-c * c) * sin(ax * 280.0 + (b.y - b.z) * 70.0 + nsWN(b * 44.0) * 4.5) * 0.0024 * var;
+  float sh = smoothstep(0.07, 0.13, ax) * (1.0 - smoothstep(0.23, 0.3, ax)) * smoothstep(0.3, 0.38, b.y) * (1.0 - smoothstep(0.46, 0.52, b.y));
+  h += sh * sin((ax * 0.85 - b.y) * 150.0 + nsWN(b * 30.0) * 2.2) * 0.003;
+  float leg = (1.0 - smoothstep(0.17, 0.22, ax)) * (1.0 - smoothstep(-0.02, 0.02, b.y));
+  float k = (b.y + 0.42) / 0.075; h += leg * exp(-k * k) * sin(b.y * 220.0 + (b.x + b.z) * 55.0 + nsWN(b * 32.0) * 5.0) * 0.0045 * var;
+  float bl = (b.y + 0.755) / 0.05; h += leg * exp(-bl * bl) * sin(b.y * 280.0 + b.z * 60.0 + nsWN(b * 40.0) * 4.5) * 0.0042 * var;
+  float w = smoothstep(0.155, 0.175, b.y) * (1.0 - smoothstep(0.24, 0.3, b.y)) * (1.0 - smoothstep(0.2, 0.25, ax));
+  h += w * sin(atan(b.x, b.z) * 24.0 + nsWN(b * 25.0) * 3.0) * 0.0032;
+  float hp = smoothstep(-0.2, -0.06, b.y) * (1.0 - smoothstep(-0.04, 0.04, b.y)) * (1.0 - smoothstep(0.15, 0.2, ax));
+  h += hp * sin((ax * 1.3 + b.y) * 130.0 + nsWN(b * 33.0) * 2.0) * 0.0022;
+  h *= mid;
+  h += ((nsWN(b * 34.0) - 0.5) * 0.004 + (nsWN(b * 95.0) - 0.5) * 0.0013) * fine;
+  return h;
+}
+vec3 nsPerturb(vec3 sp, vec3 sn, vec2 dH, float fd) { vec3 sx = dFdx(sp), sy = dFdy(sp), r1 = cross(sy, sn), r2 = cross(sn, sx); float det = dot(sx, r1) * fd; vec3 g = sign(det) * (dH.x * r1 + dH.y * r2); return normalize(abs(det) * sn - g); }
+float nsFH = 0.0;`;
+function nsWrinkle(m, tag) {   // after nsBindPaint (it declares vBindP)
+  const prev = m.onBeforeCompile, key = m.customProgramCacheKey ? m.customProgramCacheKey() : '';
+  m.onBeforeCompile = (sh, r) => { if (prev) prev.call(m, sh, r);
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\n' + NS_WRK_FN)
+      .replace('#include <map_fragment>', '#include <map_fragment>\nnsFH = nsFold(vBindP) * 1.5; diffuseColor.rgb *= 1.0 - 0.3 * smoothstep(0.0, 0.006, -nsFH) + 0.06 * smoothstep(0.0, 0.006, nsFH);')
+      .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\nnormal = nsPerturb(-vViewPosition, normal, vec2(dFdx(nsFH), dFdy(nsFH)) * 1.8, faceDirection);'); };
+  m.customProgramCacheKey = () => key + '|wrk' + tag; return m;
+}
 // woven web: a fine basket weave and the stitched edge of each strap, pale so the material colour is the colour
 function nsWebTex() {
   const W = 64, c = canvas(W, W), g = c.getContext('2d'); g.fillStyle = '#d8d4c8'; g.fillRect(0, 0, W, W);
@@ -102,7 +140,7 @@ function nsMaterials() {
   const head = nsImage(T.head), headAr = nsImage(T.headAr || T.head), hands = nsImage(T.hands), eyes = nsImage(T.eyes), net = nsNet();
   const hidden = new THREE.MeshBasicMaterial({ visible: false });
   const skin = (map, tint) => std({ map, roughness: 0.6, color: tint });
-  const web = nsWebTex(), belt = (side, color) => nsBindPaint(cloth(side, web, color), NS_BELT, 'belt' + side), waist = (m, side) => nsBindPaint(m, NS_WAIST, 'waist' + side);
+  const web = nsWebTex(), belt = (side, color) => nsBindPaint(cloth(side, web, color), NS_BELT, 'belt' + side), waist = (m, side) => nsWrinkle(nsBindPaint(m, NS_WAIST, 'waist' + side), side);
   const f = [waist(cloth('f', uniF, 0xffffff), 'f'), belt('f', 0x8a8458), std({ color: 0x4a2c1c, roughness: 0.55 }), skin(head, 0xffffff), skin(hands, 0xffffff), std({ map: eyes, roughness: 0.15 }),
     std({ map: net, roughness: 0.8 }), std({ color: 0x3a3a2a, roughness: 0.85 }), hidden];
   const e = [waist(cloth('e', NEWSOL.camo.eg, 0xffffff), 'e'), belt('e', 0x5e4c32), std({ color: 0x1d1b19, roughness: 0.55 }), skin(headAr, 0xf0d5ba), skin(hands, 0xf0d5ba), std({ map: eyes, roughness: 0.15 }),
@@ -147,9 +185,9 @@ function nsShow(R, on) {
 }
 /* who wears it: a man nearer than NS_D (by what the eye sees: closer through a sight, and the far enemies drawn larger count as far),
    its own distance - not the old figure's levels of detail, which on medium and low quality never reach the finest */
-const NS_D = { high: PHONE ? 34 : 42, med: 24, low: 12 }[QUAL], NS_MAX = { high: PHONE ? 16 : 20, med: 11, low: 6 }[QUAL];   // and never more than NS_MAX at once: the nearest
+const NS_D = { high: 42, med: 24, low: 12 }[QUAL], NS_MAX = { high: 20, med: 11, low: 6 }[QUAL];   // and never more than NS_MAX at once: the nearest
 // the figure's level of detail by that same distance: whole near, a third of its triangles past NS_L[0], an eighth past NS_L[1]
-const NS_L = { high: PHONE ? [26, 50] : [32, 60], med: [18, 38], low: [11, 26] }[QUAL];   // whole near, as the showroom shows them
+const NS_L = { high: [32, 60], med: [18, 38], low: [11, 26] }[QUAL];   // whole near, as the showroom shows them
 const NSB = { t: -1, allow: new Set(), cand: [] };
 function nsDecide(u) {
   const R = u.rig; if (!R) return; const far = camera.position.distanceTo(u.pos), eff = far * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2) / 0.7265 / (u.vs || 1);

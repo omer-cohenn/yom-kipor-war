@@ -20,8 +20,10 @@ const LITE0 = !QS.has('full') && (QS.has('lite') || TOUCH || /iPhone|iPad|iPod|A
 // high everywhere unless the player picks less (phones too: the frame governor in 5_game.js keeps them smooth); a choice saved before this
 // version (the old key) is not carried over, so every phone starts at the full picture
 const QUAL = (() => { let q = QS.get('q'); if (!q) try { q = localStorage.getItem('yk73.q2'); } catch (e) {} return ['high', 'med', 'low'].includes(q) ? q : 'high'; })();
-const LITE = QUAL !== 'high';
-const PHONE = LITE0;   // a phone or tablet on the full picture: a fifth less of the heaviest things (resolution, shadow map, near soldiers, plants) so it loads and runs smoothly
+const PHONE = LITE0;   // a phone or tablet: the soldiers in full, the map and its objects lighter (below)
+// LITE: the lighter map and objects - fewer plants and stones, a coarser ground and sea, smaller effect pools. On medium and low, and on a
+// phone at high too: there the soldiers stay in full detail (they follow QUAL, not LITE), the ground keeps its textures and the sun its shadows
+const LITE = QUAL !== 'high' || PHONE;
 const SHADOWS = QUAL !== 'low' && !QS.has('noshadow');   // the sun's shadows on medium too (a smaller map): a phone draws them well enough, and the frame governor in 5_game.js takes the resolution down first if not
 const QLOD = { high: [16, 48], med: [9, 30], low: [0, 15] }[QUAL];
 const FAR = LITE ? 11000 : 30000;
@@ -259,7 +261,7 @@ function terrainAt0(x, z) {
 /* ================= renderer / scene / cameras ================= */
 const stage = $('#stage');
 const renderer = new THREE.WebGLRenderer({ antialias: QUAL !== 'low' && !QS.has('noaa'), powerPreference: LITE ? 'default' : 'high-performance', logarithmicDepthBuffer: !LITE });
-renderer.setPixelRatio(QUAL === 'low' ? 1 : Math.min(window.devicePixelRatio || 1, QUAL === 'high' ? (PHONE ? 2.4 : 3) : 2));   // a phone's own pixels, up to 2.4 to one
+renderer.setPixelRatio(QUAL === 'low' ? 1 : Math.min(window.devicePixelRatio || 1, QUAL === 'high' ? (PHONE ? 2 : 3) : 2));   // a phone: two device pixels to one
 renderer.domElement.addEventListener('webglcontextlost', (e) => { e.preventDefault(); const l = $('#loading'); l.classList.remove('done'); $('#loadMsg').textContent = 'הזיכרון הגרפי של המכשיר נגמר והמשחק נעצר. סגרו לשוניות ואפליקציות אחרות ורעננו, או שחקו במחשב.'; });
 renderer.setSize(stage.clientWidth, stage.clientHeight);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;

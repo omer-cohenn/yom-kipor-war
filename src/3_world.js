@@ -794,12 +794,12 @@ function saguaros(list) {   // [x, z, height, turn, shape]
   const G = saguaroGeos(), mm = new THREE.Matrix4(), q = new THREE.Quaternion(), up = V3(0, 1, 0), c = new THREE.Color();
   G.forEach((g, k) => { const it = list.filter((s) => s[4] === k); if (!it.length) return; const m = new THREE.InstancedMesh(g, FLORA.sagMat, it.length);
     it.forEach(([x, z, h, r], i) => { m.setMatrixAt(i, mm.compose(V3(x, groundAt(x, z) - 0.15, z), q.setFromAxisAngle(up, r), V3(h, h, h))); m.setColorAt(i, c.setRGB(0.9 + 0.15 * ((i * 0.618) % 1), 0.95 + 0.1 * ((i * 0.382) % 1), 0.9)); });
-    SH(m, true, true); scene.add(onLayer1(m)); });
+    SH(m, !LITE, true); scene.add(onLayer1(m)); });   // (on the lighter map they cast no shadow)
 }
 /* the plants of a desert chapter over a box: in clumps (where water once ran), many of them within sight of the route (near: its points),
    off ok's ground; k scales the counts (by the box's area too). A hawk sits on top of three saguaros; two more circle high over the box */
 function desertFlora(x0, x1, z0, z1, seed, ok, k = 1, near = null) {
-  const A = Math.abs((x1 - x0) * (z1 - z0)) / 1.4e6, n = (c) => Math.max(1, Math.round(c * k * A * (LITE ? 0.5 : PHONE ? 0.6 : 1)));
+  const A = Math.abs((x1 - x0) * (z1 - z0)) / 1.4e6, n = (c) => Math.max(1, Math.round(c * k * A * (LITE ? 0.45 : 1)));
   // clump centres: some over the whole box, some along the route; round each, a handful of the kind within rad
   const clumps = (nc, per, rad, sd, size) => { const r = rng(seed * 7 + sd), cs = scatterIn(Math.ceil(nc * 0.55), x0, x1, z0, z1, seed + sd, ok, (x, z) => [x, z]); if (near) cs.push(...scatterNear(near, Math.ceil(nc * 0.45), 14, 130, seed + sd + 50, ok, (x, z) => [x, z]));
     const out = []; for (const [cx, cz] of cs) { const m = 1 + Math.floor(r() * per); for (let q = 0; q < m; q++) { const a = r() * 6.283, d = Math.sqrt(r()) * rad, x = cx + Math.cos(a) * d, z = cz + Math.sin(a) * d; if (ok(x, z)) out.push([x, z, size[0] + r() * size[1], r() * 6]); } } return out; };

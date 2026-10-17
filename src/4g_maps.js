@@ -294,14 +294,18 @@ const SAND_FRAG = `{
     vec2 pp = vSdP.xz, gs = vec2(0.0); float fwS = length(fwidth(pp)), patchS = sdN(pp / 9.0 + 1.7), hs = 0.5, hw = 0.0;
     float a1 = (1.0 - smoothstep(0.15, 0.35, fwS / 0.12)) * flS;
     if (a1 > 0.0) { vec3 r = sdRip(pp, 0.12); gs += r.yz * 0.0065 * a1 * (0.5 + 0.8 * patchS); hs = r.x; hw = a1; }
+#ifndef SAND_LITE
     float a2 = (1.0 - smoothstep(0.15, 0.35, fwS / 0.9)) * flS * smoothstep(0.45, 0.85, sdN(pp / 31.0 + 4.2));
     if (a2 > 0.0) { vec3 r = sdRip(mat2(0.96, -0.28, 0.28, 0.96) * pp + 3.1, 0.9); gs += r.yz * 0.012 * a2; hs = mix(hs, r.x, a2 * 0.3 * (1.0 - hw * 0.5)); }
+#endif
     diffuseColor.rgb *= mix(1.0, 0.93 + 0.11 * hs, hw * 0.85);
     nWs = normalize(nWs - vec3(gs.x, 0.0, gs.y)); normal = normalize((viewMatrix * vec4(nWs, 0.0)).xyz);
+#ifndef SAND_LITE
     vec2 q = vec2(dot(pp, SDW), dot(pp, SDC));
     float s1 = sdN(vec2(q.x * 0.3 - uSandT * 2.4, q.y * 1.8)), s2 = sdN(vec2(q.x * 0.05 - uSandT * 0.45, q.y * 0.22) + 7.0);
     float stk = smoothstep(0.62, 0.95, s1) * smoothstep(0.5, 0.85, s2) * (1.0 - smoothstep(25.0, 70.0, cdS)) * skS;
     diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * 1.16 + 0.012, stk * 0.6);
+#endif
   }
 }`;
 function sandify(m) {
@@ -310,7 +314,7 @@ function sandify(m) {
   m.onBeforeCompile = (sh, r) => { prev.call(m, sh, r); sh.uniforms.uSandT = SAND.uT;
     sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute float aSand; varying float vSandK; varying vec3 vSdP;')
       .replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\nvSandK = aSand; vSdP = (modelMatrix * vec4(transformed, 1.0)).xyz;');
-    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\n' + SAND_GLSL).replace('#include <emissivemap_fragment>', SAND_FRAG + '\n#include <emissivemap_fragment>')
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\n' + (LITE ? '#define SAND_LITE\n' : '') + SAND_GLSL).replace('#include <emissivemap_fragment>', SAND_FRAG + '\n#include <emissivemap_fragment>')
       .replace('a0 = mix(a0, b0, 0.35);', 'a0 = mix(a0, b0, 0.35); a0.rgb = mix(a0.rgb, uAvg[0], 0.85 * vSandK);').replace('vec2 t = (n0 * gB.x', 'n0 = mix(n0, vec2(0.5), 0.85 * vSandK); vec2 t = (n0 * gB.x'); };   /* the map's sand texture is a tile of straight stripes: flattened where the wind's own ripples are */
   m.customProgramCacheKey = () => key + '+sand'; m.needsUpdate = true; return m;
 }

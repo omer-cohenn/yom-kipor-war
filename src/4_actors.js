@@ -592,7 +592,7 @@ class Rig {
     } else if (kind === 'aim' || kind === 'crouch') {
       if (kind === 'crouch') { T.hipsY = 0.55; R.legs(-1.35, 1.45, -0.2, 1.95); T.torsoX = 0.12; }
       else R.legs(-0.12, 0.12, 0.16, 0.1);
-      T.torsoX += -pitch * 0.7 + Math.sin(t * 0.9) * 0.008; T.torsoY = 0.18;
+      T.torsoX += -pitch * 0.7 + Math.sin(t * 0.9) * 0.008 + Math.sin(t * 1.55 + 0.4) * 0.006; T.torsoY = 0.18 + Math.sin(t * 0.37) * 0.025; T.hipsX = Math.sin(t * 0.29 + 1.1) * 0.012; T.torsoZ = Math.sin(t * 0.47) * 0.012;   // never quite still: breath and balance
       if (R.wkind === 'rpg') R.gunAt(-0.15, 0.53, 0.02, -pitch * 0.3, -0.18, 0);
       else if (R.nsOn) { const B = NS_AIM[R.wkind === 'rifle' && R.side === 'f' ? 'fal' : R.wkind] || NS_AIM.rifle; T.torsoY = -NS_BLADE; R.gunAt(B[0], B[1] + Math.sin(t * 1.1) * 0.004, B[2], -pitch * 0.3, NS_BLADE, 0); R.hYaw = NS_BLADE; }
       else R.gunAt(-0.1, 0.45 + Math.sin(t * 1.1) * 0.004, 0.4, -pitch * 0.3, -0.2, 0);
@@ -602,7 +602,9 @@ class Rig {
       // standing easy: weight shifts slowly from foot to foot, the chest rises with the breath
       const b = Math.sin(t * 0.8), w = Math.sin(t * 0.31);
       R.legs(-0.05 + w * 0.03, 0.05 + Math.max(0, w) * 0.06, 0.05 - w * 0.03, 0.05 + Math.max(0, -w) * 0.06); T.hipsX = w * 0.025; T.hipsZ = w * 0.03; T.torsoX = 0.03 + b * 0.02; T.torsoZ = -w * 0.03; T.torsoY = w * 0.05;
-      if (R.wkind === 'rpg') R.gunAt(-0.16, 0.56 + b * 0.004, 0.16, -0.35, -0.08, 0); else R.gunAt(-0.03, 0.24 + b * 0.004, 0.25, 0.55, 0.4, 0);   // the RPG rests on the shoulder
+      R.fidT = (R.fidT ?? rand(3, 9)) - FDT; if (R.fidT < -1.4) R.fidT = rand(6, 14); const fd = R.fidT < 0 ? Math.sin(-R.fidT / 1.4 * Math.PI) : 0;   // a fidget: the rifle lifted and looked at, a shoulder rolled
+      if (R.wkind === 'rpg') R.gunAt(-0.16, 0.56 + b * 0.004, 0.16, -0.35, -0.08, 0); else R.gunAt(-0.03 + fd * 0.06, 0.24 + b * 0.004 + fd * 0.12, 0.25 + fd * 0.05, 0.55 - fd * 0.45, 0.4 - fd * 0.2, fd * 0.2);   // the RPG rests on the shoulder
+      T.torsoZ += fd * 0.05; T.torsoY += fd * 0.12;
     } else if (kind === 'prone') {
       T.rootX = -Math.PI / 2; R.legs(0.05, 0.1, -0.05, 0.25 + Math.sin(t * 1.3) * 0.1);
       R.arms(-0.2 + Math.sin(t * 2) * 0.15, -0.6, -2.4 + Math.sin(t * 1.7) * 0.3, -0.5, 0.2, -0.2); R.gunAt(0.3, 0.1, -0.4, 0, 0.8, 1.4);
@@ -678,12 +680,14 @@ class Rig {
   /* what a living body does on its own: the chest rises and falls, the head looks about a little (less with a rifle at the shoulder), the eyes blink */
   life(kind) {
     const R = this; R.breath += FDT; if (REDUCED) return;
-    const quick = kind === 'run' ? 2.8 : kind === 'walk' ? 1.9 : 1.25, b = 0.011 * Math.sin(R.breath * quick) * (kind === 'fall' ? 0.3 : 1); R.torso.scale.set(1 + b * 0.4, 1 + b, 1 + b * 0.8);
+    const quick = kind === 'run' ? 2.8 : kind === 'walk' ? 1.9 : 1.25, b = 0.017 * Math.sin(R.breath * quick) * (kind === 'fall' ? 0.3 : 1); R.torso.scale.set(1 + b * 0.5, 1 + b, 1 + b * 0.9); R.torso.rotation.x -= b * 0.5;   // the chest rises with each breath
     if (kind === 'fall') { R.headP.rotation.set(0.12, 0, 0.1); if (!R.shut && !R.deadOpen && R.blendT <= 0) { R.shut = true; R.head.material = MAT.facesShut[R.side][R.faceV]; } return; }
     const calm = kind === 'idle' ? 1 : kind === 'walk' ? 0.8 : kind === 'aim' || kind === 'crouch' || kind === 'hide' || kind === 'prone' ? 0.25 : 0.45, t = R.breath;
     R.hY = (R.hY || 0) + ((R.hYaw || 0) - (R.hY || 0)) * Math.min(1, FDT * 8);   // a man standing bladed to his rifle keeps his eyes on the target
-    R.headP.rotation.set((0.045 * Math.sin(t * 0.7 + 1) + 0.015 * Math.sin(t * 2.3)) * calm, (0.16 * Math.sin(t * 0.41) + 0.07 * Math.sin(t * 1.13 + 2)) * calm + R.hY, 0.035 * Math.sin(t * 0.53 + 0.7) * calm);
-    R.blinkT -= FDT; if (R.blinkT <= 0) { R.shut = !R.shut; R.head.material = R.shut ? MAT.facesShut[R.side][R.faceV] : MAT.faces[R.side][R.faceV]; R.blinkT = R.shut ? 0.11 : (Math.random() < 0.2 ? 0.25 : rand(2.2, 6.5)); }
+    { const G = R.gz || (R.gz = { t: rand(1, 4), y: 0, p: 0, cy: 0, cp: 0 }); G.t -= FDT; if (G.t <= 0) { const look = Math.random() < 0.6; G.y = look ? rand(-0.75, 0.75) * (calm > 0.5 ? 1 : 0.35) : 0; G.p = look ? rand(-0.18, 0.12) : 0; G.t = look ? rand(0.7, 2.2) : rand(1.5, 4.5); }
+      const gk = 1 - Math.exp(-FDT * 9); G.cy += (G.y - G.cy) * gk; G.cp += (G.p - G.cp) * gk;   // a glance: the head goes quickly, holds, comes back
+      R.headP.rotation.set((0.045 * Math.sin(t * 0.7 + 1) + 0.015 * Math.sin(t * 2.3)) * calm + G.cp + b * 0.6, (0.16 * Math.sin(t * 0.41) + 0.07 * Math.sin(t * 1.13 + 2)) * calm + R.hY + G.cy, 0.035 * Math.sin(t * 0.53 + 0.7) * calm); }
+    R.blinkT -= FDT; if (R.blinkT <= 0) { R.shut = !R.shut; R.head.material = R.shut ? MAT.facesShut[R.side][R.faceV] : MAT.faces[R.side][R.faceV]; R.blinkT = R.shut ? 0.11 : (Math.random() < 0.22 ? 0.22 : rand(1.6, 5.2)); }
   }
 }
 
