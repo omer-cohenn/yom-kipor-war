@@ -18,7 +18,9 @@ const TOUCH = matchMedia('(pointer: coarse)').matches;
    draws at a lower resolution, with a coarser sea and soldiers in less detail. QLOD: the distances (m) at which a soldier steps down
    to the next level of detail - near men in full, far ones in a few hundred triangles */
 const LITE0 = !QS.has('full') && (QS.has('lite') || TOUCH || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || Math.min(screen.width, screen.height) < 700 || (navigator.deviceMemory && navigator.deviceMemory <= 4));
-const QUAL = (() => { let q = QS.get('q'); if (!q) try { q = localStorage.getItem('yk73.q'); } catch (e) {} return ['high', 'med', 'low'].includes(q) ? q : QS.has('full') ? 'high' : LITE0 ? 'med' : 'high'; })();
+// high everywhere unless the player picks less (phones too: the frame governor in 5_game.js keeps them smooth); a choice saved before this
+// version (the old key) is not carried over, so every phone starts at the full picture
+const QUAL = (() => { let q = QS.get('q'); if (!q) try { q = localStorage.getItem('yk73.q2'); } catch (e) {} return ['high', 'med', 'low'].includes(q) ? q : 'high'; })();
 const LITE = QUAL !== 'high';
 const SHADOWS = QUAL !== 'low' && !QS.has('noshadow');   // the sun's shadows on medium too (a smaller map): a phone draws them well enough, and the frame governor in 5_game.js takes the resolution down first if not
 const QLOD = { high: [16, 48], med: [9, 30], low: [0, 15] }[QUAL];
@@ -256,8 +258,8 @@ function terrainAt0(x, z) {
 
 /* ================= renderer / scene / cameras ================= */
 const stage = $('#stage');
-const renderer = new THREE.WebGLRenderer({ antialias: QUAL !== 'low', powerPreference: LITE ? 'default' : 'high-performance', logarithmicDepthBuffer: !LITE });
-renderer.setPixelRatio(QUAL === 'low' ? 1 : Math.min(window.devicePixelRatio || 1, 2));
+const renderer = new THREE.WebGLRenderer({ antialias: QUAL !== 'low' && !QS.has('noaa'), powerPreference: LITE ? 'default' : 'high-performance', logarithmicDepthBuffer: !LITE });
+renderer.setPixelRatio(QUAL === 'low' ? 1 : Math.min(window.devicePixelRatio || 1, QUAL === 'high' ? 3 : 2));   // a phone's own pixels, up to three to one
 renderer.domElement.addEventListener('webglcontextlost', (e) => { e.preventDefault(); const l = $('#loading'); l.classList.remove('done'); $('#loadMsg').textContent = 'הזיכרון הגרפי של המכשיר נגמר והמשחק נעצר. סגרו לשוניות ואפליקציות אחרות ורעננו, או שחקו במחשב.'; });
 renderer.setSize(stage.clientWidth, stage.clientHeight);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -4026,9 +4028,9 @@ function nsShow(R, on) {
 }
 /* who wears it: a man nearer than NS_D (by what the eye sees: closer through a sight, and the far enemies drawn larger count as far),
    its own distance - not the old figure's levels of detail, which on medium and low quality never reach the finest */
-const NS_D = { high: 26, med: 19, low: 12 }[QUAL], NS_MAX = { high: 14, med: 9, low: 6 }[QUAL];   // and never more than NS_MAX at once: the nearest
+const NS_D = { high: 42, med: 24, low: 12 }[QUAL], NS_MAX = { high: 20, med: 11, low: 6 }[QUAL];   // and never more than NS_MAX at once: the nearest
 // the figure's level of detail by that same distance: whole near, a third of its triangles past NS_L[0], an eighth past NS_L[1]
-const NS_L = { high: [18, 40], med: [15, 34], low: [11, 26] }[QUAL];
+const NS_L = { high: [32, 60], med: [18, 38], low: [11, 26] }[QUAL];   // whole near, as the showroom shows them
 const NSB = { t: -1, allow: new Set(), cand: [] };
 function nsDecide(u) {
   const R = u.rig; if (!R) return; const far = camera.position.distanceTo(u.pos), eff = far * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2) / 0.7265 / (u.vs || 1);
@@ -6108,9 +6110,9 @@ for (const id of ['#diff', '#diffP']) { const el = $(id); if (el) el.addEventLis
    when the game loads, so those follow on the next load */
 function setQual(q, live) {
   for (const x of document.querySelectorAll('#qual button')) x.setAttribute('aria-pressed', String(x.dataset.q === q)); if (!live) return;
-  try { localStorage.setItem('yk73.q', q); } catch (e) {}
+  try { localStorage.setItem('yk73.q2', q); } catch (e) {}
   const L = { high: [16, 48], med: [9, 30], low: [0, 15] }[q]; QLOD[0] = L[0]; QLOD[1] = L[1];
-  const dpr = window.devicePixelRatio || 1; renderer.setPixelRatio(q === 'low' ? 1 : Math.min(dpr, 2)); GOV.cap = renderer.getPixelRatio(); window.dispatchEvent(new Event('resize'));
+  const dpr = window.devicePixelRatio || 1; renderer.setPixelRatio(q === 'low' ? 1 : Math.min(dpr, q === 'high' ? 3 : 2)); GOV.cap = renderer.getPixelRatio(); window.dispatchEvent(new Event('resize'));
   const n = $('#qualNote'); if (n) n.hidden = q === QUAL;
 }
 { const el = $('#qual'); if (el) el.addEventListener('click', (e) => { const b = e.target.closest('button'); if (b && b.dataset.q) setQual(b.dataset.q, true); }); setQual(QUAL, false);
@@ -6174,15 +6176,15 @@ function slowMo(dur, k = 0.25, lookAt = null) { SLOW.left = dur; SLOW.k0 = k; SL
 function slowStep(real) { if (SLOW.left > 0) { SLOW.left -= real; const u = clamp(SLOW.left / SLOW.fade, 0, 1); SLOW.k = SLOW.left > 0 ? lerp(1, SLOW.k0, u) : 1; if (SLOW.left <= 0) SLOW.look = null; } else SLOW.k = 1;
   if (SLOW.look && P.alive) { const L = SLOW.look, e = playerEye(), dx = L.x - e.x, dy = L.y - e.y, dz = L.z - e.z, yaw = Math.atan2(-dx, -dz), pitch = Math.atan2(dy, Math.hypot(dx, dz)), kk = 1 - Math.exp(-real * 5); P.yaw += wrapPi(yaw - P.yaw) * kk; P.pitch += (pitch - P.pitch) * kk; } }
 /* the frame governor: the game starts at the sharpest the quality allows (up to twice the CSS pixels) and, when the frames come slower than
-   about 33 a second for a few seconds running, draws a quarter less finely; at plain resolution and still slow (a weak phone on medium) the
-   sun's shadows go too. When there is room again it climbs back, a step at a time */
+   about 33 a second for a few seconds running, draws a quarter less finely; at plain resolution and still slow (a weak phone) the sun's
+   shadows go too. When there is room again it climbs back, a step at a time */
 const GOV = { acc: 0, n: 0, cd: 6, cap: renderer.getPixelRatio() };
 function govSet(pr) { renderer.setPixelRatio(pr); if (composer) composer.setPixelRatio(pr); resize(); }
 function govTick(real) {
   if (QUAL === 'low' || GAME.state !== 'play' || document.hidden || CINE.on) { GOV.acc = 0; GOV.n = 0; return; }
   GOV.acc += real; GOV.n++; GOV.cd -= real; if (GOV.acc < 2.5) return; const ft = GOV.acc / GOV.n, pr = renderer.getPixelRatio(); GOV.acc = 0; GOV.n = 0; if (GOV.cd > 0) return;
   if (ft > 0.03 && pr > 1.01) { govSet(Math.max(1, pr - 0.25)); GOV.cd = 3; }
-  else if (ft > 0.036 && LITE && sun.castShadow) { sun.castShadow = false; renderer.shadowMap.enabled = false; GOV.cd = 6; }
+  else if (ft > 0.036 && sun.castShadow) { sun.castShadow = false; renderer.shadowMap.enabled = false; GOV.cd = 6; }
   else if (ft < 0.019 && pr < GOV.cap - 0.01) { govSet(Math.min(GOV.cap, pr + 0.25)); GOV.cd = 10; }
 }
 function frameInner() {
@@ -10250,7 +10252,22 @@ const JEEP_MG = build([[G.box(0.1, 0.13, 0.95), 0x1d1d1b, M4(0, 0, -0.35)], [G.c
 const CR_PBSEG = build([[G.box(7.85, 0.85, 6.4), 0x5f6450, M4(0, 0.05, 0)], [G.box(7.9, 0.1, 4.4), 0x8a8a78, M4(0, 0.88, 0)], ...[-1.4, -0.45, 0.45, 1.4].map((zz) => [G.box(7.9, 0.03, 0.5), 0x9a9886, M4(0, 0.94, zz)]), ...[-1, 1].flatMap((sd) => [[G.box(7.9, 0.22, 0.22), 0x4a4c3e, M4(0, 1.02, sd * 2.25)], [G.box(7.85, 0.3, 0.9), 0x565b48, M4(0, 0.62, sd * 2.75)], [G.cyl(0.09, 0.11, 0.35, 8), 0x2a2b26, M4(-3.4, 0.98, sd * 2.95)], [G.cyl(0.09, 0.11, 0.35, 8), 0x2a2b26, M4(3.4, 0.98, sd * 2.95)]]), [G.box(0.18, 0.12, 4.4), 0x2e3028, M4(3.93, 0.9, 0)]]);
 const CR_PBRAMP = build([[G.box(7.0, 0.22, 4.4), 0x8a8a78, M4(0, 0, 0)], [G.box(7.0, 0.2, 0.2), 0x3a3c30, M4(0, 0.16, 2.25)], [G.box(7.0, 0.2, 0.2), 0x3a3c30, M4(0, 0.16, -2.25)]]);
 // the deck a vehicle drives on: the pontoon bridge (by day) - its roadway, with a ramp at each end down to the bank
-function crPBDeck(x, z) { const lx = x - CR.o.x, lz = z - CR.o.z; if (Math.abs(lz - CR_PB_Z) > 3.4 || Math.abs(lx) > 107) return null; const a = Math.abs(lx); return a <= 100 ? CR_PB_Y : lerp(CR_PB_Y, Math.max(CR_PB_Y, groundAt(x, z)), (a - 100) / 7); }
+/* the pontoon bridge, whole again (each stage that starts afresh: it is repaired overnight) */
+function crPBReset() { const C = CHAP.cross, P = C.pb; if (!P || !P.m) return; const mm = new THREE.Matrix4(); P.xs.forEach((x, k) => { const [wx, wz] = CW(x, CR_PB_Z); P.m.setMatrixAt(k, mm.makeTranslation(wx, 0, wz)); }); P.m.instanceMatrix.needsUpdate = true; CR.cut = false; CR.breakT = null; }
+/* the bomb tears the bridge apart under the jeep behind the player's: that pontoon is blown over and goes down with the burning jeep, the two
+   beside it hang into the gap from their far ends; the column behind is cut off on the east side */
+function crPBBreak(dt) {
+  const C = CHAP.cross, P = C.pb, X = C.jeepX; if (!CR.cut || CR.breakT === null || !P) return; const t = GAME.t - CR.breakT, k0 = CR.cutK, mm = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), one = V3(1, 1, 1);
+  for (const kind of [-1, 0, 1]) { const k = k0 + kind; if (k < 0 || k >= P.xs.length) continue; const [wx, wz] = CW(P.xs[k], CR_PB_Z);
+    if (kind === 0) { const u = clamp(t / 3.6, 0, 1); P.m.setMatrixAt(k, mm.compose(V3(wx + 0.6 * u, -u * u * 4.2 - 0.3 * u, wz + 3.2 * u), q.setFromEuler(e.set(2.4 * u, 0.35 * u, 0.5 * u)), one)); }
+    else { const u = smooth(0, 1.4, t), th = 0.15 * kind * u + Math.sin(GAME.t * 1.3 + k) * 0.012 * u, d = -kind * 4, hx = wx - d; P.m.setMatrixAt(k, mm.compose(V3(hx + d * Math.cos(th), d * Math.sin(th), wz), q.setFromEuler(e.set(0, 0, th)), one)); } }
+  P.m.instanceMatrix.needsUpdate = true;
+  // the jeep goes down with its pontoon
+  if (X.g.visible) { if (!CR.push0) { X.path = null; X.speed = 0; CR.push0 = { p: X.g.position.clone(), ry: X.g.rotation.y }; } const u = clamp((t - 0.5) / 2.8, 0, 1), P0 = CR.push0;
+    X.g.position.set(P0.p.x + 0.6 * u, P0.p.y - u * u * 4.5, P0.p.z + 3.0 * u); X.g.rotation.set(1.3 * u, P0.ry, 0.3 * u, 'YXZ');
+    if (u >= 1) { X.g.visible = false; X.shown = false; CR.xGone = true; crSplash(V3(P0.p.x, 0, P0.p.z + 3), 1.4); } }
+}
+function crPBDeck(x, z) { const lx = x - CR.o.x, lz = z - CR.o.z; if (Math.abs(lz - CR_PB_Z) > 3.4 || Math.abs(lx) > 107) return null; if (CR.cut && Math.abs(lx - CHAP.cross.pb.xs[CR.cutK]) < 4) return null; /* the gap */ const a = Math.abs(lx); return a <= 100 ? CR_PB_Y : lerp(CR_PB_Y, Math.max(CR_PB_Y, groundAt(x, z)), (a - 100) / 7); }
 // an Egyptian tank knocked out in the fields: the T-55 model, burnt, crooked, smouldering
 function crWreckT55(lx, lz, hd, r) {
   const [x, z] = CW(lx, lz); if (!(typeof VEH_DATA !== 'undefined' && VEH_DATA.t55)) return placeTank(x, z, hd, TANK_BURNT);
@@ -10293,7 +10310,8 @@ function crBuild() {
   // the little bridge over the sweet-water canal
   { const [bx, bz] = CW(CR_BRIDGE, 0), y = 1.85; const m = new THREE.Mesh(build([[G.box(30, 0.5, 6.4), 0xa29a8a, M4(0, -0.25, 0)], [G.box(30, 0.8, 0.3), 0x8e8676, M4(0, 0.4, 3.1)], [G.box(30, 0.8, 0.3), 0x8e8676, M4(0, 0.4, -3.1)]]), MAT.vc); m.position.set(bx, y, bz); scene.add(SH(onLayer1(m))); addFloor(bx - 15, bx + 15, bz - 3, bz + 3, y); addCollider(bx, bz + 3.1, 15, 0.15, 0, y + 0.8, y - 0.5); addCollider(bx, bz - 3.1, 15, 0.15, 0, y + 0.8, y - 0.5); }
   // the pontoon bridge, bank to bank, 404 m south of where the roller bridge will lie
-  { const list = []; for (let x = -96; x <= 96; x += 8) { const [wx, wz] = CW(x, CR_PB_Z); list.push([CR_PBSEG, null, M4(wx, 0, wz)]); }
+  { const list = []; C.pb = { xs: [] }; for (let x = -96; x <= 96; x += 8) C.pb.xs.push(x);
+    C.pb.m = new THREE.InstancedMesh(CR_PBSEG, MAT.vc, C.pb.xs.length); C.pb.m.frustumCulled = false; crPBReset(); scene.add(SH(onLayer1(C.pb.m), true, true));   // its pontoons one by one: the bomb breaks it (crPBBreak)
     for (const sd of [-1, 1]) { const [wx, wz] = CW(sd * 103.5, CR_PB_Z), gb = Math.max(CR_PB_Y, groundAt(...CW(sd * 107, CR_PB_Z))); list.push([CR_PBRAMP, null, M4(wx, (CR_PB_Y + gb) / 2 - 0.1, wz, 0, 0, sd * Math.atan2(gb - CR_PB_Y, 7))]); }
     scene.add(SH(onLayer1(new THREE.Mesh(build(list), MAT.vc)), true, true)); }
   // the east bank: the crossing yard; the roller bridge lies on the sand behind the water's edge with the tanks that will push it, more waiting
@@ -10395,8 +10413,8 @@ function crRepUpd(dt) {
   if (dt > 0 && t > 9.5 && t < 18.5 && Math.random() < dt * 3) { const s = FX.smoke.get(); s.life = 2.2; s.s.position.copy(C.repT.position).add(V3(rand(-1, 1), 2.3, rand(-3.4, -2.6))); s.s.material.color.set(0x2e2c28); s.upd = (q, uu, d2) => { q.s.position.y += 1.6 * d2; q.s.scale.setScalar(0.8 + uu * 3.4); q.s.material.opacity = 0.55 * (1 - uu); }; }
   for (const e of C.eng) { e.anim = (e.anim || 0) + dt * (e.engPose === 'crouch' ? 1.5 : 0.8); e.rig.pose(e.engPose, e.anim, 0); e.sync(); }
 }
-/* ---------- the jeep right behind the player's on the bridge: a direct hit. One man is killed, two are wounded; a few seconds on the
-   burning wreck is pushed off the pontoons into the canal, so the column behind it can cross ---------- */
+/* ---------- the jeep right behind the player's on the bridge: a direct hit. One man is killed, two are wounded; the bridge is torn apart
+   under it and the burning jeep goes down with its pontoon; the two jeeps behind are cut off on the east side ---------- */
 function crDirectHit() {
   const C = CHAP.cross, X = C.jeepX; CR.hit3 = true; X.g.updateMatrixWorld(true); const p = X.g.getWorldPosition(V3());
   fxExplosion(p.clone().add(V3(0, 0.8, 0)), 3.2); sndBoom(p, 3.0); crBurst(p.x + 3, p.z + 7, 1.5); crBurst(p.x - 5, p.z - 6, 1.3); crSplash(V3(p.x + 1, 0, p.z - 5), 1.2);
@@ -10405,9 +10423,12 @@ function crDirectHit() {
   for (let i = 0; i < 2; i++) { const f = new THREE.Sprite(new THREE.SpriteMaterial({ map: FXT.fire, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, color: HDC })); f.position.set(rand(-0.4, 0.4), 1.4 + i * 0.6, rand(-0.3, 0.3)); f.scale.setScalar(1.8 + i * 0.6); X.g.add(f); X.fires.push(f); }
   // one is thrown off the bridge into the canal; the other two lie on the roadway beside the burning jeep
   const [a, b, c] = X.men; scene.attach(a); CR.thrown = { m: a, v: V3(rand(-1, 1), 5.5, (Math.random() < 0.5 ? -1 : 1) * rand(3, 4)), t: 0 };
-  for (const [m, at] of [[b, [2.6, 1.6]], [c, [-2.4, -1.5]]]) { scene.attach(m); m.position.set(p.x + at[0], CR_PB_Y + 0.15, p.z + at[1]); m.rotation.set(0, rand(0, 3), Math.PI / 2); }
-  radio('קשר', 'פצצה על הגשר מאחורינו! פגיעה ישירה בג׳יפ!', 2.4); CR.pushT = GAME.t + 8;
-  DIRQ.push({ at: GAME.t + 6.5, fn: () => radio('נהג', 'דוחפים אותו למים! לפנות את הגשר!', 2.2) });
+  for (const [m, at] of [[b, [9.6, 1.2]], [c, [-9.4, -1.0]]]) { scene.attach(m); m.position.set(p.x + at[0], CR_PB_Y + 0.15, p.z + at[1]); m.rotation.set(0, rand(0, 3), Math.PI / 2); }
+  // the bridge is torn apart under it
+  { const P = C.pb, lx = p.x - CR.o.x; let k0 = 0; P.xs.forEach((x, k) => { if (Math.abs(x - lx) < Math.abs(P.xs[k0] - lx)) k0 = k; }); CR.cutK = k0; CR.cut = true; CR.breakT = GAME.t; CR.push0 = null;
+    const [gx, gz] = CW(P.xs[k0], CR_PB_Z); for (const dx of [-3, 0, 3]) crBurst(gx + dx, gz + rand(-2, 2), 1.6); fxExplosion(V3(gx, 1.2, gz), 2.4); }
+  radio('קשר', 'פצצה על הגשר מאחורינו! פגיעה ישירה בג׳יפ — הגשר נקרע!', 2.6);
+  DIRQ.push({ at: GAME.t + 6.5, fn: () => radio('מ״פ', 'הגשר נקרע מאחורינו. שני הג׳יפים האחרונים נשארו בצד השני — הם יעברו בדוברה ויצטרפו אלינו בכפר. ממשיכים!', 4.2) });
   DIRQ.push({ at: GAME.t + 2.8, fn: () => { radio('חובש', 'הג׳יפ מאחורינו נפגע! יש הרוג ושני פצועים. אני עליהם!', 3.4); feed('הג׳יפ שמאחור נפגע על הגשר: הרוג ושני פצועים', 'bad'); } });
 }
 /* the bomb that finds the jeep behind the player's on the bridge: a jet comes in low from the east, along the bridge; the bomb falls in slow
@@ -10436,14 +10457,7 @@ function crHitUpd(dt) {
   if (T && T.m.visible) { T.t += dt; T.v.y -= 9.8 * dt; T.m.position.addScaledVector(T.v, dt); T.m.rotation.x += dt * 5; T.m.rotation.z += dt * 3; if (T.m.position.y < -1.2) { T.m.visible = false; const wp = T.m.position.clone(); wp.y = 0; for (let k = 0; k < 4; k++) fxDust(wp.clone().add(V3(rand(-0.6, 0.6), 0.3 + k * 0.3, rand(-0.6, 0.6))), true); rippleAdd(wp.x, wp.z, 0.5); } }
   if (X.crHit && X.g.visible && Math.random() < dt * 3.5) { const wp = X.g.getWorldPosition(V3()), q = FX.smoke.get(); q.life = 6; q.s.position.set(wp.x + rand(-0.6, 0.6), wp.y + 2.2, wp.z + rand(-0.6, 0.6)); q.s.material.color.set(0x1a1816); q.upd = (o, u, d2) => { o.s.position.y += 2.4 * d2; o.s.scale.setScalar(1.6 + u * 7); o.s.material.opacity = 0.7 * (1 - u); }; }
   if (X.crHit) for (const f of X.fires) f.scale.setScalar(1.6 + Math.sin(GAME.t * 11 + f.id) * 0.3 + (f.position.y > 1.6 ? 0.6 : 0));
-  // pushed off: it slides sideways off the deck, rolls over the edge and goes into the canal
-  if (X.crHit && CR.pushT && GAME.t > CR.pushT && !CR.xGone) {
-    if (!CR.push0) { X.path = null; X.speed = 0; CR.push0 = { p: X.g.position.clone(), ry: X.g.rotation.y }; }
-    const u = clamp((GAME.t - CR.pushT) / 2.6, 0, 1), P0 = CR.push0, e = u * u;
-    const sx = Math.sin(P0.ry), sz = Math.cos(P0.ry), d = 4.6 * Math.min(1, u * 1.4);   // toward its own right side (local +z), rolling that way
-    X.g.position.set(P0.p.x + sx * d, P0.p.y - e * 3.2, P0.p.z + sz * d); X.g.rotation.set(1.1 * smooth(0.3, 1, u), P0.ry, 0, 'YXZ');
-    if (u >= 1) { CR.xGone = true; X.g.visible = false; X.shown = false; const w = V3(P0.p.x + sx * 4.6, 0, P0.p.z + sz * 4.6); crSplash(w, 1.6); sndBoom(w, 0.6); }
-  }
+  crPBBreak(dt);
 }
 /* ---------- the air raids: Egyptian jets dive on the pontoon bridge and on the roller bridge waiting on the bank ---------- */
 const CRJ = [];
@@ -10503,7 +10517,7 @@ function crCut(fn) { const f = $('#fade'); f.style.transition = 'opacity .5s'; f
 const crPost = (s, name) => ({ name, x: s.x, z: s.z, y: s.y, fx: s.nx, fz: s.nz, state: 'post' });
 const crDi = () => Math.max(0, DIFF.indexOf(diff));   // the level: 0 easy, 1, 2 hard
 function crSetup(stage) {
-  const C = CHAP.cross; fieldSetupCommon(C, stage); resetTrail(); CR.flee = []; CR.msgs = {}; CR.stage = stage; if (CR.shellIn && CR.shellIn.m) scene.remove(CR.shellIn.m); CR.shellIn = null; SLOW.left = 0; SLOW.k = 1; SLOW.look = null; for (const j of CRJ) scene.remove(j.m); CRJ.length = 0; for (const b of AIR.bombs) scene.remove(b.m); AIR.bombs.length = 0;
+  const C = CHAP.cross; fieldSetupCommon(C, stage); resetTrail(); crPBReset(); CR.flee = []; CR.msgs = {}; CR.stage = stage; if (CR.shellIn && CR.shellIn.m) scene.remove(CR.shellIn.m); CR.shellIn = null; SLOW.left = 0; SLOW.k = 1; SLOW.look = null; for (const j of CRJ) scene.remove(j.m); CRJ.length = 0; for (const b of AIR.bombs) scene.remove(b.m); AIR.bombs.length = 0;
   CR.br = stage >= 4 ? 1 : 0; CR.push = false; CR.air = [34, 18, 999, 999, 999][stage]; if (CR.strike) { scene.remove(CR.strike.m); CR.strike = null; } CR.wave = 0; CR.waveT = 0; CR.filmTod = null; CR.tanksOn = false; CR.illumT = 3; CR.doorN = stage >= 3; CR.rg = { i: 0, clear: false, t: 0 }; crRepEnd(); crConvOff(); meter(null);
   $('#clockSub').textContent = CR_CLOCK[stage];
   for (const v of VEH) if (v.mode === 'cross') { vehRevive(v); v.path = null; v.stop = undefined; v.ended = false; v.shown = false; v.g.visible = false; v.onEnd = null; v.speed = 0; }
@@ -10512,7 +10526,7 @@ function crSetup(stage) {
   // the jeep right behind the player's on the bridge: the one the bomb will find (the other two follow it)
   { const X = C.jeepX; X.crHit = false; CR.hit3 = false; CR.thrown = null;
     X.men.forEach((m, i) => { if (m.parent !== X.g) X.g.add(m); m.position.set(...[[-0.35, 0.95, -0.3], [0.45, 0.95, 0.35], [-1.1, 0.95, 0.3]][i].map((q) => q * JK)); m.rotation.set(0, Math.PI / 2, 0); m.visible = true; });
-    if (stage === 0) { X.shown = true; X.g.visible = true; X.path = CR_J0.map(([x, z]) => CW(x, z)); X.s = 36; X.vmax = 0; X.hdV = null; X.stop = CR_PB_END - 12; CR.xGone = false; CR.pushT = null; CR.push0 = null; const [x, z, hd] = pathAt(X.path, X.s); vehPose(X, x, z, hd); } }
+    if (stage === 0) { X.shown = true; X.g.visible = true; X.path = CR_J0.map(([x, z]) => CW(x, z)); X.s = 36; X.vmax = 0; X.hdV = null; X.stop = CR_PB_END - 12; CR.xGone = false; CR.push0 = null; CR.cutS = undefined; const [x, z, hd] = pathAt(X.path, X.s); vehPose(X, x, z, hd); } }
   const J = CR_J0.map(([x, z]) => CW(x, z)), L = pathLen(J);
   C.jeeps.forEach((v, i) => { v.shown = true; v.g.visible = true; v.ambush = null; v.hdV = null; v.off = 0; v.path = J; v.gap = i * 14;
     v.s = stage === 0 ? (i ? 34 - i * 14 : 48) : stage === 1 ? CR_PB_END + 30 - i * 14 : L - i * 14; v.vmax = stage === 0 ? 0 : 6.5; v.stop = stage === 0 ? CR_PB_END - (i ? 12 + v.gap : 0) : stage === 1 ? undefined : v.s; const [x, z, hd] = pathAt(J, v.s); vehPose(v, x, z, hd); });
@@ -10706,9 +10720,8 @@ function crUpd(dt) {
     // the column crawls over the bridge behind the tanks; the Egyptians on the rampart open fire as it reaches the middle; it goes on when they are quiet
     const lead = C.jeeps[0], X = C.jeepX;
     if (CR.msgs.go && !CR.hit3 && !CR.strike && !CR.shellIn && X.g.position.x - CR.o.x < 10) crStrike(); crStrikeUpd(dt); crShellUpd(dt);
-    // the two jeeps behind wait behind the burning one until it is pushed into the canal
-    if (X.crHit && !CR.xGone) { C.jeeps[1].stop = Math.min(C.jeeps[1].stop, X.s - 11); C.jeeps[2].stop = Math.min(C.jeeps[2].stop, X.s - 25); }
-    else if (CR.xGone && !CR.msgs.xFree) { CR.msgs.xFree = true; C.jeeps[1].stop = CR_PB_END - 26; C.jeeps[2].stop = CR_PB_END - 40; }
+    // the two jeeps behind: cut off at the gap
+    if (CR.cut) { if (CR.cutS === undefined) CR.cutS = X.s; C.jeeps[1].stop = Math.min(C.jeeps[1].stop, CR.cutS - 13); C.jeeps[2].stop = Math.min(C.jeeps[2].stop, CR.cutS - 27); }
     if (lead.g.position.x - CR.o.x < 62 && !CR.msgs.fire) { CR.msgs.fire = true; let first = true; for (const s of C.slots) if (s.grp === 'L') { fSlotSpawn(first ? 'rpg' : 'rifle', (q) => q === s, 'L'); first = false; } radio('צנחן', 'אש מהסוללה! מצפון לגשר, על הסוללה — מקלע!', 2.4);
       for (let k = 0; k < 8; k++) DIRQ.push({ at: GAME.t + 3 + k * 1.2, spawn: true, fn: () => { const [x, z] = CW(-129 + (k % 3) * 2, 296 - k * 3), [tx, tz] = CW(-123 - (k % 4) * 2.5, 350 + k * 5); const e = fSpawnStreet(x, z, [[tx, tz]], k % 4 === 2 ? 'rpg' : 'rifle'); if (e) e.sq = 'L'; } }); }
     if (lead.s >= lead.stop - 0.8) { CR.msgs.landT = (CR.msgs.landT || 0) + dt; if (!CR.msgs.off && holdDone(fieldLeft((e) => e.sq === 'L'), CR.msgs.landT)) { CR.msgs.off = true; fieldDespawn((e) => e.sq === 'L'); radio('נהג', 'יורדים מהגשר! מחזיקים חזק!', 2); crStage(1); } }
@@ -10717,7 +10730,7 @@ function crUpd(dt) {
     for (const id in CR_AMB) { const s0 = C.stops[id]; if (lead.s > s0 - 75 && !CR.msgs[id]) { CR.msgs[id] = true; crAmbush(id); lead.stop = s0; } }
     // after the last ambush the track runs straight along the rampart: the column picks up speed
     if (CR.msgs.a1 && lead.stop === undefined) lead.vmax = 8.5;
-    for (const v of C.jeeps) { v.stop = lead.stop === undefined ? (v === lead ? undefined : L - v.gap) : lead.stop - v.gap; if (v !== lead) v.vmax = lead.vmax; }
+    for (const v of C.jeeps) { if (CR.cut && v !== lead) continue; v.stop = lead.stop === undefined ? (v === lead ? undefined : L - v.gap) : lead.stop - v.gap; if (v !== lead) v.vmax = lead.vmax; }   // (the two cut off on the far side stay there)
     if (lead.stop !== undefined && lead.s > lead.stop - 0.8) { CR.msgs.wait = (CR.msgs.wait || 0) + dt; const left = fieldLeft((e) => e.sq === lead.ambush); if (holdDone(left, CR.msgs.wait)) { fieldDespawn((e) => e.sq === lead.ambush); lead.stop = undefined; CR.msgs.wait = 0; radio('נהג', left ? 'אין זמן, ממשיכים!' : 'נקי! ממשיכים!', 2); } }
     if (lead.s >= L - 0.6 && !CR.msgs.out) { CR.msgs.out = true; crDismount(); }
   } else if (CR.stage === 2) { updTrail(dt); crRouteUpd(dt); }
@@ -10745,7 +10758,7 @@ function crAmbush(id) {
 function crDismount() {
   const C = CHAP.cross, lead = C.jeeps[0]; P.ride = null; C.mg.visible = false; vm.visible = true; P.crouch = false; lead.crew[0].visible = true;
   const p = lead.g.localToWorld(V3(-0.6 * JK, 0, -2.0 * JK)); P.pos.set(p.x, groundAt(p.x, p.z), p.z); P.yaw = Math.atan2(7.4, -6.4); resetTrail();
-  CR_FOLLOW.forEach((fi, k) => { const f = FRIENDS[fi], u = f.unit, q = C.jeeps[Math.floor(k / 3)].g.localToWorld(V3(-1.2 + (k % 3) * 0.8, 0, k % 2 ? -2.0 : 2.0)); u.place(q.x, q.z); f.state = 'follow'; f.fi = k; f.ti = 0; f.stuck = 0; f.post = { id: 'F' + fi, fx: 0, fz: -1, mag: null, occupant: f, stand: [q.x, q.z] }; });
+  CR_FOLLOW.forEach((fi, k) => { const f = FRIENDS[fi], u = f.unit, q = (CR.cut ? lead : C.jeeps[Math.floor(k / 3)]).g.localToWorld(V3(-1.2 + (CR.cut ? k * 0.7 - 2 : (k % 3) * 0.8), 0, k % 2 ? -2.0 : 2.0)); u.place(q.x, q.z); f.state = 'follow'; f.fi = k; f.ti = 0; f.stuck = 0; f.post = { id: 'F' + fi, fx: 0, fz: -1, mag: null, occupant: f, stand: [q.x, q.z] }; });
   crStage(2); crDynApply();
 }
 /* ---------- films ---------- */
