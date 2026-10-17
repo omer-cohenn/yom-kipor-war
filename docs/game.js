@@ -3033,13 +3033,17 @@ class Rig {
   gunAt(px, py, pz, rx, ry, rz) { const G = this.T.gun; G[0] = px; G[1] = py; G[2] = pz; G[3] = rx; G[4] = ry; G[5] = rz; }
   pose(kind, t, pitch = 0) {
     const R = this, T = R.T; R.hYaw = 0; T.rootX = 0; T.hipsY = 0.93; T.hipsX = 0; T.hipsZ = 0; T.hipsYaw = 0; T.torsoX = 0; T.torsoY = 0; T.torsoZ = 0; T.arms = null; T.ik = true;
-    if (kind === 'run' || kind === 'walk') {
-      // the stride: legs swing, the pelvis rolls and yaws with them, the shoulders turn against the hips, the whole body leans into the run
-      const sp = kind === 'run' ? 1 : 0.55, sw = Math.sin(t) * 0.78 * sp, c2 = Math.cos(t * 2);
-      R.legs(-sw, 0.15 + Math.max(0, Math.sin(t + 1.6)) * 1.15 * sp, sw, 0.15 + Math.max(0, Math.sin(t + 1.6 + Math.PI)) * 1.15 * sp);
-      T.hipsY = 0.9 + Math.abs(Math.cos(t)) * 0.05 * sp; T.hipsX = Math.sin(t) * 0.022 * sp; T.hipsZ = Math.sin(t) * 0.07 * sp; T.hipsYaw = -Math.sin(t) * 0.1 * sp;
-      T.torsoX = 0.22 * sp - c2 * 0.02 * sp; T.torsoY = Math.sin(t) * 0.2 * sp; T.torsoZ = -Math.sin(t) * 0.04 * sp;
-      if (R.wkind === 'rpg') R.gunAt(-0.16, 0.57, 0.14, -0.5 + c2 * 0.03 * sp, -0.08, 0.05); else R.gunAt(0.02, 0.3, 0.27, -0.45 + c2 * 0.03 * sp, 0.62, 0.2);
+    if (kind === 'run' || kind === 'walk' || kind === 'crun') {
+      // the stride: legs swing, the pelvis rolls and yaws with them, the shoulders turn against the hips, the whole body leans into the run;
+      // 'crun' is the run under fire - bent low at the knees and the waist, the rifle up at the ready, pointed where he is going
+      const cr = kind === 'crun', sp = kind === 'walk' ? 0.55 : cr ? 0.8 : 1, sw = Math.sin(t) * (cr ? 0.62 : 0.78) * sp, c2 = Math.cos(t * 2);
+      if (cr) R.legs(-0.5 - sw, 0.9 + Math.max(0, Math.sin(t + 1.6)) * 0.85, -0.5 + sw, 0.9 + Math.max(0, Math.sin(t + 1.6 + Math.PI)) * 0.85);
+      else R.legs(-sw, 0.15 + Math.max(0, Math.sin(t + 1.6)) * 1.15 * sp, sw, 0.15 + Math.max(0, Math.sin(t + 1.6 + Math.PI)) * 1.15 * sp);
+      T.hipsY = (cr ? 0.78 : 0.9) + Math.abs(Math.cos(t)) * 0.05 * sp; T.hipsX = Math.sin(t) * 0.022 * sp; T.hipsZ = Math.sin(t) * 0.07 * sp; T.hipsYaw = -Math.sin(t) * 0.1 * sp;
+      T.torsoX = (cr ? 0.52 : 0.22 * sp) - c2 * 0.02 * sp; T.torsoY = Math.sin(t) * (cr ? 0.1 : 0.2) * sp; T.torsoZ = -Math.sin(t) * 0.04 * sp;
+      if (R.wkind === 'rpg') R.gunAt(-0.16, 0.57, 0.14, -0.5 + c2 * 0.03 * sp, -0.08, 0.05);
+      else if (cr) R.gunAt(-0.06, 0.4, 0.36, -0.42 + c2 * 0.03, 0.12, 0);
+      else R.gunAt(0.02, 0.3, 0.27, -0.45 + c2 * 0.03 * sp, 0.62, 0.2);
     } else if (kind === 'aim' || kind === 'crouch') {
       if (kind === 'crouch') { T.hipsY = 0.55; R.legs(-1.35, 1.45, -0.2, 1.95); T.torsoX = 0.12; }
       else R.legs(-0.12, 0.12, 0.16, 0.1);
@@ -3048,7 +3052,13 @@ class Rig {
       else if (R.nsOn) { const B = NS_AIM[R.wkind === 'rifle' && R.side === 'f' ? 'fal' : R.wkind] || NS_AIM.rifle; T.torsoY = -NS_BLADE; R.gunAt(B[0], B[1] + Math.sin(t * 1.1) * 0.004, B[2], -pitch * 0.3, NS_BLADE, 0); R.hYaw = NS_BLADE; }
       else R.gunAt(-0.1, 0.45 + Math.sin(t * 1.1) * 0.004, 0.4, -pitch * 0.3, -0.2, 0);
     } else if (kind === 'hide') {
-      T.hipsY = 0.42; R.legs(-1.75, 2.15, -0.7, 2.3); T.torsoX = 0.6 + Math.sin(t * 1.4) * 0.015; R.gunAt(0.0, 0.24, 0.24, -1.15, 0.25, 0);
+      // down behind cover as men really crouch there: on one knee, turned side-on to it, a shoulder to it, the rifle upright before him,
+      // the head turned back toward the enemy (which shoulder: his own habit)
+      const v = R.hideV ?? (R.hideV = Math.random() < 0.5 ? 1 : -1);
+      T.hipsY = 0.46; T.hipsYaw = 0.7 * v; T.hipsZ = 0.04 * v;
+      if (v > 0) R.legs(-1.45, 1.6, -0.35, 1.9); else R.legs(-0.35, 1.9, -1.45, 1.6);
+      T.torsoX = 0.45 + Math.sin(t * 1.4) * 0.015; T.torsoY = -0.42 * v + Math.sin(t * 0.37) * 0.04; T.torsoZ = 0.06 * v; R.hYaw = -0.25 * v;
+      R.gunAt(0.0, 0.28, 0.22, -1.2, 0.25, 0);
     } else if (kind === 'idle') {
       // standing easy: weight shifts slowly from foot to foot, the chest rises with the breath
       const b = Math.sin(t * 0.8), w = Math.sin(t * 0.31);
@@ -3131,7 +3141,7 @@ class Rig {
   /* what a living body does on its own: the chest rises and falls, the head looks about a little (less with a rifle at the shoulder), the eyes blink */
   life(kind) {
     const R = this; R.breath += FDT; if (REDUCED) return;
-    const quick = kind === 'run' ? 2.8 : kind === 'walk' ? 1.9 : 1.25, b = 0.017 * Math.sin(R.breath * quick) * (kind === 'fall' ? 0.3 : 1); R.torso.scale.set(1 + b * 0.5, 1 + b, 1 + b * 0.9); R.torso.rotation.x -= b * 0.5;   // the chest rises with each breath
+    const quick = kind === 'run' || kind === 'crun' ? 2.8 : kind === 'walk' ? 1.9 : 1.25, b = 0.017 * Math.sin(R.breath * quick) * (kind === 'fall' ? 0.3 : 1); R.torso.scale.set(1 + b * 0.5, 1 + b, 1 + b * 0.9); R.torso.rotation.x -= b * 0.5;   // the chest rises with each breath
     if (kind === 'fall') { R.headP.rotation.set(0.12, 0, 0.1); if (!R.shut && !R.deadOpen && R.blendT <= 0) { R.shut = true; R.head.material = MAT.facesShut[R.side][R.faceV]; } return; }
     const calm = kind === 'idle' ? 1 : kind === 'walk' ? 0.8 : kind === 'aim' || kind === 'crouch' || kind === 'hide' || kind === 'prone' ? 0.25 : 0.45, t = R.breath;
     R.hY = (R.hY || 0) + ((R.hYaw || 0) - (R.hY || 0)) * Math.min(1, FDT * 8);   // a man standing bladed to his rifle keeps his eyes on the target
@@ -3954,26 +3964,86 @@ function nsCamo(c) {
 }
 const NS_CAMO = { eg: { seed: 7, base: 0xb5a072, layers: [[0x8c7148, 0.55, 4, 10], [0x6c6946, 0.63, 5, 12], [0xcbb98b, 0.68, 8, 18]] },
   sy: { seed: 31, base: 0x5f6a43, layers: [[0x37462b, 0.52, 5, 6], [0x5b4630, 0.6, 6, 7], [0x20261b, 0.69, 9, 10]] } };
-function nsNet() {   // the IDF's M1 in 1973: a burlap cover, coarse woven jute, under a net of tan cord
-  const N = 512, c = canvas(N), g = c.getContext('2d'), r = rng(73); g.fillStyle = '#a48c64'; g.fillRect(0, 0, N, N);
-  for (let y = 0; y < N; y += 3) { g.fillStyle = `rgba(${r() < 0.5 ? '120,98,64' : '190,170,128'},${0.25 + r() * 0.2})`; g.fillRect(0, y, N, 1); }   // the weft
-  for (let x = 0; x < N; x += 3) { g.fillStyle = `rgba(${r() < 0.5 ? '110,90,58' : '180,160,118'},${0.2 + r() * 0.2})`; g.fillRect(x, 0, 1, N); }   // the warp
-  for (let i = 0; i < 1400; i++) { g.fillStyle = `rgba(${r() < 0.5 ? '70,58,38' : '200,182,140'},${0.08 + r() * 0.1})`; g.fillRect(r() * N, r() * N, 3 + r() * 14, 1 + r() * 3); }   // slubs, dirt, sun-bleach
-  g.strokeStyle = 'rgba(92,76,50,0.95)'; g.lineWidth = 3.2; for (let k = -N; k < 2 * N; k += 48) { g.beginPath(); g.moveTo(k, 0); g.lineTo(k + N, N); g.stroke(); g.beginPath(); g.moveTo(k, N); g.lineTo(k + N, 0); g.stroke(); }
-  g.strokeStyle = 'rgba(190,170,130,0.5)'; g.lineWidth = 1; for (let k = -N; k < 2 * N; k += 48) { g.beginPath(); g.moveTo(k - 1, 0); g.lineTo(k + N - 1, N); g.stroke(); }
+function nsNet() {   /* the IDF's M1 in 1973: a cover of sun-bleached burlap - coarse open-woven jute, a thread every 3 mm with the dark of
+     the steel showing between - under a net of pale cord, knotted at the crossings, a cell about 5 cm; all of it tiling */
+  const N = 512, P = 8, c = canvas(N), g = c.getContext('2d'), r = rng(73), img = g.createImageData(N, N), D = img.data, n = N / P;
+  const wW = Array.from({ length: n }, () => 4.6 + r() * 2.2), wH = Array.from({ length: n }, () => 4.6 + r() * 2.2);   // jute: no two threads alike
+  const tW = Array.from({ length: n }, () => 0.86 + r() * 0.24), tH = Array.from({ length: n }, () => 0.86 + r() * 0.24);
+  const slub = Array.from({ length: n * n }, () => 0.9 + r() * 0.2), base = [190, 154, 112], hole = [66, 54, 40];
+  const fade = (x, y) => 1 + 0.07 * Math.sin((x / N) * 6.2832 * 2 + 1.3) * Math.cos((y / N) * 6.2832 * 3) + 0.05 * Math.sin((x / N + y / N) * 6.2832 * 5 + 0.7);   // sun and dust, unevenly
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    const i = (x / P) | 0, j = (y / P) | 0, fx = x % P, fy = y % P, warp = fx < wW[i], weft = fy < wH[j], k = (y * N + x) * 4;
+    let col = hole, sh = 1;
+    if (warp || weft) { const top = warp && weft ? (((i + j) & 1) ? 'w' : 'f') : (warp ? 'w' : 'f');
+      sh = top === 'w' ? tW[i] * (0.78 + 0.3 * Math.sin(Math.PI * (fx + 0.5) / wW[i])) : tH[j] * (0.78 + 0.3 * Math.sin(Math.PI * (fy + 0.5) / wH[j]));
+      if (warp && weft) sh *= 1.06; else sh *= 0.9;   // a thread lies higher where it crosses over
+      sh *= slub[j * n + i] * fade(x, y); col = base; }
+    else if (r() < 0.25) { col = base; sh = 0.55; }   // stray fibres across the holes
+    D[k] = Math.min(255, col[0] * sh); D[k + 1] = Math.min(255, col[1] * sh); D[k + 2] = Math.min(255, col[2] * sh); D[k + 3] = 255;
+  }
+  g.putImageData(img, 0, 0);
+  // the net: a diamond lattice of knots, each jittered (the same jitter round the tile's edge), cords sagging a little between them
+  const NX = 4, NY = 8, jx = [], jy = []; for (let q = 0; q < NX * NY; q++) { jx.push((r() - 0.5) * 18); jy.push((r() - 0.5) * 14); }
+  const node = (i, j) => { const ii = ((i % NX) + NX) % NX, jj = ((j % NY) + NY) % NY; return [i * 128 + (((j % 2) + 2) % 2) * 64 + jx[jj * NX + ii], j * 64 + jy[jj * NX + ii]]; };
+  const cords = []; for (let j = 0; j < NY; j++) for (let i = -1; i <= NX; i++) { const a = node(i, j), odd = j & 1; cords.push([a, node(i - 1 + odd, j + 1)], [a, node(i + odd, j + 1)]); }
+  const pass = (w, col, dx, dy, dash) => { g.lineWidth = w; g.strokeStyle = col; g.setLineDash(dash || []); g.lineCap = 'round';
+    for (const [a, b] of cords) for (const ox of [-N, 0, N]) for (const oy of [-N, 0, N]) { const mx = (a[0] + b[0]) / 2 + 3, my = (a[1] + b[1]) / 2 + 4;
+      g.beginPath(); g.moveTo(a[0] + ox + dx, a[1] + oy + dy); g.quadraticCurveTo(mx + ox + dx, my + oy + dy, b[0] + ox + dx, b[1] + oy + dy); g.stroke(); } };
+  pass(6.5, 'rgba(38,30,20,0.3)', 1.6, 2.2); pass(4.2, '#c8b08c'); pass(4.2, 'rgba(140,118,86,0.5)', 0, 0, [2.5, 3]); pass(1.3, 'rgba(240,226,196,0.6)', -0.8, -0.8);   // shadow, cord, its twist, the light on it
+  g.setLineDash([]); for (let j = 0; j < NY; j++) for (let i = 0; i < NX; i++) { const [x, y] = node(i, j); for (const ox of [-N, 0, N]) for (const oy of [-N, 0, N]) {
+    g.fillStyle = 'rgba(38,30,20,0.5)'; g.beginPath(); g.arc(x + ox + 1.5, y + oy + 2, 6, 0, 6.2832); g.fill();
+    g.fillStyle = '#bea684'; g.beginPath(); g.arc(x + ox, y + oy, 5, 0, 6.2832); g.fill(); g.fillStyle = 'rgba(230,212,178,0.5)'; g.beginPath(); g.arc(x + ox - 1.2, y + oy - 1.4, 2, 0, 6.2832); g.fill(); } }
   const t = tex(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = ANISO; return t;
 }
 const NS_BAND = `{ vec3 o = vBindP - vec3(0.0, ${NS_HU.py.toFixed(3)} + ${NS_HU.dy.toFixed(3)}, ${NS_HU.pz.toFixed(3)}); float ca = cos(${(-NS_HU.a).toFixed(3)}), sa = sin(${(-NS_HU.a).toFixed(3)}); float oy = o.y * ca - o.z * sa + ${NS_HU.py.toFixed(3)};
-  float band = smoothstep(0.684, 0.69, oy) * (1.0 - smoothstep(0.73, 0.736, oy));   // a band of inner tube round the cover, to tuck brush into
-  float mot = fract(sin(dot(floor(vBindP * 260.0), vec3(12.9898, 78.233, 37.719))) * 43758.5453);
-  diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.055, 0.052, 0.048) * (0.75 + 0.5 * mot), band); }`;
+  float hb = fract(sin(dot(floor(vBindP * 140.0), vec3(12.9898, 78.233, 37.719))) * 43758.5453);
+  float band = smoothstep(0.682, 0.687, oy) * (1.0 - smoothstep(0.733, 0.738, oy));   /* a band of inner tube round the cover, to tuck brush into */
+  float mot = 0.82 + 0.3 * (0.5 + 0.5 * sin(vBindP.x * 57.0 + vBindP.z * 31.0 + sin(vBindP.y * 90.0) * 2.0)) + 0.12 * hb;
+  vec3 rub = vec3(0.11, 0.096, 0.082) * mot;   /* warm, to stand against the sky's blue in its shade */   /* dull grey rubber, worn */
+  float dust = smoothstep(0.35, 0.95, 0.5 + 0.5 * sin(vBindP.x * 83.0 - vBindP.z * 47.0 + oy * 160.0)) * (0.6 + 0.4 * hb);
+  rub = mix(rub, vec3(0.3, 0.24, 0.16), 0.22 * dust);   /* the desert's dust on it */
+  float lip = band * (1.0 - smoothstep(0.0, 0.0025, min(oy - 0.687, 0.733 - oy)));
+  diffuseColor.rgb = mix(diffuseColor.rgb, rub * (1.0 - 0.35 * lip), band);
+  float bunch = (smoothstep(0.672, 0.682, oy) * (1.0 - smoothstep(0.682, 0.686, oy)) + smoothstep(0.734, 0.738, oy) * (1.0 - smoothstep(0.738, 0.75, oy))) * (1.0 - band);
+  diffuseColor.rgb *= 1.0 - 0.28 * bunch;   /* the burlap gathered tight at the band's edges */
+  float rim = 1.0 - smoothstep(0.646, 0.664, oy);   /* the frayed edge of the burlap, folded in under the rim */
+  diffuseColor.rgb *= mix(1.0, 0.72 + 0.5 * hb, rim * 0.8);
+  nsBandK = band; }`;
+/* the enemy's helmet, the Soviet steel one, three ways (read in the helmet's own frame, before it was tipped back):
+   the Egyptians' mostly under a cloth cover cut from their camouflage, four panels sewn over the crown and gathered under the rim on a
+   drawstring; some bare, painted sand, under a net of dark string; the Syrians' painted olive, chipped to the steel */
+const NS_HLOC = `vec3 ho = vBindP - vec3(0.0, ${NS_HU.py.toFixed(3)} + ${NS_HU.dy.toFixed(3)}, ${NS_HU.pz.toFixed(3)}); float hca = cos(${(-NS_HU.a).toFixed(3)}), hsa = sin(${(-NS_HU.a).toFixed(3)});
+  vec3 hp = vec3(ho.x, ho.y * hca - ho.z * hsa + ${NS_HU.py.toFixed(3)}, ho.y * hsa + ho.z * hca + ${NS_HU.pz.toFixed(3)}); vec3 hq = hp - vec3(0.0, 0.66, 0.032); float hth = atan(hq.x, hq.z);`;
+const NS_COVER = `{ ${NS_HLOC}
+  float crown = smoothstep(0.7, 0.74, hp.y), seam = max(1.0 - smoothstep(0.0012, 0.0032, abs(hq.x)), 1.0 - smoothstep(0.0012, 0.0032, abs(hq.z))) * crown;
+  diffuseColor.rgb *= 1.0 - 0.32 * seam; nsFH += seam * 0.0013;
+  float rim = 1.0 - smoothstep(0.652, 0.69, hp.y), gath = sin(hth * 41.0 + sin(hth * 7.0) * 2.0);
+  nsFH += rim * gath * 0.002; diffuseColor.rgb *= 1.0 - 0.2 * rim * (0.5 + 0.5 * gath) - 0.12 * (1.0 - smoothstep(0.646, 0.656, hp.y)); }`;
+const NS_SOVNET = `{ ${NS_HLOC}
+  float w = hth / 6.2832 * 22.0, vv = hp.y / 0.034, fw = fwidth(w + vv);
+  float cord = (1.0 - smoothstep(0.04, 0.09, min(abs(fract(w + vv) - 0.5), abs(fract(w - vv) - 0.5)))) * (1.0 - smoothstep(0.12, 0.35, fw));
+  float knot = (1.0 - smoothstep(0.05, 0.12, length(vec2(fract(w + vv) - 0.5, fract(w - vv) - 0.5)) - 0.0)) * (1.0 - smoothstep(0.12, 0.35, fw));
+  float wear = 0.5 + 0.5 * sin(hp.x * 97.0 + sin(hp.y * 140.0) * 1.7) * sin(hp.z * 113.0 + hp.y * 61.0);
+  diffuseColor.rgb *= 0.9 + 0.2 * wear; diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.05, 0.045, 0.034), max(cord, knot) * 0.92 + 0.1 * smoothstep(0.12, 0.35, fw)); }`;
+const NS_CHIP = `{ ${NS_HLOC}
+  float n = sin(hp.x * 91.0 + sin(hp.y * 133.0) * 1.6) * sin(hp.z * 107.0 + hp.y * 71.0) + 0.5 * sin(hp.x * 233.0 - hp.z * 181.0 + hp.y * 157.0);
+  float chip = smoothstep(0.95, 1.05, n) + 0.6 * (1.0 - smoothstep(0.646, 0.652, hp.y));   /* the paint worn off, the rim most */
+  diffuseColor.rgb = mix(diffuseColor.rgb * (0.92 + 0.08 * n), vec3(0.055, 0.05, 0.043), clamp(chip, 0.0, 1.0));
+  diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.3, 0.26, 0.19), 0.18 * smoothstep(0.76, 0.82, hp.y)); }`;
+function nsHelmetMat(net) {
+  const m = nsBindPaint(new THREE.MeshStandardMaterial({ map: net, roughness: 0.96, metalness: 0 }), NS_BAND, 'band'), prev = m.onBeforeCompile;
+  m.onBeforeCompile = (sh, r) => { prev(sh, r); sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nfloat nsBandK = 0.0;')
+    .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = mix(roughnessFactor, 0.8, nsBandK);')
+    .replace('#include <aomap_fragment>', '#include <aomap_fragment>\nreflectedLight.indirectSpecular *= 0.35;'); };   /* jute and old rubber: dull, not the sky's blue */
+  return m;
+}
 function nsImage(url) { const t = new THREE.TextureLoader().load(url); t.flipY = false; t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = ANISO; return t; }
 /* the waist: the figure's cloth is one piece from the collar to the boots, so the paint draws where the shirt ends and the trousers begin -
    the trousers a shade darker, a dark seam where the shirt is tucked in, the shirt a little bunched above it - and the web belt gets a woven
    look and its buckle at the front. Read from the figure's own (bind) position: hips at y 0, the front +z */
 const NS_WAIST = `{ float yb = vBindP.y;
   float pants = 1.0 - smoothstep(0.082, 0.098, yb);
-  diffuseColor.rgb *= mix(vec3(1.0), vec3(0.83, 0.85, 0.83), pants);
+  diffuseColor.rgb = mix(diffuseColor.rgb, mix(diffuseColor.rgb, vec3(dot(diffuseColor.rgb, vec3(0.3, 0.55, 0.15))), 0.28) * 0.86, pants);   /* the trousers washed greyer than the shirt */
   float seam = smoothstep(0.072, 0.086, yb) * (1.0 - smoothstep(0.092, 0.106, yb));
   diffuseColor.rgb *= 1.0 - 0.5 * seam;
   diffuseColor.rgb *= 1.0 + 0.07 * smoothstep(0.1, 0.112, yb) * (1.0 - smoothstep(0.125, 0.17, yb)); }`;
@@ -3982,11 +4052,23 @@ const NS_POCKETS = `{ vec3 b = vBindP; float ax = abs(b.x), fr = smoothstep(0.02
   float px = smoothstep(0.045, 0.05, ax) * (1.0 - smoothstep(0.14, 0.145, ax)), py = smoothstep(0.355, 0.36, b.y) * (1.0 - smoothstep(0.45, 0.455, b.y)), pk = px * py * fr;
   float edge = pk * (1.0 - smoothstep(0.0, 0.004, min(min(ax - 0.05, 0.14 - ax), min(b.y - 0.36, 0.45 - b.y))));
   float flap = pk * smoothstep(0.418, 0.422, b.y), flapEdge = pk * (1.0 - smoothstep(0.0, 0.003, abs(b.y - 0.42)));
-  float btn = fr * (1.0 - smoothstep(0.004, 0.007, length(vec2(ax - 0.095, b.y - 0.428))));
-  diffuseColor.rgb *= 1.0 - 0.35 * edge - 0.4 * flapEdge + 0.05 * flap; diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * 0.55, btn);
+  diffuseColor.rgb *= 1.0 - 0.35 * edge - 0.4 * flapEdge + 0.05 * flap; nsFH += pk * 0.0008 + flap * 0.0012;
+  if (pk > 0.0) nsButton(vec2(ax - 0.095, b.y - 0.428), diffuseColor.rgb);
   float tl = smoothstep(0.1, 0.12, ax) * (1.0 - smoothstep(0.2, 0.21, ax)) * smoothstep(-0.3, -0.295, b.y) * (1.0 - smoothstep(-0.13, -0.125, b.y)) * smoothstep(-0.05, 0.0, b.z * sign(b.x) + 0.02);
   float tle = tl * (1.0 - smoothstep(0.0, 0.004, min(min(b.y + 0.295, -0.13 - b.y), min(ax - 0.12, 0.2 - ax))));
   diffuseColor.rgb *= 1.0 - 0.3 * tle - 0.3 * tl * (1.0 - smoothstep(0.0, 0.003, abs(b.y + 0.165))); }`;
+/* the drill shirt's front, as on the IDF's Madei Bet (and the Egyptians' too): the opening's overlap, stitched, its buttons of olive plastic
+   down to the belt; and on each shoulder an epaulette, stitched round, buttoned at the collar end. top: where the buttons stop (ours open at the neck) */
+const NS_MADEI = (top) => `{ vec3 b = vBindP; float ax = abs(b.x), fr = smoothstep(0.1, 0.15, b.z) * (1.0 - smoothstep(0.3, 0.35, ax));
+  float pl = fr * smoothstep(0.1, 0.11, b.y) * (1.0 - smoothstep(${(top + 0.02).toFixed(3)}, ${(top + 0.026).toFixed(3)}, b.y));
+  float pe = pl * (1.0 - smoothstep(0.0012, 0.0028, abs(b.x - 0.009))), ps = pl * (1.0 - smoothstep(0.0006, 0.0014, abs(b.x + 0.012))) * step(0.45, fract(b.y * 240.0));
+  diffuseColor.rgb *= 1.0 - 0.32 * pe - 0.2 * ps; nsFH += pl * 0.0013 * smoothstep(-0.032, -0.022, b.x) * (1.0 - smoothstep(0.007, 0.011, b.x));
+  float bj = floor((b.y - 0.235) / 0.07 + 0.5), byc = 0.235 + bj * 0.07;
+  if (pl > 0.0 && bj >= 0.0 && byc < ${top.toFixed(3)}) nsButton(vec2(b.x + 0.002, b.y - byc), diffuseColor.rgb);
+  float ez = abs(b.z - 0.014), ep = smoothstep(0.088, 0.094, ax) * (1.0 - smoothstep(0.194, 0.2, ax)) * (1.0 - smoothstep(0.019, 0.022, ez)) * smoothstep(0.5, 0.52, b.y);
+  float epe = ep * (1.0 - smoothstep(0.0, 0.0035, min(min(ax - 0.094, 0.194 - ax), 0.019 - ez)));
+  diffuseColor.rgb *= 1.0 + 0.05 * ep - 0.32 * epe; nsFH += ep * 0.0015;
+  if (ep > 0.0) nsButton(vec2(ax - 0.106, b.z - 0.014), diffuseColor.rgb); }`;
 /* our men as they looked: the shirt open at the neck - a V of sunburnt chest, hair on it, the collar's edges turned back - and the sleeves
    rolled up above the forearm; the skin is skin, so the cloth's creases leave it */
 const NS_OPEN_F = `{ vec3 b = vBindP; float ax = abs(b.x);
@@ -3994,13 +4076,30 @@ const NS_OPEN_F = `{ vec3 b = vBindP; float ax = abs(b.x);
   float lap = smoothstep(0.47, 0.49, b.y) * (1.0 - smoothstep(0.0, 0.012, abs(ax - vw - 0.006))) * smoothstep(0.0, 0.04, b.z) * (1.0 - vee);
   float roll = smoothstep(0.555, 0.56, ax) * (1.0 - smoothstep(0.1, 0.16, abs(b.y - 0.477))), cuff = smoothstep(0.525, 0.53, ax) * (1.0 - smoothstep(0.555, 0.56, ax)) * (1.0 - smoothstep(0.1, 0.16, abs(b.y - 0.477)));
   float skin = max(vee, roll);
-  float hair = vee * smoothstep(0.62, 0.8, fract(sin(dot(floor(vec2(b.x * 700.0 + sin(b.y * 900.0) * 0.6, b.y * 260.0)), vec2(12.9898, 78.233))) * 43758.5453)) * (1.0 - smoothstep(0.55, 0.6, b.y));
-  vec3 sk = vec3(0.47, 0.26, 0.16) * (0.9 + 0.2 * fract(sin(dot(floor(b.xy * 140.0), vec2(4.1, 7.7))) * 437.5));
-  diffuseColor.rgb = mix(diffuseColor.rgb, sk, skin); diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.07, 0.05, 0.035), hair * 0.85);
+  float hair = vee * smoothstep(0.7, 0.9, fract(sin(dot(floor(vec2(b.x * 700.0 + sin(b.y * 900.0) * 0.6, b.y * 260.0)), vec2(12.9898, 78.233))) * 43758.5453)) * (1.0 - smoothstep(0.55, 0.6, b.y));
+  vec3 sk = vec3(0.52, 0.31, 0.2) * (0.9 + 0.2 * nsWN(b * 70.0));
+  diffuseColor.rgb = mix(diffuseColor.rgb, sk, skin); diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.09, 0.06, 0.04), hair * 0.45);
   diffuseColor.rgb *= 1.0 + 0.12 * cuff - 0.25 * lap; nsFH *= 1.0 - skin; }`;
-const NS_BELT = `{ vec3 bp = vBindP;
-  float buckle = (1.0 - smoothstep(0.022, 0.03, abs(bp.x))) * (1.0 - smoothstep(0.016, 0.024, abs(bp.y - 0.152))) * smoothstep(0.12, 0.16, bp.z);
-  diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.62, 0.6, 0.55), buckle * 0.85); }`;
+/* the web belt: pale canvas, and at the front its buckle - two plates of dull brass that hook together, each a frame round a window of
+   the web - and along the lower edge the eyelets, brass rings, every 3 cm, for the pouches and the canteen */
+const NS_BELT = `{ vec3 bp = vBindP; float ax = abs(bp.x), fr = smoothstep(0.12, 0.16, bp.z), by = bp.y - 0.153;
+  float hm = fract(sin(dot(floor(bp.xy * 900.0), vec2(12.9898, 78.233))) * 43758.5453);
+  float plate = (1.0 - smoothstep(0.033, 0.036, ax)) * (1.0 - smoothstep(0.024, 0.027, abs(by))) * fr * smoothstep(0.0012, 0.0026, ax);
+  float win = smoothstep(0.009, 0.011, ax) * (1.0 - smoothstep(0.025, 0.027, ax)) * (1.0 - smoothstep(0.015, 0.017, abs(by)));
+  float frame = plate * (1.0 - win);
+  vec3 brass = vec3(0.3, 0.24, 0.12) * (0.8 + 0.4 * hm);
+  diffuseColor.rgb = mix(diffuseColor.rgb, brass, frame); diffuseColor.rgb *= 1.0 - 0.3 * plate * win;
+  float ang = atan(bp.x, bp.z) * 0.19 / 0.03, ey = length(vec2((fract(ang) - 0.5) * 0.03, bp.y - 0.124));
+  float eye = (1.0 - smoothstep(0.003, 0.0042, ey)) * (1.0 - fr * (1.0 - smoothstep(0.045, 0.05, ax))), hole = 1.0 - smoothstep(0.0014, 0.0021, ey);
+  diffuseColor.rgb = mix(diffuseColor.rgb, brass * 0.9, eye); diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.03, 0.028, 0.024), eye * hole);
+  nsMetal = max(frame, eye * (1.0 - hole)) * 0.85; }`;
+function nsBeltMat(m, side) {
+  nsBindPaint(m, NS_BELT, 'belt' + side); const prev = m.onBeforeCompile, key = m.customProgramCacheKey();
+  m.onBeforeCompile = (sh, r) => { prev.call(m, sh, r); sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nfloat nsMetal = 0.0;')
+    .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = mix(roughnessFactor, 0.42, nsMetal);')
+    .replace('#include <metalnessmap_fragment>', '#include <metalnessmap_fragment>\nmetalnessFactor = mix(metalnessFactor, 0.75, nsMetal);'); };
+  m.customProgramCacheKey = () => key + 'm'; return m;
+}
 function nsBindPaint(m, glsl, tag) {
   const prev = m.onBeforeCompile, key = m.customProgramCacheKey ? m.customProgramCacheKey() : '';
   m.onBeforeCompile = (sh, r) => {
@@ -4019,33 +4118,40 @@ const NS_WRK_FN = `float nsWH(vec3 p) { return fract(sin(dot(p, vec3(127.1, 311.
 float nsWN(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
   return mix(mix(mix(nsWH(i), nsWH(i + vec3(1.0, 0.0, 0.0)), f.x), mix(nsWH(i + vec3(0.0, 1.0, 0.0)), nsWH(i + vec3(1.0, 1.0, 0.0)), f.x), f.y),
              mix(mix(nsWH(i + vec3(0.0, 0.0, 1.0)), nsWH(i + vec3(1.0, 0.0, 1.0)), f.x), mix(nsWH(i + vec3(0.0, 1.0, 1.0)), nsWH(i + vec3(1.0, 1.0, 1.0)), f.x), f.y), f.z); }
+float nsCr(float x) { return 0.55 - abs(sin(x)); }   /* a crease: a sharp fold line between broad rounded tops */
 float nsFold(vec3 b) {
   float fw = length(fwidth(b)), fine = 1.0 - smoothstep(0.003, 0.009, fw), mid = 1.0 - smoothstep(0.006, 0.02, fw), ax = abs(b.x), h = 0.0;
   float arm = smoothstep(0.2, 0.26, ax) * (1.0 - smoothstep(0.1, 0.16, abs(b.y - 0.477)));
   float var = 0.35 + 0.95 * nsWN(b * 11.0 + 3.7);   // folds of uneven depth: some deep, some barely there
-  float e = (ax - 0.46) / 0.075; h += arm * exp(-e * e) * sin(ax * 230.0 + (b.y + b.z) * 60.0 + nsWN(b * 30.0) * 5.0) * 0.0045 * var;
-  float c = (ax - 0.665) / 0.045; h += arm * exp(-c * c) * sin(ax * 280.0 + (b.y - b.z) * 70.0 + nsWN(b * 44.0) * 4.5) * 0.0024 * var;
+  float e = (ax - 0.46) / 0.075; h += arm * exp(-e * e) * nsCr(ax * 115.0 + (b.y + b.z) * 30.0 + nsWN(b * 30.0) * 5.0) * 0.004 * var;
+  float c = (ax - 0.665) / 0.045; h += arm * exp(-c * c) * nsCr(ax * 140.0 + (b.y - b.z) * 35.0 + nsWN(b * 44.0) * 4.5) * 0.0022 * var;
   float sh = smoothstep(0.07, 0.13, ax) * (1.0 - smoothstep(0.23, 0.3, ax)) * smoothstep(0.3, 0.38, b.y) * (1.0 - smoothstep(0.46, 0.52, b.y));
-  h += sh * sin((ax * 0.85 - b.y) * 150.0 + nsWN(b * 30.0) * 2.2) * 0.003;
+  h += sh * nsCr((ax * 0.85 - b.y) * 75.0 + nsWN(b * 30.0) * 2.2) * 0.0026 * var;
   float leg = (1.0 - smoothstep(0.17, 0.22, ax)) * (1.0 - smoothstep(-0.02, 0.02, b.y));
-  float k = (b.y + 0.42) / 0.075; h += leg * exp(-k * k) * sin(b.y * 220.0 + (b.x + b.z) * 55.0 + nsWN(b * 32.0) * 5.0) * 0.0045 * var;
-  float bl = (b.y + 0.755) / 0.05; h += leg * exp(-bl * bl) * sin(b.y * 280.0 + b.z * 60.0 + nsWN(b * 40.0) * 4.5) * 0.0042 * var;
+  float k = (b.y + 0.42) / 0.075; h += leg * exp(-k * k) * nsCr(b.y * 110.0 + (b.x + b.z) * 28.0 + nsWN(b * 32.0) * 5.0) * 0.0036 * var;
+  float bl = (b.y + 0.755) / 0.05; h += leg * exp(-bl * bl) * nsCr(b.y * 140.0 + b.z * 30.0 + nsWN(b * 40.0) * 4.5) * 0.0036 * var;
   float w = smoothstep(0.155, 0.175, b.y) * (1.0 - smoothstep(0.24, 0.3, b.y)) * (1.0 - smoothstep(0.2, 0.25, ax));
-  h += w * sin(atan(b.x, b.z) * 24.0 + nsWN(b * 25.0) * 3.0) * 0.0032;
+  h += w * nsCr(atan(b.x, b.z) * 12.0 + nsWN(b * 25.0) * 3.0) * 0.0028 * var;
   float hp = smoothstep(-0.2, -0.06, b.y) * (1.0 - smoothstep(-0.04, 0.04, b.y)) * (1.0 - smoothstep(0.15, 0.2, ax));
-  h += hp * sin((ax * 1.3 + b.y) * 130.0 + nsWN(b * 33.0) * 2.0) * 0.0022;
+  h += hp * nsCr((ax * 1.3 + b.y) * 65.0 + nsWN(b * 33.0) * 2.0) * 0.002 * var;
   h *= mid;
   h += ((nsWN(b * 34.0) - 0.5) * 0.004 + (nsWN(b * 95.0) - 0.5) * 0.0013) * fine;
   return h;
 }
 vec3 nsPerturb(vec3 sp, vec3 sn, vec2 dH, float fd) { vec3 sx = dFdx(sp), sy = dFdy(sp), r1 = cross(sy, sn), r2 = cross(sn, sx); float det = dot(sx, r1) * fd; vec3 g = sign(det) * (dH.x * r1 + dH.y * r2); return normalize(abs(det) * sn - g); }
-float nsFH = 0.0;`;
+float nsFH = 0.0;
+/* a shirt button: a disc of dull olive-brown plastic 14 mm across, its rim raised, four thread holes; it stands off the cloth */
+void nsButton(vec2 d, inout vec3 col) { float r = length(d), disc = 1.0 - smoothstep(0.0056, 0.0071, r); if (disc <= 0.0) return;
+  float rimr = smoothstep(0.0036, 0.0047, r) * (1.0 - smoothstep(0.0052, 0.0062, r)), holes = 1.0 - smoothstep(0.0005, 0.0009, length(abs(d) - vec2(0.0016)));
+  vec3 pl = vec3(0.07, 0.058, 0.036) * (1.0 + 0.7 * rimr - 0.6 * holes);
+  col = mix(col, pl, disc); nsFH += disc * (0.0012 + 0.0007 * rimr); }`;
 function nsWrinkle(m, tag) {   // after nsBindPaint (it declares vBindP)
   const prev = m.onBeforeCompile, key = m.customProgramCacheKey ? m.customProgramCacheKey() : '';
   m.onBeforeCompile = (sh, r) => { if (prev) prev.call(m, sh, r);
     sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\n' + NS_WRK_FN)
-      .replace('#include <map_fragment>', '#include <map_fragment>\nnsFH = nsFold(vBindP) * 1.5; diffuseColor.rgb *= 1.0 - 0.3 * smoothstep(0.0, 0.006, -nsFH) + 0.06 * smoothstep(0.0, 0.006, nsFH);')
-      .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\nnormal = nsPerturb(-vViewPosition, normal, vec2(dFdx(nsFH), dFdy(nsFH)) * 1.8, faceDirection);'); };
+      .replace('#include <map_fragment>', '#include <map_fragment>\nnsFH = nsFold(vBindP) * 1.5; diffuseColor.rgb *= 1.0 - 0.2 * smoothstep(0.0, 0.006, -nsFH) + 0.05 * smoothstep(0.0, 0.006, nsFH);')
+      .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\nnormal = nsPerturb(-vViewPosition, normal, vec2(dFdx(nsFH), dFdy(nsFH)) * 1.4, faceDirection);')
+      .replace('#include <aomap_fragment>', '#include <aomap_fragment>\nreflectedLight.indirectSpecular *= 0.45;');   /* cotton drill has little sheen: less of the sky's blue in it */ };
   m.customProgramCacheKey = () => key + '|wrk' + tag; return m;
 }
 // woven web: a fine basket weave and the stitched edge of each strap, pale so the material colour is the colour
@@ -4058,25 +4164,29 @@ function nsWebTex() {
 function nsMaterials() {
   if (NEWSOL.mats) return NEWSOL.mats;
   const T = SOLDIER_DATA.tex, std = (o) => new THREE.MeshStandardMaterial(Object.assign({ roughness: 0.9, metalness: 0 }, o));
-  const cloth = (side, map, color) => { const m = rimMat(side === 'e' ? 0xff4020 : 0x5f9cff, side === 'e' ? 0 : 0.22); m.vertexColors = false; m.map = map; m.bumpMap = null; m.color.set(color); m.roughness = 0.95; m.customProgramCacheKey = () => 'nsRim' + side; return m; };
-  const uniF = nsCamo({ seed: 3, base: 0x7a7a56, layers: [] });   // the IDF's plain olive drill, sun-faded
+  const cloth = (side, map, color) => { const m = rimMat(side === 'e' ? 0xff4020 : 0x5f9cff, side === 'e' ? 0 : 0.12); m.vertexColors = false; m.map = map; m.bumpMap = null; m.color.set(color); m.roughness = 0.95; m.customProgramCacheKey = () => 'nsRim' + side; return m; };
+  const uniF = nsCamo({ seed: 3, base: 0xac926a, layers: [[0xb49b72, 0.6, 3, 4], [0xa38a63, 0.62, 5, 6]] });   // the IDF's olive drill as the photographs of 1973 show it: khaki-olive, faded unevenly by the sun
   NEWSOL.camo.eg = nsCamo(NS_CAMO.eg);
   const head = nsImage(T.head), headAr = nsImage(T.headAr || T.head), hands = nsImage(T.hands), eyes = nsImage(T.eyes), net = nsNet();
   const hidden = new THREE.MeshBasicMaterial({ visible: false });
   const skin = (map, tint) => std({ map, roughness: 0.6, color: tint, emissive: 0x1a120c, emissiveMap: map });   // a little light of their own: the face shows under the helmet's shadow
-  const web = nsWebTex(), belt = (side, color) => nsBindPaint(cloth(side, web, color), NS_BELT, 'belt' + side), waist = (m, side) => nsWrinkle(nsBindPaint(m, NS_WAIST + NS_POCKETS + (side === 'f' ? NS_OPEN_F : ''), 'waist' + side), side);
-  const f = [waist(cloth('f', uniF, 0xffffff), 'f'), belt('f', 0x8a8458), std({ color: 0x4a2c1c, roughness: 0.55 }), skin(head, 0xffffff), skin(hands, 0xffffff), std({ map: eyes, roughness: 0.15 }),
-    nsBindPaint(std({ map: net, roughness: 0.92 }), NS_BAND, 'band'), std({ color: 0x3a3a2a, roughness: 0.85 }), hidden];
+  const web = nsWebTex(), belt = (side, color) => nsBeltMat(cloth(side, web, color), side), waist = (m, side) => nsWrinkle(nsBindPaint(m, NS_WAIST + NS_POCKETS + NS_MADEI(side === 'f' ? 0.45 : 0.5) + (side === 'f' ? NS_OPEN_F : ''), 'waist' + side), side);
+  const f = [waist(cloth('f', uniF, 0xffffff), 'f'), belt('f', 0xf2dcb0), std({ color: 0x4a2c1c, roughness: 0.55 }), skin(head, 0xffffff), skin(hands, 0xffffff), std({ map: eyes, roughness: 0.15 }),
+    nsHelmetMat(net), std({ color: 0x8a7856, roughness: 0.9 }), hidden];   // the chinstraps and liner in tan web
+  const cov = NEWSOL.camo.eg.clone(); cov.repeat.set(0.5, 0.5); cov.needsUpdate = true;
+  NEWSOL.helm = { cover: nsWrinkle(nsBindPaint(std({ map: cov, roughness: 0.96 }), NS_COVER, 'cover'), 'cv'), net: nsBindPaint(std({ color: 0xa8956c, roughness: 0.72 }), NS_SOVNET, 'sovnet'), sy: nsBindPaint(std({ color: 0x55553b, roughness: 0.62 }), NS_CHIP, 'chip') };
   const e = [waist(cloth('e', NEWSOL.camo.eg, 0xffffff), 'e'), belt('e', 0x5e4c32), std({ color: 0x1d1b19, roughness: 0.55 }), skin(headAr, 0xf0d5ba), skin(hands, 0xf0d5ba), std({ map: eyes, roughness: 0.15 }),
-    hidden, hidden, std({ color: 0x7a7150, roughness: 0.6 })];
-  NEWSOL.mats = { f, e }; nsUniformFor(MODE); return NEWSOL.mats;
+    hidden, hidden, NEWSOL.helm.cover];
+  const e2 = e.slice(); e2[8] = NEWSOL.helm.net;   // one man in three bare-helmeted under a net
+  NEWSOL.mats = { f, e, e2 }; nsUniformFor(MODE); return NEWSOL.mats;
 }
 /* the enemy's uniform with the chapter: the Syrians on the Hermon in their forest pattern, the Egyptians everywhere else in khaki */
 function nsUniformFor(mode) {
   if (!NEWSOL.mats) return; const sy = mode === 'hermon', E = NEWSOL.mats.e;
   if (sy && !NEWSOL.camo.sy) NEWSOL.camo.sy = nsCamo(NS_CAMO.sy);
-  E[0].map = sy ? NEWSOL.camo.sy : NEWSOL.camo.eg; E[1].color.set(sy ? 0x3c3f2a : 0x5e4c32); E[8].color.set(sy ? 0x434a30 : 0x7a7150); E[3].color.set(sy ? 0xf2dac2 : 0xf0d5ba); E[4].color.copy(E[3].color);
-  for (const m of [E[0], E[1], E[8]]) m.needsUpdate = true;
+  E[0].map = sy ? NEWSOL.camo.sy : NEWSOL.camo.eg; E[1].color.set(sy ? 0x3c3f2a : 0x5e4c32); E[3].color.set(sy ? 0xf2dac2 : 0xf0d5ba); E[4].color.copy(E[3].color);
+  const Hm = NEWSOL.helm; E[8] = sy ? Hm.sy : Hm.cover; NEWSOL.mats.e2[8] = sy ? Hm.sy : Hm.net;
+  for (const m of [E[0], E[1]]) m.needsUpdate = true;
 }
 { const _uf = uniformFor; uniformFor = function (mode) { _uf(mode); nsUniformFor(mode); nsRefresh(); }; }   /* reassigns the declaration in 4_actors.js (one module) */
 /* the joints where this figure's are: its shoulders, hips, knees and head pivot (the old figure's are kept, and come back with it) */
@@ -4095,7 +4205,7 @@ function nsAttach(R) {
   R.sR.quaternion.setFromAxisAngle(_nsZ, -Math.PI / 2); R.sL.quaternion.setFromAxisAngle(_nsZ, Math.PI / 2);
   R.root.updateMatrixWorld(true);
   const bones = J.map((o) => { const b = new THREE.Bone(); o.add(b); return b; });
-  const m = new THREE.SkinnedMesh(nsGeometry(), nsMaterials()[R.side === 'e' ? 'e' : 'f']); R.hips.add(m); m.boundingSphere = new THREE.Sphere(V3(0, -0.15, 0), 1.5);
+  NEWSOL.n = (NEWSOL.n || 0) + 1; const m = new THREE.SkinnedMesh(nsGeometry(), nsMaterials()[R.side === 'e' ? (NEWSOL.n % 3 === 0 ? 'e2' : 'e') : 'f']); R.hips.add(m); m.boundingSphere = new THREE.Sphere(V3(0, -0.15, 0), 1.5);
   R.root.updateMatrixWorld(true); m.bind(new THREE.Skeleton(bones)); SH(m, true, false); onLayer1(m);
   J.forEach((o, i) => { o.quaternion.copy(save[i][0]); o.scale.copy(save[i][1]); }); R.root.updateMatrixWorld(true);
   R.ns = m;
@@ -4686,9 +4796,101 @@ function woundFriend(f, killed = false, force = false) {
   if (killed) { f.state = 'kia'; feed(`${f.name} נהרג`, 'bad'); STATS.kia++; }
   else { f.state = 'wounded'; f.bleed = diff.bleed; feed(`${f.name} נפגע! ״חובש!״`, 'bad'); f.marker.visible = true; radio(f.name, 'נפגעתי! חובש!', 3); }
 }
+/* ================= the squad: how the men beside the player fight =================
+   As an IDF squad does. Contact: the first man to see the enemy calls it - the clock and the range - and the squad goes to ground, each man
+   to the cover nearest his place in the line that faces the enemy (sqfCover), kneeling where there is none. Fire and movement: in contact
+   the squad moves in two fire teams, one bounding forward bent low while the other covers it with fire, then the other way. Covering fire:
+   a man who sees no target himself fires on one a comrade called (sqfSupp), to keep the enemy's head down. A magazine is changed with a
+   call, and another man answers that he covers. A grenade is called and run from. The calls show over the men's heads, short */
+const SQF = { at: -1, contact: false, cT: -99, threat: null, spots: new Map(), bound: 0, boundT: 0, callT: -99, later: [], contactCall: -99 };
+const sqfTeam = (f) => (f.fi ?? FRIENDS.indexOf(f)) % 2;
+function sqfReset() { SQF.at = -1; SQF.contact = false; SQF.cT = -99; SQF.threat = null; SQF.spots.clear(); SQF.later.length = 0; SQF.contactCall = -99; for (const f of FRIENDS) { sqfTakeCover(f, null); f.cvC = null; f.cvT = 0; f.supE = null; if (f.say) f.say.visible = false; } }
+function shout(f, text, dur = 1.9, force = false) {
+  if (!f || !f.unit || !f.unit.alive || CINE.on || GAME.state !== 'play') return false;
+  if (!force && (GAME.t - SQF.callT < 1.1 || GAME.t < (f.shoutCd || 0))) return false;
+  if (camera.position.distanceTo(f.unit.pos) > 60) return false;
+  SQF.callT = GAME.t; f.shoutCd = GAME.t + 3.2;
+  if (!f.say) { const el = document.createElement('div'); el.className = 'say'; f.say = new CSS2DObject(el); f.say.center.set(0.5, 1); scene.add(f.say); f.sayEl = el; }
+  f.sayEl.textContent = `${f.name}: ${text}`; f.say.visible = true; f.sayT = dur; return true;
+}
+function sqfLater(f, text, delay) { if (f) SQF.later.push({ f, text, at: GAME.t + delay }); }
+function sqfMate(f, R = 16) { let b = null, bd = R; for (const o of FRIENDS) { if (o === f || !o.unit.alive || (o.state !== 'follow' && o.state !== 'post')) continue; const d = o.unit.pos.distanceTo(f.unit.pos); if (d < bd) { bd = d; b = o; } } return b; }
+function sqfSpot(e, f) {   // a man seen (or heard firing): the squad knows where he is for a few seconds
+  if (!e || !e.alive) return; const fresh = !SQF.contact; SQF.spots.set(e, GAME.t); SQF.cT = GAME.t;
+  if (fresh && f && GAME.t - SQF.contactCall > 18 && P.alive) { const d = Math.hypot(e.pos.x - P.pos.x, e.pos.z - P.pos.z);
+    if (shout(f, `${pick(['מגע!', 'מגע! מגע!', 'אויב!'])} ${clockOf(e.pos)}, ${Math.max(10, Math.round(d / 10) * 10)} מטר!`, 2.4, true)) { SQF.contactCall = GAME.t; sqfLater(sqfMate(f, 30), pick(['למחסה!', 'כולם לתפוס מחסה!', 'פזר! למחסה!', 'אש לעברם!']), 1.1); } }
+}
+function sqfFrame() {
+  if (SQF.at === GAME.t) return; SQF.at = GAME.t;
+  for (const [e, t] of SQF.spots) if (!e.alive || GAME.t - t > 7) SQF.spots.delete(e);
+  let sx = 0, sz = 0, sw = 0;
+  for (const [e] of SQF.spots) { const w = 1 / Math.max(8, Math.hypot(e.pos.x - P.pos.x, e.pos.z - P.pos.z)); sx += e.pos.x * w; sz += e.pos.z * w; sw += w; }
+  const was = SQF.contact; SQF.contact = GAME.t - SQF.cT < 7 && P.alive && !CINE.on;
+  if (sw > 0) SQF.threat = { x: sx / sw, z: sz / sw }; else if (!SQF.contact) SQF.threat = null;
+  if (SQF.contact && !was) { SQF.bound = 0; SQF.boundT = GAME.t; }
+  for (let i = SQF.later.length - 1; i >= 0; i--) { const q = SQF.later[i]; if (GAME.t >= q.at) { SQF.later.splice(i, 1); shout(q.f, q.text, 1.7, true); } }
+  if (!SQF.contact) return;
+  // the bound changes hands when the men moving are down in their places, or after a few seconds; only if the others have somewhere to go
+  const team = (k) => FRIENDS.filter((f) => f.state === 'follow' && f.unit.alive && sqfTeam(f) === k), movers = team(SQF.bound);
+  if ((movers.every((f) => !f.moving) && GAME.t - SQF.boundT > 1.4) || GAME.t - SQF.boundT > 5 || !movers.length) {
+    const other = team(1 - SQF.bound), go = other.filter((f) => f.wantMove);
+    if (go.length) { SQF.bound = 1 - SQF.bound; SQF.boundT = GAME.t;
+      if (Math.random() < 0.55) { const m = go[0], c = movers.find((f) => !f.moving); if (shout(m, pick(['זז!', 'עובר!', 'מתקדם!', 'קפיצה!']), 1.5) && c) sqfLater(c, pick(['מחפה!', 'זוז, מחפה!', 'אש חיפוי!']), 0.6); } }
+  }
+}
+/* the cover a man in the line takes in contact: near his place (and the player), between him and the enemy, free, reachable in a straight run */
+function sqfCover(f, sx, sz) {
+  if (f.cvT > GAME.t && f.cvFor && Math.hypot(f.cvFor[0] - sx, f.cvFor[1] - sz) < 2.5) return f.cvC;
+  f.cvT = GAME.t + 1.2; f.cvFor = [sx, sz]; const u = f.unit, T = SQF.threat; let best = null, bs = 1e9;
+  if (T) for (const c of (SZ.covers && SZ.covers.length ? SZ.covers : COVER)) {
+    if (c.floor !== undefined || (c.by && c.by.alive) || (c.fby && c.fby !== f && c.fby.unit.alive && c.fby.state === 'follow')) continue;
+    const dsl = Math.hypot(c.x - sx, c.z - sz); if (dsl > 7) continue;
+    const dp = Math.hypot(c.x - P.pos.x, c.z - P.pos.z); if (dp < 2.4 || dp > 21) continue;
+    if (c.y !== undefined && Math.abs(c.y - u.pos.y) > 1.2) continue;
+    const tx = T.x - c.x, tz = T.z - c.z, dT = Math.hypot(tx, tz); if (dT < 8 || (tx * c.nx + tz * c.nz) / dT < 0.4 || laneBad(c.x, c.z) > 0) continue;
+    const sc = dsl + 0.25 * Math.hypot(c.x - u.pos.x, c.z - u.pos.z) - (c.h > 1.2 ? 0.6 : 0); if (sc < bs) { bs = sc; best = c; }
+  }
+  if (best && !clearRun(u.pos.x, u.pos.z, best.x, best.z, u.pos.y)) best = null;
+  return (f.cvC = best);
+}
+function sqfTakeCover(f, c) { if (f.cov && f.cov.fby === f) f.cov.fby = null; f.cov = c; if (c) c.fby = f; }
+/* in contact a man without cover kneels; behind low cover he kneels to fire over it; behind a wall he stands */
+const sqfKneel = (f) => f.state === 'follow' && SQF.contact && !(f.cov && f.cov.h >= 0.95);
+/* covering fire: no target of his own in sight, he fires on a man a comrade called - over the top of the man's cover, to keep him down */
+function sqfSupp(f, dt) {
+  const u = f.unit; f.supCd = (f.supCd ?? rand(0.4, 1.2)) - dt; f.supChk = (f.supChk || 0) - dt; let e = f.supE;
+  if (!e || !e.alive || !SQF.spots.has(e) || f.supChk <= 0) {
+    f.supChk = 0.8; e = null; let bd = 170; const ex = u.pos.x, ey = u.pos.y + 1.55 * US, ez = u.pos.z;
+    for (const [q] of SQF.spots) { const d = Math.hypot(q.pos.x - ex, q.pos.z - ez); if (d > bd || d < 4) continue; const c = q.chest(); if (losW(ex, ey, ez, c.x, c.y + 0.75, c.z)) { bd = d; e = q; } }
+    f.supE = e;
+  }
+  if (!e) return false;
+  const c = e.chest(), kneel = sqfKneel(f); u.face(c.x, c.z); u.stance = kneel ? 'crouch' : 'stand'; const eye = u.eye(); f.aimP = Math.atan2(c.y + 0.4 - eye.y, Math.hypot(c.x - eye.x, c.z - eye.z)); u.rig.pose(kneel ? 'crouch' : 'aim', u.anim, f.aimP);
+  if (f.supCd <= 0) {
+    if (!(f.supN > 0)) { f.supN = Math.floor(rand(2, 4)); if (Math.random() < 0.12) shout(f, pick(['מרתק אותו!', 'אש על המצרי!', 'תורידו לו את הראש!'])); }
+    f.supN--; f.supCd = f.supN > 0 ? 0.3 : rand(1.3, 2.4) * diff.fgun;
+    const from = u.muzzle(); fxMuzzle(from, false); sndShot('fal-npc', from);
+    const end = c.clone().add(V3(rand(-1.1, 1.1), rand(-0.2, 1.0), rand(-1.1, 1.1))); if (Math.random() < 0.3) fxTracer(from, end, false);
+    fxDust(V3(end.x, surfAt(end.x, end.z) + 0.2, end.z), groundAt(end.x, end.z) < 0); supPin(e, 0.3);
+    if (Math.random() < 0.015 * diff.fAcc) killEnemy(e, false);   /* a lucky round now and then; the fire is to pin him, not to kill */
+  }
+  return true;
+}
+/* an enemy grenade near him: he shouts it and runs from it */
+function sqfNade(f, dt) {
+  const u = f.unit;
+  if (f.dodgeT > 0) { f.dodgeT -= dt; u.anim += dt * 9; u.stance = 'stand'; const d = steer(u, f.dodgeX, f.dodgeZ, 5.6, dt); u.rig.pose(d > 0.6 ? 'crun' : 'hide', u.anim); f.post.stand = [u.pos.x, u.pos.z]; return true; }
+  f.dodgeCd = (f.dodgeCd || 0) - dt; if (f.dodgeCd > 0) return false; f.dodgeCd = 0.2;
+  for (const q of PROJ) { if (q.type !== 'gren' || q.owner === 'player') continue; const dx = u.pos.x - q.m.position.x, dz = u.pos.z - q.m.position.z, d = Math.hypot(dx, dz);
+    if (d < 6.5 && q.m.position.y - groundAt(q.m.position.x, q.m.position.z) < 2.0) { const k = (7.8 - d) / (d || 1);
+      if (!q.called) { q.called = true; shout(f, pick(['רימון!', 'רימון! לזוז!', 'רימון, תשכבו!']), 1.6, true); }
+      f.dodgeX = u.pos.x + dx * k + rand(-1, 1); f.dodgeZ = u.pos.z + dz * k + rand(-1, 1); f.dodgeT = Math.min(q.fuse + 0.5, 2.0); sqfTakeCover(f, null); f.moving = true; f.holdP = null; return true; } }
+  return false;
+}
 const FCALL = { t: -99 };   // the last time a friend shouted a warning
 function updFriend(f, dt, time) {
-  const u = f.unit; u.anim += dt;
+  const u = f.unit; u.anim += dt; sqfFrame();
+  if (f.say && f.say.visible) { f.sayT -= dt; f.say.position.set(u.pos.x, u.pos.y + 2.05 * US, u.pos.z); if (f.sayT <= 0 || !u.alive || !u.rig.root.visible || CINE.on) f.say.visible = false; }
   if (f.state === 'bunker') return;
   if (f.state === 'ride') { const r = f.ride(); u.pos.copy(r.p); u.heading = r.hd; u.stance = 'crouch'; u.rig.pose(r.pose || 'crouch', u.anim, 0); u.sync(); return; }
   if (f.state === 'board') { const g = f.goal(); const d = steer(u, g.x, g.z, 5.2, dt); u.anim += dt * 9.5; u.stance = 'stand'; u.rig.pose('run', u.anim); if (d < 0.8) f.onArrive(f); u.sync(); return; }
@@ -4699,12 +4901,12 @@ function updFriend(f, dt, time) {
     if (d < 0.45) { f.state = 'post'; u.place(f.goal[0], f.goal[1], f.goalY); u.heading = Math.atan2(f.post.fx, f.post.fz); }
     u.sync(); return;
   }
-  if (f.state === 'follow' && szFollow(f, dt)) { u.sync(); return; }
+  if (f.state === 'follow' && (sqfNade(f, dt) || szFollow(f, dt))) { u.sync(); return; }
   if (f.state === 'post' || f.state === 'follow') {
     const p = f.post; f.scanCd -= dt;
     // under fire he ducks for a moment, then comes up again; he does not stand in the open trading shots
     f.supp = Math.max(0, (f.supp || 0) - dt * 0.8); f.duckT = (f.duckT ?? -9) - dt;
-    if (diff.fSmart > 0 && f.supp > 3 && f.duckT < -2.5) { f.duckT = rand(1.0, 1.8); f.supp = 0; }
+    if (diff.fSmart > 0 && f.supp > 3 && f.duckT < -2.5) { f.duckT = rand(1.0, 1.8); f.supp = 0; if (Math.random() < 0.3) shout(f, pick(['יורים עליי!', 'אני מרותק!', 'מרתקים אותנו!', 'ראשים למטה!'])); }
     if (f.scanCd <= 0) {
       f.scanCd = rand(0.35, 0.6); f.target = null; let bd = 300; const eye = u.eye(), pe = P.alive ? P.pos : null;
       // the squad picks its targets by danger, not by distance alone: a man inside the wire or in the trench, one firing at the player from close,
@@ -4720,6 +4922,7 @@ function updFriend(f, dt, time) {
       // a man close behind the player, or beside him, while he looks the other way: the friend who sees him shouts
       if (f.target && f.target.u && pe && !CINE.on && Math.abs(GAME.t - FCALL.t) > (diff.fSmart >= 2 ? 7 : diff.fSmart ? 9 : 22)) { const e = f.target.u, vx = e.pos.x - pe.x, vz = e.pos.z - pe.z, dp = Math.hypot(vx, vz);
         if (dp < 14) { const fw = camForward(_aimF), c = (vx * fw.x + vz * fw.z) / (dp || 1); if (c < 0.25) { const right = vx * -fw.z + vz * fw.x > 0; FCALL.t = GAME.t; radio(f.name, `${pick(MODE === 'hermon' ? ['סורי', 'זהירות, סורי', 'יש סורי'] : ['מצרי', 'זהירות, מצרי', 'יש מצרי'])} ${c < -0.5 ? 'מאחוריך' : right ? 'מימינך' : 'משמאלך'}!`, 2.2); } } }
+      if (f.target && f.target.u) sqfSpot(f.target.u, f);
       if (!f.target) for (const bt of BOATS) { if (bt.dead || bt.state !== 'cross' || !bt.g.visible) continue; const i = bt.seats.findIndex((s) => s.alive && !s.gone); if (i < 0) continue; const sp = bt.seatWorld(i); const d = eye.distanceTo(sp); if (d < 420 && d < bd && los(eye.x, eye.y, eye.z, sp.x, sp.y + 0.8, sp.z)) { bd = d; f.target = { boat: bt, seat: i }; } }
     }
     const isMag = p.mag && p.occupant === f;
@@ -4742,7 +4945,7 @@ function updFriend(f, dt, time) {
         f.burst--; f.fireCd = f.burst > 0 ? (isMag ? 0.09 : 0.35) : rand(1.1, 2.4) * (isMag ? 1.2 : 1) * diff.fgun;
         if (f.burst <= 0 && !isMag) {   // the burst fired: he works his cover - down and up again from another spot along it, a magazine changed behind it every few bursts, or he stays up on his target
           f.magN = (f.magN || 0) + 1; const r = Math.random();
-          if (f.magN >= 4) { f.magN = 0; f.peekT = rand(2.2, 3.0); f.peekKind = 'reload'; f.fireCd = Math.max(f.fireCd, f.peekT + 0.15); }
+          if (f.magN >= 4) { f.magN = 0; f.peekT = rand(2.2, 3.0); f.peekKind = 'reload'; f.fireCd = Math.max(f.fireCd, f.peekT + 0.15); if (Math.random() < 0.6 && shout(f, pick(['מחליף מחסנית!', 'מחסנית!', 'טוען!']))) sqfLater(sqfMate(f), pick(['מחפה!', 'מחפה עליך!', 'יש לך כיסוי!']), 0.7); }
           else if (r < 0.7) { f.peekT = f.fireCd * rand(0.55, 0.9); f.peekKind = 'move'; f.peekOff = clamp((f.peekOff || 0) + (Math.random() < 0.5 ? -1 : 1) * rand(0.5, 0.9), -0.9, 0.9); }
         }
         const from = isMag ? p.mag.pivot.localToWorld(V3(0, 0.012, 0.9)) : u.muzzle(); fxMuzzle(from, isMag); sndShot('fal-npc', from);
@@ -4753,10 +4956,14 @@ function updFriend(f, dt, time) {
         if (f.target.boat) pHit *= 0.15; pHit *= diff.fAcc * (mzEase() ? mzEase().fAcc : 1);
         const hit = Math.random() < pHit; const end = tp.clone(); if (!hit) end.add(V3(rand(-1.5, 1.5), rand(-0.6, 1.2), rand(-1.5, 1.5)));
         if (isMag && Math.random() < 0.4) fxTracer(from, end, false);
-        if (hit) { if (f.target.u) killEnemy(f.target.u, false); else killSeat(f.target.boat, f.target.seat); } else { if (f.target.u) supPin(f.target.u, isMag ? 0.12 : 0.2); } if (!hit) fxDust(V3(end.x, surfAt(end.x, end.z) + 0.2, end.z), groundAt(end.x, end.z) < 0);
+        if (hit) { if (f.target.u) { killEnemy(f.target.u, false); if (Math.random() < 0.3) shout(f, pick(['נפל!', 'חיסלתי אותו!', 'פגעתי!', 'הוא למטה!'])); } else killSeat(f.target.boat, f.target.seat); } else { if (f.target.u) supPin(f.target.u, isMag ? 0.12 : 0.2); } if (!hit) fxDust(V3(end.x, surfAt(end.x, end.z) + 0.2, end.z), groundAt(end.x, end.z) < 0);
       }
-      u.stance = 'stand'; u.rig.pose('aim', u.anim, f.aimP);
-    } else { u.heading = lerp(u.heading, Math.atan2(p.fx, p.fz), 0.05); u.stance = 'stand'; u.rig.pose('idle', u.anim); }
+      const kn = sqfKneel(f); u.stance = kn ? 'crouch' : 'stand'; u.rig.pose(kn ? 'crouch' : 'aim', u.anim, f.aimP);
+    } else if (SQF.contact && f.state === 'follow' && !isMag && sqfSupp(f, dt)) { /* covering fire on a man his comrades see */ }
+    else if (SQF.contact && f.state === 'follow') {   // contact, nothing to fire at: down behind his cover, or kneeling, watching where the enemy is
+      const T = SQF.threat; if (T) u.heading += wrapPi(Math.atan2(T.x - u.pos.x, T.z - u.pos.z) - u.heading) * Math.min(1, dt * 4);
+      const low = f.cov && f.cov.h < 1.3; u.stance = low ? 'hide' : 'crouch'; u.rig.pose(low ? 'hide' : 'crouch', u.anim, 0);
+    } else { u.heading += wrapPi(Math.atan2(p.fx, p.fz) - u.heading) * 0.05; u.stance = 'stand'; u.rig.pose('idle', u.anim); }
   } else if (f.state === 'wounded' || f.state === 'stable' || f.state === 'saved' || f.state === 'kia') {
     if (u.fall >= 0 && u.fall < 1.0) { u.fall += dt; u.rig.fallPose(u.fall, 1, 'back'); }
     else if (f.state !== 'kia') u.rig.pose('prone', f.state === 'wounded' ? u.anim * 2 : u.anim * 0.4);
@@ -4828,13 +5035,13 @@ function targetsFor(e) {
 const WPN = { rifle: { burst: [2, 5], gap: 0.12, pause: [1.4, 2.8], acc: 1, dmg: 1, range: 320, snd: 'ak' }, smg: { burst: [5, 9], gap: 0.07, pause: [1.0, 2.0], acc: 0.65, dmg: 0.7, range: 110, snd: 'smg' }, lmg: { burst: [7, 13], gap: 0.085, pause: [1.8, 3.2], acc: 0.8, dmg: 1, range: 360, snd: 'lmg', tracer: 0.8 }, sniper: { burst: [1, 1], gap: 0, pause: [2.4, 3.8], acc: 2.4, dmg: 1.9, range: 520, snd: 'svd' }, rpg: { burst: [2, 4], gap: 0.13, pause: [1.6, 3.0], acc: 0.9, dmg: 1, range: 300, snd: 'ak' }, flame: { burst: [2, 4], gap: 0.13, pause: [1.6, 3.0], acc: 0.8, dmg: 1, range: 200, snd: 'ak' } };
 const wpnOf = (e) => WPN[e.kind] || WPN.rifle, wBurst = (e) => { const b = wpnOf(e).burst; return Math.floor(rand(b[0], b[1] + 1) * (e.wild ? 1.7 : 1)); }, wGap = (e, k = 1) => wpnOf(e).gap * k, wPause = (e, k = 1) => { const p = wpnOf(e).pause; return rand(p[0], p[1]) * k * (e.wild ? 0.3 : 1); };
 function enemyFire(e) {
-  const mz = mzEase(), from = e.muzzle(); const tgt = e.target; if (!tgt) return; if (tgt.player) { e.shotT = GAME.t; if (MODE === 'suez') szFireAt(e, from); } const W = wpnOf(e);
+  const mz = mzEase(), from = e.muzzle(); const tgt = e.target; if (!tgt) return; if (tgt.player) { e.shotT = GAME.t; if (MODE === 'suez') szFireAt(e, from); if (Math.hypot(e.pos.x - P.pos.x, e.pos.z - P.pos.z) < 150) SQF.spots.set(e, GAME.t), SQF.cT = GAME.t; } const W = wpnOf(e);
   const tp = tgt.player ? playerEye() : tgt.f.unit.chest(); const d = from.distanceTo(tp); const rangeF = clamp(1 - d / W.range, 0.25, 1) * (W.range < 200 && d > W.range * 0.6 ? 0.3 : 1);
   fxMuzzle(from, W.snd === 'lmg'); sndShot(W.snd, from);
   let hit = false; const eye = e.eye(); const wt = segHitT(eye.x, eye.y, eye.z, tp.x, tp.y, tp.z, FIELDM() ? 0.25 : 0.7);
   if (wt >= 0) { const wp = V3(lerp(eye.x, tp.x, wt), lerp(eye.y, tp.y, wt), lerp(eye.z, tp.z, wt)); if (Math.random() < 0.5) fxTracer(from, wp, true); fxDust(wp); e.scanCd = 0; return; }
   if (tgt.player) { let p = W.acc * (FIELDM() ? (CH().hard || 0.7) : 1) * (SURV.on ? SURV.acc : 1) * diff.acc * rangeF * (d < 12 ? 2 : 1) * (P.mode === 'tank' ? 0.45 : 1) * (P.crouch ? 0.55 : 1) * (moving() ? 0.7 : 1) * (P.post ? 0.8 : 1) * (e.stance === 'crouch' ? 1.1 : 1) * (FIELDM() && P.mode === 'rifle' && inConceal(P.pos.x, P.pos.z) ? 0.45 : 1) * (e.wild ? 0.3 : 1) * (mz ? mz.acc * (SCENES[Math.max(0, D.scene)].acc || 1) : 1) * (e.wild ? 1 : tacAcc(e)); hit = Math.random() < p; if (hit && P.mode === 'tank' && P.crouch) { hit = false; fxDust(tp.clone().add(V3(rand(-0.6, 0.6), rand(-0.3, 0.3), rand(-0.6, 0.6)))); } if (hit) hurtPlayer(rand(diff.dmg[0], diff.dmg[1]) * W.dmg, from); else if (d < 60 && Math.random() < 0.35) sndWhiz(); }
-  else { hit = Math.random() < diff.accF * (1 - 0.6 * clamp(e.supp || 0, 0, 1)) * rangeF * (FIELDM() ? 0.45 : 1) * (tgt.f.duckT > 0 ? 0.25 : 1) * (mz ? mz.fHit : 1); if (hit) woundFriend(tgt.f, Math.random() < 0.18); else tgt.f.supp = (tgt.f.supp || 0) + 1; }
+  else { sqfSpot(e, tgt.f); hit = Math.random() < diff.accF * (1 - 0.6 * clamp(e.supp || 0, 0, 1)) * rangeF * (FIELDM() ? 0.45 : 1) * (tgt.f.duckT > 0 ? 0.25 : 1) * (tgt.f.unit.stance === 'crouch' ? 0.7 : 1) * (tgt.f.cov ? 0.55 : 1) * (mz ? mz.fHit : 1); if (hit) woundFriend(tgt.f, Math.random() < 0.18); else tgt.f.supp = (tgt.f.supp || 0) + 1; }
   const end = tp.clone(); if (!hit) end.add(V3(rand(-1.4, 1.4), rand(-0.4, 1.4), rand(-1.4, 1.4)));
   if (Math.random() < ((CH() && CH().tracers) || W.tracer || 0.5)) fxTracer(from, end, true);
   if (!hit && Math.random() < 0.4) fxDust(V3(end.x, groundAt(end.x, end.z) + 0.2, end.z));
@@ -6096,7 +6303,7 @@ function restoreCheckpoint() {
   GAME.state = 'play'; $('#app').classList.add('play'); for (const m of ['#mBrief', '#mPause', '#mEnd', '#mOps', '#mSet']) $(m).hidden = true; initAudio(); lockPointer();
 }
 function resetGame() {
-  ensureMez(); facesNow(); envReady();
+  ensureMez(); facesNow(); envReady(); sqfReset();
   for (const e of UNITS.enemies) if (e.mmHide || e.pitHid) { fmDisguise(e, false); e.mmHide = false; e.pitHid = false; }
   MODE = 'mezach'; showWorld('mezach'); P.ride = null; if (CINE.on) endCine(true); $('#clockSub').textContent = '6.10.1973 · מעוז המזח'; P.mode = 'rifle'; P.crouch = false; vm.visible = true; $('#tsight').classList.remove('on'); FRIENDS.forEach((f, i) => { f.name = FRIEND_DEF[i][0]; });
   clearBattle(); CP.scene = -1; snapReset(); if (!TR.lane) initLanes(); D.scene = -1; applyBarricades(0, false);
@@ -7565,34 +7772,44 @@ function szFollow0(f, dt) {
   if (f.ti < SZ.trailBase) f.ti = SZ.trailBase;
   // far behind or stuck: he catches up off screen along the trail
   if ((dP > 34 || f.stuck > 1.5) && goal >= SZ.trailBase) { const w = tr[Math.max(SZ.trailBase, goal - 4) - SZ.trailBase]; if (!szOnScreen(w[0], w[2] + 1, w[1]) && !szOnScreen(u.pos.x, u.pos.y + 1, u.pos.z)) { u.place(w[0], w[1], w[2] + 0.2); f.ti = goal; f.stuck = 0; f.prog = null; } }
-  const [sx, sz] = fSlotOf(f), ds = Math.hypot(sx - u.pos.x, sz - u.pos.z), dPl = Math.hypot(P.pos.x - u.pos.x, P.pos.z - u.pos.z);
   const sameF = Math.abs(P.pos.y - u.pos.y) < 1.6, col = colMode(), indoor = inTB(P.pos.x, P.pos.z, 1) || inTB(u.pos.x, u.pos.z, 1), tight = indoor || col;
+  let [sx, sz] = fSlotOf(f);
+  // in contact his place is the nearest cover to it that faces the enemy (sqfCover): he goes to ground there, not in the open
+  const cv = SQF.contact && !tight && sameF ? sqfCover(f, sx, sz) : null; if (cv) { sx = cv.x; sz = cv.z; }
+  const ds = Math.hypot(sx - u.pos.x, sz - u.pos.z), dPl = Math.hypot(P.pos.x - u.pos.x, P.pos.z - u.pos.z), toCov = !!cv && ds > 0.9 && ds < 7.5;
   f.seeT = (f.seeT || 0) - dt; if (f.seeT <= 0) { f.seeT = 0.3; f.seeP = sameF && losW(u.pos.x, u.pos.y + 1.5, u.pos.z, P.pos.x, P.pos.y + 1.5, P.pos.z); }
   // nobody stands on the player: a man closer than two metres steps away first
   if (dPl < 2.0 && !CINE.on) { const ax = (u.pos.x - P.pos.x) / (dPl || 1), az = (u.pos.z - P.pos.z) / (dPl || 1); steer(u, u.pos.x + ax * 2.5, u.pos.z + az * 2.5, 3.2, dt); u.anim += dt * 7; u.stance = 'stand'; u.rig.pose('walk', u.anim); f.moving = true; f.holdP = null; return true; }
-  const settle = () => { f.moving = false; f.prog = null; const d = SZ.fdir ?? P.yaw + Math.PI; f.post.fx = Math.sin(d); f.post.fz = Math.cos(d); u.heading = d; f.scanCd = 0; f.holdP = [P.pos.x, P.pos.z]; f.post.stand = [u.pos.x, u.pos.z]; return false; };
+  const settle = () => { f.moving = false; f.prog = null; const T = SQF.contact && SQF.threat, d = T ? Math.atan2(T.x - u.pos.x, T.z - u.pos.z) : SZ.fdir ?? P.yaw + Math.PI; f.post.fx = Math.sin(d); f.post.fz = Math.cos(d); u.heading = d; f.scanCd = 0; f.holdP = [P.pos.x, P.pos.z]; f.post.stand = [u.pos.x, u.pos.z];
+    sqfTakeCover(f, cv && Math.hypot(cv.x - u.pos.x, cv.z - u.pos.z) < 1.4 ? cv : null); return false; };
   // a man who got wedged (a doorway, a table, a friend in the way) takes the spot he is on and fights from it; he tries again when the player has walked on
   if (f.wedged) { if (Math.hypot(P.pos.x - f.wedged[0], P.pos.z - f.wedged[1]) > 4 || !sameF || GAME.t > f.wedged[2]) { f.wedged = null; f.stuck = 0; } else { f.post.stand = [u.pos.x, u.pos.z]; return false; } }
-  // a man in position stays in it and fights: looking round does not move the squad, only the player walking on does
+  // a man in position stays in it and fights: looking round does not move the squad, only the player walking on does (or contact: to the cover beside him)
   if (!f.moving) {
     const pm = f.holdP ? Math.hypot(P.pos.x - f.holdP[0], P.pos.z - f.holdP[1]) : 99;
-    if (ds < 1.0 || (pm < (tight ? 3.5 : 5.5) && sameF && dPl < (col ? 22 : indoor ? 9 : 16))) { f.stuck = 0; if (!f.holdP) return settle(); f.post.stand = [u.pos.x, u.pos.z]; return false; }
+    if (!toCov && (ds < 1.0 || (pm < (tight ? 3.5 : 5.5) && sameF && dPl < (col ? 22 : indoor ? 9 : 16)))) { f.stuck = 0; f.wantMove = false; if (!f.holdP) return settle(); f.post.stand = [u.pos.x, u.pos.z]; return false; }
+    // fire and movement: in contact his fire team waits its turn to bound forward, and covers the other one meanwhile
+    if (SQF.contact && !col && sameF && dP < 24 && sqfTeam(f) !== SQF.bound && !(toCov && ds < 4.5)) { f.wantMove = true; f.stuck = 0; f.post.stand = [u.pos.x, u.pos.z]; return false; }
   }
+  f.wantMove = false;
   // on the move he stops at his slot, or indoors as soon as he is beside the player and can see him (in a column only at his place in the file)
-  if (f.moving && (ds < 1.0 || (indoor && !col && sameF && dPl < 3.6 && f.seeP) || (!tight && ds < 1.8 && dPl < 14))) { f.stuck = 0; return settle(); }
-  const x0 = u.pos.x, z0 = u.pos.z; if (!f.moving) f.prog = null; f.moving = true; f.holdP = null;
+  if (f.moving && (ds < (cv ? 0.85 : 1.0) || (indoor && !col && sameF && dPl < 3.6 && f.seeP) || (!tight && !cv && ds < 1.8 && dPl < 14))) { f.stuck = 0; return settle(); }
+  // the bound has passed to the other team: a man of this one still running goes to ground where he is, and covers them
+  if (f.moving && SQF.contact && !col && sameF && dP < 24 && sqfTeam(f) !== SQF.bound && GAME.t - SQF.boundT > 0.5 && !(toCov && ds < 3)) { f.stuck = 0; return settle(); }
+  const x0 = u.pos.x, z0 = u.pos.z; if (!f.moving) { f.prog = null; sqfTakeCover(f, null); } f.moving = true; f.holdP = null;
+  const hot = SQF.contact && dP < 22 && !indoor, vF = hot ? 5.0 : 6.4, vN = hot ? 3.9 : 4.4;   /* under fire he runs bent low: a little slower */
   f.dirT = (f.dirT || 0) - dt; if (f.dirT <= 0 || f.dirOk === undefined) { f.dirT = 0.35; f.dirOk = dP < 26 && sameF && clearRun(u.pos.x, u.pos.z, sx, sz, u.pos.y);
     // off the direct line he takes the furthest footstep of the player's that he can run to in a straight line (never through a wall)
     if (!f.dirOk) for (let i = goal; i >= Math.max(SZ.trailBase, f.ti - 10); i--) { const w = tr[i - SZ.trailBase]; if (w && Math.abs(w[2] - u.pos.y) < 1.0 && clearRun(u.pos.x, u.pos.z, w[0], w[1], u.pos.y)) { f.ti = i; break; } } }
   // he runs hard when he has fallen behind his slot, and jogs the last metres; on the trail he keeps to his own side of it, so the squad never files (indoors he keeps to the trail itself: the doors)
-  if (f.dirOk) { steer(u, sx, sz, ds > 3 ? 6.4 : 4.4, dt); f.ti = Math.max(f.ti, goal - 2); }
-  else { const w = tr[Math.min(f.ti, goal) - SZ.trailBase]; if (!w) return false; const d = SZ.fdir ?? P.yaw + Math.PI, lat = col || inTB(u.pos.x, u.pos.z, 2) || inTB(w[0], w[1], 2) ? 0 : FSLOTS[f.fi % FSLOTS.length][0] * 0.45; if (steer(u, w[0] + Math.cos(d) * lat, w[1] - Math.sin(d) * lat, dP > 9 ? 6.4 : 4.4, dt) < 1.2) f.ti = Math.min(f.ti + 1, goal); }
+  if (f.dirOk) { steer(u, sx, sz, ds > 3 ? vF : vN, dt); f.ti = Math.max(f.ti, goal - 2); }
+  else { const w = tr[Math.min(f.ti, goal) - SZ.trailBase]; if (!w) return false; const d = SZ.fdir ?? P.yaw + Math.PI, lat = col || inTB(u.pos.x, u.pos.z, 2) || inTB(w[0], w[1], 2) ? 0 : FSLOTS[f.fi % FSLOTS.length][0] * 0.45; if (steer(u, w[0] + Math.cos(d) * lat, w[1] - Math.sin(d) * lat, dP > 9 ? vF : vN, dt) < 1.2) f.ti = Math.min(f.ti + 1, goal); }
   const mv = Math.hypot(u.pos.x - x0, u.pos.z - z0); f.stuck = mv < dt * 0.8 ? f.stuck + dt : Math.max(0, f.stuck - dt * 2);
   // no running on the spot: a man who has not got anywhere in two seconds (blocked, or circling a slot he cannot reach) stops where he is and fights from there
   if (!f.prog || Math.hypot(u.pos.x - f.prog[0], u.pos.z - f.prog[1]) > 1.5) f.prog = [u.pos.x, u.pos.z, GAME.t];
   else if (GAME.t - f.prog[2] > 2.0 && sameF && dPl < 12) { f.wedged = [P.pos.x, P.pos.z, GAME.t + 5]; return settle(); }
   if (f.stuck > 0.5 && szOnScreen(u.pos.x, u.pos.y + 1, u.pos.z) && sameF && dPl < 12) { f.wedged = [P.pos.x, P.pos.z, GAME.t + 4]; return settle(); }
-  u.stance = 'stand'; if (f.stuck > 0.35) u.rig.pose('idle', u.anim); else { u.anim += dt * 9; u.rig.pose('run', u.anim); } f.post.stand = [u.pos.x, u.pos.z]; return true;
+  u.stance = 'stand'; if (f.stuck > 0.35) u.rig.pose(hot ? 'crouch' : 'idle', u.anim); else { u.anim += dt * (hot ? 8 : 9); u.rig.pose(hot ? 'crun' : 'run', u.anim); } f.post.stand = [u.pos.x, u.pos.z]; return true;
 }
 function szSquad(list, tag, gate) {
   // every man on the list leads a fire team: a runner brings two more behind him, a man in position has a second beside him (their places drawn from the stage's own sequence)
@@ -8793,6 +9010,7 @@ function updTrail(dt) { const tr = SZ.trail, l = tr[tr.length - 1]; if (!P.alive
 function resetTrail() { SZ.trail = []; SZ.trailN = 0; SZ.trailBase = 0; SZ.stillT = 0; SZ.fdir = P.yaw + Math.PI; }
 /* common start of a field chapter */
 function fieldStart(m) {
+  sqfReset();
   survStop(); snapReset(); facesNow(); envReady();
   const C = CHAP[m]; if (!C.built) { C.built = true; const g0 = GROUND; C.build(); GROUND = g0; }
   for (const e of UNITS.enemies) if (e.mmHide || e.pitHid) { fmDisguise(e, false); e.mmHide = false; e.pitHid = false; }

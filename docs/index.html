@@ -40,6 +40,7 @@ button:focus-visible{outline:2px solid var(--sand);outline-offset:2px}
 /* world markers */
 .mk{direction:rtl;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11.5px;font-weight:600;text-shadow:0 1px 2px #000,0 0 6px rgba(0,0,0,.8);white-space:nowrap}
 .mk i{display:block;width:18px;height:18px}
+.say{direction:rtl;font-size:12.5px;font-weight:700;color:#fff1c2;background:rgba(18,16,10,.58);padding:2px 8px;border-radius:9px;white-space:nowrap;text-shadow:0 1px 2px #000;pointer-events:none}
 .mk.wounded{color:#ffb4ad}
 .mk.wounded i{animation:pulse 1s infinite}
 .mk.stable{color:var(--ok)}
@@ -1028,7 +1029,7 @@ window.LD = (function () {
 <script>
 /* the game's code is one big file: fetched here so the loading screen can show how much of it has arrived, then run as a module */
 (function () {
-  var SRC = 'game.js?v=43bfbd2b15', SIZE = 13621867, mb = function (n) { return (n / 1048576).toFixed(1); };
+  var SRC = 'game.js?v=1259b88862', SIZE = 13645867, mb = function (n) { return (n / 1048576).toFixed(1); };
   LD.plan([['dl', 'מוריד את המשחק', 5], ['code', 'מכין את המשחק', 4]], { img: 'img/mezach.jpg', clip: 'mezach' }); LD.step('dl'); LD.note('0.0 מתוך ' + mb(SIZE) + ' מ״ב');
   function fail() { LD.error('ההורדה נכשלה. בדקו את החיבור לאינטרנט ורעננו את הדף.'); }
   function start(s) { LD.step('code'); LD.frac(0.15, 2500); s.type = 'module'; document.body.appendChild(s); }

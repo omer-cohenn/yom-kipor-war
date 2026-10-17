@@ -582,13 +582,17 @@ class Rig {
   gunAt(px, py, pz, rx, ry, rz) { const G = this.T.gun; G[0] = px; G[1] = py; G[2] = pz; G[3] = rx; G[4] = ry; G[5] = rz; }
   pose(kind, t, pitch = 0) {
     const R = this, T = R.T; R.hYaw = 0; T.rootX = 0; T.hipsY = 0.93; T.hipsX = 0; T.hipsZ = 0; T.hipsYaw = 0; T.torsoX = 0; T.torsoY = 0; T.torsoZ = 0; T.arms = null; T.ik = true;
-    if (kind === 'run' || kind === 'walk') {
-      // the stride: legs swing, the pelvis rolls and yaws with them, the shoulders turn against the hips, the whole body leans into the run
-      const sp = kind === 'run' ? 1 : 0.55, sw = Math.sin(t) * 0.78 * sp, c2 = Math.cos(t * 2);
-      R.legs(-sw, 0.15 + Math.max(0, Math.sin(t + 1.6)) * 1.15 * sp, sw, 0.15 + Math.max(0, Math.sin(t + 1.6 + Math.PI)) * 1.15 * sp);
-      T.hipsY = 0.9 + Math.abs(Math.cos(t)) * 0.05 * sp; T.hipsX = Math.sin(t) * 0.022 * sp; T.hipsZ = Math.sin(t) * 0.07 * sp; T.hipsYaw = -Math.sin(t) * 0.1 * sp;
-      T.torsoX = 0.22 * sp - c2 * 0.02 * sp; T.torsoY = Math.sin(t) * 0.2 * sp; T.torsoZ = -Math.sin(t) * 0.04 * sp;
-      if (R.wkind === 'rpg') R.gunAt(-0.16, 0.57, 0.14, -0.5 + c2 * 0.03 * sp, -0.08, 0.05); else R.gunAt(0.02, 0.3, 0.27, -0.45 + c2 * 0.03 * sp, 0.62, 0.2);
+    if (kind === 'run' || kind === 'walk' || kind === 'crun') {
+      // the stride: legs swing, the pelvis rolls and yaws with them, the shoulders turn against the hips, the whole body leans into the run;
+      // 'crun' is the run under fire - bent low at the knees and the waist, the rifle up at the ready, pointed where he is going
+      const cr = kind === 'crun', sp = kind === 'walk' ? 0.55 : cr ? 0.8 : 1, sw = Math.sin(t) * (cr ? 0.62 : 0.78) * sp, c2 = Math.cos(t * 2);
+      if (cr) R.legs(-0.5 - sw, 0.9 + Math.max(0, Math.sin(t + 1.6)) * 0.85, -0.5 + sw, 0.9 + Math.max(0, Math.sin(t + 1.6 + Math.PI)) * 0.85);
+      else R.legs(-sw, 0.15 + Math.max(0, Math.sin(t + 1.6)) * 1.15 * sp, sw, 0.15 + Math.max(0, Math.sin(t + 1.6 + Math.PI)) * 1.15 * sp);
+      T.hipsY = (cr ? 0.78 : 0.9) + Math.abs(Math.cos(t)) * 0.05 * sp; T.hipsX = Math.sin(t) * 0.022 * sp; T.hipsZ = Math.sin(t) * 0.07 * sp; T.hipsYaw = -Math.sin(t) * 0.1 * sp;
+      T.torsoX = (cr ? 0.52 : 0.22 * sp) - c2 * 0.02 * sp; T.torsoY = Math.sin(t) * (cr ? 0.1 : 0.2) * sp; T.torsoZ = -Math.sin(t) * 0.04 * sp;
+      if (R.wkind === 'rpg') R.gunAt(-0.16, 0.57, 0.14, -0.5 + c2 * 0.03 * sp, -0.08, 0.05);
+      else if (cr) R.gunAt(-0.06, 0.4, 0.36, -0.42 + c2 * 0.03, 0.12, 0);
+      else R.gunAt(0.02, 0.3, 0.27, -0.45 + c2 * 0.03 * sp, 0.62, 0.2);
     } else if (kind === 'aim' || kind === 'crouch') {
       if (kind === 'crouch') { T.hipsY = 0.55; R.legs(-1.35, 1.45, -0.2, 1.95); T.torsoX = 0.12; }
       else R.legs(-0.12, 0.12, 0.16, 0.1);
@@ -597,7 +601,13 @@ class Rig {
       else if (R.nsOn) { const B = NS_AIM[R.wkind === 'rifle' && R.side === 'f' ? 'fal' : R.wkind] || NS_AIM.rifle; T.torsoY = -NS_BLADE; R.gunAt(B[0], B[1] + Math.sin(t * 1.1) * 0.004, B[2], -pitch * 0.3, NS_BLADE, 0); R.hYaw = NS_BLADE; }
       else R.gunAt(-0.1, 0.45 + Math.sin(t * 1.1) * 0.004, 0.4, -pitch * 0.3, -0.2, 0);
     } else if (kind === 'hide') {
-      T.hipsY = 0.42; R.legs(-1.75, 2.15, -0.7, 2.3); T.torsoX = 0.6 + Math.sin(t * 1.4) * 0.015; R.gunAt(0.0, 0.24, 0.24, -1.15, 0.25, 0);
+      // down behind cover as men really crouch there: on one knee, turned side-on to it, a shoulder to it, the rifle upright before him,
+      // the head turned back toward the enemy (which shoulder: his own habit)
+      const v = R.hideV ?? (R.hideV = Math.random() < 0.5 ? 1 : -1);
+      T.hipsY = 0.46; T.hipsYaw = 0.7 * v; T.hipsZ = 0.04 * v;
+      if (v > 0) R.legs(-1.45, 1.6, -0.35, 1.9); else R.legs(-0.35, 1.9, -1.45, 1.6);
+      T.torsoX = 0.45 + Math.sin(t * 1.4) * 0.015; T.torsoY = -0.42 * v + Math.sin(t * 0.37) * 0.04; T.torsoZ = 0.06 * v; R.hYaw = -0.25 * v;
+      R.gunAt(0.0, 0.28, 0.22, -1.2, 0.25, 0);
     } else if (kind === 'idle') {
       // standing easy: weight shifts slowly from foot to foot, the chest rises with the breath
       const b = Math.sin(t * 0.8), w = Math.sin(t * 0.31);
@@ -680,7 +690,7 @@ class Rig {
   /* what a living body does on its own: the chest rises and falls, the head looks about a little (less with a rifle at the shoulder), the eyes blink */
   life(kind) {
     const R = this; R.breath += FDT; if (REDUCED) return;
-    const quick = kind === 'run' ? 2.8 : kind === 'walk' ? 1.9 : 1.25, b = 0.017 * Math.sin(R.breath * quick) * (kind === 'fall' ? 0.3 : 1); R.torso.scale.set(1 + b * 0.5, 1 + b, 1 + b * 0.9); R.torso.rotation.x -= b * 0.5;   // the chest rises with each breath
+    const quick = kind === 'run' || kind === 'crun' ? 2.8 : kind === 'walk' ? 1.9 : 1.25, b = 0.017 * Math.sin(R.breath * quick) * (kind === 'fall' ? 0.3 : 1); R.torso.scale.set(1 + b * 0.5, 1 + b, 1 + b * 0.9); R.torso.rotation.x -= b * 0.5;   // the chest rises with each breath
     if (kind === 'fall') { R.headP.rotation.set(0.12, 0, 0.1); if (!R.shut && !R.deadOpen && R.blendT <= 0) { R.shut = true; R.head.material = MAT.facesShut[R.side][R.faceV]; } return; }
     const calm = kind === 'idle' ? 1 : kind === 'walk' ? 0.8 : kind === 'aim' || kind === 'crouch' || kind === 'hide' || kind === 'prone' ? 0.25 : 0.45, t = R.breath;
     R.hY = (R.hY || 0) + ((R.hYaw || 0) - (R.hY || 0)) * Math.min(1, FDT * 8);   // a man standing bladed to his rifle keeps his eyes on the target

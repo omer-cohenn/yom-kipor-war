@@ -1168,34 +1168,44 @@ function szFollow0(f, dt) {
   if (f.ti < SZ.trailBase) f.ti = SZ.trailBase;
   // far behind or stuck: he catches up off screen along the trail
   if ((dP > 34 || f.stuck > 1.5) && goal >= SZ.trailBase) { const w = tr[Math.max(SZ.trailBase, goal - 4) - SZ.trailBase]; if (!szOnScreen(w[0], w[2] + 1, w[1]) && !szOnScreen(u.pos.x, u.pos.y + 1, u.pos.z)) { u.place(w[0], w[1], w[2] + 0.2); f.ti = goal; f.stuck = 0; f.prog = null; } }
-  const [sx, sz] = fSlotOf(f), ds = Math.hypot(sx - u.pos.x, sz - u.pos.z), dPl = Math.hypot(P.pos.x - u.pos.x, P.pos.z - u.pos.z);
   const sameF = Math.abs(P.pos.y - u.pos.y) < 1.6, col = colMode(), indoor = inTB(P.pos.x, P.pos.z, 1) || inTB(u.pos.x, u.pos.z, 1), tight = indoor || col;
+  let [sx, sz] = fSlotOf(f);
+  // in contact his place is the nearest cover to it that faces the enemy (sqfCover): he goes to ground there, not in the open
+  const cv = SQF.contact && !tight && sameF ? sqfCover(f, sx, sz) : null; if (cv) { sx = cv.x; sz = cv.z; }
+  const ds = Math.hypot(sx - u.pos.x, sz - u.pos.z), dPl = Math.hypot(P.pos.x - u.pos.x, P.pos.z - u.pos.z), toCov = !!cv && ds > 0.9 && ds < 7.5;
   f.seeT = (f.seeT || 0) - dt; if (f.seeT <= 0) { f.seeT = 0.3; f.seeP = sameF && losW(u.pos.x, u.pos.y + 1.5, u.pos.z, P.pos.x, P.pos.y + 1.5, P.pos.z); }
   // nobody stands on the player: a man closer than two metres steps away first
   if (dPl < 2.0 && !CINE.on) { const ax = (u.pos.x - P.pos.x) / (dPl || 1), az = (u.pos.z - P.pos.z) / (dPl || 1); steer(u, u.pos.x + ax * 2.5, u.pos.z + az * 2.5, 3.2, dt); u.anim += dt * 7; u.stance = 'stand'; u.rig.pose('walk', u.anim); f.moving = true; f.holdP = null; return true; }
-  const settle = () => { f.moving = false; f.prog = null; const d = SZ.fdir ?? P.yaw + Math.PI; f.post.fx = Math.sin(d); f.post.fz = Math.cos(d); u.heading = d; f.scanCd = 0; f.holdP = [P.pos.x, P.pos.z]; f.post.stand = [u.pos.x, u.pos.z]; return false; };
+  const settle = () => { f.moving = false; f.prog = null; const T = SQF.contact && SQF.threat, d = T ? Math.atan2(T.x - u.pos.x, T.z - u.pos.z) : SZ.fdir ?? P.yaw + Math.PI; f.post.fx = Math.sin(d); f.post.fz = Math.cos(d); u.heading = d; f.scanCd = 0; f.holdP = [P.pos.x, P.pos.z]; f.post.stand = [u.pos.x, u.pos.z];
+    sqfTakeCover(f, cv && Math.hypot(cv.x - u.pos.x, cv.z - u.pos.z) < 1.4 ? cv : null); return false; };
   // a man who got wedged (a doorway, a table, a friend in the way) takes the spot he is on and fights from it; he tries again when the player has walked on
   if (f.wedged) { if (Math.hypot(P.pos.x - f.wedged[0], P.pos.z - f.wedged[1]) > 4 || !sameF || GAME.t > f.wedged[2]) { f.wedged = null; f.stuck = 0; } else { f.post.stand = [u.pos.x, u.pos.z]; return false; } }
-  // a man in position stays in it and fights: looking round does not move the squad, only the player walking on does
+  // a man in position stays in it and fights: looking round does not move the squad, only the player walking on does (or contact: to the cover beside him)
   if (!f.moving) {
     const pm = f.holdP ? Math.hypot(P.pos.x - f.holdP[0], P.pos.z - f.holdP[1]) : 99;
-    if (ds < 1.0 || (pm < (tight ? 3.5 : 5.5) && sameF && dPl < (col ? 22 : indoor ? 9 : 16))) { f.stuck = 0; if (!f.holdP) return settle(); f.post.stand = [u.pos.x, u.pos.z]; return false; }
+    if (!toCov && (ds < 1.0 || (pm < (tight ? 3.5 : 5.5) && sameF && dPl < (col ? 22 : indoor ? 9 : 16)))) { f.stuck = 0; f.wantMove = false; if (!f.holdP) return settle(); f.post.stand = [u.pos.x, u.pos.z]; return false; }
+    // fire and movement: in contact his fire team waits its turn to bound forward, and covers the other one meanwhile
+    if (SQF.contact && !col && sameF && dP < 24 && sqfTeam(f) !== SQF.bound && !(toCov && ds < 4.5)) { f.wantMove = true; f.stuck = 0; f.post.stand = [u.pos.x, u.pos.z]; return false; }
   }
+  f.wantMove = false;
   // on the move he stops at his slot, or indoors as soon as he is beside the player and can see him (in a column only at his place in the file)
-  if (f.moving && (ds < 1.0 || (indoor && !col && sameF && dPl < 3.6 && f.seeP) || (!tight && ds < 1.8 && dPl < 14))) { f.stuck = 0; return settle(); }
-  const x0 = u.pos.x, z0 = u.pos.z; if (!f.moving) f.prog = null; f.moving = true; f.holdP = null;
+  if (f.moving && (ds < (cv ? 0.85 : 1.0) || (indoor && !col && sameF && dPl < 3.6 && f.seeP) || (!tight && !cv && ds < 1.8 && dPl < 14))) { f.stuck = 0; return settle(); }
+  // the bound has passed to the other team: a man of this one still running goes to ground where he is, and covers them
+  if (f.moving && SQF.contact && !col && sameF && dP < 24 && sqfTeam(f) !== SQF.bound && GAME.t - SQF.boundT > 0.5 && !(toCov && ds < 3)) { f.stuck = 0; return settle(); }
+  const x0 = u.pos.x, z0 = u.pos.z; if (!f.moving) { f.prog = null; sqfTakeCover(f, null); } f.moving = true; f.holdP = null;
+  const hot = SQF.contact && dP < 22 && !indoor, vF = hot ? 5.0 : 6.4, vN = hot ? 3.9 : 4.4;   /* under fire he runs bent low: a little slower */
   f.dirT = (f.dirT || 0) - dt; if (f.dirT <= 0 || f.dirOk === undefined) { f.dirT = 0.35; f.dirOk = dP < 26 && sameF && clearRun(u.pos.x, u.pos.z, sx, sz, u.pos.y);
     // off the direct line he takes the furthest footstep of the player's that he can run to in a straight line (never through a wall)
     if (!f.dirOk) for (let i = goal; i >= Math.max(SZ.trailBase, f.ti - 10); i--) { const w = tr[i - SZ.trailBase]; if (w && Math.abs(w[2] - u.pos.y) < 1.0 && clearRun(u.pos.x, u.pos.z, w[0], w[1], u.pos.y)) { f.ti = i; break; } } }
   // he runs hard when he has fallen behind his slot, and jogs the last metres; on the trail he keeps to his own side of it, so the squad never files (indoors he keeps to the trail itself: the doors)
-  if (f.dirOk) { steer(u, sx, sz, ds > 3 ? 6.4 : 4.4, dt); f.ti = Math.max(f.ti, goal - 2); }
-  else { const w = tr[Math.min(f.ti, goal) - SZ.trailBase]; if (!w) return false; const d = SZ.fdir ?? P.yaw + Math.PI, lat = col || inTB(u.pos.x, u.pos.z, 2) || inTB(w[0], w[1], 2) ? 0 : FSLOTS[f.fi % FSLOTS.length][0] * 0.45; if (steer(u, w[0] + Math.cos(d) * lat, w[1] - Math.sin(d) * lat, dP > 9 ? 6.4 : 4.4, dt) < 1.2) f.ti = Math.min(f.ti + 1, goal); }
+  if (f.dirOk) { steer(u, sx, sz, ds > 3 ? vF : vN, dt); f.ti = Math.max(f.ti, goal - 2); }
+  else { const w = tr[Math.min(f.ti, goal) - SZ.trailBase]; if (!w) return false; const d = SZ.fdir ?? P.yaw + Math.PI, lat = col || inTB(u.pos.x, u.pos.z, 2) || inTB(w[0], w[1], 2) ? 0 : FSLOTS[f.fi % FSLOTS.length][0] * 0.45; if (steer(u, w[0] + Math.cos(d) * lat, w[1] - Math.sin(d) * lat, dP > 9 ? vF : vN, dt) < 1.2) f.ti = Math.min(f.ti + 1, goal); }
   const mv = Math.hypot(u.pos.x - x0, u.pos.z - z0); f.stuck = mv < dt * 0.8 ? f.stuck + dt : Math.max(0, f.stuck - dt * 2);
   // no running on the spot: a man who has not got anywhere in two seconds (blocked, or circling a slot he cannot reach) stops where he is and fights from there
   if (!f.prog || Math.hypot(u.pos.x - f.prog[0], u.pos.z - f.prog[1]) > 1.5) f.prog = [u.pos.x, u.pos.z, GAME.t];
   else if (GAME.t - f.prog[2] > 2.0 && sameF && dPl < 12) { f.wedged = [P.pos.x, P.pos.z, GAME.t + 5]; return settle(); }
   if (f.stuck > 0.5 && szOnScreen(u.pos.x, u.pos.y + 1, u.pos.z) && sameF && dPl < 12) { f.wedged = [P.pos.x, P.pos.z, GAME.t + 4]; return settle(); }
-  u.stance = 'stand'; if (f.stuck > 0.35) u.rig.pose('idle', u.anim); else { u.anim += dt * 9; u.rig.pose('run', u.anim); } f.post.stand = [u.pos.x, u.pos.z]; return true;
+  u.stance = 'stand'; if (f.stuck > 0.35) u.rig.pose(hot ? 'crouch' : 'idle', u.anim); else { u.anim += dt * (hot ? 8 : 9); u.rig.pose(hot ? 'crun' : 'run', u.anim); } f.post.stand = [u.pos.x, u.pos.z]; return true;
 }
 function szSquad(list, tag, gate) {
   // every man on the list leads a fire team: a runner brings two more behind him, a man in position has a second beside him (their places drawn from the stage's own sequence)

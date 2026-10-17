@@ -214,9 +214,101 @@ function woundFriend(f, killed = false, force = false) {
   if (killed) { f.state = 'kia'; feed(`${f.name} נהרג`, 'bad'); STATS.kia++; }
   else { f.state = 'wounded'; f.bleed = diff.bleed; feed(`${f.name} נפגע! ״חובש!״`, 'bad'); f.marker.visible = true; radio(f.name, 'נפגעתי! חובש!', 3); }
 }
+/* ================= the squad: how the men beside the player fight =================
+   As an IDF squad does. Contact: the first man to see the enemy calls it - the clock and the range - and the squad goes to ground, each man
+   to the cover nearest his place in the line that faces the enemy (sqfCover), kneeling where there is none. Fire and movement: in contact
+   the squad moves in two fire teams, one bounding forward bent low while the other covers it with fire, then the other way. Covering fire:
+   a man who sees no target himself fires on one a comrade called (sqfSupp), to keep the enemy's head down. A magazine is changed with a
+   call, and another man answers that he covers. A grenade is called and run from. The calls show over the men's heads, short */
+const SQF = { at: -1, contact: false, cT: -99, threat: null, spots: new Map(), bound: 0, boundT: 0, callT: -99, later: [], contactCall: -99 };
+const sqfTeam = (f) => (f.fi ?? FRIENDS.indexOf(f)) % 2;
+function sqfReset() { SQF.at = -1; SQF.contact = false; SQF.cT = -99; SQF.threat = null; SQF.spots.clear(); SQF.later.length = 0; SQF.contactCall = -99; for (const f of FRIENDS) { sqfTakeCover(f, null); f.cvC = null; f.cvT = 0; f.supE = null; if (f.say) f.say.visible = false; } }
+function shout(f, text, dur = 1.9, force = false) {
+  if (!f || !f.unit || !f.unit.alive || CINE.on || GAME.state !== 'play') return false;
+  if (!force && (GAME.t - SQF.callT < 1.1 || GAME.t < (f.shoutCd || 0))) return false;
+  if (camera.position.distanceTo(f.unit.pos) > 60) return false;
+  SQF.callT = GAME.t; f.shoutCd = GAME.t + 3.2;
+  if (!f.say) { const el = document.createElement('div'); el.className = 'say'; f.say = new CSS2DObject(el); f.say.center.set(0.5, 1); scene.add(f.say); f.sayEl = el; }
+  f.sayEl.textContent = `${f.name}: ${text}`; f.say.visible = true; f.sayT = dur; return true;
+}
+function sqfLater(f, text, delay) { if (f) SQF.later.push({ f, text, at: GAME.t + delay }); }
+function sqfMate(f, R = 16) { let b = null, bd = R; for (const o of FRIENDS) { if (o === f || !o.unit.alive || (o.state !== 'follow' && o.state !== 'post')) continue; const d = o.unit.pos.distanceTo(f.unit.pos); if (d < bd) { bd = d; b = o; } } return b; }
+function sqfSpot(e, f) {   // a man seen (or heard firing): the squad knows where he is for a few seconds
+  if (!e || !e.alive) return; const fresh = !SQF.contact; SQF.spots.set(e, GAME.t); SQF.cT = GAME.t;
+  if (fresh && f && GAME.t - SQF.contactCall > 18 && P.alive) { const d = Math.hypot(e.pos.x - P.pos.x, e.pos.z - P.pos.z);
+    if (shout(f, `${pick(['מגע!', 'מגע! מגע!', 'אויב!'])} ${clockOf(e.pos)}, ${Math.max(10, Math.round(d / 10) * 10)} מטר!`, 2.4, true)) { SQF.contactCall = GAME.t; sqfLater(sqfMate(f, 30), pick(['למחסה!', 'כולם לתפוס מחסה!', 'פזר! למחסה!', 'אש לעברם!']), 1.1); } }
+}
+function sqfFrame() {
+  if (SQF.at === GAME.t) return; SQF.at = GAME.t;
+  for (const [e, t] of SQF.spots) if (!e.alive || GAME.t - t > 7) SQF.spots.delete(e);
+  let sx = 0, sz = 0, sw = 0;
+  for (const [e] of SQF.spots) { const w = 1 / Math.max(8, Math.hypot(e.pos.x - P.pos.x, e.pos.z - P.pos.z)); sx += e.pos.x * w; sz += e.pos.z * w; sw += w; }
+  const was = SQF.contact; SQF.contact = GAME.t - SQF.cT < 7 && P.alive && !CINE.on;
+  if (sw > 0) SQF.threat = { x: sx / sw, z: sz / sw }; else if (!SQF.contact) SQF.threat = null;
+  if (SQF.contact && !was) { SQF.bound = 0; SQF.boundT = GAME.t; }
+  for (let i = SQF.later.length - 1; i >= 0; i--) { const q = SQF.later[i]; if (GAME.t >= q.at) { SQF.later.splice(i, 1); shout(q.f, q.text, 1.7, true); } }
+  if (!SQF.contact) return;
+  // the bound changes hands when the men moving are down in their places, or after a few seconds; only if the others have somewhere to go
+  const team = (k) => FRIENDS.filter((f) => f.state === 'follow' && f.unit.alive && sqfTeam(f) === k), movers = team(SQF.bound);
+  if ((movers.every((f) => !f.moving) && GAME.t - SQF.boundT > 1.4) || GAME.t - SQF.boundT > 5 || !movers.length) {
+    const other = team(1 - SQF.bound), go = other.filter((f) => f.wantMove);
+    if (go.length) { SQF.bound = 1 - SQF.bound; SQF.boundT = GAME.t;
+      if (Math.random() < 0.55) { const m = go[0], c = movers.find((f) => !f.moving); if (shout(m, pick(['זז!', 'עובר!', 'מתקדם!', 'קפיצה!']), 1.5) && c) sqfLater(c, pick(['מחפה!', 'זוז, מחפה!', 'אש חיפוי!']), 0.6); } }
+  }
+}
+/* the cover a man in the line takes in contact: near his place (and the player), between him and the enemy, free, reachable in a straight run */
+function sqfCover(f, sx, sz) {
+  if (f.cvT > GAME.t && f.cvFor && Math.hypot(f.cvFor[0] - sx, f.cvFor[1] - sz) < 2.5) return f.cvC;
+  f.cvT = GAME.t + 1.2; f.cvFor = [sx, sz]; const u = f.unit, T = SQF.threat; let best = null, bs = 1e9;
+  if (T) for (const c of (SZ.covers && SZ.covers.length ? SZ.covers : COVER)) {
+    if (c.floor !== undefined || (c.by && c.by.alive) || (c.fby && c.fby !== f && c.fby.unit.alive && c.fby.state === 'follow')) continue;
+    const dsl = Math.hypot(c.x - sx, c.z - sz); if (dsl > 7) continue;
+    const dp = Math.hypot(c.x - P.pos.x, c.z - P.pos.z); if (dp < 2.4 || dp > 21) continue;
+    if (c.y !== undefined && Math.abs(c.y - u.pos.y) > 1.2) continue;
+    const tx = T.x - c.x, tz = T.z - c.z, dT = Math.hypot(tx, tz); if (dT < 8 || (tx * c.nx + tz * c.nz) / dT < 0.4 || laneBad(c.x, c.z) > 0) continue;
+    const sc = dsl + 0.25 * Math.hypot(c.x - u.pos.x, c.z - u.pos.z) - (c.h > 1.2 ? 0.6 : 0); if (sc < bs) { bs = sc; best = c; }
+  }
+  if (best && !clearRun(u.pos.x, u.pos.z, best.x, best.z, u.pos.y)) best = null;
+  return (f.cvC = best);
+}
+function sqfTakeCover(f, c) { if (f.cov && f.cov.fby === f) f.cov.fby = null; f.cov = c; if (c) c.fby = f; }
+/* in contact a man without cover kneels; behind low cover he kneels to fire over it; behind a wall he stands */
+const sqfKneel = (f) => f.state === 'follow' && SQF.contact && !(f.cov && f.cov.h >= 0.95);
+/* covering fire: no target of his own in sight, he fires on a man a comrade called - over the top of the man's cover, to keep him down */
+function sqfSupp(f, dt) {
+  const u = f.unit; f.supCd = (f.supCd ?? rand(0.4, 1.2)) - dt; f.supChk = (f.supChk || 0) - dt; let e = f.supE;
+  if (!e || !e.alive || !SQF.spots.has(e) || f.supChk <= 0) {
+    f.supChk = 0.8; e = null; let bd = 170; const ex = u.pos.x, ey = u.pos.y + 1.55 * US, ez = u.pos.z;
+    for (const [q] of SQF.spots) { const d = Math.hypot(q.pos.x - ex, q.pos.z - ez); if (d > bd || d < 4) continue; const c = q.chest(); if (losW(ex, ey, ez, c.x, c.y + 0.75, c.z)) { bd = d; e = q; } }
+    f.supE = e;
+  }
+  if (!e) return false;
+  const c = e.chest(), kneel = sqfKneel(f); u.face(c.x, c.z); u.stance = kneel ? 'crouch' : 'stand'; const eye = u.eye(); f.aimP = Math.atan2(c.y + 0.4 - eye.y, Math.hypot(c.x - eye.x, c.z - eye.z)); u.rig.pose(kneel ? 'crouch' : 'aim', u.anim, f.aimP);
+  if (f.supCd <= 0) {
+    if (!(f.supN > 0)) { f.supN = Math.floor(rand(2, 4)); if (Math.random() < 0.12) shout(f, pick(['מרתק אותו!', 'אש על המצרי!', 'תורידו לו את הראש!'])); }
+    f.supN--; f.supCd = f.supN > 0 ? 0.3 : rand(1.3, 2.4) * diff.fgun;
+    const from = u.muzzle(); fxMuzzle(from, false); sndShot('fal-npc', from);
+    const end = c.clone().add(V3(rand(-1.1, 1.1), rand(-0.2, 1.0), rand(-1.1, 1.1))); if (Math.random() < 0.3) fxTracer(from, end, false);
+    fxDust(V3(end.x, surfAt(end.x, end.z) + 0.2, end.z), groundAt(end.x, end.z) < 0); supPin(e, 0.3);
+    if (Math.random() < 0.015 * diff.fAcc) killEnemy(e, false);   /* a lucky round now and then; the fire is to pin him, not to kill */
+  }
+  return true;
+}
+/* an enemy grenade near him: he shouts it and runs from it */
+function sqfNade(f, dt) {
+  const u = f.unit;
+  if (f.dodgeT > 0) { f.dodgeT -= dt; u.anim += dt * 9; u.stance = 'stand'; const d = steer(u, f.dodgeX, f.dodgeZ, 5.6, dt); u.rig.pose(d > 0.6 ? 'crun' : 'hide', u.anim); f.post.stand = [u.pos.x, u.pos.z]; return true; }
+  f.dodgeCd = (f.dodgeCd || 0) - dt; if (f.dodgeCd > 0) return false; f.dodgeCd = 0.2;
+  for (const q of PROJ) { if (q.type !== 'gren' || q.owner === 'player') continue; const dx = u.pos.x - q.m.position.x, dz = u.pos.z - q.m.position.z, d = Math.hypot(dx, dz);
+    if (d < 6.5 && q.m.position.y - groundAt(q.m.position.x, q.m.position.z) < 2.0) { const k = (7.8 - d) / (d || 1);
+      if (!q.called) { q.called = true; shout(f, pick(['רימון!', 'רימון! לזוז!', 'רימון, תשכבו!']), 1.6, true); }
+      f.dodgeX = u.pos.x + dx * k + rand(-1, 1); f.dodgeZ = u.pos.z + dz * k + rand(-1, 1); f.dodgeT = Math.min(q.fuse + 0.5, 2.0); sqfTakeCover(f, null); f.moving = true; f.holdP = null; return true; } }
+  return false;
+}
 const FCALL = { t: -99 };   // the last time a friend shouted a warning
 function updFriend(f, dt, time) {
-  const u = f.unit; u.anim += dt;
+  const u = f.unit; u.anim += dt; sqfFrame();
+  if (f.say && f.say.visible) { f.sayT -= dt; f.say.position.set(u.pos.x, u.pos.y + 2.05 * US, u.pos.z); if (f.sayT <= 0 || !u.alive || !u.rig.root.visible || CINE.on) f.say.visible = false; }
   if (f.state === 'bunker') return;
   if (f.state === 'ride') { const r = f.ride(); u.pos.copy(r.p); u.heading = r.hd; u.stance = 'crouch'; u.rig.pose(r.pose || 'crouch', u.anim, 0); u.sync(); return; }
   if (f.state === 'board') { const g = f.goal(); const d = steer(u, g.x, g.z, 5.2, dt); u.anim += dt * 9.5; u.stance = 'stand'; u.rig.pose('run', u.anim); if (d < 0.8) f.onArrive(f); u.sync(); return; }
@@ -227,12 +319,12 @@ function updFriend(f, dt, time) {
     if (d < 0.45) { f.state = 'post'; u.place(f.goal[0], f.goal[1], f.goalY); u.heading = Math.atan2(f.post.fx, f.post.fz); }
     u.sync(); return;
   }
-  if (f.state === 'follow' && szFollow(f, dt)) { u.sync(); return; }
+  if (f.state === 'follow' && (sqfNade(f, dt) || szFollow(f, dt))) { u.sync(); return; }
   if (f.state === 'post' || f.state === 'follow') {
     const p = f.post; f.scanCd -= dt;
     // under fire he ducks for a moment, then comes up again; he does not stand in the open trading shots
     f.supp = Math.max(0, (f.supp || 0) - dt * 0.8); f.duckT = (f.duckT ?? -9) - dt;
-    if (diff.fSmart > 0 && f.supp > 3 && f.duckT < -2.5) { f.duckT = rand(1.0, 1.8); f.supp = 0; }
+    if (diff.fSmart > 0 && f.supp > 3 && f.duckT < -2.5) { f.duckT = rand(1.0, 1.8); f.supp = 0; if (Math.random() < 0.3) shout(f, pick(['יורים עליי!', 'אני מרותק!', 'מרתקים אותנו!', 'ראשים למטה!'])); }
     if (f.scanCd <= 0) {
       f.scanCd = rand(0.35, 0.6); f.target = null; let bd = 300; const eye = u.eye(), pe = P.alive ? P.pos : null;
       // the squad picks its targets by danger, not by distance alone: a man inside the wire or in the trench, one firing at the player from close,
@@ -248,6 +340,7 @@ function updFriend(f, dt, time) {
       // a man close behind the player, or beside him, while he looks the other way: the friend who sees him shouts
       if (f.target && f.target.u && pe && !CINE.on && Math.abs(GAME.t - FCALL.t) > (diff.fSmart >= 2 ? 7 : diff.fSmart ? 9 : 22)) { const e = f.target.u, vx = e.pos.x - pe.x, vz = e.pos.z - pe.z, dp = Math.hypot(vx, vz);
         if (dp < 14) { const fw = camForward(_aimF), c = (vx * fw.x + vz * fw.z) / (dp || 1); if (c < 0.25) { const right = vx * -fw.z + vz * fw.x > 0; FCALL.t = GAME.t; radio(f.name, `${pick(MODE === 'hermon' ? ['סורי', 'זהירות, סורי', 'יש סורי'] : ['מצרי', 'זהירות, מצרי', 'יש מצרי'])} ${c < -0.5 ? 'מאחוריך' : right ? 'מימינך' : 'משמאלך'}!`, 2.2); } } }
+      if (f.target && f.target.u) sqfSpot(f.target.u, f);
       if (!f.target) for (const bt of BOATS) { if (bt.dead || bt.state !== 'cross' || !bt.g.visible) continue; const i = bt.seats.findIndex((s) => s.alive && !s.gone); if (i < 0) continue; const sp = bt.seatWorld(i); const d = eye.distanceTo(sp); if (d < 420 && d < bd && los(eye.x, eye.y, eye.z, sp.x, sp.y + 0.8, sp.z)) { bd = d; f.target = { boat: bt, seat: i }; } }
     }
     const isMag = p.mag && p.occupant === f;
@@ -270,7 +363,7 @@ function updFriend(f, dt, time) {
         f.burst--; f.fireCd = f.burst > 0 ? (isMag ? 0.09 : 0.35) : rand(1.1, 2.4) * (isMag ? 1.2 : 1) * diff.fgun;
         if (f.burst <= 0 && !isMag) {   // the burst fired: he works his cover - down and up again from another spot along it, a magazine changed behind it every few bursts, or he stays up on his target
           f.magN = (f.magN || 0) + 1; const r = Math.random();
-          if (f.magN >= 4) { f.magN = 0; f.peekT = rand(2.2, 3.0); f.peekKind = 'reload'; f.fireCd = Math.max(f.fireCd, f.peekT + 0.15); }
+          if (f.magN >= 4) { f.magN = 0; f.peekT = rand(2.2, 3.0); f.peekKind = 'reload'; f.fireCd = Math.max(f.fireCd, f.peekT + 0.15); if (Math.random() < 0.6 && shout(f, pick(['מחליף מחסנית!', 'מחסנית!', 'טוען!']))) sqfLater(sqfMate(f), pick(['מחפה!', 'מחפה עליך!', 'יש לך כיסוי!']), 0.7); }
           else if (r < 0.7) { f.peekT = f.fireCd * rand(0.55, 0.9); f.peekKind = 'move'; f.peekOff = clamp((f.peekOff || 0) + (Math.random() < 0.5 ? -1 : 1) * rand(0.5, 0.9), -0.9, 0.9); }
         }
         const from = isMag ? p.mag.pivot.localToWorld(V3(0, 0.012, 0.9)) : u.muzzle(); fxMuzzle(from, isMag); sndShot('fal-npc', from);
@@ -281,10 +374,14 @@ function updFriend(f, dt, time) {
         if (f.target.boat) pHit *= 0.15; pHit *= diff.fAcc * (mzEase() ? mzEase().fAcc : 1);
         const hit = Math.random() < pHit; const end = tp.clone(); if (!hit) end.add(V3(rand(-1.5, 1.5), rand(-0.6, 1.2), rand(-1.5, 1.5)));
         if (isMag && Math.random() < 0.4) fxTracer(from, end, false);
-        if (hit) { if (f.target.u) killEnemy(f.target.u, false); else killSeat(f.target.boat, f.target.seat); } else { if (f.target.u) supPin(f.target.u, isMag ? 0.12 : 0.2); } if (!hit) fxDust(V3(end.x, surfAt(end.x, end.z) + 0.2, end.z), groundAt(end.x, end.z) < 0);
+        if (hit) { if (f.target.u) { killEnemy(f.target.u, false); if (Math.random() < 0.3) shout(f, pick(['נפל!', 'חיסלתי אותו!', 'פגעתי!', 'הוא למטה!'])); } else killSeat(f.target.boat, f.target.seat); } else { if (f.target.u) supPin(f.target.u, isMag ? 0.12 : 0.2); } if (!hit) fxDust(V3(end.x, surfAt(end.x, end.z) + 0.2, end.z), groundAt(end.x, end.z) < 0);
       }
-      u.stance = 'stand'; u.rig.pose('aim', u.anim, f.aimP);
-    } else { u.heading = lerp(u.heading, Math.atan2(p.fx, p.fz), 0.05); u.stance = 'stand'; u.rig.pose('idle', u.anim); }
+      const kn = sqfKneel(f); u.stance = kn ? 'crouch' : 'stand'; u.rig.pose(kn ? 'crouch' : 'aim', u.anim, f.aimP);
+    } else if (SQF.contact && f.state === 'follow' && !isMag && sqfSupp(f, dt)) { /* covering fire on a man his comrades see */ }
+    else if (SQF.contact && f.state === 'follow') {   // contact, nothing to fire at: down behind his cover, or kneeling, watching where the enemy is
+      const T = SQF.threat; if (T) u.heading += wrapPi(Math.atan2(T.x - u.pos.x, T.z - u.pos.z) - u.heading) * Math.min(1, dt * 4);
+      const low = f.cov && f.cov.h < 1.3; u.stance = low ? 'hide' : 'crouch'; u.rig.pose(low ? 'hide' : 'crouch', u.anim, 0);
+    } else { u.heading += wrapPi(Math.atan2(p.fx, p.fz) - u.heading) * 0.05; u.stance = 'stand'; u.rig.pose('idle', u.anim); }
   } else if (f.state === 'wounded' || f.state === 'stable' || f.state === 'saved' || f.state === 'kia') {
     if (u.fall >= 0 && u.fall < 1.0) { u.fall += dt; u.rig.fallPose(u.fall, 1, 'back'); }
     else if (f.state !== 'kia') u.rig.pose('prone', f.state === 'wounded' ? u.anim * 2 : u.anim * 0.4);
@@ -356,13 +453,13 @@ function targetsFor(e) {
 const WPN = { rifle: { burst: [2, 5], gap: 0.12, pause: [1.4, 2.8], acc: 1, dmg: 1, range: 320, snd: 'ak' }, smg: { burst: [5, 9], gap: 0.07, pause: [1.0, 2.0], acc: 0.65, dmg: 0.7, range: 110, snd: 'smg' }, lmg: { burst: [7, 13], gap: 0.085, pause: [1.8, 3.2], acc: 0.8, dmg: 1, range: 360, snd: 'lmg', tracer: 0.8 }, sniper: { burst: [1, 1], gap: 0, pause: [2.4, 3.8], acc: 2.4, dmg: 1.9, range: 520, snd: 'svd' }, rpg: { burst: [2, 4], gap: 0.13, pause: [1.6, 3.0], acc: 0.9, dmg: 1, range: 300, snd: 'ak' }, flame: { burst: [2, 4], gap: 0.13, pause: [1.6, 3.0], acc: 0.8, dmg: 1, range: 200, snd: 'ak' } };
 const wpnOf = (e) => WPN[e.kind] || WPN.rifle, wBurst = (e) => { const b = wpnOf(e).burst; return Math.floor(rand(b[0], b[1] + 1) * (e.wild ? 1.7 : 1)); }, wGap = (e, k = 1) => wpnOf(e).gap * k, wPause = (e, k = 1) => { const p = wpnOf(e).pause; return rand(p[0], p[1]) * k * (e.wild ? 0.3 : 1); };
 function enemyFire(e) {
-  const mz = mzEase(), from = e.muzzle(); const tgt = e.target; if (!tgt) return; if (tgt.player) { e.shotT = GAME.t; if (MODE === 'suez') szFireAt(e, from); } const W = wpnOf(e);
+  const mz = mzEase(), from = e.muzzle(); const tgt = e.target; if (!tgt) return; if (tgt.player) { e.shotT = GAME.t; if (MODE === 'suez') szFireAt(e, from); if (Math.hypot(e.pos.x - P.pos.x, e.pos.z - P.pos.z) < 150) SQF.spots.set(e, GAME.t), SQF.cT = GAME.t; } const W = wpnOf(e);
   const tp = tgt.player ? playerEye() : tgt.f.unit.chest(); const d = from.distanceTo(tp); const rangeF = clamp(1 - d / W.range, 0.25, 1) * (W.range < 200 && d > W.range * 0.6 ? 0.3 : 1);
   fxMuzzle(from, W.snd === 'lmg'); sndShot(W.snd, from);
   let hit = false; const eye = e.eye(); const wt = segHitT(eye.x, eye.y, eye.z, tp.x, tp.y, tp.z, FIELDM() ? 0.25 : 0.7);
   if (wt >= 0) { const wp = V3(lerp(eye.x, tp.x, wt), lerp(eye.y, tp.y, wt), lerp(eye.z, tp.z, wt)); if (Math.random() < 0.5) fxTracer(from, wp, true); fxDust(wp); e.scanCd = 0; return; }
   if (tgt.player) { let p = W.acc * (FIELDM() ? (CH().hard || 0.7) : 1) * (SURV.on ? SURV.acc : 1) * diff.acc * rangeF * (d < 12 ? 2 : 1) * (P.mode === 'tank' ? 0.45 : 1) * (P.crouch ? 0.55 : 1) * (moving() ? 0.7 : 1) * (P.post ? 0.8 : 1) * (e.stance === 'crouch' ? 1.1 : 1) * (FIELDM() && P.mode === 'rifle' && inConceal(P.pos.x, P.pos.z) ? 0.45 : 1) * (e.wild ? 0.3 : 1) * (mz ? mz.acc * (SCENES[Math.max(0, D.scene)].acc || 1) : 1) * (e.wild ? 1 : tacAcc(e)); hit = Math.random() < p; if (hit && P.mode === 'tank' && P.crouch) { hit = false; fxDust(tp.clone().add(V3(rand(-0.6, 0.6), rand(-0.3, 0.3), rand(-0.6, 0.6)))); } if (hit) hurtPlayer(rand(diff.dmg[0], diff.dmg[1]) * W.dmg, from); else if (d < 60 && Math.random() < 0.35) sndWhiz(); }
-  else { hit = Math.random() < diff.accF * (1 - 0.6 * clamp(e.supp || 0, 0, 1)) * rangeF * (FIELDM() ? 0.45 : 1) * (tgt.f.duckT > 0 ? 0.25 : 1) * (mz ? mz.fHit : 1); if (hit) woundFriend(tgt.f, Math.random() < 0.18); else tgt.f.supp = (tgt.f.supp || 0) + 1; }
+  else { sqfSpot(e, tgt.f); hit = Math.random() < diff.accF * (1 - 0.6 * clamp(e.supp || 0, 0, 1)) * rangeF * (FIELDM() ? 0.45 : 1) * (tgt.f.duckT > 0 ? 0.25 : 1) * (tgt.f.unit.stance === 'crouch' ? 0.7 : 1) * (tgt.f.cov ? 0.55 : 1) * (mz ? mz.fHit : 1); if (hit) woundFriend(tgt.f, Math.random() < 0.18); else tgt.f.supp = (tgt.f.supp || 0) + 1; }
   const end = tp.clone(); if (!hit) end.add(V3(rand(-1.4, 1.4), rand(-0.4, 1.4), rand(-1.4, 1.4)));
   if (Math.random() < ((CH() && CH().tracers) || W.tracer || 0.5)) fxTracer(from, end, true);
   if (!hit && Math.random() < 0.4) fxDust(V3(end.x, groundAt(end.x, end.z) + 0.2, end.z));
@@ -1624,7 +1721,7 @@ function restoreCheckpoint() {
   GAME.state = 'play'; $('#app').classList.add('play'); for (const m of ['#mBrief', '#mPause', '#mEnd', '#mOps', '#mSet']) $(m).hidden = true; initAudio(); lockPointer();
 }
 function resetGame() {
-  ensureMez(); facesNow(); envReady();
+  ensureMez(); facesNow(); envReady(); sqfReset();
   for (const e of UNITS.enemies) if (e.mmHide || e.pitHid) { fmDisguise(e, false); e.mmHide = false; e.pitHid = false; }
   MODE = 'mezach'; showWorld('mezach'); P.ride = null; if (CINE.on) endCine(true); $('#clockSub').textContent = '6.10.1973 · מעוז המזח'; P.mode = 'rifle'; P.crouch = false; vm.visible = true; $('#tsight').classList.remove('on'); FRIENDS.forEach((f, i) => { f.name = FRIEND_DEF[i][0]; });
   clearBattle(); CP.scene = -1; snapReset(); if (!TR.lane) initLanes(); D.scene = -1; applyBarricades(0, false);
