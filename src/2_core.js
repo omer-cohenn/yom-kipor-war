@@ -21,6 +21,7 @@ const LITE0 = !QS.has('full') && (QS.has('lite') || TOUCH || /iPhone|iPad|iPod|A
 // version (the old key) is not carried over, so every phone starts at the full picture
 const QUAL = (() => { let q = QS.get('q'); if (!q) try { q = localStorage.getItem('yk73.q2'); } catch (e) {} return ['high', 'med', 'low'].includes(q) ? q : 'high'; })();
 const LITE = QUAL !== 'high';
+const PHONE = LITE0;   // a phone or tablet on the full picture: a fifth less of the heaviest things (resolution, shadow map, near soldiers, plants) so it loads and runs smoothly
 const SHADOWS = QUAL !== 'low' && !QS.has('noshadow');   // the sun's shadows on medium too (a smaller map): a phone draws them well enough, and the frame governor in 5_game.js takes the resolution down first if not
 const QLOD = { high: [16, 48], med: [9, 30], low: [0, 15] }[QUAL];
 const FAR = LITE ? 11000 : 30000;
@@ -258,7 +259,7 @@ function terrainAt0(x, z) {
 /* ================= renderer / scene / cameras ================= */
 const stage = $('#stage');
 const renderer = new THREE.WebGLRenderer({ antialias: QUAL !== 'low' && !QS.has('noaa'), powerPreference: LITE ? 'default' : 'high-performance', logarithmicDepthBuffer: !LITE });
-renderer.setPixelRatio(QUAL === 'low' ? 1 : Math.min(window.devicePixelRatio || 1, QUAL === 'high' ? 3 : 2));   // a phone's own pixels, up to three to one
+renderer.setPixelRatio(QUAL === 'low' ? 1 : Math.min(window.devicePixelRatio || 1, QUAL === 'high' ? (PHONE ? 2.4 : 3) : 2));   // a phone's own pixels, up to 2.4 to one
 renderer.domElement.addEventListener('webglcontextlost', (e) => { e.preventDefault(); const l = $('#loading'); l.classList.remove('done'); $('#loadMsg').textContent = 'הזיכרון הגרפי של המכשיר נגמר והמשחק נעצר. סגרו לשוניות ואפליקציות אחרות ורעננו, או שחקו במחשב.'; });
 renderer.setSize(stage.clientWidth, stage.clientHeight);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -558,7 +559,7 @@ function nightSkySet(deep) {
 }
 const hemi = new THREE.HemisphereLight(0xc4d6ee, 0x9c8466, 0.42); scene.add(hemi);
 const sun = new THREE.DirectionalLight(0xfff0da, 3.1); scene.add(sun, sun.target);
-if (SHADOWS) { sun.castShadow = true; sun.shadow.mapSize.set(LITE ? 2048 : 3072, LITE ? 2048 : 3072); const sc = sun.shadow.camera; sc.left = -88; sc.right = 88; sc.top = 88; sc.bottom = -88; sc.near = 1; sc.far = 900; sun.shadow.bias = -0.00025; sun.shadow.normalBias = 0.06; }
+if (SHADOWS) { sun.castShadow = true; sun.shadow.mapSize.set(LITE || PHONE ? 2048 : 3072, LITE || PHONE ? 2048 : 3072); const sc = sun.shadow.camera; sc.left = -88; sc.right = 88; sc.top = 88; sc.bottom = -88; sc.near = 1; sc.far = 900; sun.shadow.bias = -0.00025; sun.shadow.normalBias = 0.06; }
 const SUN = { dir: V3(0, 1, 0), lastEnv: -99 };
 /* ---- waves: three trains of swell and chop. The same sum is evaluated in GLSL (the surface is displaced) and in JS (everything that
    floats rides it), so a boat sits on the water it is drawn on. The grid is camera-centred: fine cells underfoot, growing toward the horizon. */

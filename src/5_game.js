@@ -1725,7 +1725,7 @@ function setQual(q, live) {
   for (const x of document.querySelectorAll('#qual button')) x.setAttribute('aria-pressed', String(x.dataset.q === q)); if (!live) return;
   try { localStorage.setItem('yk73.q2', q); } catch (e) {}
   const L = { high: [16, 48], med: [9, 30], low: [0, 15] }[q]; QLOD[0] = L[0]; QLOD[1] = L[1];
-  const dpr = window.devicePixelRatio || 1; renderer.setPixelRatio(q === 'low' ? 1 : Math.min(dpr, q === 'high' ? 3 : 2)); GOV.cap = renderer.getPixelRatio(); window.dispatchEvent(new Event('resize'));
+  const dpr = window.devicePixelRatio || 1; renderer.setPixelRatio(q === 'low' ? 1 : Math.min(dpr, q === 'high' ? (PHONE ? 2.4 : 3) : 2)); GOV.cap = renderer.getPixelRatio(); window.dispatchEvent(new Event('resize'));
   const n = $('#qualNote'); if (n) n.hidden = q === QUAL;
 }
 { const el = $('#qual'); if (el) el.addEventListener('click', (e) => { const b = e.target.closest('button'); if (b && b.dataset.q) setQual(b.dataset.q, true); }); setQual(QUAL, false);
@@ -1735,7 +1735,7 @@ try { const sv = Number(localStorage.getItem('yk73.diff')); if (sv >= 0 && sv <=
 /* ================= main loop ================= */
 let composer = null, vmPass = null;
 function setupComposer() {
-  if (LITE) return;
+  if (LITE || PHONE) return;   // a phone draws straight to the screen with the GPU's own antialiasing: the post-processing's big half-float buffers are what some phones cannot hold (parts of the picture stayed black)
   try {
     const w = stage.clientWidth, h = stage.clientHeight;
     composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(w, h, { type: THREE.HalfFloatType }));
@@ -1747,7 +1747,15 @@ function setupComposer() {
     composer.setPixelRatio(renderer.getPixelRatio()); composer.setSize(w, h);
   } catch (e) { console.warn('post-processing off', e); composer = null; }
 }
-function resize() { const w = stage.clientWidth, h = stage.clientHeight; renderer.setSize(w, h); labelRenderer.setSize(w, h); if (composer) composer.setSize(w, h); camera.aspect = w / h; camera.updateProjectionMatrix(); vmCamera.aspect = w / h; vmCamera.updateProjectionMatrix(); }
+const GOV = { acc: 0, n: 0, cd: 6, cap: renderer.getPixelRatio() };   // the frame governor's state (govTick, below)
+function resize() { const w = stage.clientWidth, h = stage.clientHeight; renderer.setSize(w, h); fitBuffer(w, h); labelRenderer.setSize(w, h); if (composer) composer.setSize(w, h); camera.aspect = w / h; camera.updateProjectionMatrix(); vmCamera.aspect = w / h; vmCamera.updateProjectionMatrix(); }
+/* a browser that cannot give the canvas every pixel asked for (a phone's limit on the drawing buffer, or on a texture the post-processing
+   draws into) hands over fewer, and part of the picture then stays black: ask for no more than it gives and the GPU allows */
+function fitBuffer(w, h) {
+  const gl = renderer.getContext(), pr = renderer.getPixelRatio(), lim = Math.min(gl.getParameter(gl.MAX_TEXTURE_SIZE), gl.getParameter(gl.MAX_RENDERBUFFER_SIZE), ...gl.getParameter(gl.MAX_VIEWPORT_DIMS));
+  let k = Math.min(1, lim / Math.max(1, w * pr, h * pr)); const c = renderer.domElement; if (gl.drawingBufferWidth < c.width - 1 || gl.drawingBufferHeight < c.height - 1) k = Math.min(k, gl.drawingBufferWidth / c.width, gl.drawingBufferHeight / c.height);
+  if (k < 0.999) { const np = Math.max(1, Math.floor(pr * k * 20) / 20); renderer.setPixelRatio(np); renderer.setSize(w, h); GOV.cap = Math.min(GOV.cap, np); if (composer) composer.setPixelRatio(np); }
+}
 window.addEventListener('resize', resize);
 function update(dt, time) {
   const rdt = dt; if (CINE.on) dt *= CINE.slow; FDT = dt;
@@ -1791,7 +1799,6 @@ function slowStep(real) { if (SLOW.left > 0) { SLOW.left -= real; const u = clam
 /* the frame governor: the game starts at the sharpest the quality allows (up to twice the CSS pixels) and, when the frames come slower than
    about 33 a second for a few seconds running, draws a quarter less finely; at plain resolution and still slow (a weak phone) the sun's
    shadows go too. When there is room again it climbs back, a step at a time */
-const GOV = { acc: 0, n: 0, cd: 6, cap: renderer.getPixelRatio() };
 function govSet(pr) { renderer.setPixelRatio(pr); if (composer) composer.setPixelRatio(pr); resize(); }
 function govTick(real) {
   if (QUAL === 'low' || GAME.state !== 'play' || document.hidden || CINE.on) { GOV.acc = 0; GOV.n = 0; return; }

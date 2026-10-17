@@ -147,9 +147,9 @@ function nsShow(R, on) {
 }
 /* who wears it: a man nearer than NS_D (by what the eye sees: closer through a sight, and the far enemies drawn larger count as far),
    its own distance - not the old figure's levels of detail, which on medium and low quality never reach the finest */
-const NS_D = { high: 42, med: 24, low: 12 }[QUAL], NS_MAX = { high: 20, med: 11, low: 6 }[QUAL];   // and never more than NS_MAX at once: the nearest
+const NS_D = { high: PHONE ? 34 : 42, med: 24, low: 12 }[QUAL], NS_MAX = { high: PHONE ? 16 : 20, med: 11, low: 6 }[QUAL];   // and never more than NS_MAX at once: the nearest
 // the figure's level of detail by that same distance: whole near, a third of its triangles past NS_L[0], an eighth past NS_L[1]
-const NS_L = { high: [32, 60], med: [18, 38], low: [11, 26] }[QUAL];   // whole near, as the showroom shows them
+const NS_L = { high: PHONE ? [26, 50] : [32, 60], med: [18, 38], low: [11, 26] }[QUAL];   // whole near, as the showroom shows them
 const NSB = { t: -1, allow: new Set(), cand: [] };
 function nsDecide(u) {
   const R = u.rig; if (!R) return; const far = camera.position.distanceTo(u.pos), eff = far * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2) / 0.7265 / (u.vs || 1);
