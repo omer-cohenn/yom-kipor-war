@@ -670,7 +670,7 @@ class Rig {
     // the arms on the ground - none of him propped in the air or sunk into it; on a slope he lies along the slope
     const D = (FALLS[kind] || FALLS.knees).dur, g = ss(ph(D - 0.45, D));
     if (g > 0) {
-      const L = (a, b) => a + (b - a) * g, up = dir > 0, Lg = T.legs, tg = up ? [-0.3, 0.6, -0.05, 0.12] : [0.04, 0.35, 0.1, 0.15];
+      const L = (a, b) => a + (b - a) * g, up = dir > 0, Lg = T.legs, tg = up ? [-0.2, 0.4, -0.05, 0.1] : [0.04, 0.2, 0.08, 0.1];
       T.rootX = L(T.rootX, flat + dir * slope); T.torsoX = L(T.torsoX, up ? 0.03 : 0.05); T.torsoY = L(T.torsoY, 0.1 * dir); T.hipsYaw = L(T.hipsYaw, 0); T.hipsY = L(T.hipsY, 0.92); T.hipsX = L(T.hipsX, 0);
       for (let i = 0; i < 4; i++) Lg[i] = L(Lg[i], tg[i]);
       if (T.arms) { const ta = up ? [0.05, -0.25, 0.1, -0.3, 0.5, -0.55] : [-2.95, -0.2, 0.12, -0.1, 0.55, -0.35]; for (let i = 0; i < 6; i++) T.arms[i] = L(T.arms[i], ta[i]); }

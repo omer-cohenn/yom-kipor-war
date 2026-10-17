@@ -3074,7 +3074,7 @@ class Rig {
     }
     R.apply(kind);
   }
-  fallPose(f, dir, kind = 'knees') {
+  fallPose(f, dir, kind = 'knees', slope = 0) {
     // six ways to go down, each in phases: the hit, the legs giving way, the fall, the impact and a slow settling; dir +1 ends on the back, -1 on the face
     const T = this.T, ph = (a, b) => clamp((f - a) / (b - a), 0, 1), ei = (x) => x * x * (0.6 + 0.4 * x), eo = (x) => 1 - (1 - x) * (1 - x), ss = (x) => x * x * (3 - 2 * x);
     const bounce = (t0, a) => (f > t0 ? Math.sin((f - t0) * 20) * Math.exp(-(f - t0) * 8) * a : 0), flat = -dir * Math.PI / 2;
@@ -3116,6 +3116,15 @@ class Rig {
       // on the face the arms end up by the head, on the back out to the sides
       this.arms(-0.5 * j - 0.3 * kn - 1.2 * fl - 0.9 * up * st + 0.6 * (1 - up) * st, -0.6 * j - 0.4 * kn + 0.2 * fl - 0.8 * up * st, -0.4 * j - 0.3 * kn - 1.6 * fl - 0.7 * up * st + 0.9 * (1 - up) * st, -0.5 * j - 0.3 * kn - 0.6 * up * st, 0.4 + 0.6 * fl + 0.5 * (1 - up) * st, -0.6 - 0.5 * fl - 0.6 * (1 - up) * st);
       this.gunAt(0.05 + fl * 0.15, 0.25 - kn * 0.15, 0.2, -0.9 + kn * 0.5 + fl * 0.5, 0.4, fl * 0.6);
+    }
+    // and he comes to rest on the ground, all of him: flat on his back or his face, the spine straight, the legs lying (a knee a little up),
+    // the arms on the ground - none of him propped in the air or sunk into it; on a slope he lies along the slope
+    const D = (FALLS[kind] || FALLS.knees).dur, g = ss(ph(D - 0.45, D));
+    if (g > 0) {
+      const L = (a, b) => a + (b - a) * g, up = dir > 0, Lg = T.legs, tg = up ? [-0.2, 0.4, -0.05, 0.1] : [0.04, 0.2, 0.08, 0.1];
+      T.rootX = L(T.rootX, flat + dir * slope); T.torsoX = L(T.torsoX, up ? 0.03 : 0.05); T.torsoY = L(T.torsoY, 0.1 * dir); T.hipsYaw = L(T.hipsYaw, 0); T.hipsY = L(T.hipsY, 0.92); T.hipsX = L(T.hipsX, 0);
+      for (let i = 0; i < 4; i++) Lg[i] = L(Lg[i], tg[i]);
+      if (T.arms) { const ta = up ? [0.05, -0.25, 0.1, -0.3, 0.5, -0.55] : [-2.95, -0.2, 0.12, -0.1, 0.55, -0.35]; for (let i = 0; i < 6; i++) T.arms[i] = L(T.arms[i], ta[i]); }
     }
     this.apply('fall');
   }
@@ -3172,7 +3181,7 @@ class Unit {
   setKind(kind) { this.kind = kind; this.rig.wkind = this.side === 'f' ? 'rifle' : WKIND(kind); gunGeo(this.rig.gun, this.side === 'f' ? FAL_W : WGEO[WKIND(kind)], this.rig.lod); }
   place(x, z, y) { this.pos.set(x, y === undefined ? groundAt(x, z) : hAt(x, z, y), z); this.snapHd = true; this.rig.snapNext = true; }
   sync() {
-    this.rig.root.position.copy(this.pos); if (this.fall >= 0) this.rig.root.position.y += 0.12 * clamp(this.fall / 0.55, 0, 1);
+    this.rig.root.position.copy(this.pos); if (this.fall >= 0) this.rig.root.position.y += (this.fallDir < 0 ? 0.16 : 0.12) * clamp(this.fall / 0.55, 0, 1);   /* lying, he rests on his back, or on his chest (the deeper side) */
     if (this.snapHd || this.hdV === undefined || REDUCED) { this.hdV = this.heading; this.snapHd = false; } else this.hdV += wrapPi(this.heading - this.hdV) * (1 - Math.exp(-FDT * 12));
     this.rig.root.rotation.y = this.hdV;
     const far = camera.position.distanceTo(this.pos), hid = this.stance === 'hide' && this.side === 'e' && MODE !== 'mezach';
@@ -4965,7 +4974,7 @@ function updFriend(f, dt, time) {
       const low = f.cov && f.cov.h < 1.3; u.stance = low ? 'hide' : 'crouch'; u.rig.pose(low ? 'hide' : 'crouch', u.anim, 0);
     } else { u.heading += wrapPi(Math.atan2(p.fx, p.fz) - u.heading) * 0.05; u.stance = 'stand'; u.rig.pose('idle', u.anim); }
   } else if (f.state === 'wounded' || f.state === 'stable' || f.state === 'saved' || f.state === 'kia') {
-    if (u.fall >= 0 && u.fall < 1.0) { u.fall += dt; u.rig.fallPose(u.fall, 1, 'back'); }
+    if (u.fall >= 0 && u.fall < 1.4) { u.fall += dt; if (u.fall < 0.5) u.fallSlope = fallSlope(u, 1); u.rig.fallPose(u.fall, 1, 'back', u.fallSlope || 0); }
     else if (f.state !== 'kia') u.rig.pose('prone', f.state === 'wounded' ? u.anim * 2 : u.anim * 0.4);
     if (f.state === 'wounded') { f.bleed -= dt; if (f.bleed <= 0) { f.state = 'kia'; f.marker.visible = false; feed(`${f.name} מת מפצעיו`, 'bad'); STATS.kia++; } }
   }
@@ -5155,6 +5164,12 @@ function nadeDodge(e, dt) {
     if (d < 6.5 && q.m.position.y - groundAt(q.m.position.x, q.m.position.z) < 1.5) { const k = (7.5 - d) / (d || 1); e.dodgeX = e.pos.x + dx * k + rand(-1, 1); e.dodgeZ = e.pos.z + dz * k + rand(-1, 1); e.dodgeT = Math.min(q.fuse + 0.4, 1.6); e.peek = false; return true; } }
   return false;
 }
+/* the lie of the ground under a falling man: where his head will come down (behind him on his back, ahead on his face) against his feet */
+function fallSlope(u, dir = u.fallDir || 1) {
+  const L = 1.45, hx = u.pos.x - Math.sin(u.heading) * L * dir, hz = u.pos.z - Math.cos(u.heading) * L * dir;
+  if (blocked(hx, hz, 0.2, u.pos.y)) return 0; const dy = hAt(hx, hz, u.pos.y) - u.pos.y; if (Math.abs(dy) > 0.9) return 0;
+  return clamp(Math.asin(clamp(dy / L, -1, 1)), -0.5, 0.5);
+}
 function updEnemy(e, dt) {
   e.t += dt;
   if (e.state === 'dying') {
@@ -5162,7 +5177,8 @@ function updEnemy(e, dt) {
     if (FV.spin && e.fall < 0.5) e.heading += dt * 5.5 * (e.spinDir || 1);
     if (FV.walk && e.fall < 0.45) { const sp = 3.4 * (1 - e.fall / 0.45), nx = e.pos.x + Math.sin(e.heading) * sp * dt, nz = e.pos.z + Math.cos(e.heading) * sp * dt; if (!blocked(nx, nz, 0.3, e.pos.y)) { e.pos.x = nx; e.pos.z = nz; e.pos.y = hAt(nx, nz, e.pos.y); } }
     if (e.fall >= FV.drop && !e.dropped) { e.dropped = true; dropGun(e); }
-    e.rig.fallPose(e.fall, e.fallDir, e.fallKind); e.sync(); if (e.fall > FV.dur) e.state = 'dead'; return;
+    if (e.fallSlope === undefined || e.fall < 0.5) e.fallSlope = fallSlope(e);
+    e.rig.fallPose(e.fall, e.fallDir, e.fallKind, e.fallSlope); e.sync(); if (e.fall > FV.dur + 0.4) e.state = 'dead'; return;   /* (a moment longer: the body eases fully onto the ground) */
   }
   if (e.state === 'dead') { if (e.deadAt !== undefined && GAME.t - e.deadAt > 30) { e.rig.root.visible = false; if (e.tag) e.tag.visible = false; } return; }   /* a body is cleared away half a minute after he fell */
   if (e.state === 'film') { e.sync(); return; }
@@ -14421,7 +14437,7 @@ function _unitPut(u, s) {
   snapPut(u, s, 2); u.rig.root.visible = s.__vis; u.guide = null;
   if (u.side === 'e' && u.kind) u.setKind(u.kind);
   if (u.alive) { u.rig.shut = false; u.rig.head.material = MAT.faces[u.side][u.rig.faceV]; u.rig.root.rotation.x = 0; u.rig.root.rotation.z = 0; u.rig.gun.visible = s.__gun; }
-  else if (s.__vis && u.fallKind) { const FV = FALLS[u.fallKind] || FALLS.knees; u.rig.fallPose(Math.max(u.fall ?? FV.dur, FV.dur), u.fallDir || 1, u.fallKind); u.rig.gun.visible = false; }
+  else if (s.__vis && u.fallKind) { const FV = FALLS[u.fallKind] || FALLS.knees; u.rig.fallPose(Math.max(u.fall ?? FV.dur, FV.dur + 0.4), u.fallDir || 1, u.fallKind, u.fallSlope || 0); u.rig.gun.visible = false; }
   u.snapHd = true; u.rig.snapNext = true; u.sync(); if (!s.__vis) u.tag.visible = false;
 }
 function _vehDead(v) { v.alive = false; v.speed = 0; v.g.traverse((m) => { if (m.isMesh) m.material = MAT_BURNT; }); if (v.fires.length < 2) for (let i = 0; i < 2; i++) { const f = new THREE.Sprite(new THREE.SpriteMaterial({ map: FXT.fire, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, color: HDC })); v.g.add(f); v.fires.push(f); } if (v.crew) for (const c of v.crew) c.visible = false; }
