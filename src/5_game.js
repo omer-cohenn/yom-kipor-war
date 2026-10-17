@@ -91,6 +91,25 @@ function playerEye() { return V3(P.pos.x, P.pos.y + (P.ride && P.ride.eye ? P.ri
 /* on foot: a lens of about 92 degrees across, as in the shooters of the kind (it was 72 tall, 104 across on a wide screen - the enemy small and far, the edges stretched); never wider than 72 tall on a narrow screen */
 function footFov() { const a = camera.aspect || 1.6; return clamp(2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(46)) / a) * 180 / Math.PI, 55, 72); }
 function rideFov() { const a = camera.aspect || 1.6, v = 2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(35)) / a) * 180 / Math.PI; return clamp(v, 80, 104); }
+/* a touch of third person at a vehicle's gun (the jeep's MG, the tank's hatch): the eye some 1.1 m behind and above the player's own head,
+   in the frame of his look, so his helmet and shoulders sit low in the picture whichever way he turns and the crosshair stays where it is;
+   k eases it away on aim, when the eye goes back into his head. TPV.r is his figure: our soldier, standing at the gun */
+const TPV = { B: 1.02, U: 0.46, S: 0.13, r: null, v: V3() };
+function tpvCam(e, k) {
+  const sy = Math.sin(P.yaw), cy = Math.cos(P.yaw), sp = Math.sin(P.pitch), cp = Math.cos(P.pitch), B = TPV.B * k, U = TPV.U * k, S = TPV.S * k;
+  camera.position.set(e.x + sy * cp * B + sy * sp * U + cy * S, e.y - sp * B + cp * U, e.z + cy * cp * B + cy * sp * U - sy * S);
+}
+function tpvBody(on, e) {
+  if (!on) { if (TPV.r) TPV.r.root.visible = false; return; }
+  if (!TPV.r) { TPV.r = new Rig('f', FAL_W); TPV.r.gun.visible = false; }
+  const R = TPV.r, T = R.T, pt = P.pitch; if (!!R.nsOn !== NEWSOL.on) nsShow(R, NEWSOL.on);
+  if (!R.root.visible) R.snapNext = true; R.root.visible = true; R.root.rotation.set(0, P.yaw + Math.PI, 0);
+  // the hands on the gun's grips (the rifle of the pose unseen, held low and forward), the body leaning with the look
+  R.hYaw = 0; T.rootX = 0; T.hipsY = 0.93; T.hipsX = 0; T.hipsZ = 0; T.hipsYaw = 0; T.torsoX = 0.1 - pt * 0.45; T.torsoY = 0; T.torsoZ = 0; T.arms = null; T.ik = true;
+  R.legs(-0.05, 0.08, 0.05, 0.08); R.gunAt(-0.04, 0.3, 0.52, -pt * 0.5, 0, 0); R.apply('aim'); R.headP.rotation.x -= pt * 0.5;
+  R.root.position.copy(e); R.root.updateMatrixWorld(true); const hp = R.headP.getWorldPosition(TPV.v);
+  R.root.position.x += e.x - hp.x; R.root.position.y += e.y - 0.1 - hp.y; R.root.position.z += e.z - hp.z;   // his eyes where the eye would be in first person
+}
 
 /* ================= raycasting ================= */
 function rayCapsule(o, d, a, b, r) {
@@ -1262,6 +1281,7 @@ function updPlayer(dt) {
     P.hold += dt; if (P.hold >= 3) { const f = promptState.f; P.hold = 0; STATS.treated++; STATS.saved++; reviveFriend(f); feed(`${f.name} חבוש. הוא חוזר להילחם`, 'good'); radio(f.name, pick(['תודה. אני בסדר, חוזר לעמדה!', 'חבשת אותי טוב. ממשיכים!', 'כואב, אבל אני יכול לירות.']), 2.6); }
   } else P.hold = 0;
   // movement
+  if (!P.ride && P.mode !== 'tank') tpvBody(false);   // his own figure only at a vehicle's gun
   if (P.mode === 'tank') {
     P.ads = clamp(P.ads + ((INPUT.ads || k.KeyQ || INPUT.tAds) ? 1 : -1) * dt * 6, 0, 1);
     if (TANK.free) { TANK.thr = clamp((k.KeyW || k.ArrowUp ? 1 : 0) - (k.KeyS || k.ArrowDown ? 1 : 0) - INPUT.joy.y, -1, 1); TANK.turn = clamp((k.KeyA || k.ArrowLeft ? 1 : 0) - (k.KeyD || k.ArrowRight ? 1 : 0) - INPUT.joy.x, -1, 1); }
@@ -1274,9 +1294,8 @@ function updPlayer(dt) {
     camera.position.copy(m.pivot.position).add(back);
   } else if (P.ride) {
     const rp = P.ride.pos(); P.pos.copy(rp); P.crouch = true; P.sprint = false; const e = playerEye(); if (P.ride.mg || P.ride.novm) vm.visible = false;
-    // a touch of third person on a vehicle: the eye drawn back 2.1 m along the look and lifted 1.2 m, so the vehicle and its gun are in the picture; the shot still goes through the crosshair's centre
-    const k = P.ads > 0.5 ? 0 : 1 - P.ads * 2, fx = -Math.sin(P.yaw) * Math.cos(P.pitch), fz = -Math.cos(P.yaw) * Math.cos(P.pitch), fy = Math.sin(P.pitch);
-    camera.position.set(e.x - fx * 2.1 * k, e.y + (1.2 - fy * 2.1) * k, e.z - fz * 2.1 * k);   // (high enough to clear the open hatch lid behind a tank's cupola)
+    // a touch of third person on a vehicle: just behind and above his helmet (tpvCam); the shot still goes through the crosshair's centre
+    const k = P.ads > 0.5 ? 0 : 1 - P.ads * 2; tpvCam(e, k); tpvBody(k > 0.3 && !CINE.on, e);
   } else {
     let fwd = (k.KeyW || k.ArrowUp ? 1 : 0) - (k.KeyS || k.ArrowDown ? 1 : 0) - INPUT.joy.y, str = (k.KeyD || k.ArrowRight ? 1 : 0) - (k.KeyA || k.ArrowLeft ? 1 : 0) + INPUT.joy.x;
     const l = Math.hypot(fwd, str); if (l > 1) { fwd /= l; str /= l; }
@@ -1706,7 +1725,7 @@ function setQual(q, live) {
   for (const x of document.querySelectorAll('#qual button')) x.setAttribute('aria-pressed', String(x.dataset.q === q)); if (!live) return;
   try { localStorage.setItem('yk73.q', q); } catch (e) {}
   const L = { high: [16, 48], med: [9, 30], low: [0, 15] }[q]; QLOD[0] = L[0]; QLOD[1] = L[1];
-  const dpr = window.devicePixelRatio || 1; renderer.setPixelRatio(q === 'low' ? 1 : q === 'med' ? Math.min(dpr, 1.5) : Math.min(dpr, 2)); window.dispatchEvent(new Event('resize'));
+  const dpr = window.devicePixelRatio || 1; renderer.setPixelRatio(q === 'low' ? 1 : Math.min(dpr, 2)); GOV.cap = renderer.getPixelRatio(); window.dispatchEvent(new Event('resize'));
   const n = $('#qualNote'); if (n) n.hidden = q === QUAL;
 }
 { const el = $('#qual'); if (el) el.addEventListener('click', (e) => { const b = e.target.closest('button'); if (b && b.dataset.q) setQual(b.dataset.q, true); }); setQual(QUAL, false);
@@ -1769,9 +1788,21 @@ const SLOW = { k: 1, left: 0, fade: 0.8, look: null };
 function slowMo(dur, k = 0.25, lookAt = null) { SLOW.left = dur; SLOW.k0 = k; SLOW.k = k; SLOW.look = lookAt; }
 function slowStep(real) { if (SLOW.left > 0) { SLOW.left -= real; const u = clamp(SLOW.left / SLOW.fade, 0, 1); SLOW.k = SLOW.left > 0 ? lerp(1, SLOW.k0, u) : 1; if (SLOW.left <= 0) SLOW.look = null; } else SLOW.k = 1;
   if (SLOW.look && P.alive) { const L = SLOW.look, e = playerEye(), dx = L.x - e.x, dy = L.y - e.y, dz = L.z - e.z, yaw = Math.atan2(-dx, -dz), pitch = Math.atan2(dy, Math.hypot(dx, dz)), kk = 1 - Math.exp(-real * 5); P.yaw += wrapPi(yaw - P.yaw) * kk; P.pitch += (pitch - P.pitch) * kk; } }
+/* the frame governor: the game starts at the sharpest the quality allows (up to twice the CSS pixels) and, when the frames come slower than
+   about 33 a second for a few seconds running, draws a quarter less finely; at plain resolution and still slow (a weak phone on medium) the
+   sun's shadows go too. When there is room again it climbs back, a step at a time */
+const GOV = { acc: 0, n: 0, cd: 6, cap: renderer.getPixelRatio() };
+function govSet(pr) { renderer.setPixelRatio(pr); if (composer) composer.setPixelRatio(pr); resize(); }
+function govTick(real) {
+  if (QUAL === 'low' || GAME.state !== 'play' || document.hidden || CINE.on) { GOV.acc = 0; GOV.n = 0; return; }
+  GOV.acc += real; GOV.n++; GOV.cd -= real; if (GOV.acc < 2.5) return; const ft = GOV.acc / GOV.n, pr = renderer.getPixelRatio(); GOV.acc = 0; GOV.n = 0; if (GOV.cd > 0) return;
+  if (ft > 0.03 && pr > 1.01) { govSet(Math.max(1, pr - 0.25)); GOV.cd = 3; }
+  else if (ft > 0.036 && LITE && sun.castShadow) { sun.castShadow = false; renderer.shadowMap.enabled = false; GOV.cd = 6; }
+  else if (ft < 0.019 && pr < GOV.cap - 0.01) { govSet(Math.min(GOV.cap, pr + 0.25)); GOV.cd = 10; }
+}
 function frameInner() {
   if (LD.busy) { clock.getDelta(); return; }   // a mission is loading: its own pieces of work have the page; nothing is drawn under the loading screen
-  const real = Math.min(clock.getDelta(), 0.05); slowStep(real); const dt = real * SLOW.k, time = clock.elapsedTime;
+  const real = Math.min(clock.getDelta(), 0.05); slowStep(real); govTick(real); const dt = real * SLOW.k, time = clock.elapsedTime;
   // the title and mission select cover the screen with pictures: no need to draw the 3D world behind them (it saves the phone's battery)
   if (GAME.state === 'menu' && (!$('#mBrief').hidden || !$('#mOps').hidden)) return;
   if (GAME.state === 'play') update(dt, time); else if (GAME.state !== 'pause' && GAME.state !== 'end') { idleCamera(time); updJets(dt); menuFx(dt); }

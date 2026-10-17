@@ -25,7 +25,7 @@ function rgNat(x, z) {
   let h = 2.2 + 0.3 * fbm(lx / 70, lz / 70, 2) + 0.1 * fbm(lx / 9, lz / 9, 2);
   mix3(PAL.sandD, PAL.sandL, 0.35 + 0.35 * smooth(-0.3, 0.4, fbm(lx / 50, lz / 50, 3))); mixIn(PAL.rock, 0.16 * smooth(0, 0.5, noise(lx / 22, lz / 22)));
     // low hills all round the horizon
-  { const f = smooth(170, 420, R); if (f > 0) { const ridge = 1 - Math.abs(noise(lx / 160, lz / 160)); h += f * (14 + 30 * ridge * ridge + 10 * fbm(lx / 80, lz / 80, 3)); mixIn(PAL.rock, f * 0.45); } }
+  { const f = smooth(170, 420, R); if (f > 0) { h += f * (10 + 0.09 * demAt(lx * 1.4 + 900, lz * 1.4 + 700) + 8 * fbm(lx / 60, lz / 60, 3)); mixIn(PAL.rock, f * 0.45); } }   // eroded, from a real plateau's relief (demAt)
   return h;
 }
 // the range itself: the stop butt behind the enemy line, the firing point, the vehicle park, the pond
@@ -66,7 +66,7 @@ function rgJeep(lx, lz, rot, paint, parent = null) {
   addCollider(x, z, 2.05, 0.95, rot, y + 1.5); coverBox(x, z, 2.05, 0.95, rot, 1.3); return r;
 }
 function rgBuild() {
-  const C = CHAP.range, O = RG.o; C.ground = makeGround({ x0: O.x - 240, x1: O.x + 240, z0: O.z - 260, z1: O.z + 200, step: 3, h: mapH('range', rgNat, rgCarve), map: 'range', vegOk: (x, z) => { const lx = x - RG.o.x, lz = z - RG.o.z; return !(Math.abs(lx) < 46 && Math.abs(lz - 44) < 14) && rgPondD(lx, lz) > 1.3 && !(Math.abs(lx + 58) < 14 && Math.abs(lz - 18) < 44); }, grass: 'dry' }); GROUND = C.ground;
+  const C = CHAP.range, O = RG.o; C.ground = makeGround({ x0: O.x - 240, x1: O.x + 240, z0: O.z - 260, z1: O.z + 200, step: 3, h: mapH('range', rgNat, rgCarve), map: 'range', vegOk: (x, z) => { const lx = x - RG.o.x, lz = z - RG.o.z; return !(Math.abs(lx) < 46 && Math.abs(lz - 44) < 14) && rgPondD(lx, lz) > 1.3 && !(Math.abs(lx + 58) < 14 && Math.abs(lz - 18) < 44); }, grass: 'sand', sand: true }); GROUND = C.ground;
   const BAGS = [], sv = BATCH.bag; BATCH.bag = BAGS; const k0 = COVER.length; C.slots = [];
   // the firing line: a sandbag wall with gaps, the three guns in it, a flag
   for (const [a, b] of [[-38, -25.5], [-18.5, -3.4], [3.4, 18.5], [25.5, 38]]) bagWall([RGW(a, 40), RGW(b, 40)], 4);
@@ -107,7 +107,7 @@ function rgBuild() {
   rgSign('אסדות וכלי שיט', -50, 70, 0, 1.9, 1.6);
   // the ground round it: stones and dry bushes, kept off the lanes
   { const ok = (x, z) => { const lx = x - O.x, lz = z - O.z; if (rgPondD(lx, lz) < 1.35) return false; if (Math.abs(lx) < 46 && lz > -125 && lz < 50) return false; if (lx > -70 && lx < -42 && lz > -25 && lz < 66) return false; if (lx > 40 && lx < 80 && lz > -75 && lz < 5) return false; if (Math.abs(lx - RG_LOOP.x) < RG_LOOP.rx + 8 && Math.abs(lz - RG_LOOP.z) < RG_LOOP.rz + 8) return false; return true; };
-    dressArea(O.x - 220, O.x + 220, O.z - 240, O.z + 180, ok, 1960, 0.9);
+    dressArea(O.x - 220, O.x + 220, O.z - 240, O.z + 180, ok, 1960, 0.9); desertFlora(O.x - 220, O.x + 220, O.z - 240, O.z + 180, 1990, ok, 2.5);
     const bl = scatterIn(LITE ? 18 : 30, O.x - 200, O.x + 200, O.z - 220, O.z + 170, 1961, ok, (x, z, r) => [x, z, 1.2 + r() * 1.6, r() * 6, rockCol(r), 0.3, 0.7]); instScatter(BOULDER_G, bl); boulders(bl); }
   BATCH.bag = sv; if (BAGS.length) scene.add(bagMesh(BAGS)); C.covers = COVER.slice(k0); for (const c of C.covers) c.y = groundAt(c.x, c.z);
   // the driving loop east of the firing line: one of our jeeps and an Egyptian T-55 going round and round, to watch the wheels and the

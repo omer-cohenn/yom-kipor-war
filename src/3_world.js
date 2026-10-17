@@ -151,7 +151,7 @@ const G = {
   cone: (r, h, s = 10) => new THREE.ConeGeometry(r, h, s),
   ext: (pts, depth) => { const sh = new THREE.Shape(pts.map(([x, y]) => new THREE.Vector2(x, y))); return new THREE.ExtrudeGeometry(sh, { depth, bevelEnabled: false }); },
 };
-function SH(o, cast = true, recv = true) { if (LITE) return o; o.traverse((m) => { if (m.isMesh) { m.castShadow = cast; m.receiveShadow = recv; } }); return o; }
+function SH(o, cast = true, recv = true) { if (!SHADOWS) return o; o.traverse((m) => { if (m.isMesh) { m.castShadow = cast; m.receiveShadow = recv; } }); return o; }
 const COLLIDERS = [], CGRID = new Map(), CG = 6;
 const cgk = (i, j) => i * 10007 + j;
 function addCollider(x, z, hx, hz, rot, top, bot = -1e9) {
@@ -741,6 +741,85 @@ function palms(list) {
   list.forEach(([x, z, s, r], i) => { mm.compose(V3(x, groundAt(x, z) - 0.2, z), q.setFromAxisAngle(up, r), V3(s, s, s)); ti.setMatrixAt(i, mm); fi.setMatrixAt(i, mm); });
   scene.add(ti, fi);
 }
+/* prickly pear - the sabra - in clumps round a village: the hedge of yards from the Nile to the Galilee. A cut-out photograph on two crossed
+   cards (4f_data_sabra.js), alpha-tested, lit as if it faced up like the other plant cards; it casts no shadow (a card's would be a
+   rectangle). list: [x, z, scale, turn] */
+let SABRA_MAT = null;
+function sabras(list) {
+  if (!list.length) return;
+  if (!SABRA_MAT) { const t = new THREE.TextureLoader().load(SABRA_PNG); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = ANISO; SABRA_MAT = new THREE.MeshStandardMaterial({ map: t, alphaTest: 0.5, side: THREE.DoubleSide, roughness: 0.82, metalness: 0 }); }
+  const W = 2.5, H = W * 193 / 320, g = mergeGeometries([0, Math.PI / 2].map((a) => new THREE.PlaneGeometry(W, H).translate(0, H / 2 - 0.06, 0).rotateY(a)), false);
+  { const n = g.attributes.normal; for (let i = 0; i < n.count; i++) n.setXYZ(i, 0, 1, 0); }
+  const m = new THREE.InstancedMesh(g, SABRA_MAT, list.length), mm = new THREE.Matrix4(), q = new THREE.Quaternion(), up = V3(0, 1, 0);
+  list.forEach(([x, z, s, r], i) => m.setMatrixAt(i, mm.compose(V3(x, groundAt(x, z), z), q.setFromAxisAngle(up, r), V3(s, s * (0.85 + 0.3 * ((i * 0.618) % 1)), s))));
+  m.receiveShadow = true; scene.add(onLayer1(m)); return m;
+}
+/* the relief of a real dissected desert plateau (DESERT_DEM, 4f_data_desert.js) for the mountains seen across a plain: demAt(x, z) in metres
+   over its 4.9 by 2.4 km tile, repeated mirrored so the tiles meet, bilinear. Eroded wadis and buttes that noise alone does not make */
+let DEM_A = null;
+function demAt(x, z) {
+  const D = DESERT_DEM; if (!DEM_A) { const b = atob(D.b64), a = new Uint16Array(b.length >> 1); for (let i = 0; i < a.length; i++) a[i] = b.charCodeAt(2 * i) | (b.charCodeAt(2 * i + 1) << 8); DEM_A = a; }
+  let u = x / D.X, v = z / D.Z; u -= 2 * Math.floor(u / 2); if (u > 1) u = 2 - u; v -= 2 * Math.floor(v / 2); if (v > 1) v = 2 - v;
+  const fx = u * (D.W - 1), fz = v * (D.H - 1), i = Math.min(D.W - 2, Math.floor(fx)), j = Math.min(D.H - 2, Math.floor(fz)), tx = fx - i, tz = fz - j, A = DEM_A, W = D.W, k = j * W + i;
+  return ((A[k] * (1 - tx) + A[k + 1] * tx) * (1 - tz) + (A[k + W] * (1 - tx) + A[k + W + 1] * tx) * tz) / 65535 * D.top;
+}
+/* ---------- the desert's plants, from the desert scene the player sent (4f_data_desert.js) ----------
+   Cut-out cards on two crossed quads (agaves, a column cactus, a flowering hedgehog cactus, a dead saguaro's bones, the sabra), lit as if
+   they faced up like the other plant cards and casting no shadow (a card's would be a rectangle); the saguaro itself in 3D, six shapes
+   skinned with the scene's ribbed tile and its normal map; a hawk perched on a few of them and two more circling high over the chapter.
+   All placed once from fixed seeds - the same in every game - off the roads, the tracks and the positions; a cactus is no cover and
+   stops nothing, so none has a collider */
+const FLORA = { tex: {}, mats: {}, geo: {}, sag: null, sagMat: null, hawks: [] };
+function floraTex(src, srgb = true) { let t = FLORA.tex[src]; if (!t) { t = FLORA.tex[src] = new THREE.TextureLoader().load(src); t.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace; t.anisotropy = ANISO; } return t; }
+function floraCards(k, list, h) {
+  if (!list.length) return null; const C = FLORA_CARDS[k];
+  if (!FLORA.mats[k]) FLORA.mats[k] = new THREE.MeshStandardMaterial({ map: floraTex(C.src), alphaTest: 0.5, side: THREE.DoubleSide, roughness: 0.85, metalness: 0 });
+  if (!FLORA.geo[k]) { const w = h * C.w / C.h, g = mergeGeometries([0, Math.PI / 2].map((a) => new THREE.PlaneGeometry(w, h).translate(0, h / 2 - 0.04 * h, 0).rotateY(a)), false); const n = g.attributes.normal; for (let i = 0; i < n.count; i++) n.setXYZ(i, 0, 1, 0); FLORA.geo[k] = g; }
+  const m = new THREE.InstancedMesh(FLORA.geo[k], FLORA.mats[k], list.length), mm = new THREE.Matrix4(), q = new THREE.Quaternion(), up = V3(0, 1, 0), c = new THREE.Color();
+  list.forEach(([x, z, s, r, y], i) => { m.setMatrixAt(i, mm.compose(V3(x, y ?? groundAt(x, z), z), q.setFromAxisAngle(up, r), V3(s, s, s))); m.setColorAt(i, c.setScalar(0.86 + 0.24 * ((i * 0.618034) % 1))); });   // y: set when it does not stand on the ground
+  m.receiveShadow = true; scene.add(onLayer1(m)); return m;
+}
+// the saguaros: decoded once; uv wrapped round the stem (four ribbed tiles to its girth), so the ribs run up it
+function saguaroGeos() {
+  if (FLORA.sag) return FLORA.sag;
+  const dec = (b64) => { const b = atob(b64), a = new Uint16Array(b.length >> 1); for (let i = 0; i < a.length; i++) a[i] = b.charCodeAt(2 * i) | (b.charCodeAt(2 * i + 1) << 8); return a; };
+  FLORA.sag = SAGUARO.map((o) => { const q = dec(o.p), ix = dec(o.i), n = q.length / 3, pos = new Float32Array(q.length), uv = new Float32Array(n * 2);
+    for (let i = 0; i < n; i++) { for (let k = 0; k < 3; k++) pos[i * 3 + k] = o.lo[k] + q[i * 3 + k] / 65535 * (o.hi[k] - o.lo[k]); uv[i * 2] = (Math.atan2(pos[i * 3 + 2], pos[i * 3]) / (2 * Math.PI) + 0.5) * 4; uv[i * 2 + 1] = pos[i * 3 + 1] * 18; }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); g.setIndex(new THREE.BufferAttribute(ix, 1)); g.computeVertexNormals(); return g; });
+  const a = floraTex(SAGUARO_SKIN.a), nm = floraTex(SAGUARO_SKIN.n, false); a.wrapS = a.wrapT = nm.wrapS = nm.wrapT = THREE.RepeatWrapping;
+  FLORA.sagMat = new THREE.MeshStandardMaterial({ map: a, normalMap: nm, normalScale: new THREE.Vector2(1.2, 1.2), roughness: 0.8, metalness: 0, color: 0xeef0dc });
+  return FLORA.sag;
+}
+function saguaros(list) {   // [x, z, height, turn, shape]
+  const G = saguaroGeos(), mm = new THREE.Matrix4(), q = new THREE.Quaternion(), up = V3(0, 1, 0), c = new THREE.Color();
+  G.forEach((g, k) => { const it = list.filter((s) => s[4] === k); if (!it.length) return; const m = new THREE.InstancedMesh(g, FLORA.sagMat, it.length);
+    it.forEach(([x, z, h, r], i) => { m.setMatrixAt(i, mm.compose(V3(x, groundAt(x, z) - 0.15, z), q.setFromAxisAngle(up, r), V3(h, h, h))); m.setColorAt(i, c.setRGB(0.9 + 0.15 * ((i * 0.618) % 1), 0.95 + 0.1 * ((i * 0.382) % 1), 0.9)); });
+    SH(m, true, true); scene.add(onLayer1(m)); });
+}
+/* the plants of a desert chapter over a box: in clumps (where water once ran), many of them within sight of the route (near: its points),
+   off ok's ground; k scales the counts (by the box's area too). A hawk sits on top of three saguaros; two more circle high over the box */
+function desertFlora(x0, x1, z0, z1, seed, ok, k = 1, near = null) {
+  const A = Math.abs((x1 - x0) * (z1 - z0)) / 1.4e6, n = (c) => Math.max(1, Math.round(c * k * A * (LITE ? 0.5 : 1)));
+  // clump centres: some over the whole box, some along the route; round each, a handful of the kind within rad
+  const clumps = (nc, per, rad, sd, size) => { const r = rng(seed * 7 + sd), cs = scatterIn(Math.ceil(nc * 0.55), x0, x1, z0, z1, seed + sd, ok, (x, z) => [x, z]); if (near) cs.push(...scatterNear(near, Math.ceil(nc * 0.45), 14, 130, seed + sd + 50, ok, (x, z) => [x, z]));
+    const out = []; for (const [cx, cz] of cs) { const m = 1 + Math.floor(r() * per); for (let q = 0; q < m; q++) { const a = r() * 6.283, d = Math.sqrt(r()) * rad, x = cx + Math.cos(a) * d, z = cz + Math.sin(a) * d; if (ok(x, z)) out.push([x, z, size[0] + r() * size[1], r() * 6]); } } return out; };
+  floraCards('agave', clumps(n(1300), 6, 7, 1, [0.6, 0.8]), 1.0);
+  floraCards('parry', clumps(n(1000), 5, 6, 2, [0.55, 0.65]), 0.75);
+  floraCards('column', clumps(n(800), 4, 5, 3, [0.6, 0.9]), 1.6);
+  floraCards('hedge', clumps(n(1200), 6, 4, 4, [0.7, 0.7]), 0.45);
+  floraCards('bones', clumps(n(90), 1, 1, 5, [0.8, 0.5]), 3.0);
+  sabras(clumps(n(200), 3, 6, 6, [0.8, 0.6]));
+  const sg = clumps(n(220), 3, 14, 7, [3.6, 5.2]).map((s, i) => [s[0], s[1], s[2], s[3], Math.floor(((i * 0.618034) % 1) * 6)]); saguaros(sg);
+  // the perched hawks: on the tallest saguaros' tops (the stem's tip is at the shape's own height, one unit)
+  const tall = sg.filter((s) => s[4] >= 3).sort((a, b) => b[2] - a[2]).slice(0, 3);
+  floraCards('perch', tall.map(([x, z, h], i) => [x, z, 1, i * 2.1, groundAt(x, z) - 0.17 + h]), 0.55);
+  { const m = FLORA_CARDS.hawk, mat = new THREE.SpriteMaterial({ map: floraTex(m.src), alphaTest: 0.5 }), r = rng(seed + 9), cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
+    for (let i = 0; i < 2; i++) { const s = new THREE.Sprite(mat); s.scale.set(1.25, 1.25 * m.h / m.w, 1); s.userData.dyn = true; s.userData.hawk = { cx: cx + (r() - 0.5) * 500, cz: cz + (r() - 0.5) * 300, R: 50 + r() * 50, y: 70 + r() * 50, w: (r() < 0.5 ? -1 : 1) * (0.1 + r() * 0.06), a: r() * 6.3 }; scene.add(s); FLORA.hawks.push(s); } }
+}
+{ const prev = scene.onBeforeRender, _v = V3(), _r = V3(); scene.onBeforeRender = function (...a) { prev.apply(this, a);
+  for (const s of FLORA.hawks) { if (!s.visible) continue; const H = s.userData.hawk, t = performance.now() / 1000, an = H.a + t * H.w, gx = H.cx + Math.cos(an) * H.R, gz = H.cz + Math.sin(an) * H.R;
+    s.position.set(gx, groundAt(H.cx, H.cz) + H.y + Math.sin(t * 0.3 + H.a) * 4, gz);
+    _v.set(-Math.sin(an) * H.w, 0, Math.cos(an) * H.w); _r.setFromMatrixColumn(camera.matrixWorld, 0); s.scale.x = Math.abs(s.scale.x) * (_v.dot(_r) < 0 ? -1 : 1); } }; }
 /* the waterfront of Port Tewfik across the canal: a continuous front of two- to five-storey houses facing the water, a second row behind it,
    a fifth of them broken by the shelling - storeys torn off, black holes in the facades - and a minaret above the roofs */
 function buildWaterfront() {
@@ -817,7 +896,7 @@ function scatterDetail() {
 const SCORCH = { list: [], i: 0 };
 function initScorch() {
   const mat = new THREE.MeshStandardMaterial({ map: scorchTex(), transparent: true, depthWrite: false, roughness: 1 });
-  for (let i = 0; i < (LITE ? 16 : 44); i++) { const g = new THREE.PlaneGeometry(1, 1, 8, 8); const m = new THREE.Mesh(g, mat); m.visible = false; m.frustumCulled = false; m.receiveShadow = !LITE; m.renderOrder = 1; scene.add(onLayer1(m)); SCORCH.list.push(m); }
+  for (let i = 0; i < (LITE ? 16 : 44); i++) { const g = new THREE.PlaneGeometry(1, 1, 8, 8); const m = new THREE.Mesh(g, mat); m.visible = false; m.frustumCulled = false; m.receiveShadow = SHADOWS; m.renderOrder = 1; scene.add(onLayer1(m)); SCORCH.list.push(m); }
 }
 function addScorch(p, size) {
   if (!SCORCH.list.length || groundAt(p.x, p.z) < 0.2) return;
@@ -851,7 +930,7 @@ const PLAZAS = [[-3, -68, 16, 11, 0.05], [-42, -54, 18, 15, 0.52], [26, -8, 14, 
 function nearRoad(x, z) { let d = 99; for (const rd of ROADS) d = Math.min(d, distPolyline(x, z, rd.pts) - rd.w / 2); for (const [px, pz, w, h, r] of PLAZAS) { const c = Math.cos(r), sn = Math.sin(r), lx = (x - px) * c - (z - pz) * sn, lz = (x - px) * sn + (z - pz) * c; d = Math.min(d, Math.max(Math.abs(lx) - w / 2, Math.abs(lz) - h / 2)); } return d; }
 function surfaceMesh(pos, uv, colr, idx) {
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setAttribute('color', new THREE.Float32BufferAttribute(colr, 3)); g.setIndex(idx); g.computeVertexNormals();
-  const m = new THREE.Mesh(g, MAT.asphalt); m.receiveShadow = !LITE; scene.add(onLayer1(m)); return m;
+  const m = new THREE.Mesh(g, MAT.asphalt); m.receiveShadow = SHADOWS; scene.add(onLayer1(m)); return m;
 }
 function buildRoads() {
   const edge = (t) => { const e = Math.pow(Math.abs(t * 2 - 1), 3); return [lerp(1, 1.35, e), lerp(1, 1.22, e), lerp(1, 1.0, e)]; };
@@ -916,7 +995,7 @@ function yardPaving() {
     const a = vtx(i, j), b = vtx(i + 1, j), cc = vtx(i, j + 1), d = vtx(i + 1, j + 1); idx.push(a, cc, b, b, cc, d);
   }
   const gg = new THREE.BufferGeometry(); gg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); gg.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); gg.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); gg.setIndex(idx); gg.computeVertexNormals();
-  const m = new THREE.Mesh(gg, mat); m.receiveShadow = !LITE; scene.add(onLayer1(m));
+  const m = new THREE.Mesh(gg, mat); m.receiveShadow = SHADOWS; scene.add(onLayer1(m));
 }
 const CONTAINERS = [[40, -58, 0.3, 0x6b6d4a], [-60, 50, 1.2, 0x7a4a32], [52, 8, 1.5, 0x55636b], [-18, 72, 0.05, 0x6b6d4a], [31, 24, Math.PI / 2, 0x7a4a32], [-56, -60, 0.8, 0x55636b]];
 function buildContainers() {

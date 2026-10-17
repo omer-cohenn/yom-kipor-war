@@ -4,8 +4,9 @@
 /* ---------- maps: each chapter has a terrain of its own, fine over the battlefield and coarse out to the horizon ---------- */
 /* the ground of the field chapters: the vertex colours carry each place's palette; on top of them the material lays grit and ripples
    near the camera, broad lighter and darker patches far away, a ridged bump so the low sun rakes across the sand, and rock-grey on the slopes */
-let TERRAIN_MAT = null;
-function terrainMat() {
+let TERRAIN_MAT = null, TERRAIN_MAT_S = null;
+function terrainMat(sand) {
+  if (sand) { if (!TERRAIN_MAT_S) { const t = TERRAIN_MAT; TERRAIN_MAT = null; TERRAIN_MAT_S = sandify(terrainMat()); TERRAIN_MAT = t; } return TERRAIN_MAT_S; }   // the desert's: its own copy, with the ripples and the wind (4g_maps.js)
   if (TERRAIN_MAT) return TERRAIN_MAT;
   const bump = TX.sandBump || (TX.sandBump = sandBumpTex()); bump.repeat.set(0.47, 0.47);
   const m = new THREE.MeshStandardMaterial({ vertexColors: true, map: TX.micro, bumpMap: bump, bumpScale: LITE ? 0.22 : 0.42, roughness: 0.96, metalness: 0, envMapIntensity: 0.3 });
@@ -45,17 +46,20 @@ function makeGround(d) {
   const s0 = LITE ? d.step * 1.6 : d.step, ext = d.ext || 15000;   // ext: how far past the box the ground runs (the Hermon's backdrop takes over sooner)
   // fine bands: where a cut in the ground is narrow (a ditch along a field's edge) the grid is drawn tighter, so the floor stays a floor
   const fine = (bands, v) => { for (const [b0, b1, st] of bands || []) if (v >= b0 - st && v <= b1) return LITE ? st * 1.4 : st; return s0; };
-  const ax = (a0, a1, bands) => { const a = []; for (let v = a0; v < a1; v += fine(bands, v)) a.push(v); a.push(a1); const lo = [], hi = []; let s = s0, u = a0; while (u > a0 - ext) { s *= 1.2; u -= s; lo.push(u); } s = s0; u = a1; while (u < a1 + ext) { s *= 1.2; u += s; hi.push(u); } return lo.reverse().concat(a, hi); };
+  // past the box the grid opens out; in the desert more slowly for the first 900 m, so the dunes out there are still drawn whole
+  const grow = (s, dist) => (d.sand && dist < 900 ? Math.min(s * 1.1, Math.max(s, LITE ? 30 : 20)) : s * 1.2);
+  const ax = (a0, a1, bands) => { const a = []; for (let v = a0; v < a1; v += fine(bands, v)) a.push(v); a.push(a1); const lo = [], hi = []; let s = s0, u = a0; while (u > a0 - ext) { s = grow(s, a0 - u); u -= s; lo.push(u); } s = s0; u = a1; while (u < a1 + ext) { s = grow(s, u - a1); u += s; hi.push(u); } return lo.reverse().concat(a, hi); };
   const XS = ax(d.x0, d.x1, d.fineX), ZS = ax(d.z0, d.z1, d.fineZ), NX = XS.length, NZ = ZS.length, HG = new Float32Array(NX * NZ);
-  const pos = new Float32Array(NX * NZ * 3), col = new Float32Array(NX * NZ * 3), uv = new Float32Array(NX * NZ * 2), K = 1 / 0.787;
+  const pos = new Float32Array(NX * NZ * 3), col = new Float32Array(NX * NZ * 3), uv = new Float32Array(NX * NZ * 2), K = 1 / 0.787, sk = d.sand ? new Float32Array(NX * NZ) : null, skOk = d.sandOk || d.grassOk || d.vegOk || (() => 1);
   for (let j = 0; j < NZ; j++) for (let i = 0; i < NX; i++) {
     const x = XS[i], z = ZS[j], k = j * NX + i; const h = d.h(x, z); HG[k] = h; if (d.tint && (d.grassOk || d.vegOk || (() => 1))(x, z)) mixIn(d.tint[0], d.tint[1]);   // the ground under the grass
+    if (sk) sk[k] = skOk(x, z) ? 1 : 0;   // where the sand lies loose and rippled (not on a road, a track, a position)
     pos[k * 3] = x; pos[k * 3 + 1] = h; pos[k * 3 + 2] = z; col[k * 3] = lin(COL[0]) * K; col[k * 3 + 1] = lin(COL[1]) * K; col[k * 3 + 2] = lin(COL[2]) * K; uv[k * 2] = x / 3.3; uv[k * 2 + 1] = z / 3.3;
   }
   const idx = new Uint32Array((NX - 1) * (NZ - 1) * 6); let p = 0;
   for (let j = 0; j < NZ - 1; j++) for (let i = 0; i < NX - 1; i++) { const a = j * NX + i, b = a + 1, c = a + NX, e = c + 1; idx[p++] = a; idx[p++] = c; idx[p++] = b; idx[p++] = b; idx[p++] = c; idx[p++] = e; }
-  const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('color', new THREE.BufferAttribute(col, 3)); geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); geo.setIndex(new THREE.BufferAttribute(idx, 1)); geo.computeVertexNormals();
-  const Mp = d.map ? MAPS[d.map] : null, mesh = new THREE.Mesh(geo, Mp ? mapTerrainMat(Mp) : terrainMat()); mesh.receiveShadow = !LITE; scene.add(mesh);
+  const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('color', new THREE.BufferAttribute(col, 3)); geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); geo.setIndex(new THREE.BufferAttribute(idx, 1)); geo.computeVertexNormals(); if (sk) geo.setAttribute('aSand', new THREE.BufferAttribute(sk, 1));
+  const Mp = d.map ? MAPS[d.map] : null, tex = !!(Mp && Mp.set && Mp.s), mt = tex ? mapTerrainMat(Mp) : terrainMat(d.sand), mesh = new THREE.Mesh(geo, d.sand && tex ? sandify(mt) : mt); mesh.receiveShadow = SHADOWS; scene.add(mesh);
   const G = { mesh, at(x, z) { const i = findIdx(XS, x), j = findIdx(ZS, z); const tx = clamp((x - XS[i]) / (XS[i + 1] - XS[i]), 0, 1), tz = clamp((z - ZS[j]) / (ZS[j + 1] - ZS[j]), 0, 1); const k = j * NX + i; return lerp(lerp(HG[k], HG[k + 1], tx), lerp(HG[k + NX], HG[k + NX + 1], tx), tz); } };
   if (Mp) G.veg = mapVeg(Mp, G.at, d.vegOk);   // the map's own plants, standing on this ground
   if (d.grass && d.map) grassCarpet(d.map, d.grassOk || d.vegOk || (() => 1), d.grass);   // the short grass round the camera (4g_maps.js)
@@ -1110,7 +1114,7 @@ function roadRibbon(pts, w, kind = 'asphalt', lift = 0.07, tile = kind === 'dirt
     if (i > 0) { const k = (i - 1) * 3; idx.push(k, k + 3, k + 1, k + 1, k + 3, k + 4, k + 1, k + 4, k + 2, k + 2, k + 4, k + 5); }
   }
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals();
-  const m = new THREE.Mesh(g, roadMat(kind)); m.receiveShadow = !LITE; m.renderOrder = 1; scene.add(onLayer1(m)); return m;
+  const m = new THREE.Mesh(g, roadMat(kind)); m.receiveShadow = SHADOWS; m.renderOrder = 1; scene.add(onLayer1(m)); return m;
 }
 // burnt-out and abandoned vehicles by the side of a road
 function roadWrecks(pts, n, seed, side = 6.5) {

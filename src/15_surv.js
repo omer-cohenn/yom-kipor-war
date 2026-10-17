@@ -65,7 +65,7 @@ function survVeh(side, kind, delay, stopBack = 0) {
       v = kind === 't55' ? addVeh({ mode: 'mezach', side: 'e', kind: 't55', geo: T55_HULL, turGeo: T55_TUR, turAt: [0.3, 1.42, 0], half: [3.2, 2.3, 1.75], armor: 0, hp: 100, shoots: true, vmax: 5.5, heavy: true })
         : addVeh({ mode: 'mezach', side: 'e', kind: 'jeep', geo: JEEP_GEO, half: [1.9, 1.7, 1.0], armor: 0.5, hp: 60, mg: true, vmax: 9 });
       if (kind === 'jeep') { v.body.material = SURV.jeepMat || (SURV.jeepMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, color: 0xd6c59c })); const mg = new THREE.Mesh(JEEP_MG, MAT.vc); mg.position.set(-0.7, 1.95, 0); v.g.add(SH(onLayer1(mg))); v.mgM = mg; }
-      v.g.traverse((m) => { if (m.isMesh) m.castShadow = !LITE; }); v.mats = []; v.g.traverse((m) => { if (m.isMesh) v.mats.push([m, m.material]); }); SURV.pool.push(v);
+      v.g.traverse((m) => { if (m.isMesh) m.castShadow = SHADOWS; }); v.mats = []; v.g.traverse((m) => { if (m.isMesh) v.mats.push([m, m.material]); }); SURV.pool.push(v);
     }
     vehRevive(v, kind === 't55' ? 100 : 60); v.path = path; v.s = 0; v.stop = pathLen(path) - stopBack; v.ended = false; v.hdV = null; v.fireCd = rand(4, 7); v.burst = 0; v.g.visible = true; const [x, z, hd] = pathAt(path, 0); vehPose(v, x, z, hd);
     v.onDead = (w) => { const b = w.kind === 't55' ? 400 : 200; SURV.bonus += b; feed(`${w.kind === 't55' ? 'טנק' : 'ג׳יפ'} מצרי הושמד · בונוס ${b}`, 'good'); };

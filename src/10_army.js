@@ -63,7 +63,8 @@ function arNat(x, z) {
   { const w = Math.abs(lz + 640 + 60 * Math.sin(lx / 130)); if (w < 16) h -= 2.2 * (1 - smooth(4, 16, w)); }
   mix3(PAL.sandD, PAL.rock, 0.2 + 0.35 * smooth(-0.3, 0.5, fbm(lx / 180, lz / 180, 3) + 0.6 * fbm(lx / 20, lz / 20, 2))); mixIn(PAL.sandL, 0.3 * smooth(0, 0.5, noise(lx / 90, lz / 90)));
   // Jebel Ataqa: the mountain behind the plain, west and south-west
-  { const m = smooth(-320, -1300, lx) * (0.55 + 0.45 * smooth(-900, 300, lz)); if (m > 0) { const ridge = 1 - Math.abs(noise(lx / 380, lz / 520)); const mh = m * (180 + 160 * ridge * ridge + 60 * fbm(lx / 160, lz / 160, 3)); h += mh; mixIn(PAL.rock, smooth(10, 90, mh) * 0.8); } }
+  // (its ridges from noise, and on them the relief of a real eroded desert plateau, demAt, drawn at about half its size: wadis and spurs; banded rock)
+  { const m = smooth(-320, -1300, lx) * (0.55 + 0.45 * smooth(-900, 300, lz)); if (m > 0) { const ridge = 1 - Math.abs(noise(lx / 380, lz / 520)), mh = m * (110 + 120 * ridge * ridge + 0.42 * demAt(lx * 1.8 + 600, lz * 1.8 + 1300) + 22 * fbm(lx / 90, lz / 90, 3)); h += mh; mixIn(PAL.rock, smooth(10, 90, mh) * 0.8); mixIn([0.6, 0.47, 0.35], smooth(20, 120, mh) * 0.3 * (0.5 + 0.5 * Math.sin(mh / 21 + noise(lx / 300, lz / 300)))); } }
   // the gulf: a beach, then deep water
   { const c = lz - coastZ(lx); if (c > -40) { mixIn(PAL.fresh, 0.5 * (1 - smooth(-40, 0, c)) + 0.4 * smooth(-40, -5, c)); mixIn(PAL.wet, smooth(-6, 4, c)); h = lerp(h, 0.9 - c * 0.08, smooth(-40, -4, c)); if (c > 0) { h = lerp(0.9, -6, smooth(0, 70, c)); mix3(PAL.wet, PAL.deep, smooth(0, 50, c)); } } }
   return h;
@@ -78,6 +79,8 @@ function arPitK(p, lx, lz) {
 // the road and the column's tracks (the map comes with them levelled: only their surface is drawn here), and the tank pits
 function arCarve(x, z, h) {
   const lx = x - AR.o.x, lz = z - AR.o.z;
+  // dunes east of the junction, past where its eastern assault starts (x 430), down to the beach; the mountain is west, the canal north
+  { const k = smooth(540, 660, lx) * (1 - smooth(-120, -40, lz - coastZ(lx))); if (k > 0) h += dunes(x, z, k, Math.max(0, lx - 980, -1180 - lz, lz - 620)); }
   { const d = Math.abs(lz - AR_ROAD); if (d < 12) { if (!MAPS.army) h = lerp(h, 4.2 + 1.2 * fbm(lx / 700, 0, 2), 1 - smooth(5, 12, d)); if (d < 4.5) mix3([0.26, 0.26, 0.25], [0.32, 0.31, 0.29], noise(lx / 8, lz / 8) * 0.5 + 0.5); } }
   if (lz < 480) { const d = Math.min(distPolyline(lx, lz, AR_ROUTE0_S), distPolyline(lx, lz, AR_ROUTE2_S)); if (d < 9) { h = lerp(h, h - 0.15, 1 - smooth(3, 9, d)); mixIn(PAL.sandL, 0.35 * (1 - smooth(1.5, 5, d))); } }
   for (const p of AR_PITL) { if (Math.abs(lx - p[0]) > 14 || Math.abs(lz - p[1]) > 14) continue; if (p.h0 === undefined) p.h0 = AR.base(AR.o.x + p[0], AR.o.z + p[1]);
@@ -88,7 +91,7 @@ function arBuild() {
   const C = CHAP.army; AR.base = mapH('army', arNat);
   const fineX = AR_PITL.map((p) => [AR.o.x + p[0] - 10, AR.o.x + p[0] + 10, 1.1]), fineZ = AR_PITL.map((p) => [AR.o.z + p[1] - 10, AR.o.z + p[1] + 10, 1.1]);
   const nearWork = (lx, lz) => AR_PITL.some((p) => Math.hypot(lx - p[0], lz - p[1]) < 13);
-  C.ground = makeGround({ x0: AR.o.x - 520, x1: AR.o.x + 980, z0: AR.o.z - 1180, z1: AR.o.z + 620, step: 3.6, fineX, fineZ, h: mapH('army', arNat, arCarve), map: 'army', vegOk: (x, z) => { const lx = x - AR.o.x, lz = z - AR.o.z; return Math.abs(lz - AR_ROAD) > 7 && lz < coastZ(lx) - 6 && Math.min(distPolyline(lx, lz, AR_ROUTE0_S), distPolyline(lx, lz, AR_ROUTE2_S)) > 5 && !nearWork(lx, lz); }, grass: 'dry' }); GROUND = C.ground;
+  C.ground = makeGround({ x0: AR.o.x - 520, x1: AR.o.x + 980, z0: AR.o.z - 1180, z1: AR.o.z + 620, step: 3.6, fineX, fineZ, h: mapH('army', arNat, arCarve), map: 'army', vegOk: (x, z) => { const lx = x - AR.o.x, lz = z - AR.o.z; return Math.abs(lz - AR_ROAD) > 7 && lz < coastZ(lx) - 6 && Math.min(distPolyline(lx, lz, AR_ROUTE0_S), distPolyline(lx, lz, AR_ROUTE2_S)) > 5 && !nearWork(lx, lz); }, grass: 'sand', sand: true }); GROUND = C.ground;
   const BAGS = [], sv = BATCH.bag; BATCH.bag = BAGS; const k0 = COVER.length; C.slots = []; C.walls = [];
   const face = (x, z, tx, tz) => { const dx = tx - x, dz = tz - z, l = Math.hypot(dx, dz) || 1; return [dx / l, dz / l]; };
   // the lines: a foxhole for each man, facing the firing position the column halts at; parapets of sandbags (cover for the reserve too)
@@ -118,6 +121,7 @@ function arBuild() {
     instScatter(BUSH_G, scatterNear(RT, LITE ? 200 : 520, 10, 160, 613, ok, (x, z, r) => [x, z, 0.45 + r() * 0.8, r() * 6, dryBush(r), 0, 0.75]).concat(scatterNear(RD, LITE ? 120 : 300, 10, 120, 614, ok, (x, z, r) => [x, z, 0.45 + r() * 0.8, r() * 6, dryBush(r), 0, 0.75])));
     { const bl2 = scatterNear(RT, LITE ? 18 : 34, 20, 120, 615, ok, (x, z, r) => [x, z, 1.4 + r() * 2, r() * 6, rockCol(r), 0.3, 0.7]); instScatter(BOULDER_G, bl2); boulders(bl2); }
     const bl = scatterIn(LITE ? 34 : 56, X0, X1, Z0, Z1, 602, ok, (x, z, r) => [x, z, 1.3 + r() * 1.8, r() * 6, rockCol(r), 0.3, 0.7]); instScatter(BOULDER_G, bl); boulders(bl);
+    desertFlora(X0, X1, Z0, Z1, 6200, (x, z) => ok(x, z) && z - AR.o.z < coastZ(x - AR.o.x) - 20, 1, [...RT, ...RD]);   // agaves, cacti, saguaros and hawks (3_world.js); not on the beach
     const nb = []; C.slots.forEach((s) => { if (s.grp !== 'P') for (let k = 0; k < 4; k++) nb.push([s.x + rand(-3, 3), s.z + rand(-3, 3), rand(0.8, 1.3), rand(0, 6), dryBush(Math.random)]); });
     instScatter(BUSH_G, scatterIn(LITE ? 220 : 520, X0, X1, Z0, Z1, 603, ok, (x, z, r) => [x, z, 0.35 + r() * 0.6, r() * 6, dryBush(r), 0, 0.7]).concat(nb));
     // by the road: a coffee shack, a ruined checkpoint, kilometre stones, oil drums; huts and a fence at the port

@@ -161,7 +161,7 @@ function nsDecide(u) {
   const w = near && NSB.allow.has(u); if (w !== !!R.nsOn) nsShow(R, w);
   if (w && R.ns && NEWSOL.geos && NEWSOL.geos.length > 1) {
     const cur = R.nsLod ?? 0, h = cur === 0 ? 1.1 : 0.92, l = eff < NS_L[0] * (cur === 0 ? h : 1) ? 0 : eff < NS_L[1] * (cur <= 1 ? 1.08 : 0.94) ? 1 : 2;   /* a little hysteresis: no flicker on the line */
-    if (l !== cur) { R.nsLod = l; R.ns.geometry = NEWSOL.geos[Math.min(l, NEWSOL.geos.length - 1)]; R.ns.castShadow = !LITE && l < 2; }   /* the farthest cast no shadow */
+    if (l !== cur) { R.nsLod = l; R.ns.geometry = NEWSOL.geos[Math.min(l, NEWSOL.geos.length - 1)]; R.ns.castShadow = SHADOWS && l < 2; }   /* the farthest cast no shadow */
   }
 }
 { const _sync = Unit.prototype.sync; Unit.prototype.sync = function () { _sync.call(this); nsDecide(this); }; }

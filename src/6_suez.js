@@ -583,8 +583,8 @@ function tankMainGun() {
 function tankCamera(dt) {
   const hd = TANK.g.rotation.y;
   if (P.ads > 0.5) { TANK.gun.updateMatrixWorld(); const gp = TANK.gun.localToWorld(V3(0.55, 0.32, 0.4)); camera.position.copy(gp); }
-  else { const hp = tankHeadPos(), k = 1 - P.ads * 2, fx = -Math.sin(P.yaw) * Math.cos(P.pitch), fz = -Math.cos(P.yaw) * Math.cos(P.pitch), fy = Math.sin(P.pitch);
-    camera.position.set(hp.x - fx * 2.8 * k, hp.y + (0.9 - fy * 2.8) * k, hp.z - fz * 2.8 * k); }   // a touch of third person: behind and above the commander's head, the tank in the picture
+  else { const hp = tankHeadPos(), k = P.crouch ? 0 : 1 - P.ads * 2; tpvCam(hp, k); }   // a touch of third person: just behind and above the commander's helmet, head out of the hatch (ducked, he looks through the vision blocks)
+  tpvBody(P.ads < 0.25 && !P.crouch && !CINE.on, tankHeadPos());
   { const hp = P.ads > 0.5 ? camera.position : tankHeadPos(); P.pos.set(hp.x, hp.y - 1.65, hp.z); } P.pitch = clamp(P.pitch, -0.55, 1.2);   // the player is at the cupola, wherever the eye is
   const sh = FX.shake; FX.shake = Math.max(0, FX.shake - dt * 1.8);
   camera.rotation.set(P.pitch + (sh ? rand(-sh, sh) * 0.03 : 0), P.yaw + (sh ? rand(-sh, sh) * 0.02 : 0), 0, 'YXZ');
@@ -731,7 +731,7 @@ function buildCornerBuilding() {
   // the furniture models: all the copies of each in one draw (the lighter level of detail in the light setting); only the bigger pieces cast shadows
   for (const n in FM) for (const m of mdlInst(n, LITE ? 1 : 0, FM[n], null, Math.max(...mdlBox(n)) > 0.6)) SZ.objs.push(m);
   const rugs = [rugTex(1, '#7a2a22', '#d8b878'), rugTex(2, '#2a3a5a', '#c8a868'), new THREE.CanvasTexture((() => { const c = canvas(128, 64), g = c.getContext('2d'); g.fillStyle = '#d8ccaa'; g.fillRect(0, 0, 128, 64); g.strokeStyle = '#6a4a2a'; for (let i = 0; i < 9; i++) { g.beginPath(); g.moveTo(10 + i * 12, 6); g.bezierCurveTo(30 + i * 9, 30, 4 + i * 13, 40, 20 + i * 11, 60); g.stroke(); } g.fillStyle = '#8a2a22'; g.fillRect(70, 20, 6, 6); g.fillRect(40, 38, 6, 6); return c; })())];
-  for (const [g, k] of soft) { const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ map: rugs[k], roughness: 1 })); scene.add(onLayer1(m)); SZ.objs.push(m); m.receiveShadow = !LITE; }
+  for (const [g, k] of soft) { const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ map: rugs[k], roughness: 1 })); scene.add(onLayer1(m)); SZ.objs.push(m); m.receiveShadow = SHADOWS; }
   for (const [g, k] of pics) { const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ map: pictureTex(k), roughness: 0.7 })); scene.add(onLayer1(m)); SZ.objs.push(m); }
   const sg = sign('عمارة الأربعين', 'plain', X(-76.3), CHH + 2.9, Z(TB.z1) + 0.2, 0, 1.4); SZ.objs.push(sg);
   szAidBuild(FY); szDoorsBuild(FY);
@@ -944,7 +944,7 @@ function buildSuez() {
         else { const zm = z0 + d * u; house(x0, x0 + w, z0, zm, fl, v, near); house(x0, x0 + w, zm, z0 + d, fl2, v2, near); } }
       else house(x0, x0 + w, z0, z0 + d, fl, v, near); } }
   for (let i = 0; i < 6; i++) for (const [L, M] of [[lists.ground[i], gMats[i]], [lists.groundR[i], rMats[i]], [lists.upper[i], uMats[i]], [lists.upperD[i], dMats[i]]]) if (L.length) { const m = new THREE.Mesh(mergeGeometries(L, false), M); scene.add(SH(onLayer1(m))); }
-  { const m = new THREE.Mesh(mergeGeometries(lists.roofTop, false), new THREE.MeshStandardMaterial({ map: szRoofTex(), roughness: 0.96 })); m.receiveShadow = !LITE; scene.add(onLayer1(m)); }
+  { const m = new THREE.Mesh(mergeGeometries(lists.roofTop, false), new THREE.MeshStandardMaterial({ map: szRoofTex(), roughness: 0.96 })); m.receiveShadow = SHADOWS; scene.add(onLayer1(m)); }
   { const m = new THREE.Mesh(build(lists.roof), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, map: TX.grime })); scene.add(SH(onLayer1(m))); }
   // the windows: frames and their shutters as instances, one draw for each kind over the whole city; the shell holes and the soot as decals on the walls
   { const wm = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.86, map: TX.grime }); D.win.forEach((L, k) => { if (L.length) szInst(szWinGeo(k), wm, L); });
@@ -962,13 +962,13 @@ function buildSuez() {
   const BAGS = [], svBag = BATCH.bag; BATCH.bag = BAGS;
   buildCornerBuilding();
   // streets: asphalt for the avenue, the square, the north and south streets and the west street; the alleys of the quarter; kerbs and pavements
-  const road = (x0, x1, z0, z1, y = 0.02, tint = 0xffffff) => { const g = new THREE.PlaneGeometry(x1 - x0, z1 - z0); g.rotateX(-Math.PI / 2); g.translate(LX((x0 + x1) / 2), CHH + y, LZ((z0 + z1) / 2)); const uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * (x1 - x0) / 9, uv.getY(i) * (z1 - z0) / 9); colored(g, tint); const m = new THREE.Mesh(g, MAT.asphalt); m.receiveShadow = !LITE; scene.add(onLayer1(m)); };
+  const road = (x0, x1, z0, z1, y = 0.02, tint = 0xffffff) => { const g = new THREE.PlaneGeometry(x1 - x0, z1 - z0); g.rotateX(-Math.PI / 2); g.translate(LX((x0 + x1) / 2), CHH + y, LZ((z0 + z1) / 2)); const uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * (x1 - x0) / 9, uv.getY(i) * (z1 - z0) / 9); colored(g, tint); const m = new THREE.Mesh(g, MAT.asphalt); m.receiveShadow = SHADOWS; scene.add(onLayer1(m)); };
   // the avenue's worn centre line and a zebra crossing short of the square
   { const ml = []; for (let x = -8; x < 240; x += 9) ml.push(planeAt(3.2, 0.14, LX(x), CHH + 0.03, LZ(0), 0, -Math.PI / 2)); for (let k = 0; k < 9; k++) ml.push(planeAt(3.2, 0.6, LX(-10.5), CHH + 0.03, LZ(-7 + k * 1.75), 0, -Math.PI / 2)); const m = new THREE.Mesh(mergeGeometries(ml, false), new THREE.MeshStandardMaterial({ color: 0xd8d2c0, roughness: 0.9, map: TX.grime, transparent: true, opacity: 0.72, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1 })); m.renderOrder = 1; scene.add(onLayer1(m)); }
   road(-36, 245, -8, 8); road(-84, -36, -24, 24); road(-66, -50, -105, -24); road(-66, -50, 24, 105); road(-110, -84, -8, 8); road(-32, -27.5, -36.5, -11, 0.025, 0xcfc6b4); road(-50, -32, -36.5, -32, 0.025, 0xcfc6b4);
   const kerb = []; const kb = (x0, x1, z0, z1) => kerb.push([boxUV(LX(x0), LX(x1), CHH, CHH + 0.16, LZ(z0), LZ(z1), 2, 2), 0xbdb6a6]);
   kb(-36, -32, -11, -8); kb(-27.5, 245, -11, -8); kb(-36, 245, 8, 11); kb(-84, -66, -24, -22.5); kb(-50, -36, -24, -22.5); kb(-84, -66, 22.5, 24); kb(-50, -36, 22.5, 24); kb(-84, -82.5, -24, -8); kb(-84, -82.5, 8, 24);
-  { const m = new THREE.Mesh(build(kerb), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95, map: TX.grime })); m.receiveShadow = !LITE; scene.add(onLayer1(m)); }
+  { const m = new THREE.Mesh(build(kerb), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95, map: TX.grime })); m.receiveShadow = SHADOWS; scene.add(onLayer1(m)); }
   // the roundabout: a low wall, palms and a small monument
   { const ring = []; for (let a = 0; a < 6.28; a += 0.2) ring.push([LX(-58 + Math.cos(a) * 6), LZ(Math.sin(a) * 6)]); bagWall([...ring, ring[0]], 2, CHH, false);
     const mo = new THREE.Mesh(build([[G.box(1.6, 1.0, 1.6), 0xcfc4ac, M4(0, 0.5, 0)], [G.box(0.7, 5.2, 0.7), 0xd8cdb4, M4(0, 3.6, 0)], [G.cone(0.5, 1.0, 4), 0xc4b89c, M4(0, 6.7, 0, 0, Math.PI / 4, 0)]]), MAT.vc); mo.position.set(LX(-58), CHH, LZ(0)); scene.add(SH(onLayer1(mo))); addCollider(LX(-58), LZ(0), 0.8, 0.8, 0, CHH + 6); coverAround(-58, 0, 0.8, 0.8, 0, 1.6); }

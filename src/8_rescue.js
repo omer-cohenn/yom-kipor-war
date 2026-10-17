@@ -50,6 +50,8 @@ function rsNat(x, z) {
 // the track the column drives: levelled (the map comes levelled already) and rutted
 function rsCarve(x, z, h) {
   const lx = x - RS.o.x, lz = z - RS.o.z;
+  // the sand sea past the ambushes' ground (every pit and every group is within 220 m of the track): dunes, bigger out past the box
+  { const dt = Math.abs(lz - rsTrackZ(lx)), k = smooth(235, 330, dt); if (k > 0) h += dunes(x, z, k, Math.max(0, Math.abs(lz) - 330, lx - 760, -780 - lx)); }
   if (Math.abs(lz) < 90 && lx > -560 && lx < 680) { const d = distPolyline(lx, lz, RS_TRACK_S); if (d < 14) { if (!MAPS.rescue) { const k = 1 - smooth(4, 13, d); h = lerp(h, 9 + 4 * fbm(lx / 420, lz / 420, 3) + 1.2, k); } mixIn(PAL.sandD, 0.5 * (1 - smooth(1.2, 4.5, d))); if (d > 1.0 && d < 2.6) mixIn([0.45, 0.39, 0.31], 0.45); } }
   return h;
 }
@@ -64,7 +66,7 @@ const RS_GROUPS = {
 };
 function rsArc(x) { let best = 0, bd = 1e9, acc = 0; for (let i = 0; i < RS_TRACK.length - 1; i++) { const a = RS_TRACK[i], b = RS_TRACK[i + 1], L = Math.hypot(b[0] - a[0], b[1] - a[1]); for (let u = 0; u <= 1; u += 0.02) { const px = lerp(a[0], b[0], u); if (Math.abs(px - x) < bd) { bd = Math.abs(px - x); best = acc + L * u; } } acc += L; } return best; }
 function rsBuild() {
-  const C = CHAP.rescue; C.ground = makeGround({ x0: RS.o.x - 780, x1: RS.o.x + 760, z0: RS.o.z - 330, z1: RS.o.z + 330, step: 3.2, h: mapH('rescue', rsNat, rsCarve), map: 'rescue', vegOk: (x, z) => distPolyline(x - RS.o.x, z - RS.o.z, RS_TRACK_S) > 7, grass: 'dry' }); GROUND = C.ground;
+  const C = CHAP.rescue; C.ground = makeGround({ x0: RS.o.x - 780, x1: RS.o.x + 760, z0: RS.o.z - 330, z1: RS.o.z + 330, step: 3.2, h: mapH('rescue', rsNat, rsCarve), map: 'rescue', vegOk: (x, z) => distPolyline(x - RS.o.x, z - RS.o.z, RS_TRACK_S) > 7, grass: 'sand', sand: true }); GROUND = C.ground;
   const BAGS = [], sv = BATCH.bag; BATCH.bag = BAGS; const k0 = COVER.length; C.slots = []; C.nestBush = []; C.fires = [];
   { const r = rng(4242); for (const id of ['A', 'B', 'C', 'D']) { const g = RS_GROUPS[id], cx = g.at ?? g.pts[0][0]; if (g.extra) continue; g.extra = true; for (let k = 0; k < 5; k++) { const sd = k % 2 ? 1 : -1; g.pts.push([cx + (r() - 0.5) * 200, sd * (70 + r() * 120)]); g.kinds.push(['rifle', 'rpg', 'rifle', 'rifle', 'atgm'][k]); } } }
   for (const [id, g] of Object.entries(RS_GROUPS)) g.pts.forEach(([x0, z0], i) => { const lane = id === 'W' ? RS_WEST : id === 'S' ? RS_SOUTH : RS_TRACK, [x, z] = corr(lane, x0, z0, 23, id === 'W' || id === 'S' ? 4 : 12); const [wx, wz] = RW(x, z); let tx = x, tz = 0; { let bd = 1e9; for (const p of id === 'W' || id === 'S' ? [RS_MEET2, [-560, -66]] : densify(RS_TRACK, 10)) { const d = Math.hypot(p[0] - x, p[1] - z); if (d < bd) { bd = d; tx = p[0]; tz = p[1]; } } } const dx = tx - x, dz = tz - z, l = Math.hypot(dx, dz) || 1; const s = foxhole(wx, wz, dx / l, dz / l, C.slots); s.grp = id; s.kind = g.kinds[i]; if (g.bush) for (let k = 0; k < 6; k++) { const a = Math.atan2(dx, dz) + rand(-2.4, 2.4), d = rand(1.6, 3.4); C.nestBush.push([wx + Math.sin(a) * d, wz + Math.cos(a) * d, rand(0.9, 1.6), rand(0, 6), greenBush(Math.random)]); } });
@@ -87,6 +89,7 @@ function rsBuild() {
     instScatter(BUSH_G, scatterNear(TW, LITE ? 220 : 560, 10, 150, 312, okW, (x, z, r) => [x, z, 0.5 + r() * 1.0, r() * 6, r() < 0.25 ? greenBush(r) : dryBush(r), 0, 0.8]));
     { const bl2 = scatterNear(TW, LITE ? 16 : 30, 18, 110, 313, okW, (x, z, r) => [x, z, 1.2 + r() * 1.8, r() * 6, rockCol(r), 0.3, 0.72]); instScatter(BOULDER_G, bl2); boulders(bl2); }
     const bl = scatterIn(LITE ? 30 : 44, X0, X1, Z0, Z1, 303, okW, (x, z, r) => [x, z, 1.3 + r() * 1.5, r() * 6, rockCol(r), 0.3, 0.72]); instScatter(BOULDER_G, bl); boulders(bl);
+    desertFlora(X0, X1, Z0, Z1, 3200, okW, 1, TW);   // agaves, cacti, saguaros and hawks (3_world.js)
     instScatter(BUSH_G, scatterIn(LITE ? 220 : 520, X0, RS.o.x - 300, Z0, Z1, 304, okW, (x, z, r) => [x, z, 0.4 + r() * 0.7, r() * 6, dryBush(r), 0, 0.75]).concat(scatterIn(LITE ? 120 : 260, RS.o.x - 300, X1, Z0, Z1, 305, okW, (x, z, r) => [x, z, 0.35 + r() * 0.5, r() * 6, dryBush(r), 0, 0.7])));
     // the green belt toward the canal: fields and thick scrub where the tank hunters wait
     instScatter(BUSH_G, scatterIn(LITE ? 300 : 760, X0, RS.o.x - 340, Z0, Z1, 306, okW, (x, z, r) => [x, z, 0.7 + r() * 1.1, r() * 6, greenBush(r), 0, 0.9]).concat(C.nestBush));

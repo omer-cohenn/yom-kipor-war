@@ -19,6 +19,7 @@ const TOUCH = matchMedia('(pointer: coarse)').matches;
 const LITE0 = !QS.has('full') && (QS.has('lite') || TOUCH || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || Math.min(screen.width, screen.height) < 700 || (navigator.deviceMemory && navigator.deviceMemory <= 4));
 const QUAL = (() => { let q = QS.get('q'); if (!q) try { q = localStorage.getItem('yk73.q'); } catch (e) {} return ['high', 'med', 'low'].includes(q) ? q : QS.has('full') ? 'high' : LITE0 ? 'med' : 'high'; })();
 const LITE = QUAL !== 'high';
+const SHADOWS = QUAL !== 'low' && !QS.has('noshadow');   // the sun's shadows on medium too (a smaller map): a phone draws them well enough, and the frame governor in 5_game.js takes the resolution down first if not
 const QLOD = { high: [16, 48], med: [9, 30], low: [0, 15] }[QUAL];
 const FAR = LITE ? 11000 : 30000;
 const HDRK = LITE ? 1 : 2.4;
@@ -254,13 +255,13 @@ function terrainAt0(x, z) {
 
 /* ================= renderer / scene / cameras ================= */
 const stage = $('#stage');
-const renderer = new THREE.WebGLRenderer({ antialias: !LITE, powerPreference: LITE ? 'default' : 'high-performance', logarithmicDepthBuffer: !LITE });
-renderer.setPixelRatio(QUAL === 'low' ? 1 : LITE ? Math.min(window.devicePixelRatio || 1, 1.5) : Math.min(window.devicePixelRatio || 1, 2));
+const renderer = new THREE.WebGLRenderer({ antialias: QUAL !== 'low', powerPreference: LITE ? 'default' : 'high-performance', logarithmicDepthBuffer: !LITE });
+renderer.setPixelRatio(QUAL === 'low' ? 1 : Math.min(window.devicePixelRatio || 1, 2));
 renderer.domElement.addEventListener('webglcontextlost', (e) => { e.preventDefault(); const l = $('#loading'); l.classList.remove('done'); $('#loadMsg').textContent = 'הזיכרון הגרפי של המכשיר נגמר והמשחק נעצר. סגרו לשוניות ואפליקציות אחרות ורעננו, או שחקו במחשב.'; });
 renderer.setSize(stage.clientWidth, stage.clientHeight);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 0.5;
-renderer.shadowMap.enabled = !LITE && !QS.has('noshadow'); renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.enabled = SHADOWS; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.autoClear = false;
 stage.appendChild(renderer.domElement);
 const labelRenderer = new CSS2DRenderer();
@@ -447,12 +448,12 @@ const XS = axis(MAP.x0, MAP.x1, [0, -76]), ZS = axis(MAP.z0, MAP.z1, [0, -88, 86
 const NX = XS.length, NZ = ZS.length;
 const HGT = new Float32Array(NX * NZ);
 function buildTerrain() {
-  const pos = new Float32Array(NX * NZ * 3), col = new Float32Array(NX * NZ * 3), uv = new Float32Array(NX * NZ * 2);
+  const pos = new Float32Array(NX * NZ * 3), col = new Float32Array(NX * NZ * 3), uv = new Float32Array(NX * NZ * 2), sk = new Float32Array(NX * NZ);
   const K = 1 / 0.787;
   for (let j = 0; j < NZ; j++) {
     const z = ZS[j];
     for (let i = 0; i < NX; i++) {
-      const x = XS[i], k = j * NX + i; const h = terrainAt(x, z); HGT[k] = h;
+      const x = XS[i], k = j * NX + i; const h = terrainAt(x, z); HGT[k] = h; sk[k] = x > CITY.x0 - 40 && x < CITY.x1 + 40 && z > CITY.z0 - 40 && z < CITY.z1 + 40 ? 0 : 1;   // loose rippled sand, but not in the city of Suez
       pos[k * 3] = x; pos[k * 3 + 1] = h; pos[k * 3 + 2] = z;
       col[k * 3] = lin(COL[0]) * K; col[k * 3 + 1] = lin(COL[1]) * K; col[k * 3 + 2] = lin(COL[2]) * K;
       uv[k * 2] = (x - MAP.x0) / MW; uv[k * 2 + 1] = 1 - (z - MAP.z0) / MH;
@@ -462,7 +463,7 @@ function buildTerrain() {
   for (let j = 0; j < NZ - 1; j++) for (let i = 0; i < NX - 1; i++) { const a = j * NX + i, b = a + 1, c = a + NX, d = c + 1; idx[p++] = a; idx[p++] = c; idx[p++] = b; idx[p++] = b; idx[p++] = c; idx[p++] = d; }
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('color', new THREE.BufferAttribute(col, 3)); geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
-  geo.setIndex(new THREE.BufferAttribute(idx, 1)); geo.computeVertexNormals();
+  geo.setIndex(new THREE.BufferAttribute(idx, 1)); geo.computeVertexNormals(); geo.setAttribute('aSand', new THREE.BufferAttribute(sk, 1));
   const mat = new THREE.MeshStandardMaterial({ vertexColors: true, map: groundTex(), bumpMap: sandBumpTex(), bumpScale: 0.3, roughness: 0.97, metalness: 0, envMapIntensity: 0.3 });
   const detT = detailTex(), micT = microTex();
   mat.onBeforeCompile = (sh) => {
@@ -482,6 +483,7 @@ function buildTerrain() {
       diffuseColor.rgb *= mix(vec3(1.0), mic * 1.55, mf * 0.85);
     }`);
   };
+  mat.customProgramCacheKey = () => 'mezGround'; sandify(mat);   // the canal's sand: the wind's ripples and streamers too (4g_maps.js)
   const mesh = new THREE.Mesh(geo, mat); mesh.receiveShadow = true; scene.add(mesh);
 }
 function findIdx(arr, v) { let lo = 0, hi = arr.length - 1; if (v <= arr[0]) return 0; if (v >= arr[hi]) return hi - 1; while (hi - lo > 1) { const m = (lo + hi) >> 1; if (arr[m] <= v) lo = m; else hi = m; } return lo; }
@@ -554,7 +556,7 @@ function nightSkySet(deep) {
 }
 const hemi = new THREE.HemisphereLight(0xc4d6ee, 0x9c8466, 0.42); scene.add(hemi);
 const sun = new THREE.DirectionalLight(0xfff0da, 3.1); scene.add(sun, sun.target);
-if (!LITE) { sun.castShadow = true; sun.shadow.mapSize.set(3072, 3072); const sc = sun.shadow.camera; sc.left = -88; sc.right = 88; sc.top = 88; sc.bottom = -88; sc.near = 1; sc.far = 900; sun.shadow.bias = -0.00025; sun.shadow.normalBias = 0.06; }
+if (SHADOWS) { sun.castShadow = true; sun.shadow.mapSize.set(LITE ? 2048 : 3072, LITE ? 2048 : 3072); const sc = sun.shadow.camera; sc.left = -88; sc.right = 88; sc.top = 88; sc.bottom = -88; sc.near = 1; sc.far = 900; sun.shadow.bias = -0.00025; sun.shadow.normalBias = 0.06; }
 const SUN = { dir: V3(0, 1, 0), lastEnv: -99 };
 /* ---- waves: three trains of swell and chop. The same sum is evaluated in GLSL (the surface is displaced) and in JS (everything that
    floats rides it), so a boat sits on the water it is drawn on. The grid is camera-centred: fine cells underfoot, growing toward the horizon. */

@@ -530,6 +530,9 @@ function crVillage(P, C, parts) {
   { const [wx, wz] = CW(-255, -14), y = groundAt(wx, wz); parts.push([G.cyl(0.9, 0.95, 0.85, 14), 0xa89878, M4(wx, y + 0.42, wz)], [G.cyl(0.7, 0.7, 0.05, 12), 0x222a2a, M4(wx, y + 0.86, wz)]); addCollider(wx, wz, 0.9, 0.9, 0, y + 0.85); coverBox(wx, wz, 0.9, 0.9, 0, 0.85); }
   for (const [x, z] of [[-251, 15], [-258.5, -40], [-249, 62], [-275, -4.6]]) { const [wx, wz] = CW(x, z); fieldDrums(wx, wz, 3); }
   { const pl = []; for (const [x, z] of [[-161, 21], [-185, -20], [-200, 21], [-214, -20], [-226, 20], [-240, -20], [-170, -21], [-240, 18]]) { const [wx, wz] = CW(x, z); pl.push([wx, wz, 0.85 + r() * 0.3, r() * 6]); } palms(pl); }
+  // sabra hedges behind the yards' back walls on both sides and round the street's east end - where nobody walks, clear of the cross-lane
+  { const sr = rng(97), sl = []; for (let x = -240; x < -153; x += 2.6 + sr() * 1.2) for (const sd of [-1, 1]) if (sr() > 0.18) { const [wx, wz] = CW(x + sr(), sd * (29.4 + sr() * 1.6)); sl.push([wx, wz, 0.9 + sr() * 0.45, sr() * 6]); }
+    for (let z = 10; z < 28; z += 2.8) for (const sd of [-1, 1]) if (sr() > 0.25) { const [wx, wz] = CW(-147.5 + sr() * 1.5, sd * z); sl.push([wx, wz, 0.85 + sr() * 0.4, sr() * 6]); } sabras(sl); }
   // the street's power line, a wire from a pole to the parapet of each house on the south side
   { powerLine([[-152, 5.1], [-232, 5.1]].map(([x, z]) => CW(x, z)), 40, 7); const segs = [];
     for (const h of CR_VH) { if (h.sd < 0) continue; const H = C.vh[h.id], hx = CR_COLS[h.c] + 4.5, px = -152 - 40 * Math.round((-152 - hx) / 40), [ax, az] = CW(px, 5.1), [bx, bz] = CW(hx, CR_FZ - 0.3), ya = groundAt(ax, az) + 7 - 0.4, yb = H.yt + 0.9;
@@ -586,7 +589,7 @@ function crBuild() {
     put(P.metal, vm(null, { roughness: 0.6, metalness: 0.45 })); put(P.pig, vm(crPigeonTex())); put(P.straw, vm(crStrawTex())); put(P.cloth, vm(null, { side: THREE.DoubleSide, roughness: 0.9 }), true);
     put(P.decal, new THREE.MeshStandardMaterial({ map: crDecalTex(), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2, roughness: 0.95 }), false); }
   if (P.roof.length) { const m = new THREE.Mesh(build(P.roof), new THREE.MeshStandardMaterial({ vertexColors: true, map: TX.grime, roughness: 0.95 })); scene.add(SH(onLayer1(m))); }
-  { const m = new THREE.Mesh(build(P.floor), MAT.vc); m.receiveShadow = !LITE; scene.add(onLayer1(m)); }
+  { const m = new THREE.Mesh(build(P.floor), MAT.vc); m.receiveShadow = SHADOWS; scene.add(onLayer1(m)); }
   { const m = new THREE.Mesh(build(P.wood), new THREE.MeshStandardMaterial({ vertexColors: true, map: TX.wood, roughness: 0.92 })); scene.add(SH(onLayer1(m))); }
   const clearOf = (x, z) => !crInVillage(x, z, 5);
   { const pl = []; const r = rng(91); for (let i = 0; i < 46; i++) { const x = -190 - r() * 140, z = 76 + r() * 150; if (!clearOf(x, z)) continue; const [wx, wz] = CW(x, z); pl.push([wx, wz, 0.8 + r() * 0.35, r() * 6]); } for (let i = 0; i < 18; i++) { const [wx, wz] = CW(-345 - r() * 60, -150 + r() * 560); pl.push([wx, wz, 0.9, r() * 6]); } palms(pl); }
@@ -696,7 +699,8 @@ function crRepUpd(dt) {
   if (dt > 0 && t > 9.5 && t < 18.5 && Math.random() < dt * 3) { const s = FX.smoke.get(); s.life = 2.2; s.s.position.copy(C.repT.position).add(V3(rand(-1, 1), 2.3, rand(-3.4, -2.6))); s.s.material.color.set(0x2e2c28); s.upd = (q, uu, d2) => { q.s.position.y += 1.6 * d2; q.s.scale.setScalar(0.8 + uu * 3.4); q.s.material.opacity = 0.55 * (1 - uu); }; }
   for (const e of C.eng) { e.anim = (e.anim || 0) + dt * (e.engPose === 'crouch' ? 1.5 : 0.8); e.rig.pose(e.engPose, e.anim, 0); e.sync(); }
 }
-/* ---------- the jeep behind on the bridge: a direct hit. One man is killed, two are wounded ---------- */
+/* ---------- the jeep right behind the player's on the bridge: a direct hit. One man is killed, two are wounded; a few seconds on the
+   burning wreck is pushed off the pontoons into the canal, so the column behind it can cross ---------- */
 function crDirectHit() {
   const C = CHAP.cross, X = C.jeepX; CR.hit3 = true; X.g.updateMatrixWorld(true); const p = X.g.getWorldPosition(V3());
   fxExplosion(p.clone().add(V3(0, 0.8, 0)), 3.2); sndBoom(p, 3.0); crBurst(p.x + 3, p.z + 7, 1.5); crBurst(p.x - 5, p.z - 6, 1.3); crSplash(V3(p.x + 1, 0, p.z - 5), 1.2);
@@ -706,11 +710,12 @@ function crDirectHit() {
   // one is thrown off the bridge into the canal; the other two lie on the roadway beside the burning jeep
   const [a, b, c] = X.men; scene.attach(a); CR.thrown = { m: a, v: V3(rand(-1, 1), 5.5, (Math.random() < 0.5 ? -1 : 1) * rand(3, 4)), t: 0 };
   for (const [m, at] of [[b, [2.6, 1.6]], [c, [-2.4, -1.5]]]) { scene.attach(m); m.position.set(p.x + at[0], CR_PB_Y + 0.15, p.z + at[1]); m.rotation.set(0, rand(0, 3), Math.PI / 2); }
-  radio('קשר', 'פצצה על הגשר מאחורינו! פגיעה ישירה בג׳יפ!', 2.4);
+  radio('קשר', 'פצצה על הגשר מאחורינו! פגיעה ישירה בג׳יפ!', 2.4); CR.pushT = GAME.t + 8;
+  DIRQ.push({ at: GAME.t + 6.5, fn: () => radio('נהג', 'דוחפים אותו למים! לפנות את הגשר!', 2.2) });
   DIRQ.push({ at: GAME.t + 2.8, fn: () => { radio('חובש', 'הג׳יפ מאחורינו נפגע! יש הרוג ושני פצועים. אני עליהם!', 3.4); feed('הג׳יפ שמאחור נפגע על הגשר: הרוג ושני פצועים', 'bad'); } });
 }
 /* the bomb that finds the jeep behind the player's on the bridge: a jet comes in low from the east, along the bridge; the bomb falls in slow
-   motion, the player's head is turned to it, and it lands on the jeep some forty metres behind */
+   motion, the player's head is turned to it, and it lands on the jeep right behind, a dozen metres back */
 function crStrike() {
   const C = CHAP.cross, X = C.jeepX; X.g.updateMatrixWorld(true); const to = X.g.getWorldPosition(V3());
   const m = new THREE.Mesh(JET_GEO, MAT.jet); SH(m, true, false); scene.add(onLayer1(m));
@@ -735,6 +740,14 @@ function crHitUpd(dt) {
   if (T && T.m.visible) { T.t += dt; T.v.y -= 9.8 * dt; T.m.position.addScaledVector(T.v, dt); T.m.rotation.x += dt * 5; T.m.rotation.z += dt * 3; if (T.m.position.y < -1.2) { T.m.visible = false; const wp = T.m.position.clone(); wp.y = 0; for (let k = 0; k < 4; k++) fxDust(wp.clone().add(V3(rand(-0.6, 0.6), 0.3 + k * 0.3, rand(-0.6, 0.6))), true); rippleAdd(wp.x, wp.z, 0.5); } }
   if (X.crHit && X.g.visible && Math.random() < dt * 3.5) { const wp = X.g.getWorldPosition(V3()), q = FX.smoke.get(); q.life = 6; q.s.position.set(wp.x + rand(-0.6, 0.6), wp.y + 2.2, wp.z + rand(-0.6, 0.6)); q.s.material.color.set(0x1a1816); q.upd = (o, u, d2) => { o.s.position.y += 2.4 * d2; o.s.scale.setScalar(1.6 + u * 7); o.s.material.opacity = 0.7 * (1 - u); }; }
   if (X.crHit) for (const f of X.fires) f.scale.setScalar(1.6 + Math.sin(GAME.t * 11 + f.id) * 0.3 + (f.position.y > 1.6 ? 0.6 : 0));
+  // pushed off: it slides sideways off the deck, rolls over the edge and goes into the canal
+  if (X.crHit && CR.pushT && GAME.t > CR.pushT && !CR.xGone) {
+    if (!CR.push0) { X.path = null; X.speed = 0; CR.push0 = { p: X.g.position.clone(), ry: X.g.rotation.y }; }
+    const u = clamp((GAME.t - CR.pushT) / 2.6, 0, 1), P0 = CR.push0, e = u * u;
+    const sx = Math.sin(P0.ry), sz = Math.cos(P0.ry), d = 4.6 * Math.min(1, u * 1.4);   // toward its own right side (local +z), rolling that way
+    X.g.position.set(P0.p.x + sx * d, P0.p.y - e * 3.2, P0.p.z + sz * d); X.g.rotation.set(1.1 * smooth(0.3, 1, u), P0.ry, 0, 'YXZ');
+    if (u >= 1) { CR.xGone = true; X.g.visible = false; X.shown = false; const w = V3(P0.p.x + sx * 4.6, 0, P0.p.z + sz * 4.6); crSplash(w, 1.6); sndBoom(w, 0.6); }
+  }
 }
 /* ---------- the air raids: Egyptian jets dive on the pontoon bridge and on the roller bridge waiting on the bank ---------- */
 const CRJ = [];
@@ -800,13 +813,13 @@ function crSetup(stage) {
   for (const v of VEH) if (v.mode === 'cross') { vehRevive(v); v.path = null; v.stop = undefined; v.ended = false; v.shown = false; v.g.visible = false; v.onEnd = null; v.speed = 0; }
   if (C.egFlag) C.egFlag.visible = stage < 2;
   P.mode = 'rifle'; vm.visible = true; if (TANK.g) TANK.g.visible = false; C.mg.visible = false;
-  // the jeep at the tail of the column on the bridge: the one the bomb will find
+  // the jeep right behind the player's on the bridge: the one the bomb will find (the other two follow it)
   { const X = C.jeepX; X.crHit = false; CR.hit3 = false; CR.thrown = null;
     X.men.forEach((m, i) => { if (m.parent !== X.g) X.g.add(m); m.position.set(...[[-0.35, 0.95, -0.3], [0.45, 0.95, 0.35], [-1.1, 0.95, 0.3]][i].map((q) => q * JK)); m.rotation.set(0, Math.PI / 2, 0); m.visible = true; });
-    if (stage === 0) { X.shown = true; X.g.visible = true; X.path = CR_J0.map(([x, z]) => CW(x, z)); X.s = 6; X.vmax = 0; X.hdV = null; X.stop = CR_PB_END - 42; const [x, z, hd] = pathAt(X.path, X.s); vehPose(X, x, z, hd); } }
+    if (stage === 0) { X.shown = true; X.g.visible = true; X.path = CR_J0.map(([x, z]) => CW(x, z)); X.s = 36; X.vmax = 0; X.hdV = null; X.stop = CR_PB_END - 12; CR.xGone = false; CR.pushT = null; CR.push0 = null; const [x, z, hd] = pathAt(X.path, X.s); vehPose(X, x, z, hd); } }
   const J = CR_J0.map(([x, z]) => CW(x, z)), L = pathLen(J);
   C.jeeps.forEach((v, i) => { v.shown = true; v.g.visible = true; v.ambush = null; v.hdV = null; v.off = 0; v.path = J; v.gap = i * 14;
-    v.s = stage === 0 ? 48 - i * 14 : stage === 1 ? CR_PB_END + 30 - i * 14 : L - i * 14; v.vmax = stage === 0 ? 0 : 6.5; v.stop = stage === 0 ? CR_PB_END - v.gap : stage === 1 ? undefined : v.s; const [x, z, hd] = pathAt(J, v.s); vehPose(v, x, z, hd); });
+    v.s = stage === 0 ? (i ? 34 - i * 14 : 48) : stage === 1 ? CR_PB_END + 30 - i * 14 : L - i * 14; v.vmax = stage === 0 ? 0 : 6.5; v.stop = stage === 0 ? CR_PB_END - (i ? 12 + v.gap : 0) : stage === 1 ? undefined : v.s; const [x, z, hd] = pathAt(J, v.s); vehPose(v, x, z, hd); });
   // the two tanks ahead of the jeeps on the bridge: over, and away west into the bridgehead
   if (stage === 0) C.pbT.forEach((v, i) => { v.shown = true; v.g.visible = true; v.path = [...CR_PB_PATH, [-100, 404], [-124, 405], [-160, 424], [-205, 441], [-245, 449]].map(([x, z]) => CW(x, z)); v.s = 66 + i * 17; v.vmax = 0; v.hdV = null; v.onEnd = (q) => { q.g.visible = false; q.shown = false; }; const [x, z, hd] = pathAt(v.path, v.s); vehPose(v, x, z, hd); });
   const lead = C.jeeps[0];
@@ -986,7 +999,7 @@ function crUpd(dt) {
   crBridgePose(dt);
   if (CR.stage < 2 && !CINE.on && !(CR.stage === 0 && !CR.msgs.go)) { CR.air -= dt; if (CR.air <= 0) { CR.air = rand(20, 30); crJet(CR.stage === 0 ? 'pb' : 'bridge'); } }
   // the jeep's machine gun turns with the gunner
-  if (P.ride && P.ride.mg) { C.mg.visible = !CINE.on; C.mg.quaternion.copy(camera.quaternion); C.mg.position.copy(camera.position).add(V3(0.0, -0.44, -0.3).applyQuaternion(camera.quaternion)); } else C.mg.visible = false;
+  if (P.ride && P.ride.mg) { C.mg.visible = !CINE.on; C.mg.quaternion.copy(camera.quaternion); C.mg.position.copy(playerEye()).add(V3(0.0, -0.44, -0.3).applyQuaternion(camera.quaternion)); }   /* at his hands, not the eye's: the eye stands back of his helmet */ else C.mg.visible = false;
   // the Egyptians who break run back the way they came: up the lanes, or west down the road (kept between its walls)
   for (const e of CR.flee) { if (!e.alive) continue; const sp = 5.4 * dt, lx = e.pos.x - CR.o.x, lz = e.pos.z - CR.o.z;
     if (e.crFront === 'n' || e.crFront === 's') { const sg = e.crFront === 'n' ? -1 : 1; e.pos.z += sg * sp; e.pos.x += clamp(clamp(lx, CR_LX1 + 1.5, CR_LX0 - 1.5) - lx, -3 * dt, 3 * dt); e.heading = sg < 0 ? Math.PI : 0; }
@@ -996,7 +1009,10 @@ function crUpd(dt) {
   if (CR.stage === 0) {
     // the column crawls over the bridge behind the tanks; the Egyptians on the rampart open fire as it reaches the middle; it goes on when they are quiet
     const lead = C.jeeps[0], X = C.jeepX;
-    if (CR.msgs.go && !CR.hit3 && !CR.strike && !CR.shellIn && X.g.position.x - CR.o.x < 40) crStrike(); crStrikeUpd(dt); crShellUpd(dt);
+    if (CR.msgs.go && !CR.hit3 && !CR.strike && !CR.shellIn && X.g.position.x - CR.o.x < 10) crStrike(); crStrikeUpd(dt); crShellUpd(dt);
+    // the two jeeps behind wait behind the burning one until it is pushed into the canal
+    if (X.crHit && !CR.xGone) { C.jeeps[1].stop = Math.min(C.jeeps[1].stop, X.s - 11); C.jeeps[2].stop = Math.min(C.jeeps[2].stop, X.s - 25); }
+    else if (CR.xGone && !CR.msgs.xFree) { CR.msgs.xFree = true; C.jeeps[1].stop = CR_PB_END - 26; C.jeeps[2].stop = CR_PB_END - 40; }
     if (lead.g.position.x - CR.o.x < 62 && !CR.msgs.fire) { CR.msgs.fire = true; let first = true; for (const s of C.slots) if (s.grp === 'L') { fSlotSpawn(first ? 'rpg' : 'rifle', (q) => q === s, 'L'); first = false; } radio('צנחן', 'אש מהסוללה! מצפון לגשר, על הסוללה — מקלע!', 2.4);
       for (let k = 0; k < 8; k++) DIRQ.push({ at: GAME.t + 3 + k * 1.2, spawn: true, fn: () => { const [x, z] = CW(-129 + (k % 3) * 2, 296 - k * 3), [tx, tz] = CW(-123 - (k % 4) * 2.5, 350 + k * 5); const e = fSpawnStreet(x, z, [[tx, tz]], k % 4 === 2 ? 'rpg' : 'rifle'); if (e) e.sq = 'L'; } }); }
     if (lead.s >= lead.stop - 0.8) { CR.msgs.landT = (CR.msgs.landT || 0) + dt; if (!CR.msgs.off && holdDone(fieldLeft((e) => e.sq === 'L'), CR.msgs.landT)) { CR.msgs.off = true; fieldDespawn((e) => e.sq === 'L'); radio('נהג', 'יורדים מהגשר! מחזיקים חזק!', 2); crStage(1); } }

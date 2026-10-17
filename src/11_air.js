@@ -3,7 +3,7 @@
    Slow, low dives along the trench line: cannon fire walks down the line, sandbags fly, bombs fall on whoever is exposed.
    Halfway through, an Israeli Mirage is caught by a MiG over the canal, breaks up and crashes beyond the strongpoint; its pilot comes down under a parachute. */
 const AIR = { next: 30, magT: 0, mirage: false, bombs: [], debris: [], ev: null };
-const BAG_POOL = (() => { const g = pillowGeo(), list = []; for (let i = 0; i < (LITE ? 18 : 36); i++) { const m = new THREE.Mesh(g, MAT.bag); m.scale.set(0.6, 0.22, 0.36); m.visible = false; m.castShadow = !LITE; scene.add(onLayer1(m)); list.push({ m, v: V3(), w: V3(), t: 99, rest: false }); } return list; })();
+const BAG_POOL = (() => { const g = pillowGeo(), list = []; for (let i = 0; i < (LITE ? 18 : 36); i++) { const m = new THREE.Mesh(g, MAT.bag); m.scale.set(0.6, 0.22, 0.36); m.visible = false; m.castShadow = SHADOWS; scene.add(onLayer1(m)); list.push({ m, v: V3(), w: V3(), t: 99, rest: false }); } return list; })();
 function bagBurst(p, n) {
   for (let k = 0; k < n; k++) { let b = BAG_POOL[0]; for (const q of BAG_POOL) if (q.t > b.t) b = q; b.t = 0; b.rest = false; b.m.visible = true; b.m.position.copy(p).add(V3(rand(-0.6, 0.6), 0.6, rand(-0.6, 0.6))); b.v.set(rand(-5, 5), rand(6, 13), rand(-5, 5)); b.w.set(rand(-8, 8), rand(-8, 8), rand(-8, 8)); }
 }
@@ -49,7 +49,7 @@ function mirageModel() {
   const ro = (parent, x, y, z, s, rx, ry) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(s, s), rm); m.position.set(x, y, z); m.rotation.set(rx, ry, 0); parent.add(m); };
   ro(g, -3.6, -0.02, -2.6, 1.9, -Math.PI / 2, 0); ro(g, -3.6, -0.24, -2.6, 1.9, Math.PI / 2, 0); ro(wingR, -3.6, -0.02, 2.6, 1.9, -Math.PI / 2, 0); ro(wingR, -3.6, -0.24, 2.6, 1.9, Math.PI / 2, 0);
   ro(g, -1.6, 0.05, 0.64, 1.0, 0, 0); ro(g, -1.6, 0.05, -0.64, 1.0, 0, Math.PI);
-  g.traverse((m) => { if (m.isMesh) { m.castShadow = !LITE; onLayer1(m); } }); g.visible = false; scene.add(g); return { g, wingR };
+  g.traverse((m) => { if (m.isMesh) { m.castShadow = SHADOWS; onLayer1(m); } }); g.visible = false; scene.add(g); return { g, wingR };
 }
 function chuteModel() {
   const g = new THREE.Group(); const can = new THREE.Mesh(new THREE.SphereGeometry(3.2, 16, 8, 0, Math.PI * 2, 0, Math.PI * 0.42), new THREE.MeshStandardMaterial({ color: 0xe8e2d2, side: THREE.DoubleSide, roughness: 0.9 }));

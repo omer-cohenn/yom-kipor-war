@@ -162,8 +162,8 @@ function fmPlots() {
     const [fa, fb] = FW(p.x0 + B, p.z0 + B), [fc, fd] = FW(p.x1 - B, p.z1 - B); addFloor(fa, fc, fb, fd, t);
   }
   const mk = (P, Cc, U) => { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(Cc, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(U, 2)); g.computeVertexNormals(); return g; };
-  const top = new THREE.Mesh(mk(tp, tc, tu), terrainMat()); top.receiveShadow = !LITE; scene.add(top);
-  const wm = new THREE.MeshStandardMaterial({ vertexColors: true, map: TX.micro, roughness: 1, metalness: 0 }); const sides = new THREE.Mesh(mk(sp, sc, su), wm); sides.receiveShadow = !LITE; scene.add(sides);
+  const top = new THREE.Mesh(mk(tp, tc, tu), terrainMat()); top.receiveShadow = SHADOWS; scene.add(top);
+  const wm = new THREE.MeshStandardMaterial({ vertexColors: true, map: TX.micro, roughness: 1, metalness: 0 }); const sides = new THREE.Mesh(mk(sp, sc, su), wm); sides.receiveShadow = SHADOWS; scene.add(sides);
 }
 /* ---------- the ditches as fighting trenches: every wall revetted with weathered planks held by posts, sandbags along the lips where the
    fighting goes. They read as trenches dug into the earth, not as low ground between fields ---------- */
@@ -208,7 +208,7 @@ function fmRevet() {
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); g.computeVertexNormals();
   const pt = pk ? mdlTex('props/plank/map') : plankTex(), pmat = new THREE.MeshStandardMaterial({ map: pt, vertexColors: true, roughness: 0.95, metalness: 0, side: THREE.DoubleSide });
   if (pk && !LITE) { pmat.normalMap = mdlTex('props/plank/nmap', false); pmat.normalScale.set(0.9, 0.9); }
-  const m = new THREE.Mesh(g, pmat); m.receiveShadow = !LITE; scene.add(onLayer1(m));
+  const m = new THREE.Mesh(g, pmat); m.receiveShadow = SHADOWS; scene.add(onLayer1(m));
   const mm = new THREE.Matrix4(), q = new THREE.Quaternion(), up = V3(0, 1, 0), one = V3(1, 1, 1);
   const pg = new THREE.BoxGeometry(0.14, H1 - H0 + 0.03, 0.14).translate(0, (H1 + H0) / 2 - 0.015, 0), pm = new THREE.InstancedMesh(pg, new THREE.MeshStandardMaterial({ color: 0x4a3a28, roughness: 1 }), posts.length);
   posts.forEach(([x, z], i) => pm.setMatrixAt(i, mm.makeTranslation(x, 0, z))); scene.add(SH(onLayer1(pm), true, false));
@@ -217,7 +217,7 @@ function fmRevet() {
   caps.forEach(([x, z, L, a], i) => cm.setMatrixAt(i, mm.compose(V3(x, FY - 0.05, z), q.setFromAxisAngle(up, a), V3(L, 1, 1)))); scene.add(SH(onLayer1(cm), true, false));
   const boards = []; for (const x of FM_DX) for (let z = F.z1; z > F.z0 + 1.2; z -= 2.5) boards.push([x, z - 1.25, Math.PI / 2]); for (const z of FM_DZ) for (let x = F.x0; x < F.x1 - 1.2; x += 2.5) { if (FM_DX.some((dx) => Math.abs(dx - x - 1.25) < 1.4)) continue; boards.push([x + 1.25, z, 0]); }
   const bm = new THREE.InstancedMesh(new THREE.BoxGeometry(2.36, 0.06, 0.95), new THREE.MeshStandardMaterial({ map: pt, color: pk ? 0xc8bca8 : 0xb09878, roughness: 1 }), boards.length);   // the packed boards are brown already: only dusted
-  boards.forEach(([x0, z0, a], i) => { const [x, z] = FW(x0, z0); bm.setMatrixAt(i, mm.compose(V3(x, DY + 0.03, z), q.setFromAxisAngle(up, a + (r() - 0.5) * 0.04), one)); }); bm.receiveShadow = !LITE; scene.add(onLayer1(bm));
+  boards.forEach(([x0, z0, a], i) => { const [x, z] = FW(x0, z0); bm.setMatrixAt(i, mm.compose(V3(x, DY + 0.03, z), q.setFromAxisAngle(up, a + (r() - 0.5) * 0.04), one)); }); bm.receiveShadow = SHADOWS; scene.add(onLayer1(bm));
   fmLipBags(lips);
   // what lies about in the trenches: ammunition boxes, jerrycans, sacks, a stretcher, spent shells
   const parts = [], wood = []; for (const z of [FM_DZ[0], FM_ET]) for (let x = F.x0 + 6; x < F.x1 - 6; x += 7 + r() * 9) { if (FM_DX.some((dx) => Math.abs(dx - x) < 3)) continue; const sd = r() < 0.5 ? 1 : -1, [wx, wz] = FW(x, z + sd * (FM_HW - 0.38)); fmProps(parts, wood, wx, wz, DY + 0.06, sd > 0 ? 0 : Math.PI, r, Math.floor(r() * 10)); }
@@ -246,7 +246,7 @@ function fmLipBags(lips) {
   BATCH.bag = sv; if (BAGS.length) scene.add(bagMesh(BAGS));
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(sp, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(su, 2)); g.computeVertexNormals();
   const t = sandbagWallTex(), m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ map: t, bumpMap: bumpOf(t), bumpScale: 2, roughness: 1, color: 0xd8ccb4, side: THREE.DoubleSide }));
-  m.receiveShadow = !LITE; scene.add(SH(onLayer1(m), true, true));
+  m.receiveShadow = SHADOWS; scene.add(SH(onLayer1(m), true, true));
 }
 /* ---------- Egyptian positions: in the trenches along the farm's edge facing the roads, and behind the edges of the plots ----------
    The ditches are narrow fighting trenches; whatever closes one is a wall of bags, a coil of wire or a heap of earth, in plain sight */

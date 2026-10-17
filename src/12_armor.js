@@ -31,6 +31,9 @@ function amNat(x, z) {
 }
 function amCarve(x, z, h) {
   const lx = x - AM.o.x, lz = z - AM.o.z, cx = lx - amCrest(lz);
+  // dunes where no tank drives: behind the ridge (past the track along its back), south and north of the four positions, and far out west
+  // past the Egyptian masses; the valley the assaults come up stays open ground
+  { const k = Math.max(smooth(130, 230, cx), smooth(-200, -300, lz), smooth(930, 1030, lz), smooth(-1180, -1350, lx)); if (k > 0) h += dunes(x, z, k, Math.max(0, lx - 260, -1150 - lx, -220 - lz, lz - 920)); }
   // the positions: berms of sand to hide a tank behind, churned ground, the track along the back of the ridge
   for (const Z of AM_Z) { const dx = lx - Z.x, dz = lz - Z.z, d = Math.hypot(dx, dz); if (d < Z.r + 20) { mixIn([0.47, 0.41, 0.32], 0.35 * (1 - smooth(Z.r - 10, Z.r + 15, d)));
     for (const oz of [-28, 0, 28]) { const bz = Math.abs(dz - oz); if (bz < 10) h += 1.9 * Math.exp(-(((dx + 10) / 3.4) ** 2)) * (1 - smooth(5, 10, bz)); } } }
@@ -45,7 +48,7 @@ function amWreck(name, x, z, rot, seed) {
   addCollider(x, z, hx, hz, rot, g0 + h); coverBox(x, z, hx, hz, rot, Math.min(2.2, h)); wreckFire(m, VEH_FIRE[name], name === 'jeep' ? 0.85 : 1.4); return m;
 }
 function amBuild() {
-  const C = CHAP.armor; C.ground = makeGround({ x0: AM.o.x - 1150, x1: AM.o.x + 260, z0: AM.o.z - 220, z1: AM.o.z + 920, step: 3.2, h: mapH('armor', amNat, amCarve), map: 'armor', vegOk: (x, z) => { const lx = x - AM.o.x, lz = z - AM.o.z; return !AM_Z.some((Z) => Math.hypot(lx - Z.x, lz - Z.z) < 36) && Math.abs(lz - 366) > 6; }, grass: 'dry', grassOk: (x, z) => Math.abs(z - AM.o.z - 366) > 6 }); GROUND = C.ground;
+  const C = CHAP.armor; C.ground = makeGround({ x0: AM.o.x - 1150, x1: AM.o.x + 260, z0: AM.o.z - 220, z1: AM.o.z + 920, step: 3.2, h: mapH('armor', amNat, amCarve), map: 'armor', vegOk: (x, z) => { const lx = x - AM.o.x, lz = z - AM.o.z; return !AM_Z.some((Z) => Math.hypot(lx - Z.x, lz - Z.z) < 36) && Math.abs(lz - 366) > 6; }, grass: 'sand', sand: true, grassOk: (x, z) => Math.abs(z - AM.o.z - 366) > 6 }); GROUND = C.ground;
   const BAGS = [], sv = BATCH.bag; BATCH.bag = BAGS; const k0 = COVER.length; C.slots = [];
   const L = (x, z) => [x - AM.o.x, z - AM.o.z], inZone = (lx, lz) => AM_Z.some((Z) => Math.hypot(lx - Z.x, lz - Z.z) < 22), ok = (x, z) => { const [lx, lz] = L(x, z); return !inZone(lx, lz) && !C.slots.some((s) => Math.hypot(s.x - x, s.z - z) < 5); };
   // Sagger and bazooka nests in front of the northern positions
@@ -54,6 +57,7 @@ function amBuild() {
   instScatter(ROCK_G, scatterIn(LITE ? 320 : 760, X0, X1, Z0, Z1, 701, ok, (x, z, r) => [x, z, 0.2 + r() ** 3 * 1.2, r() * 6, rockCol(r), 0.2, 0.55]));
   instScatter(BUSH_G, scatterIn(LITE ? 280 : 680, X0, X1, Z0, Z1, 702, ok, (x, z, r) => [x, z, 0.35 + r() * 0.6, r() * 6, dryBush(r), 0, 0.72]).concat(nb));
   { const bl = scatterIn(LITE ? 40 : 80, X0, X1, Z0, Z1, 703, ok, (x, z, r) => [x, z, 1.2 + r() * 1.8, r() * 6, rockCol(r), 0.3, 0.72]); instScatter(BOULDER_G, bl); boulders(bl); }
+  desertFlora(X0, X1, Z0, Z1, 7200, ok, 1, [[-90, -150], [-90, 880]].map(([x, z]) => AMW(x, z)).concat([[70, 880], [70, -150]].map(([x, z]) => AMW(x, z))));   // agaves, cacti, saguaros and hawks (3_world.js)
   dressArea(X0, X1, Z0, Z1, ok, 710, 0.9, 0.06);
   // wrecks of the first week (our Magachs, their T-55s), a road with burnt-out jeeps and telegraph poles across the valley, ruined huts, the supply jeeps behind the ridge
   for (const [x, z, b] of [[-420, -150, 80], [-760, 120, 300], [-300, 330, 40], [-520, 610, 120], [-260, 820, 200]]) { const [wx, wz] = AMW(x, z); placeTank(wx, wz, b, TANK_BURNT); }

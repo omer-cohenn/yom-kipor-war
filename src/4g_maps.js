@@ -38,9 +38,9 @@ async function mapPixels(url) {
 /* a set's four materials as two texture arrays: albedo (with its AO) and height in alpha; normal x, y in red and green */
 async function mapMaterials(set) {
   if (MAPSET[set]) return MAPSET[set];
-  if (!MAPV.man) MAPV.man = await mapFetch(MAP_URL + 'mat/materials.json', 'json');
+  if (!MAPV.man) MAPV.man = await mapFetch(MAP_URL + 'mat/materials.json?v=' + MAP_VER, 'json');
   const ms = MAPV.man[set]; if (!ms) throw new Error('no material set ' + set);
-  const imgs = await Promise.all(ms.flatMap((m) => [mapPixels(`${MAP_URL}mat/${set}/${m.name}_a.jpg`), mapPixels(`${MAP_URL}mat/${set}/${m.name}_n.jpg`)]));
+  const imgs = await Promise.all(ms.flatMap((m) => [mapPixels(`${MAP_URL}mat/${set}/${m.name}_a.jpg?v=${MAP_VER}`), mapPixels(`${MAP_URL}mat/${set}/${m.name}_n.jpg?v=${MAP_VER}`)]));
   const S = imgs[0].w, A = new Uint8Array(S * S * 4 * 4), N = new Uint8Array(S * S * 4 * 4);
   ms.forEach((m, i) => { const a = imgs[i * 2].d, nn = imgs[i * 2 + 1].d, o = i * S * S * 4;
     for (let p = 0; p < S * S * 4; p += 4) { A[o + p] = a[p]; A[o + p + 1] = a[p + 1]; A[o + p + 2] = a[p + 2]; A[o + p + 3] = nn[p + 2]; N[o + p] = nn[p]; N[o + p + 1] = nn[p + 1]; N[o + p + 2] = 255; N[o + p + 3] = 255; } });
@@ -62,12 +62,12 @@ async function mapsLoad(m) {
   const name = MAP_OF[m]; if (!name || MAPS[name] !== undefined) return;
   try {
     const M = mapParse(await mapFetch(`${MAP_URL}${name}.json?v=${MAP_VER}`, 'zjson'));
-    if (M.hdr.set && (!LITE || QS.has('maptex'))) M.set = await mapMaterials(M.hdr.set);   // the textured ground: high quality (or ?maptex)
+    if (M.hdr.set && (QUAL !== 'low' || QS.has('maptex'))) M.set = await mapMaterials(M.hdr.set);   // the textured ground: high quality (or ?maptex)
     if (M.v) await mapVegLoad();
     MAPS[name] = M;
   } catch (e) { console.warn('map', name, 'not loaded - the procedural ground stays', e); MAPS[name] = null; }
 }
-const MAP_VER = '20261015a';
+const MAP_VER = '20261017a';
 // a layer sampled at a point of the map's box (u, v in 0..1, corner-aligned): bilinear
 function mapBil(a, W, H, u, v) {
   const x = clamp(u, 0, 1) * (W - 1), y = clamp(v, 0, 1) * (H - 1), i = Math.min(W - 2, Math.floor(x)), j = Math.min(H - 2, Math.floor(y)), fx = x - i, fy = y - j, o = j * W + i;
@@ -175,7 +175,7 @@ function mapVeg(M, at, ok) {
     }
     if (!mats.length) continue;
     const im = new THREE.InstancedMesh(geo, MAPV.mat, mats.length); mats.forEach((m4, k) => im.setMatrixAt(k, m4)); im.instanceMatrix.needsUpdate = true; im.computeBoundingSphere();
-    im.castShadow = !LITE && t.height_m > 1.5; im.receiveShadow = false; scene.add(onLayer1(im)); out.push(im);
+    im.castShadow = SHADOWS && t.height_m > 1.5; im.receiveShadow = false; scene.add(onLayer1(im)); out.push(im);
   }
   mapGrassBuild(at, ok);
   return out;
@@ -210,13 +210,14 @@ function mapGrassTick() {
    stacked shells, each keeping only the spots where a blade reaches that high - close up a field of separate blades thinning to their tips,
    further off a soft even pile, fading out at the patch's edge. ok(x, z) is 0 where there is none (roads, trenches, floors). It takes the
    scene's light and shadows like the ground under it */
-const GRASS = { by: {}, cur: null, mesh: null, cx: 1e9, cz: 1e9, N: LITE ? 37 : 57, S: LITE ? 0.8 : 0.65, L: LITE ? 8 : 14, uT: { value: 0 }, uH: { value: 0.21 }, uDen: { value: 0.62 },
+const GRASS = { by: {}, cur: null, mesh: null, cx: 1e9, cz: 1e9, N: LITE ? 37 : 57, S: LITE ? 0.8 : 0.65, L: LITE ? 8 : 14, uT: { value: 0 }, uH: { value: 0.21 }, uDen: { value: 0.62 }, uSand: { value: 0 },
   uBase: { value: new THREE.Color() }, uTipA: { value: new THREE.Color() }, uTipB: { value: new THREE.Color() } };
 /* the grass of each chapter's map: where (ok) and what (height in m, how sparse - the share of empty blade cells - and its colours, linear) */
 const GRASS_KIND = {
   green: { h: 0.21, den: 0.62, base: [0.07, 0.12, 0.035], a: [0.3, 0.5, 0.1], b: [0.55, 0.53, 0.18] },   // a watered field, the mountain in the rains
-  farm: { h: 0.2, den: 0.6, base: [0.07, 0.11, 0.035], a: [0.27, 0.44, 0.09], b: [0.5, 0.48, 0.17] },
+  farm: { h: 0.3, den: 0.6, base: [0.07, 0.11, 0.035], a: [0.27, 0.44, 0.09], b: [0.5, 0.48, 0.17] },
   dry: { h: 0.2, den: 0.8, base: [0.12, 0.1, 0.05], a: [0.5, 0.47, 0.18], b: [0.7, 0.6, 0.27] },      // the desert's dry grass, straw and olive, in tufts with sand between
+  sand: { h: 0.3, den: 0, base: [0.5, 0.42, 0.3], a: [0.74, 0.62, 0.45], b: [0.86, 0.75, 0.57], sand: 1 },   // no grass: the grains the wind lifts off the dunes, in the 30 cm over the sand
 };
 function grassCarpet(map, ok, kind = 'green') { GRASS.by[map] = { ok, k: GRASS_KIND[kind] || GRASS_KIND.green }; GRASS.cur = null; if (!GRASS.mesh) grassBuild(); }
 function grassBuild() {
@@ -225,14 +226,23 @@ function grassBuild() {
   g.setAttribute('aMask', new THREE.BufferAttribute(new Float32Array(N * N), 1));
   const sh = new Float32Array(GRASS.L); for (let i = 0; i < GRASS.L; i++) sh[i] = (i + 1) / GRASS.L; g.setAttribute('aShell', new THREE.InstancedBufferAttribute(sh, 1)); g.instanceCount = GRASS.L;
   const mat = new THREE.MeshLambertMaterial({ color: 0xffffff });
-  mat.onBeforeCompile = (sh2) => { Object.assign(sh2.uniforms, { uT: GRASS.uT, uH: GRASS.uH, uDen: GRASS.uDen, uBase: GRASS.uBase, uTipA: GRASS.uTipA, uTipB: GRASS.uTipB });
-    sh2.vertexShader = 'attribute float aShell;\nattribute float aMask;\nuniform float uH;\nuniform float uT;\nvarying float vS;\nvarying float vM;\nvarying vec3 vGW;\n' + sh2.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+  mat.onBeforeCompile = (sh2) => { Object.assign(sh2.uniforms, { uT: GRASS.uT, uH: GRASS.uH, uDen: GRASS.uDen, uSand: GRASS.uSand, uBase: GRASS.uBase, uTipA: GRASS.uTipA, uTipB: GRASS.uTipB });
+    sh2.vertexShader = 'attribute float aShell;\nattribute float aMask;\nuniform float uH;\nuniform float uT;\nuniform float uSand;\nvarying float vS;\nvarying float vM;\nvarying vec3 vGW;\n' + sh2.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
       transformed.y += aShell * uH;
-      transformed.xz += vec2(sin(uT * 1.7 + position.x * 0.37 + position.z * 0.23), cos(uT * 1.3 + position.z * 0.31 + position.x * 0.11)) * 0.028 * aShell * aShell;
+      transformed.xz += vec2(sin(uT * 1.7 + position.x * 0.37 + position.z * 0.23), cos(uT * 1.3 + position.z * 0.31 + position.x * 0.11)) * 0.028 * aShell * aShell * (1.0 - uSand);
       vS = aShell; vM = aMask; vGW = transformed;`);
-    sh2.fragmentShader = 'uniform float uDen;\nuniform vec3 uBase;\nuniform vec3 uTipA;\nuniform vec3 uTipB;\nvarying float vS;\nvarying float vM;\nvarying vec3 vGW;\nfloat gH(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }\n' + sh2.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+    sh2.fragmentShader = 'uniform float uDen;\nuniform float uSand;\nuniform float uT;\nuniform vec3 uBase;\nuniform vec3 uTipA;\nuniform vec3 uTipB;\nvarying float vS;\nvarying float vM;\nvarying vec3 vGW;\nfloat gH(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }\nfloat gN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); return mix(mix(gH(i), gH(i + vec2(1.0, 0.0)), f.x), mix(gH(i + vec2(0.0, 1.0)), gH(i + vec2(1.0, 1.0)), f.x), f.y); }\n' + sh2.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
       if (vM < 0.03) discard;
       float dC = length(vGW - cameraPosition), th = 0.0, r2 = 0.5; bool hit = false;
+      if (uSand > 0.5) {   // blown sand: grains in streamers running downwind, slow and many near the ground, fewer and faster higher up; gusts come and go
+        if (gH(floor(gl_FragCoord.xy) + 0.37) < smoothstep(3.5, 8.0, dC)) discard;
+        vec2 q = vec2(dot(vGW.xz, vec2(0.8, 0.6)), dot(vGW.xz, vec2(-0.6, 0.8))); q.x -= uT * (1.6 + 5.5 * vS);
+        float gust = 0.55 + 0.45 * sin(uT * 0.61) * sin(uT * 0.27 + 1.3), strm = smoothstep(0.5, 0.85, gN(vec2(q.x * 0.45, q.y * 1.7) + vS * 2.1));
+        vec2 cq = q * vec2(55.0, 80.0), ci = floor(cq) + floor(vS * 40.0) * 7.31, cf = fract(cq) - 0.5;
+        if (gH(ci) > exp(-vS * 5.0) * strm * gust * 0.35) discard;
+        vec2 o = (vec2(gH(ci + 1.7), gH(ci + 4.3)) - 0.5) * 0.4; if (length((cf - o) * vec2(0.6, 1.0)) > 0.22) discard;
+        diffuseColor.rgb = mix(uTipA, uTipB, gH(ci + 9.1));
+      } else {
       vec2 gq = vGW.xz / 3.5, gi = floor(gq), gf = fract(gq); gf = gf * gf * (3.0 - 2.0 * gf);
       float pat = mix(mix(gH(gi), gH(gi + vec2(1.0, 0.0)), gf.x), mix(gH(gi + vec2(0.0, 1.0)), gH(gi + vec2(1.0, 1.0)), gf.x), gf.y);
       if (gH(floor(gl_FragCoord.xy) + 0.37) < smoothstep(6.5, 12.0, dC)) discard;   // past ~12 m the blades are finer than a pixel: the green ground under them stands for them
@@ -244,13 +254,14 @@ function grassBuild() {
         if (length(f - o) < (0.12 + 0.16 * gH(c + 5.5)) * (1.0 - vS / hb) + 0.035) { hit = true; th = vS / hb; r2 = gH(c + 17.31) * 0.45 + pat * 0.55; }
       }
       if (!hit) discard;
-      diffuseColor.rgb = mix(uBase, mix(uTipA, uTipB, smoothstep(0.4, 0.95, r2)), 0.25 + 0.75 * th);`); };
+      diffuseColor.rgb = mix(uBase, mix(uTipA, uTipB, smoothstep(0.4, 0.95, r2)), 0.25 + 0.75 * th);
+      }`); };
   mat.customProgramCacheKey = () => 'grasscarpet';
   const m = GRASS.mesh = new THREE.Mesh(g, mat); m.frustumCulled = false; m.castShadow = false; m.receiveShadow = true; m.userData.dyn = true; m.visible = false; scene.add(m);
 }
 function grassTick() {
   const m = GRASS.mesh; if (!m) return; const map = MAP_OF[MODE], g = GROUND && GRASS.by[map]; m.visible = !!g; if (!g) return;
-  if (GRASS.cur !== map) { GRASS.cur = map; GRASS.cx = 1e9; const k = g.k; GRASS.uH.value = k.h; GRASS.uDen.value = k.den; GRASS.uBase.value.setRGB(...k.base); GRASS.uTipA.value.setRGB(...k.a); GRASS.uTipB.value.setRGB(...k.b); }
+  if (GRASS.cur !== map) { GRASS.cur = map; GRASS.cx = 1e9; const k = g.k; GRASS.uH.value = k.h; GRASS.uDen.value = k.den; GRASS.uBase.value.setRGB(...k.base); GRASS.uTipA.value.setRGB(...k.a); GRASS.uTipB.value.setRGB(...k.b); GRASS.uSand.value = k.sand ? 1 : 0; }
   GRASS.uT.value = performance.now() / 1000;
   const S = GRASS.S, N = GRASS.N, cam = camera.position, cx = Math.round(cam.x / S), cz = Math.round(cam.z / S); if (Math.abs(cx - GRASS.cx) + Math.abs(cz - GRASS.cz) < 2) return; GRASS.cx = cx; GRASS.cz = cz;
   const P = m.geometry.attributes.position.array, Mk = m.geometry.attributes.aMask.array, h = (N - 1) / 2, R = h * S;
@@ -259,4 +270,62 @@ function grassTick() {
     Mk[k] = d > R || !g.ok(x, z) || (groundAt(x + 1.4, z) + groundAt(x - 1.4, z) + groundAt(x, z + 1.4) + groundAt(x, z - 1.4)) / 4 - y > 0.35 ? 0 : 1 - smooth(R * 0.6, R, d); }   // none in a cut: a trench, a ditch, a pit
   m.geometry.attributes.position.needsUpdate = true; m.geometry.attributes.aMask.needsUpdate = true;
 }
-{ const prev = scene.onBeforeRender; scene.onBeforeRender = function (...a) { prev.apply(this, a); mapGrassTick(); grassTick(); }; }
+/* ---------- the desert's sand: the Sinai chapters ----------
+   On the ground's own material (sandify): wind ripples in two sizes, their crests across the wind, bending and forking as real ones do, a
+   long gentle back and a short steep face, shading the ground near the camera through its normal and fading out where they would be finer
+   than a pixel; the troughs a shade darker where the heavier grains settle; and the wind itself - faint lighter streamers of loose sand
+   running downwind over the surface. aSand (per vertex, from the chapter) keeps them off the roads, the tracks and the positions; the slip
+   faces of the dunes stay smooth. The dunes themselves are in the height (dunes()), and the grains the wind lifts in the 30 cm over the
+   ground are the carpet's sand kind (GRASS_KIND.sand) */
+const SAND = { uT: { value: 0 } };
+const SAND_GLSL = `uniform float uSandT; varying float vSandK; varying vec3 vSdP;
+float sdH(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float sdN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); return mix(mix(sdH(i), sdH(i + vec2(1.0, 0.0)), f.x), mix(sdH(i + vec2(0.0, 1.0)), sdH(i + vec2(1.0, 1.0)), f.x), f.y); }
+const vec2 SDW = vec2(0.8, 0.6), SDC = vec2(-0.6, 0.8);
+float sdPh(vec2 p, float lam) { float w = dot(p, SDW), c = dot(p, SDC); return w / lam + sdN(vec2(c * 0.9, w * 0.35) * (0.2 / lam)) * 2.2 + sdN(vec2(c, w * 0.5) * (0.045 / lam) + 5.3) * 3.1; }
+vec2 sdProf(float ph) { float t = fract(ph); if (t < 0.7) { float u = t / 0.7; return vec2(u * u * (3.0 - 2.0 * u), 6.0 * u * (1.0 - u) / 0.7); } float u = (t - 0.7) / 0.3; return vec2(1.0 - u * u * (3.0 - 2.0 * u), -6.0 * u * (1.0 - u) / 0.3); }
+vec3 sdRip(vec2 p, float lam) { float e = lam * 0.08, p0 = sdPh(p, lam); vec2 g = vec2(sdPh(p + vec2(e, 0.0), lam) - p0, sdPh(p + vec2(0.0, e), lam) - p0) / e; vec2 hd = sdProf(p0); return vec3(hd.x, hd.y * g); }`;
+const SAND_FRAG = `{
+  float cdS = length(vSdP - cameraPosition), skS = clamp(vSandK, 0.0, 1.0);
+  diffuseColor.rgb *= mix(vec3(1.0), vec3(1.04, 0.93, 0.76), skS);   // the Sinai's sand is golden, not grey
+  if (skS > 0.01 && cdS < 90.0) {
+    vec3 nWs = normalize((vec4(normal, 0.0) * viewMatrix).xyz);
+    float flS = smoothstep(0.86, 0.96, nWs.y) * skS;
+    vec2 pp = vSdP.xz, gs = vec2(0.0); float fwS = length(fwidth(pp)), patchS = sdN(pp / 9.0 + 1.7), hs = 0.5, hw = 0.0;
+    float a1 = (1.0 - smoothstep(0.15, 0.35, fwS / 0.12)) * flS;
+    if (a1 > 0.0) { vec3 r = sdRip(pp, 0.12); gs += r.yz * 0.0065 * a1 * (0.5 + 0.8 * patchS); hs = r.x; hw = a1; }
+    float a2 = (1.0 - smoothstep(0.15, 0.35, fwS / 0.9)) * flS * smoothstep(0.45, 0.85, sdN(pp / 31.0 + 4.2));
+    if (a2 > 0.0) { vec3 r = sdRip(mat2(0.96, -0.28, 0.28, 0.96) * pp + 3.1, 0.9); gs += r.yz * 0.012 * a2; hs = mix(hs, r.x, a2 * 0.3 * (1.0 - hw * 0.5)); }
+    diffuseColor.rgb *= mix(1.0, 0.93 + 0.11 * hs, hw * 0.85);
+    nWs = normalize(nWs - vec3(gs.x, 0.0, gs.y)); normal = normalize((viewMatrix * vec4(nWs, 0.0)).xyz);
+    vec2 q = vec2(dot(pp, SDW), dot(pp, SDC));
+    float s1 = sdN(vec2(q.x * 0.3 - uSandT * 2.4, q.y * 1.8)), s2 = sdN(vec2(q.x * 0.05 - uSandT * 0.45, q.y * 0.22) + 7.0);
+    float stk = smoothstep(0.62, 0.95, s1) * smoothstep(0.5, 0.85, s2) * (1.0 - smoothstep(25.0, 70.0, cdS)) * skS;
+    diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * 1.16 + 0.012, stk * 0.6);
+  }
+}`;
+function sandify(m) {
+  if (m.userData.sand) return m; m.userData.sand = true;
+  const prev = m.onBeforeCompile, key = m.customProgramCacheKey ? m.customProgramCacheKey() : ''; if (m.bumpMap) m.bumpScale *= 0.45;   // the old painted ripples give way to the wind's
+  m.onBeforeCompile = (sh, r) => { prev.call(m, sh, r); sh.uniforms.uSandT = SAND.uT;
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute float aSand; varying float vSandK; varying vec3 vSdP;')
+      .replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\nvSandK = aSand; vSdP = (modelMatrix * vec4(transformed, 1.0)).xyz;');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\n' + SAND_GLSL).replace('#include <emissivemap_fragment>', SAND_FRAG + '\n#include <emissivemap_fragment>')
+      .replace('a0 = mix(a0, b0, 0.35);', 'a0 = mix(a0, b0, 0.35); a0.rgb = mix(a0.rgb, uAvg[0], 0.85 * vSandK);').replace('vec2 t = (n0 * gB.x', 'n0 = mix(n0, vec2(0.5), 0.85 * vSandK); vec2 t = (n0 * gB.x'); };   /* the map's sand texture is a tile of straight stripes: flattened where the wind's own ripples are */
+  m.customProgramCacheKey = () => key + '+sand'; m.needsUpdate = true; return m;
+}
+/* the dunes of the sand sea: transverse ridges across the wind (from the north-west, as in northern Sinai), a long gentle back up to a sharp
+   crest and a steep slip face down the lee; the crests wander and rise and fall along their length, so they break into crescents and
+   saddles. k (0..1) is how much of them a place gets (the chapter keeps them off its roads and fields of fire); out (m past the chapter's
+   box) makes them bigger and further apart out in the far sand sea, where the ground's grid is coarser, and lays them down past a few km,
+   where that grid could not draw them. Lighter sand on the crests, darker in the hollows */
+function dunes(x, z, k, out = 0) {
+  k *= 1 - smooth(2600, 4600, out); if (k <= 0) return 0;
+  const u = x * 0.8 + z * 0.6, v = z * 0.8 - x * 0.6, s = 1 + Math.min(out / 700, 1.2), lam = 190 * s;
+  const ph = u / lam + 0.85 * fbm(v / (430 * s), u / (900 * s), 2) + 0.3 * noise(v / (140 * s), u / (300 * s)), t = ph - Math.floor(ph), cw = 0.78;
+  let p; if (t < cw) { const a = t / cw; p = a * a * (3 - 2 * a); } else p = Math.pow(1 - (t - cw) / (1 - cw), 1.3);   // the slip face at about the angle of repose
+  const amp = (7 + 12 * smooth(-0.3, 0.45, fbm(v / (260 * s), u / (380 * s) + 4.1, 2))) * s * k;
+  mixIn(PAL.sandL, 0.45 * p * k); mixIn([0.64, 0.5, 0.35], 0.3 * (1 - p) * k);
+  return amp * p;
+}
+{ const prev = scene.onBeforeRender; scene.onBeforeRender = function (...a) { prev.apply(this, a); mapGrassTick(); grassTick(); SAND.uT.value = (performance.now() / 1000) % 3000; }; }
