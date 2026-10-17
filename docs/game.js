@@ -3908,6 +3908,7 @@ function nsGeometry() {
   H.groups.forEach((g, gi) => {
     const q = new Int16Array(buf, g.pos, g.v * 3); for (let k = 0; k < g.v * 3; k++) pos[v0 * 3 + k] = H.min[k % 3] + ((q[k] + 32768) / 65535) * H.span[k % 3];
     nrm.set(new Int8Array(buf, g.nrm, g.v * 3), v0 * 3); uv.set(new Float32Array(buf, g.uv, g.v * 2), v0 * 2); si.set(new Uint8Array(buf, g.si, g.v * 4), v0 * 4); sw.set(new Uint8Array(buf, g.sw, g.v * 4), v0 * 4);
+    if (g.name === 'm1' || g.name === 'm1fit' || g.name === 'sov') nsHelmetUp(pos, nrm, v0, g.v);   // worn as they wore it in 1973: up off the brow
     const ix = new Uint16Array(buf, g.idx, g.i); for (let k = 0; k < g.i; k++) idx[i0 + k] = ix[k] + v0;
     geo.addGroup(i0, g.i, NS_GROUPS.indexOf(g.name)); v0 += g.v; i0 += g.i;
   });
@@ -3924,6 +3925,13 @@ function nsGeometry() {
     g2.setIndex(new THREE.BufferAttribute(ix2, 1)); g2.boundingSphere = geo.boundingSphere; NEWSOL.geos.push(g2);
   }
   return (NEWSOL.geo = geo);
+}
+/* the helmet sat high in 1973 - pushed back off the brow, the face open under it: raised 2 cm and tipped back 10 degrees about the head */
+const NS_HU = { a: -0.17, py: 0.7, pz: 0.02, dy: 0.02 };
+function nsHelmetUp(pos, nrm, v0, n) {
+  const c = Math.cos(NS_HU.a), s = Math.sin(NS_HU.a);
+  for (let k = v0; k < v0 + n; k++) { const y = pos[k * 3 + 1] - NS_HU.py, z = pos[k * 3 + 2] - NS_HU.pz; pos[k * 3 + 1] = NS_HU.py + y * c - z * s + NS_HU.dy; pos[k * 3 + 2] = NS_HU.pz + y * s + z * c;
+    const ny = nrm[k * 3 + 1], nz = nrm[k * 3 + 2]; nrm[k * 3 + 1] = Math.round(ny * c - nz * s); nrm[k * 3 + 2] = Math.round(ny * s + nz * c); }
 }
 /* the cloth: blotches of each colour where a tileable noise field passes its threshold - stretched sideways for the Egyptian brush strokes,
    round for the Syrian forest pattern - and the weave over it; the same recipe as chars.html */
@@ -3946,12 +3954,19 @@ function nsCamo(c) {
 }
 const NS_CAMO = { eg: { seed: 7, base: 0xb5a072, layers: [[0x8c7148, 0.55, 4, 10], [0x6c6946, 0.63, 5, 12], [0xcbb98b, 0.68, 8, 18]] },
   sy: { seed: 31, base: 0x5f6a43, layers: [[0x37462b, 0.52, 5, 6], [0x5b4630, 0.6, 6, 7], [0x20261b, 0.69, 9, 10]] } };
-function nsNet() {   // the M1's net: knotted cord in diamonds over the olive paint
-  const N = 256, c = canvas(N), g = c.getContext('2d'); g.fillStyle = '#5a5c3e'; g.fillRect(0, 0, N, N);
-  for (let i = 0; i < 900; i++) { g.fillStyle = `rgba(${Math.random() < 0.5 ? '40,42,28' : '110,108,84'},0.12)`; g.fillRect(Math.random() * N, Math.random() * N, 2 + Math.random() * 8, 1 + Math.random() * 2); }
-  g.strokeStyle = 'rgba(38,36,24,0.9)'; g.lineWidth = 2.4; for (let k = -N; k < 2 * N; k += 32) { g.beginPath(); g.moveTo(k, 0); g.lineTo(k + N, N); g.stroke(); g.beginPath(); g.moveTo(k, N); g.lineTo(k + N, 0); g.stroke(); }
-  const t = tex(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; return t;
+function nsNet() {   // the IDF's M1 in 1973: a burlap cover, coarse woven jute, under a net of tan cord
+  const N = 512, c = canvas(N), g = c.getContext('2d'), r = rng(73); g.fillStyle = '#a48c64'; g.fillRect(0, 0, N, N);
+  for (let y = 0; y < N; y += 3) { g.fillStyle = `rgba(${r() < 0.5 ? '120,98,64' : '190,170,128'},${0.25 + r() * 0.2})`; g.fillRect(0, y, N, 1); }   // the weft
+  for (let x = 0; x < N; x += 3) { g.fillStyle = `rgba(${r() < 0.5 ? '110,90,58' : '180,160,118'},${0.2 + r() * 0.2})`; g.fillRect(x, 0, 1, N); }   // the warp
+  for (let i = 0; i < 1400; i++) { g.fillStyle = `rgba(${r() < 0.5 ? '70,58,38' : '200,182,140'},${0.08 + r() * 0.1})`; g.fillRect(r() * N, r() * N, 3 + r() * 14, 1 + r() * 3); }   // slubs, dirt, sun-bleach
+  g.strokeStyle = 'rgba(92,76,50,0.95)'; g.lineWidth = 3.2; for (let k = -N; k < 2 * N; k += 48) { g.beginPath(); g.moveTo(k, 0); g.lineTo(k + N, N); g.stroke(); g.beginPath(); g.moveTo(k, N); g.lineTo(k + N, 0); g.stroke(); }
+  g.strokeStyle = 'rgba(190,170,130,0.5)'; g.lineWidth = 1; for (let k = -N; k < 2 * N; k += 48) { g.beginPath(); g.moveTo(k - 1, 0); g.lineTo(k + N - 1, N); g.stroke(); }
+  const t = tex(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = ANISO; return t;
 }
+const NS_BAND = `{ vec3 o = vBindP - vec3(0.0, ${NS_HU.py.toFixed(3)} + ${NS_HU.dy.toFixed(3)}, ${NS_HU.pz.toFixed(3)}); float ca = cos(${(-NS_HU.a).toFixed(3)}), sa = sin(${(-NS_HU.a).toFixed(3)}); float oy = o.y * ca - o.z * sa + ${NS_HU.py.toFixed(3)};
+  float band = smoothstep(0.684, 0.69, oy) * (1.0 - smoothstep(0.73, 0.736, oy));   // a band of inner tube round the cover, to tuck brush into
+  float mot = fract(sin(dot(floor(vBindP * 260.0), vec3(12.9898, 78.233, 37.719))) * 43758.5453);
+  diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.055, 0.052, 0.048) * (0.75 + 0.5 * mot), band); }`;
 function nsImage(url) { const t = new THREE.TextureLoader().load(url); t.flipY = false; t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = ANISO; return t; }
 /* the waist: the figure's cloth is one piece from the collar to the boots, so the paint draws where the shirt ends and the trousers begin -
    the trousers a shade darker, a dark seam where the shirt is tucked in, the shirt a little bunched above it - and the web belt gets a woven
@@ -3962,6 +3977,27 @@ const NS_WAIST = `{ float yb = vBindP.y;
   float seam = smoothstep(0.072, 0.086, yb) * (1.0 - smoothstep(0.092, 0.106, yb));
   diffuseColor.rgb *= 1.0 - 0.5 * seam;
   diffuseColor.rgb *= 1.0 + 0.07 * smoothstep(0.1, 0.112, yb) * (1.0 - smoothstep(0.125, 0.17, yb)); }`;
+/* the shirt's pockets (two on the chest, flapped and buttoned) and the trousers' side pockets, as seams and flaps on the cloth; both sides */
+const NS_POCKETS = `{ vec3 b = vBindP; float ax = abs(b.x), fr = smoothstep(0.02, 0.07, b.z);
+  float px = smoothstep(0.045, 0.05, ax) * (1.0 - smoothstep(0.14, 0.145, ax)), py = smoothstep(0.355, 0.36, b.y) * (1.0 - smoothstep(0.45, 0.455, b.y)), pk = px * py * fr;
+  float edge = pk * (1.0 - smoothstep(0.0, 0.004, min(min(ax - 0.05, 0.14 - ax), min(b.y - 0.36, 0.45 - b.y))));
+  float flap = pk * smoothstep(0.418, 0.422, b.y), flapEdge = pk * (1.0 - smoothstep(0.0, 0.003, abs(b.y - 0.42)));
+  float btn = fr * (1.0 - smoothstep(0.004, 0.007, length(vec2(ax - 0.095, b.y - 0.428))));
+  diffuseColor.rgb *= 1.0 - 0.35 * edge - 0.4 * flapEdge + 0.05 * flap; diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * 0.55, btn);
+  float tl = smoothstep(0.1, 0.12, ax) * (1.0 - smoothstep(0.2, 0.21, ax)) * smoothstep(-0.3, -0.295, b.y) * (1.0 - smoothstep(-0.13, -0.125, b.y)) * smoothstep(-0.05, 0.0, b.z * sign(b.x) + 0.02);
+  float tle = tl * (1.0 - smoothstep(0.0, 0.004, min(min(b.y + 0.295, -0.13 - b.y), min(ax - 0.12, 0.2 - ax))));
+  diffuseColor.rgb *= 1.0 - 0.3 * tle - 0.3 * tl * (1.0 - smoothstep(0.0, 0.003, abs(b.y + 0.165))); }`;
+/* our men as they looked: the shirt open at the neck - a V of sunburnt chest, hair on it, the collar's edges turned back - and the sleeves
+   rolled up above the forearm; the skin is skin, so the cloth's creases leave it */
+const NS_OPEN_F = `{ vec3 b = vBindP; float ax = abs(b.x);
+  float vw = (b.y - 0.47) * 0.62, vee = smoothstep(0.47, 0.49, b.y) * (1.0 - smoothstep(vw - 0.004, vw, ax)) * smoothstep(0.0, 0.04, b.z);
+  float lap = smoothstep(0.47, 0.49, b.y) * (1.0 - smoothstep(0.0, 0.012, abs(ax - vw - 0.006))) * smoothstep(0.0, 0.04, b.z) * (1.0 - vee);
+  float roll = smoothstep(0.555, 0.56, ax) * (1.0 - smoothstep(0.1, 0.16, abs(b.y - 0.477))), cuff = smoothstep(0.525, 0.53, ax) * (1.0 - smoothstep(0.555, 0.56, ax)) * (1.0 - smoothstep(0.1, 0.16, abs(b.y - 0.477)));
+  float skin = max(vee, roll);
+  float hair = vee * smoothstep(0.62, 0.8, fract(sin(dot(floor(vec2(b.x * 700.0 + sin(b.y * 900.0) * 0.6, b.y * 260.0)), vec2(12.9898, 78.233))) * 43758.5453)) * (1.0 - smoothstep(0.55, 0.6, b.y));
+  vec3 sk = vec3(0.47, 0.26, 0.16) * (0.9 + 0.2 * fract(sin(dot(floor(b.xy * 140.0), vec2(4.1, 7.7))) * 437.5));
+  diffuseColor.rgb = mix(diffuseColor.rgb, sk, skin); diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.07, 0.05, 0.035), hair * 0.85);
+  diffuseColor.rgb *= 1.0 + 0.12 * cuff - 0.25 * lap; nsFH *= 1.0 - skin; }`;
 const NS_BELT = `{ vec3 bp = vBindP;
   float buckle = (1.0 - smoothstep(0.022, 0.03, abs(bp.x))) * (1.0 - smoothstep(0.016, 0.024, abs(bp.y - 0.152))) * smoothstep(0.12, 0.16, bp.z);
   diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.62, 0.6, 0.55), buckle * 0.85); }`;
@@ -4023,14 +4059,14 @@ function nsMaterials() {
   if (NEWSOL.mats) return NEWSOL.mats;
   const T = SOLDIER_DATA.tex, std = (o) => new THREE.MeshStandardMaterial(Object.assign({ roughness: 0.9, metalness: 0 }, o));
   const cloth = (side, map, color) => { const m = rimMat(side === 'e' ? 0xff4020 : 0x5f9cff, side === 'e' ? 0 : 0.22); m.vertexColors = false; m.map = map; m.bumpMap = null; m.color.set(color); m.roughness = 0.95; m.customProgramCacheKey = () => 'nsRim' + side; return m; };
-  const uniF = nsCamo({ seed: 3, base: 0x5f5a3a, layers: [] });   // the IDF's plain olive drill
+  const uniF = nsCamo({ seed: 3, base: 0x7a7a56, layers: [] });   // the IDF's plain olive drill, sun-faded
   NEWSOL.camo.eg = nsCamo(NS_CAMO.eg);
   const head = nsImage(T.head), headAr = nsImage(T.headAr || T.head), hands = nsImage(T.hands), eyes = nsImage(T.eyes), net = nsNet();
   const hidden = new THREE.MeshBasicMaterial({ visible: false });
-  const skin = (map, tint) => std({ map, roughness: 0.6, color: tint });
-  const web = nsWebTex(), belt = (side, color) => nsBindPaint(cloth(side, web, color), NS_BELT, 'belt' + side), waist = (m, side) => nsWrinkle(nsBindPaint(m, NS_WAIST, 'waist' + side), side);
+  const skin = (map, tint) => std({ map, roughness: 0.6, color: tint, emissive: 0x1a120c, emissiveMap: map });   // a little light of their own: the face shows under the helmet's shadow
+  const web = nsWebTex(), belt = (side, color) => nsBindPaint(cloth(side, web, color), NS_BELT, 'belt' + side), waist = (m, side) => nsWrinkle(nsBindPaint(m, NS_WAIST + NS_POCKETS + (side === 'f' ? NS_OPEN_F : ''), 'waist' + side), side);
   const f = [waist(cloth('f', uniF, 0xffffff), 'f'), belt('f', 0x8a8458), std({ color: 0x4a2c1c, roughness: 0.55 }), skin(head, 0xffffff), skin(hands, 0xffffff), std({ map: eyes, roughness: 0.15 }),
-    std({ map: net, roughness: 0.8 }), std({ color: 0x3a3a2a, roughness: 0.85 }), hidden];
+    nsBindPaint(std({ map: net, roughness: 0.92 }), NS_BAND, 'band'), std({ color: 0x3a3a2a, roughness: 0.85 }), hidden];
   const e = [waist(cloth('e', NEWSOL.camo.eg, 0xffffff), 'e'), belt('e', 0x5e4c32), std({ color: 0x1d1b19, roughness: 0.55 }), skin(headAr, 0xf0d5ba), skin(hands, 0xf0d5ba), std({ map: eyes, roughness: 0.15 }),
     hidden, hidden, std({ color: 0x7a7150, roughness: 0.6 })];
   NEWSOL.mats = { f, e }; nsUniformFor(MODE); return NEWSOL.mats;
@@ -4073,9 +4109,9 @@ function nsShow(R, on) {
 }
 /* who wears it: a man nearer than NS_D (by what the eye sees: closer through a sight, and the far enemies drawn larger count as far),
    its own distance - not the old figure's levels of detail, which on medium and low quality never reach the finest */
-const NS_D = { high: 42, med: 24, low: 12 }[QUAL], NS_MAX = { high: 20, med: 11, low: 6 }[QUAL];   // and never more than NS_MAX at once: the nearest
+const NS_D = { high: PHONE ? 28 : 36, med: 22, low: 12 }[QUAL], NS_MAX = { high: PHONE ? 10 : 16, med: 9, low: 6 }[QUAL];   // and never more than NS_MAX at once: the nearest (a crowded rampart is many men)
 // the figure's level of detail by that same distance: whole near, a third of its triangles past NS_L[0], an eighth past NS_L[1]
-const NS_L = { high: [32, 60], med: [18, 38], low: [11, 26] }[QUAL];   // whole near, as the showroom shows them
+const NS_L = { high: PHONE ? [12, 28] : [20, 42], med: [14, 30], low: [10, 24] }[QUAL];   // whole near - every crease, as the showroom shows them - lighter where the detail is too small to see
 const NSB = { t: -1, allow: new Set(), cand: [] };
 function nsDecide(u) {
   const R = u.rig; if (!R) return; const far = camera.position.distanceTo(u.pos), eff = far * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2) / 0.7265 / (u.vs || 1);
@@ -4087,7 +4123,7 @@ function nsDecide(u) {
   const w = near && NSB.allow.has(u); if (w !== !!R.nsOn) nsShow(R, w);
   if (w && R.ns && NEWSOL.geos && NEWSOL.geos.length > 1) {
     const cur = R.nsLod ?? 0, h = cur === 0 ? 1.1 : 0.92, l = eff < NS_L[0] * (cur === 0 ? h : 1) ? 0 : eff < NS_L[1] * (cur <= 1 ? 1.08 : 0.94) ? 1 : 2;   /* a little hysteresis: no flicker on the line */
-    if (l !== cur) { R.nsLod = l; R.ns.geometry = NEWSOL.geos[Math.min(l, NEWSOL.geos.length - 1)]; R.ns.castShadow = SHADOWS && l < 2; }   /* the farthest cast no shadow */
+    if (l !== cur) { R.nsLod = l; R.ns.geometry = NEWSOL.geos[Math.min(l, NEWSOL.geos.length - 1)]; R.ns.castShadow = SHADOWS && l < (PHONE ? 1 : 2); }   /* the farthest cast no shadow */
   }
 }
 { const _sync = Unit.prototype.sync; Unit.prototype.sync = function () { _sync.call(this); nsDecide(this); }; }
@@ -4530,9 +4566,9 @@ function rideFov() { const a = camera.aspect || 1.6, v = 2 * Math.atan(Math.tan(
 /* a touch of third person at a vehicle's gun (the jeep's MG, the tank's hatch): the eye some 1.1 m behind and above the player's own head,
    in the frame of his look, so his helmet and shoulders sit low in the picture whichever way he turns and the crosshair stays where it is;
    k eases it away on aim, when the eye goes back into his head. TPV.r is his figure: our soldier, standing at the gun */
-const TPV = { B: 1.02, U: 0.46, S: 0.13, r: null, v: V3() };
-function tpvCam(e, k) {
-  const sy = Math.sin(P.yaw), cy = Math.cos(P.yaw), sp = Math.sin(P.pitch), cp = Math.cos(P.pitch), B = TPV.B * k, U = TPV.U * k, S = TPV.S * k;
+const TPV = { B: 1.02, U: 0.46, S: 0.13, rB: 1.15, rU: 0.95, r: null, v: V3() };   // rB, rU: on the jeep's gun, higher - over the jeep, the road ahead in view
+function tpvCam(e, k, ride = false) {
+  const sy = Math.sin(P.yaw), cy = Math.cos(P.yaw), sp = Math.sin(P.pitch), cp = Math.cos(P.pitch), B = (ride ? TPV.rB : TPV.B) * k, U = (ride ? TPV.rU : TPV.U) * k, S = TPV.S * k;
   camera.position.set(e.x + sy * cp * B + sy * sp * U + cy * S, e.y - sp * B + cp * U, e.z + cy * cp * B + cy * sp * U - sy * S);
 }
 function tpvBody(on, e) {
@@ -4690,7 +4726,13 @@ function updFriend(f, dt, time) {
     let tp = null; if (f.target) tp = f.target.u ? (f.target.u.alive ? f.target.u.chest() : null) : (f.target.boat.seats[f.target.seat].alive ? f.target.boat.seatWorld(f.target.seat).add(V3(0, 0.7, 0)) : null);
     if (!tp) f.target = null;
     f.peekT = (f.peekT || 0) - dt;
-    if (f.duckT > 0 || (f.peekT > 0 && tp && !isMag)) { if (tp) u.face(tp.x, tp.z); u.stance = 'hide'; u.rig.pose('hide', u.anim); if (f.peekT > 0) f.fireCd -= dt; }
+    if (f.duckT > 0 || (f.peekT > 0 && tp && !isMag)) {
+      if (tp) u.face(tp.x, tp.z); u.stance = 'hide'; u.rig.pose('hide', u.anim); if (f.peekT > 0) f.fireCd -= dt;
+      // moving along his cover, crouched, to come up somewhere the enemy is not looking (a post on the ground; men at windows stay at theirs)
+      if (f.peekKind === 'move' && f.state === 'post' && p && p.fx !== undefined && p.x !== undefined && p.y === undefined) { const bx = p.stand ? p.stand[0] : p.x, bz = p.stand ? p.stand[1] : p.z; u.anim += dt * 3; steer(u, bx + p.fz * f.peekOff, bz - p.fx * f.peekOff, 1.6, dt); if (tp) u.face(tp.x, tp.z); }
+      // pinned down, he still answers: the rifle up over the cover and a few blind rounds toward the enemy
+      if (f.duckT > 0 && tp && f.target && f.target.u) { f.blindCd = (f.blindCd ?? rand(0.4, 0.9)) - dt; if (f.blindCd <= 0) { f.blindCd = rand(0.18, 0.4); const from = u.muzzle().add(V3(0, 0.35, 0)); fxMuzzle(from, false); sndShot('fal-npc', from); if (Math.random() < 0.5) supPin(f.target.u, 0.12); } }
+    }
     else if (tp) {
       u.face(tp.x, tp.z); const eye = u.eye(); f.aimP = Math.atan2(tp.y - eye.y, Math.hypot(tp.x - eye.x, tp.z - eye.z));
       if (isMag) { const yaw = Math.atan2(tp.x - p.mag.pivot.position.x, tp.z - p.mag.pivot.position.z); p.mag.pivot.rotation.set(-f.aimP, yaw, 0); }
@@ -4698,7 +4740,11 @@ function updFriend(f, dt, time) {
       if (f.fireCd <= 0) {
         if (f.burst <= 0) { f.burst = isMag ? Math.floor(rand(6, 11)) : Math.floor(rand(1, 3)); }
         f.burst--; f.fireCd = f.burst > 0 ? (isMag ? 0.09 : 0.35) : rand(1.1, 2.4) * (isMag ? 1.2 : 1) * diff.fgun;
-        if (f.burst <= 0 && !isMag && Math.random() < 0.6) f.peekT = f.fireCd * rand(0.5, 0.85);   // the burst fired, he drops behind his cover and comes up again for the next
+        if (f.burst <= 0 && !isMag) {   // the burst fired: he works his cover - down and up again from another spot along it, a magazine changed behind it every few bursts, or he stays up on his target
+          f.magN = (f.magN || 0) + 1; const r = Math.random();
+          if (f.magN >= 4) { f.magN = 0; f.peekT = rand(2.2, 3.0); f.peekKind = 'reload'; f.fireCd = Math.max(f.fireCd, f.peekT + 0.15); }
+          else if (r < 0.7) { f.peekT = f.fireCd * rand(0.55, 0.9); f.peekKind = 'move'; f.peekOff = clamp((f.peekOff || 0) + (Math.random() < 0.5 ? -1 : 1) * rand(0.5, 0.9), -0.9, 0.9); }
+        }
         const from = isMag ? p.mag.pivot.localToWorld(V3(0, 0.012, 0.9)) : u.muzzle(); fxMuzzle(from, isMag); sndShot('fal-npc', from);
         const d = from.distanceTo(tp); const rangeF = clamp(1 - d / 420, 0.2, 1);
         let pHit = (isMag ? 0.0018 : FIELDM() ? 0.013 : 0.0045) * rangeF;
@@ -4892,6 +4938,16 @@ function insideGoal(e) {
   const gp = pick(YARD_GOALS); return [gp[0] + rand(-4, 4), gp[1] + rand(-4, 4)];
 }
 const YARD_GOALS = [[-20, 0], [0, -22], [12, 12], [-12, 30], [-30, 12], [-4, -38], [20, -30], [-40, -30], [24, 36]];
+/* a man who sees a grenade land near him runs from it - a few long strides away and down - unless he is at a window or in a trench bay he
+   cannot leave; then he goes back to what he was doing */
+function nadeDodge(e, dt) {
+  if (e.dodgeT > 0) { e.dodgeT -= dt; e.anim += dt * 10; e.stance = 'stand'; const d = steer(e, e.dodgeX, e.dodgeZ, 5.6, dt); e.rig.pose(d > 0.6 ? 'run' : 'hide', e.anim); return true; }
+  if (e.sz === 'win' || e.state === 'trench' || e.state === 'jump' || e.inside || !e.alive) return false;
+  e.dodgeCd = (e.dodgeCd || 0) - dt; if (e.dodgeCd > 0) return false; e.dodgeCd = 0.25;
+  for (const q of PROJ) { if (q.type !== 'gren' || q.owner !== 'player' || q.fuse < 0.6) continue; const dx = e.pos.x - q.m.position.x, dz = e.pos.z - q.m.position.z, d = Math.hypot(dx, dz);
+    if (d < 6.5 && q.m.position.y - groundAt(q.m.position.x, q.m.position.z) < 1.5) { const k = (7.5 - d) / (d || 1); e.dodgeX = e.pos.x + dx * k + rand(-1, 1); e.dodgeZ = e.pos.z + dz * k + rand(-1, 1); e.dodgeT = Math.min(q.fuse + 0.4, 1.6); e.peek = false; return true; } }
+  return false;
+}
 function updEnemy(e, dt) {
   e.t += dt;
   if (e.state === 'dying') {
@@ -4903,6 +4959,7 @@ function updEnemy(e, dt) {
   }
   if (e.state === 'dead') { if (e.deadAt !== undefined && GAME.t - e.deadAt > 30) { e.rig.root.visible = false; if (e.tag) e.tag.visible = false; } return; }   /* a body is cleared away half a minute after he fell */
   if (e.state === 'film') { e.sync(); return; }
+  if (nadeDodge(e, dt)) { e.sync(); return; }
   e.inside = inPoly(e.pos.x, e.pos.z, YARD);
   tacTick(e, dt);
   e.scanCd -= dt; if (e.scanCd <= 0) { e.scanCd = rand(0.5, 0.9); const was = !!(e.target && e.target.player); e.target = targetsFor(e); if (e.target && e.target.player && !tacSees(e)) e.target = null; if (!was && e.target && e.target.player) e.fireCd = Math.max(e.fireCd, diff.react * rand(0.8, 1.2) * (mzEase() ? mzEase().react : 1)); }   /* a man who has just seen the player needs a moment before he fires: longer on the easy level */
@@ -4970,7 +5027,8 @@ function updEnemy(e, dt) {
     if (e.target && Math.random() < dt * 0.35) { e.state = 'engage'; e.engageT = rand(1, 2); e.stance = 'stand'; e.backTo = 'hold'; }
     e.rig.pose('crouch', e.anim, aimPitch()); if (e.target) e.face(e.target.p.x, e.target.p.z);
   } else if (e.state === 'engage') {
-    e.engageT -= dt; shoot(); e.rig.pose(e.stance === 'crouch' ? 'crouch' : 'aim', e.anim, aimPitch());
+    e.engageT -= dt; shoot(); if (aimedAt(e)) { e.stance = 'crouch'; e.sideT = (e.sideT ?? rand(0.6, 1.4)) - dt; if (e.sideT <= 0) { e.sideT = rand(0.8, 1.6); e.sideD = Math.random() < 0.5 ? -1 : 1; } if (e.sideD) { const h = e.heading + Math.PI / 2 * e.sideD; steer(e, e.pos.x + Math.sin(h), e.pos.z + Math.cos(h), 1.4, dt); if (e.target) e.face(e.target.p.x, e.target.p.z); } }   // in the open, aimed at: down to a knee, a step aside
+    e.rig.pose(e.stance === 'crouch' ? 'crouch' : 'aim', e.anim, aimPitch());
     if (e.engageT <= 0) { e.state = e.backTo || 'move'; e.backTo = null; }
   } else if (e.state === 'toCover') {
     const c = e.cover; e.toCoverT += dt;
@@ -5057,11 +5115,12 @@ function coverCycle(e, dt, c, shoot, aimPitch) {
   if (e.cyc <= 0) {
     e.peek = !e.peek; if (e.peek && (pin || (aimed && Math.random() < 0.7))) e.peek = false;
     e.cyc = e.peek ? rand(0.7, 2.0) + (covering ? 0.8 : 0) : covering ? rand(0.3, 0.7) : rand(0.8, 2.4) + (aimed ? 0.7 : 0);
-    if (e.peek) { e.scanCd = 0; e.burst = 0; e.fireCd = rand(0.25, 0.5); e.peekOff = tacPeekOff(e, c); }
+    if (e.peek) { e.scanCd = 0; e.burst = 0; e.fireCd = rand(0.25, 0.5); e.peekOff = tacPeekOff(e, c); e.peekN = (e.peekN || 0) + 1; e.peekLow = Math.random() < 0.4;
+      if (e.peekN >= 3 + Math.floor(Math.random() * 3)) { e.peekN = 0; e.peek = false; e.cyc = rand(2.0, 3.2); e.reloading = true; } else e.reloading = false; }   // the magazine: changed down behind the cover, and that is the moment to move on him
   }
   const tp = e.target ? e.target.p : null;
   if (e.peek) {
-    const hasP = c.px !== undefined, tall = hasP || c.h > 1.5, o = e.peekOff || 0; e.stance = tall ? 'stand' : 'crouch';
+    const hasP = c.px !== undefined, tall = (hasP || c.h > 1.5) && !(e.peekLow && !hasP), o = (e.peekOff || 0) * (e.peekLow ? 1.25 : 1); e.stance = tall ? 'stand' : 'crouch';   // on tall cover sometimes from a knee at its corner
     steer(e, hasP ? c.px : c.x - c.nz * o, hasP ? c.pz : c.z + c.nx * o, 3.4, dt); if (tp) e.face(tp.x, tp.z); else if (tacKnows(e)) e.face(e.lkp.x, e.lkp.z); else e.heading = Math.atan2(c.nx, c.nz);
     if (tp) shoot(); else if (covering && tacKnows(e, 5)) { e.fireCd -= dt; if (e.fireCd <= 0) { e.fireCd = rand(0.25, 0.6); tacFireAt(e, 0.2); } }   // he cannot see the player, but fires at where he was to cover a comrade on the move
     e.rig.pose(tall ? 'aim' : 'crouch', e.anim, aimPitch());
@@ -5733,7 +5792,7 @@ function updPlayer(dt) {
   } else if (P.ride) {
     const rp = P.ride.pos(); P.pos.copy(rp); P.crouch = true; P.sprint = false; const e = playerEye(); if (P.ride.mg || P.ride.novm) vm.visible = false;
     // a touch of third person on a vehicle: just behind and above his helmet (tpvCam); the shot still goes through the crosshair's centre
-    const k = P.ads > 0.5 ? 0 : 1 - P.ads * 2; tpvCam(e, k); tpvBody(k > 0.3 && !CINE.on, e);
+    const k = P.ads > 0.5 ? 0 : 1 - P.ads * 2; tpvCam(e, k, true); tpvBody(k > 0.3 && !CINE.on, e);
   } else {
     let fwd = (k.KeyW || k.ArrowUp ? 1 : 0) - (k.KeyS || k.ArrowDown ? 1 : 0) - INPUT.joy.y, str = (k.KeyD || k.ArrowRight ? 1 : 0) - (k.KeyA || k.ArrowLeft ? 1 : 0) + INPUT.joy.x;
     const l = Math.hypot(fwd, str); if (l > 1) { fwd /= l; str /= l; }
