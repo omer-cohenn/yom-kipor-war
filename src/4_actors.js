@@ -623,7 +623,7 @@ class Rig {
     }
     R.apply(kind);
   }
-  fallPose(f, dir, kind = 'knees') {
+  fallPose(f, dir, kind = 'knees', slope = 0) {
     // six ways to go down, each in phases: the hit, the legs giving way, the fall, the impact and a slow settling; dir +1 ends on the back, -1 on the face
     const T = this.T, ph = (a, b) => clamp((f - a) / (b - a), 0, 1), ei = (x) => x * x * (0.6 + 0.4 * x), eo = (x) => 1 - (1 - x) * (1 - x), ss = (x) => x * x * (3 - 2 * x);
     const bounce = (t0, a) => (f > t0 ? Math.sin((f - t0) * 20) * Math.exp(-(f - t0) * 8) * a : 0), flat = -dir * Math.PI / 2;
@@ -665,6 +665,15 @@ class Rig {
       // on the face the arms end up by the head, on the back out to the sides
       this.arms(-0.5 * j - 0.3 * kn - 1.2 * fl - 0.9 * up * st + 0.6 * (1 - up) * st, -0.6 * j - 0.4 * kn + 0.2 * fl - 0.8 * up * st, -0.4 * j - 0.3 * kn - 1.6 * fl - 0.7 * up * st + 0.9 * (1 - up) * st, -0.5 * j - 0.3 * kn - 0.6 * up * st, 0.4 + 0.6 * fl + 0.5 * (1 - up) * st, -0.6 - 0.5 * fl - 0.6 * (1 - up) * st);
       this.gunAt(0.05 + fl * 0.15, 0.25 - kn * 0.15, 0.2, -0.9 + kn * 0.5 + fl * 0.5, 0.4, fl * 0.6);
+    }
+    // and he comes to rest on the ground, all of him: flat on his back or his face, the spine straight, the legs lying (a knee a little up),
+    // the arms on the ground - none of him propped in the air or sunk into it; on a slope he lies along the slope
+    const D = (FALLS[kind] || FALLS.knees).dur, g = ss(ph(D - 0.45, D));
+    if (g > 0) {
+      const L = (a, b) => a + (b - a) * g, up = dir > 0, Lg = T.legs, tg = up ? [-0.3, 0.6, -0.05, 0.12] : [0.04, 0.35, 0.1, 0.15];
+      T.rootX = L(T.rootX, flat + dir * slope); T.torsoX = L(T.torsoX, up ? 0.03 : 0.05); T.torsoY = L(T.torsoY, 0.1 * dir); T.hipsYaw = L(T.hipsYaw, 0); T.hipsY = L(T.hipsY, 0.92); T.hipsX = L(T.hipsX, 0);
+      for (let i = 0; i < 4; i++) Lg[i] = L(Lg[i], tg[i]);
+      if (T.arms) { const ta = up ? [0.05, -0.25, 0.1, -0.3, 0.5, -0.55] : [-2.95, -0.2, 0.12, -0.1, 0.55, -0.35]; for (let i = 0; i < 6; i++) T.arms[i] = L(T.arms[i], ta[i]); }
     }
     this.apply('fall');
   }
@@ -721,7 +730,7 @@ class Unit {
   setKind(kind) { this.kind = kind; this.rig.wkind = this.side === 'f' ? 'rifle' : WKIND(kind); gunGeo(this.rig.gun, this.side === 'f' ? FAL_W : WGEO[WKIND(kind)], this.rig.lod); }
   place(x, z, y) { this.pos.set(x, y === undefined ? groundAt(x, z) : hAt(x, z, y), z); this.snapHd = true; this.rig.snapNext = true; }
   sync() {
-    this.rig.root.position.copy(this.pos); if (this.fall >= 0) this.rig.root.position.y += 0.12 * clamp(this.fall / 0.55, 0, 1);
+    this.rig.root.position.copy(this.pos); if (this.fall >= 0) this.rig.root.position.y += (this.fallDir < 0 ? 0.16 : 0.12) * clamp(this.fall / 0.55, 0, 1);   /* lying, he rests on his back, or on his chest (the deeper side) */
     if (this.snapHd || this.hdV === undefined || REDUCED) { this.hdV = this.heading; this.snapHd = false; } else this.hdV += wrapPi(this.heading - this.hdV) * (1 - Math.exp(-FDT * 12));
     this.rig.root.rotation.y = this.hdV;
     const far = camera.position.distanceTo(this.pos), hid = this.stance === 'hide' && this.side === 'e' && MODE !== 'mezach';

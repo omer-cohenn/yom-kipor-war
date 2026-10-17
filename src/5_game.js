@@ -383,7 +383,7 @@ function updFriend(f, dt, time) {
       const low = f.cov && f.cov.h < 1.3; u.stance = low ? 'hide' : 'crouch'; u.rig.pose(low ? 'hide' : 'crouch', u.anim, 0);
     } else { u.heading += wrapPi(Math.atan2(p.fx, p.fz) - u.heading) * 0.05; u.stance = 'stand'; u.rig.pose('idle', u.anim); }
   } else if (f.state === 'wounded' || f.state === 'stable' || f.state === 'saved' || f.state === 'kia') {
-    if (u.fall >= 0 && u.fall < 1.0) { u.fall += dt; u.rig.fallPose(u.fall, 1, 'back'); }
+    if (u.fall >= 0 && u.fall < 1.4) { u.fall += dt; if (u.fall < 0.5) u.fallSlope = fallSlope(u, 1); u.rig.fallPose(u.fall, 1, 'back', u.fallSlope || 0); }
     else if (f.state !== 'kia') u.rig.pose('prone', f.state === 'wounded' ? u.anim * 2 : u.anim * 0.4);
     if (f.state === 'wounded') { f.bleed -= dt; if (f.bleed <= 0) { f.state = 'kia'; f.marker.visible = false; feed(`${f.name} מת מפצעיו`, 'bad'); STATS.kia++; } }
   }
@@ -573,6 +573,12 @@ function nadeDodge(e, dt) {
     if (d < 6.5 && q.m.position.y - groundAt(q.m.position.x, q.m.position.z) < 1.5) { const k = (7.5 - d) / (d || 1); e.dodgeX = e.pos.x + dx * k + rand(-1, 1); e.dodgeZ = e.pos.z + dz * k + rand(-1, 1); e.dodgeT = Math.min(q.fuse + 0.4, 1.6); e.peek = false; return true; } }
   return false;
 }
+/* the lie of the ground under a falling man: where his head will come down (behind him on his back, ahead on his face) against his feet */
+function fallSlope(u, dir = u.fallDir || 1) {
+  const L = 1.45, hx = u.pos.x - Math.sin(u.heading) * L * dir, hz = u.pos.z - Math.cos(u.heading) * L * dir;
+  if (blocked(hx, hz, 0.2, u.pos.y)) return 0; const dy = hAt(hx, hz, u.pos.y) - u.pos.y; if (Math.abs(dy) > 0.9) return 0;
+  return clamp(Math.asin(clamp(dy / L, -1, 1)), -0.5, 0.5);
+}
 function updEnemy(e, dt) {
   e.t += dt;
   if (e.state === 'dying') {
@@ -580,7 +586,8 @@ function updEnemy(e, dt) {
     if (FV.spin && e.fall < 0.5) e.heading += dt * 5.5 * (e.spinDir || 1);
     if (FV.walk && e.fall < 0.45) { const sp = 3.4 * (1 - e.fall / 0.45), nx = e.pos.x + Math.sin(e.heading) * sp * dt, nz = e.pos.z + Math.cos(e.heading) * sp * dt; if (!blocked(nx, nz, 0.3, e.pos.y)) { e.pos.x = nx; e.pos.z = nz; e.pos.y = hAt(nx, nz, e.pos.y); } }
     if (e.fall >= FV.drop && !e.dropped) { e.dropped = true; dropGun(e); }
-    e.rig.fallPose(e.fall, e.fallDir, e.fallKind); e.sync(); if (e.fall > FV.dur) e.state = 'dead'; return;
+    if (e.fallSlope === undefined || e.fall < 0.5) e.fallSlope = fallSlope(e);
+    e.rig.fallPose(e.fall, e.fallDir, e.fallKind, e.fallSlope); e.sync(); if (e.fall > FV.dur + 0.4) e.state = 'dead'; return;   /* (a moment longer: the body eases fully onto the ground) */
   }
   if (e.state === 'dead') { if (e.deadAt !== undefined && GAME.t - e.deadAt > 30) { e.rig.root.visible = false; if (e.tag) e.tag.visible = false; } return; }   /* a body is cleared away half a minute after he fell */
   if (e.state === 'film') { e.sync(); return; }

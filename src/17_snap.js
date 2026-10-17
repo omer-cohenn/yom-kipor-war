@@ -58,7 +58,7 @@ function _unitPut(u, s) {
   snapPut(u, s, 2); u.rig.root.visible = s.__vis; u.guide = null;
   if (u.side === 'e' && u.kind) u.setKind(u.kind);
   if (u.alive) { u.rig.shut = false; u.rig.head.material = MAT.faces[u.side][u.rig.faceV]; u.rig.root.rotation.x = 0; u.rig.root.rotation.z = 0; u.rig.gun.visible = s.__gun; }
-  else if (s.__vis && u.fallKind) { const FV = FALLS[u.fallKind] || FALLS.knees; u.rig.fallPose(Math.max(u.fall ?? FV.dur, FV.dur), u.fallDir || 1, u.fallKind); u.rig.gun.visible = false; }
+  else if (s.__vis && u.fallKind) { const FV = FALLS[u.fallKind] || FALLS.knees; u.rig.fallPose(Math.max(u.fall ?? FV.dur, FV.dur + 0.4), u.fallDir || 1, u.fallKind, u.fallSlope || 0); u.rig.gun.visible = false; }
   u.snapHd = true; u.rig.snapNext = true; u.sync(); if (!s.__vis) u.tag.visible = false;
 }
 function _vehDead(v) { v.alive = false; v.speed = 0; v.g.traverse((m) => { if (m.isMesh) m.material = MAT_BURNT; }); if (v.fires.length < 2) for (let i = 0; i < 2; i++) { const f = new THREE.Sprite(new THREE.SpriteMaterial({ map: FXT.fire, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, color: HDC })); v.g.add(f); v.fires.push(f); } if (v.crew) for (const c of v.crew) c.visible = false; }
