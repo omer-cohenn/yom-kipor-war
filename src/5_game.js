@@ -318,9 +318,9 @@ function updFriend(f, dt, time) {
     const J = f.doorJob; if (!J) { f.state = 'follow'; u.sync(); return; } u.stance = 'stand';
     if (!J.ready) { const dd = steer(u, J.x, J.z, 4.6, dt); if (dd > 0.3 && GAME.t < J.t1) { u.anim += dt * 8; u.rig.pose('crun', u.anim); u.sync(); return; } J.ready = GAME.t; }
     const k = GAME.t - J.ready; u.face(J.fx, J.fz);
-    if (J.way === 'kick') u.rig.pose('kick', k, 0);
+    if (J.way === 'kick') u.rig.pose('kick', k / PD_SLOW, 0);
     else if (J.way === 'hand') u.rig.pose('aim', u.anim, 0);
-    else if (k < 0.9) { u.stance = 'crouch'; u.rig.pose('crouch', u.anim, -0.2); }
+    else if (k < 0.9 * PD_SLOW) { u.stance = 'crouch'; u.rig.pose('crouch', u.anim, -0.2); }
     else { const dd = steer(u, J.bx, J.bz, 4.6, dt); if (dd > 0.3) { u.anim += dt * 8; u.rig.pose('crun', u.anim); } else { u.stance = 'hide'; u.face(J.fx, J.fz); u.rig.pose('hide', u.anim); } }
     if (k > J.dur) { f.state = J.prev || 'follow'; f.doorJob = null; f.moving = true; }
     u.sync(); return;

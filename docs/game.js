@@ -5054,9 +5054,9 @@ function updFriend(f, dt, time) {
     const J = f.doorJob; if (!J) { f.state = 'follow'; u.sync(); return; } u.stance = 'stand';
     if (!J.ready) { const dd = steer(u, J.x, J.z, 4.6, dt); if (dd > 0.3 && GAME.t < J.t1) { u.anim += dt * 8; u.rig.pose('crun', u.anim); u.sync(); return; } J.ready = GAME.t; }
     const k = GAME.t - J.ready; u.face(J.fx, J.fz);
-    if (J.way === 'kick') u.rig.pose('kick', k, 0);
+    if (J.way === 'kick') u.rig.pose('kick', k / PD_SLOW, 0);
     else if (J.way === 'hand') u.rig.pose('aim', u.anim, 0);
-    else if (k < 0.9) { u.stance = 'crouch'; u.rig.pose('crouch', u.anim, -0.2); }
+    else if (k < 0.9 * PD_SLOW) { u.stance = 'crouch'; u.rig.pose('crouch', u.anim, -0.2); }
     else { const dd = steer(u, J.bx, J.bz, 4.6, dt); if (dd > 0.3) { u.anim += dt * 8; u.rig.pose('crun', u.anim); } else { u.stance = 'hide'; u.face(J.fx, J.fz); u.rig.pose('hide', u.anim); } }
     if (k > J.dur) { f.state = J.prev || 'follow'; f.doorJob = null; f.moving = true; }
     u.sync(); return;
@@ -12425,7 +12425,7 @@ function hmDoorOpen(d) {
   const J = d.job = { way, t0: GAME.t, go: null, f: null, nx, nz, beep: 0 };
   if (!HM_SANDBOX) { let best = null, bd = 14; for (const f of FRIENDS) { if (f.state !== 'follow' || !f.unit.alive) continue; const q = f.unit.pos.distanceTo(d.at); if (q < bd) { bd = q; best = f; } }
     if (best) { const off = way === 'kick' ? 0.75 : way === 'charge' ? 0.55 : 0.6, sideOff = way === 'hand' ? 0.55 : 0, tx = -nz, tz = nx;
-      best.doorJob = { way, x: d.at.x + nx * off + tx * sideOff, z: d.at.z + nz * off + tz * sideOff, fx: d.at.x, fz: d.at.z, bx: d.at.x + nx * 2.6 + tx * 1.2, bz: d.at.z + nz * 2.6 + tz * 1.2, t1: GAME.t + 3, prev: 'follow', ready: 0, dur: way === 'kick' ? 0.8 : way === 'charge' ? 4.0 : 1.8 };
+      best.doorJob = { way, x: d.at.x + nx * off + tx * sideOff, z: d.at.z + nz * off + tz * sideOff, fx: d.at.x, fz: d.at.z, bx: d.at.x + nx * 2.6 + tx * 1.2, bz: d.at.z + nz * 2.6 + tz * 1.2, t1: GAME.t + 3, prev: 'follow', ready: 0, dur: (way === 'kick' ? 0.8 : way === 'charge' ? 4.0 : 1.8) * PD_SLOW };
       best.prevState = best.state; best.state = 'door'; J.f = best; } }
   radio('לוחם', pick(way === 'kick' ? ['בועט בדלת!', 'דלת! בועט, נכנסים!'] : way === 'hand' ? ['פותח... בשקט.', 'הדלת לא נעולה. פותח.'] : ['מטען על הדלת! להתרחק!', 'מצמיד מטען! כולם אחורה!']), 1.8);
 }
@@ -12433,24 +12433,24 @@ function hmDoorJob(d, dt) {
   const J = d.job, t = GAME.t;
   if (J.go === null) { const ready = J.f && J.f.doorJob && J.f.doorJob.ready; if (ready || !J.f || t - J.t0 > 3.2 || J.f.state !== 'door') J.go = t + (J.f ? 0 : 0.2); return; }
   const k = t - J.go;
-  if (J.way === 'kick' && k >= 0.24) { hmDoorKicked(d); d.job = null; }
-  else if (J.way === 'hand' && k >= 0.5) { hmDoorPushed(d); d.job = null; }
+  if (J.way === 'kick' && k >= 0.24 * PD_SLOW) { hmDoorKicked(d); d.job = null; }
+  else if (J.way === 'hand' && k >= 0.5 * PD_SLOW) { hmDoorPushed(d); d.job = null; }
   else if (J.way === 'charge') {
-    if (!J.m && k >= (J.f ? 0.9 : 0.1)) {   // the block taped to the lock, the fuse lit
+    if (!J.m && k >= (J.f ? 0.9 * PD_SLOW : 0.1)) {   // the block taped to the lock, the fuse lit
       J.m = hmChargeMesh(); J.m.position.set(d.at.x + J.nx * 0.06, d.y + 1.05, d.at.z + J.nz * 0.06); J.m.rotation.y = Math.atan2(J.nx, J.nz); scene.add(onLayer1(J.m));
       J.spark = hmSpark(); J.m.add(J.spark); J.armed = t; sndClick(700, 0.16);
     }
-    if (J.armed) { const e = t - J.armed, u = clamp(1 - e / 2.6, 0, 1);   /* the spark runs up the fuse to the cap */
+    if (J.armed) { const e = t - J.armed, FUSE = 2.6 * PD_SLOW, u = clamp(1 - e / FUSE, 0, 1);   /* the spark runs up the fuse to the cap */
       J.spark.position.copy(hmChargeKit().fuse.getPoint(u)); J.spark.scale.setScalar(0.05 + 0.04 * Math.random()); if (e - J.beep >= 0.22) { J.beep = e; sndHiss(); if (Math.random() < 0.5) fxDust(J.m.localToWorld(J.spark.position.clone()), false); }
-      if (e >= 2.6) {   // the charge goes: the door is torn off and thrown into the room
+      if (e >= FUSE) {   // the charge goes: the door is torn off and thrown into the room
         fxExplosion(d.at.clone().setY(d.y + 0.3), 0.4); sndBoom(d.at, 0.9); const cd = camera.position.distanceTo(d.at); FX.shake = Math.max(FX.shake, clamp(0.5 - cd * 0.04, 0.08, 0.45));
         scene.remove(J.m); hmDoorSet(d, true, false); hmDoorBlow(d, -J.nx, -J.nz); if (typeof propsBlast === 'function') propsBlast(d.at, 4, 1.8);
         for (const en of UNITS.enemies) { if (!en.alive) continue; const q = en.pos.distanceTo(d.at); if (q < 1.7) killEnemy(en, false); else if (q < 4.5) supPin(en, 1.2); }
         d.job = null; } }
   }
 }
-function hmDoorKicked(d) { d.rate = 18; hmDoorSet(d, true, false); sndBoom(d.at, 0.3); sndClick(180, 0.3); fxDust(d.at.clone()); if (camera.position.distanceTo(d.at) < 8) FX.shake = Math.max(FX.shake, 0.16); }   /* the boot meets the lock: it bursts open, a bang, dust, a jolt */
-function hmDoorPushed(d) { d.rate = 1.6; hmDoorSet(d, true, false); sndClick(150, 0.18); sndClick(120, 0.12); }   /* the handle turned, it swings open slowly, creaking */
+function hmDoorKicked(d) { d.rate = 18 / PD_SLOW; hmDoorSet(d, true, false); sndBoom(d.at, 0.3); sndClick(180, 0.3); fxDust(d.at.clone()); if (camera.position.distanceTo(d.at) < 8) FX.shake = Math.max(FX.shake, 0.16); }   /* the boot meets the lock: it bursts open, a bang, dust, a jolt */
+function hmDoorPushed(d) { d.rate = 1.6 / PD_SLOW; hmDoorSet(d, true, false); sndClick(150, 0.18); sndClick(120, 0.12); }   /* the handle turned, it swings open slowly, creaking */
 function hmDoorBlow(d, dx, dz) {   // the leaf, torn off its hinges, flies tumbling into the room and falls flat
   d.blown = true; d.pivot.visible = false; const g = d.geo.clone().translate(-0.78, -1.12, 0), m = new THREE.Mesh(g, d.mat);
   d.pivot.updateMatrixWorld(true); m.position.copy(d.pivot.localToWorld(_hdv.set(0.78, 1.12, 0))); m.quaternion.copy(d.pivot.getWorldQuaternion(new THREE.Quaternion())); scene.add(SH(onLayer1(m), true, true));
@@ -13113,74 +13113,120 @@ function hmSandbox() {
 }
 
 /* ---------- the player at a door: he does it himself, each door another way in turn ----------
-   He steps up to the door's near side and - the rifle lowered - kicks it in (the boot comes up into view and drives at the lock), or reaches
-   for the handle and pushes it open, or presses a charge to the lock, backs off to the side of the frame, crouches with his back to the wall
-   while it beeps, and when it goes, gets up and goes in. Then the door is behind him and he has his rifle up in the room. While it lasts his
-   feet and his eyes are the scene's (5_game.js PDOOR) */
-const PDV = { leg: null, charge: null };
+   He steps up to the door's near side and - the rifle lowered - kicks it in (the boot comes up into view and drives at the lock), or steps up
+   to the handle, takes it, pushes the door off and lets it swing on, or presses a charge to the door, backs off to the side of the frame,
+   crouches with his back to the wall while the fuse burns, and when it goes, gets up and goes in. Then the door is behind him and he has his
+   rifle up in the room. While it lasts his feet and his eyes are the scene's (5_game.js PDOOR). All of it unhurried: PD_SLOW times the pace
+   it was first made at */
+const PDV = { leg: null, charge: null }, PD_SLOW = 2;
 function pdoorStart(d) {
   const way = HM_DOOR_WAY.ways[HM_DOOR_WAY.n++ % 3], side = Math.sign((P.pos.x - d.at.x) * d.nIn.x + (P.pos.z - d.at.z) * d.nIn.z) || -1;
   const nx = d.nIn.x * side, nz = d.nIn.z * side, tx = -nz, tz = nx, sd = blocked(d.at.x + nx * 1.0 + tx * 1.25, d.at.z + nz * 1.0 + tz * 1.25, 0.3, d.y) ? -1 : 1;
   let ek = 1.9; while (ek > 0.8 && blocked(d.at.x - nx * ek, d.at.z - nz * ek, 0.3, d.y)) ek -= 0.3;
-  Object.assign(PDOOR, { on: true, d, way, t0: GAME.t, ph: 'go', tA: 0, nx, nz, stand: [d.at.x + nx * 0.95, d.at.z + nz * 0.95], side: [d.at.x + nx * 1.0 + tx * 1.25 * sd, d.at.z + nz * 1.0 + tz * 1.25 * sd], entry: [d.at.x - nx * ek, d.at.z - nz * ek], placed: false, kicked: false, pushed: false, boomT: 0 });
+  // where he stands: back from the door for the kick; close for the charge; for the handle, close and just to its right, so it is in reach of his left hand
+  d.pivot.updateMatrixWorld(true); const hw = d.pivot.localToWorld(V3(1.38, 1.02, 0)), rx = nz, rz = -nx;
+  let stand = way === 'kick' ? [d.at.x + nx * 0.95, d.at.z + nz * 0.95] : [d.at.x + nx * 0.55, d.at.z + nz * 0.55];
+  if (way === 'hand') { const hs = [hw.x + nx * 0.48 + rx * 0.14, hw.z + nz * 0.48 + rz * 0.14]; if (!blocked(hs[0], hs[1], 0.25, d.y)) stand = hs; }
+  Object.assign(PDOOR, { on: true, d, way, t0: GAME.t, ph: 'go', tA: 0, nx, nz, stand, front: [d.at.x + nx * (way === 'hand' ? 0.3 : 0.7), d.at.z + nz * (way === 'hand' ? 0.3 : 0.7)], side: [d.at.x + nx * 1.0 + tx * 1.25 * sd, d.at.z + nz * 1.0 + tz * 1.25 * sd], entry: [d.at.x - nx * ek, d.at.z - nz * ek],
+    lookH: V3((d.at.x + hw.x) / 2, d.y + 1.2, (d.at.z + hw.z) / 2), placed: false, kicked: false, pushed: false, let: 0, over: 0, boomT: 0, passed: false, fromSide: false });
   P.vx = 0; P.vz = 0; if (P.reloadT > 0) P.reloadT = 0.01;
   if (way === 'charge') radio('אתה', 'מצמיד מטען... להתרחק!', 1.8); else if (way === 'kick') radio('אתה', 'בועט!', 1.2);
 }
 function pdoorMove(dt) {
-  const S = PDOOR, d = S.d, now = GAME.t; let tgt = null, sp = 2.4, look = d.at, crouch = false;
+  const S = PDOOR, d = S.d, now = GAME.t, K = PD_SLOW; let tgt = null, sp = 2.4 / K, look = d.at, crouch = false, pmin = -0.5;
   if (!d || d.open && S.ph === 'go') { S.on = false; return; }
-  if (S.ph === 'go') { tgt = S.stand; if (Math.hypot(P.pos.x - tgt[0], P.pos.z - tgt[1]) < 0.1 || now - S.t0 > 1.4) { S.ph = 'act'; S.tA = now; } }
-  const a = S.ph === 'act' || S.ph === 'wait' || S.ph === 'in' ? now - S.tA : 0;
+  if (S.ph === 'go') { tgt = S.stand; if (Math.hypot(P.pos.x - tgt[0], P.pos.z - tgt[1]) < 0.1 || now - S.t0 > 1.4 * K) { S.ph = 'act'; S.tA = now; } }
+  const a = S.ph === 'act' || S.ph === 'in' ? (now - S.tA) / K : 0;
+  if (S.way !== 'kick' && S.ph !== 'in') { pmin = -0.8; if (S.way === 'hand') look = S.lookH; }   /* close to the door he looks down at his hands */
   if (S.ph === 'act') {
     if (S.way === 'kick') { if (!S.kicked && a >= 0.36) { S.kicked = true; hmDoorKicked(d); } if (a > 0.8) { S.ph = 'in'; S.tA = now; } }
-    else if (S.way === 'hand') { if (!S.pushed && a >= 0.45) { S.pushed = true; hmDoorPushed(d); } if (a > 1.25) { S.ph = 'in'; S.tA = now; } }
-    else {   // the charge: on the lock, then off to the side of the frame, down, waiting
+    else if (S.way === 'hand') {   // the handle taken and turned; he pushes the door off and goes with it a little way, lets go, and it swings on by itself
+      if (!S.pushed && a >= 0.5) { S.pushed = true; hmDoorPushed(d); d.rate = 0.16; }
+      if (S.pushed && !S.let) { tgt = [S.stand[0] - S.nx * 0.2, S.stand[1] - S.nz * 0.2]; sp = 0.4 / K; }   /* he leans in after it, half a step */
+      if (S.pushed && !S.let && (S.over > 0.004 || a > 0.85)) { S.let = a; d.rate = 0.8; }
+      if (a > 1.5) { S.ph = 'in'; S.tA = now; S.fromSide = true; }
+    }
+    else {   // the charge: on the door, then off to the side of the frame, down, waiting
       if (!S.placed && a >= 0.55) { S.placed = true; d.job = { way: 'charge', t0: now, go: now - 0.12, f: null, nx: S.nx, nz: S.nz, beep: 0 }; }
-      if (a > 0.85) { tgt = S.side; sp = 3.2; crouch = a > 1.2; }
+      if (a > 0.85) { tgt = S.side; sp = 3.2 / K; crouch = a > 1.2; }
       if (S.placed && d.open && !S.boomT) S.boomT = now;
-      if (S.boomT && now - S.boomT > 0.6) { S.ph = 'in'; S.tA = now; S.fromSide = true; }
+      if (S.boomT && now - S.boomT > 0.6 * K) { S.ph = 'in'; S.tA = now; S.fromSide = true; }
     }
   }
-  if (S.ph === 'in') {   // through the door, the rifle up
-    const fs = S.fromSide && Math.hypot(P.pos.x - S.stand[0], P.pos.z - S.stand[1]) > 0.25 && !S.passed; if (!fs) S.passed = true;
-    tgt = fs ? S.stand : S.entry; sp = 2.6; const ex = S.entry[0] - S.nx * 3, ez = S.entry[1] - S.nz * 3; look = _pdl.set(ex, d.y + 1.2, ez);
-    if ((!fs && Math.hypot(P.pos.x - S.entry[0], P.pos.z - S.entry[1]) < 0.12) || now - S.tA > 3.5) { S.on = false; P.crouch = false; return; }
+  if (S.ph === 'in') {   // to the middle of the doorway, through it, the rifle up
+    const fs = S.fromSide && !S.passed && Math.hypot(P.pos.x - S.front[0], P.pos.z - S.front[1]) > 0.25; if (!fs) S.passed = true;
+    tgt = fs ? S.front : S.entry; sp = 2.6 / K; const ex = S.entry[0] - S.nx * 3, ez = S.entry[1] - S.nz * 3; look = _pdl.set(ex, d.y + 1.2, ez);
+    if ((!fs && Math.hypot(P.pos.x - S.entry[0], P.pos.z - S.entry[1]) < 0.12) || a > 3.5) { S.on = false; P.crouch = false; return; }
   }
-  if (tgt) { const dx = tgt[0] - P.pos.x, dz = tgt[1] - P.pos.z, dl = Math.hypot(dx, dz), st = Math.min(dl, sp * dt); if (dl > 1e-4) { P.pos.x += dx / dl * st; P.pos.z += dz / dl * st; } P.bobAmp = Math.max(P.bobAmp || 0, dl > 0.05 ? 0.6 : 0); }
+  if (tgt) { const dx = tgt[0] - P.pos.x, dz = tgt[1] - P.pos.z, dl = Math.hypot(dx, dz), st = Math.min(dl, sp * dt); if (dl > 1e-4) { P.pos.x += dx / dl * st; P.pos.z += dz / dl * st; } P.bobAmp = Math.max(P.bobAmp || 0, dl > 0.05 ? 0.45 : 0); }
   const yaw = Math.atan2(-(look.x - P.pos.x), -(look.z - P.pos.z)), pit = Math.atan2(look.y - (P.pos.y + (P.eyeH || 1.65)), Math.hypot(look.x - P.pos.x, look.z - P.pos.z));
-  P.yaw += wrapPi(yaw - P.yaw) * Math.min(1, dt * 7); P.pitch += (clamp(pit, -0.5, 0.3) - P.pitch) * Math.min(1, dt * 6); P.crouch = crouch;
+  P.yaw += wrapPi(yaw - P.yaw) * Math.min(1, dt * 7 / K); P.pitch += (clamp(pit, pmin, 0.3) - P.pitch) * Math.min(1, dt * 6 / K); P.crouch = crouch;
 }
 const _pdl = V3();
+/* two left hands for the doors, each with its own wrist: one closed round a handle, from above; one open, flat, the wrist bent back, to press
+   the charge to the door. The hand on the rifle drops out of the bottom of the picture as the rifle comes down, the door hand comes up in its
+   place - and goes back the same way */
+const PD_GRIP = { f: [[0.04, 1.15, 1.4, 0.7], [-0.02, 1.2, 1.45, 0.7], [-0.08, 1.25, 1.45, 0.72], [-0.15, 1.3, 1.4, 0.75]], t: [0.62, -1.05, 0.5, 0.55, 0.35] };
+const PD_FLAT = { f: [[0.1, 0.1, 0.16, 0.08], [0.02, 0.08, 0.14, 0.08], [-0.06, 0.1, 0.16, 0.08], [-0.14, 0.14, 0.2, 0.1]], t: [0.4, -0.6, 0.25, 0.15, 0.1] };
+function pdoorArm(pose, ext, ax) {   // the wrist at the origin, the fingers along +z, the back of the hand +y; the forearm leaves the wrist bent back 'ext'; ax: the hand's axis that is turned to the way asked (the back of a fist, the fingers of a flat hand)
+  const g = new THREE.Group(), e = V3(0, Math.sin(ext), -Math.cos(ext)), A = vmArmGeo('L', new THREE.Matrix4(), e);
+  g.add(new THREE.Mesh(vmHandGeo('L', pose), VMAT.skin), new THREE.Mesh(A.geo, VMAT.arm));
+  { const m = new THREE.Mesh(vmSleeveGeo(), VMAT.cloth); m.matrixAutoUpdate = false; m.matrix.copy(A.frameAt(0.24).m); g.add(m); }
+  { const F = A.frameAt(0.036), w = vmWatch(...F.size); w.matrixAutoUpdate = false; w.matrix.copy(F.m); g.add(w); }
+  const b = ax.clone().addScaledVector(e, -ax.dot(e)).normalize(); g.userData.B = new THREE.Matrix4().makeBasis(e, b, e.clone().cross(b)).transpose();
+  g.visible = false; g.traverse((o) => { o.frustumCulled = false; }); vmScene.add(g); return g;
+}
 function pdoorVM(dt) {
-  const S = PDOOR, on = S.on && S.ph !== 'go' || (S.on && S.ph === 'go');
-  if (!PDV.leg) {   // his own leg - the soldiers' trouser leg and boot, every crease - and the charge in his hand: drawn with the hands, in their own scene
+  const S = PDOOR;
+  if (!PDV.leg) {   // his own leg - the soldiers' trouser leg and boot, every crease - the two door hands, and the charge on the open one's palm
     const pivot = new THREE.Group(), inner = new THREE.Group(); pivot.add(inner); inner.rotation.y = Math.PI; inner.add(pdoorLegMesh()); pivot.visible = false; vmScene.add(pivot); PDV.leg = pivot;
-    const ch = hmChargeMesh(); ch.scale.setScalar(1.0); ch.visible = false; VMR.armL.add(ch); ch.position.copy(VM_HAND.L.palm).add(V3(0.02, 0.05, -0.06)); ch.rotation.set(0.2, 0.4, 0.1); PDV.charge = ch;
+    PDV.grip = pdoorArm(PD_GRIP, 0.25, V3(0, 1, 0)); PDV.press = pdoorArm(PD_FLAT, 1.45, V3(0, 0, 1));
+    const ch = hmChargeMesh(); PDV.press.add(ch); ch.position.set(0, -0.04, 0.056); ch.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(V3(-1, 0, 0), V3(0, 0, 1), V3(0, 1, 0))); PDV.charge = ch;   /* its face out, the fuse hanging toward his wrist */
   }
-  PDV.leg.visible = false; PDV.charge.visible = false; if (!S.on) return;
-  const a = S.ph === 'go' ? 0 : GAME.t - S.tA, sm = (x, e0, e1) => { const t = clamp((x - e0) / (e1 - e0), 0, 1); return t * t * (3 - 2 * t); };
-  let low = 0;
+  PDV.leg.visible = false; PDV.grip.visible = false; PDV.press.visible = false; VMR.armL.visible = true; if (!S.on) return;
+  const a = S.ph === 'go' ? 0 : (GAME.t - S.tA) / PD_SLOW, sm = (x, e0, e1) => { const t = clamp((x - e0) / (e1 - e0), 0, 1); return t * t * (3 - 2 * t); };
+  let low = 0, drop = 0;
   if (S.ph === 'act') {
     if (S.way === 'kick') { low = sm(a, 0, 0.15) * (1 - sm(a, 0.6, 0.8)); const th = sm(a, 0.16, 0.36) * (1 - sm(a, 0.44, 0.75));
       // the leg swings up from the hip, straight, until the boot is flat at the lock, sole first; set in the body's frame and turned with his look
       const p = P.pitch, hy = -0.72, hz = 0.1; PDV.leg.visible = th > 0.02; PDV.leg.position.set(0.11, hy * Math.cos(p) + hz * Math.sin(p), -hy * Math.sin(p) + hz * Math.cos(p)); PDV.leg.rotation.set(1.62 * th - p, 0, 0); }
-    else if (S.way === 'hand') { low = 0.35 * sm(a, 0, 0.2) * (1 - sm(a, 1.0, 1.25)); const r = sm(a, 0.05, 0.42) * (1 - sm(a, 0.92, 1.22));
-      // the left hand leaves the handguard, takes the door's handle - on the door itself, wherever it is - and goes with it as the door swings
-      vm.position.y -= 0.24 * low; vm.position.x += 0.06 * low; vm.rotation.x -= 0.7 * low; vm.rotation.z += 0.3 * low; low = 0; const d = S.d, L = VMR.armL;
-      d.pivot.updateMatrixWorld(true); const hw = d.pivot.localToWorld(_pdh.set(1.38, 1.02, 0)), nz = _pdn.set(0, 0, 1).applyQuaternion(d.pivot.getWorldQuaternion(_pdq)); if (nz.dot(_pdl.copy(camera.position).sub(hw)) < 0) nz.negate(); hw.addScaledVector(nz, 0.07);
-      pdoorHandTo(hw, r, 0.25, 0.9, -0.3); }
-    else { low = 0.6 * sm(a, 0, 0.2) * (1 - sm(a, 1.3, 1.6)); const r = sm(a, 0.05, 0.5) * (1 - sm(a, 0.6, 0.85));   /* the hand takes the charge to the lock and leaves it there */
-      vm.position.y -= 0.24 * low; vm.position.x += 0.06 * low; vm.rotation.x -= 0.7 * low; vm.rotation.z += 0.3 * low; low = 0; const d = S.d;
-      pdoorHandTo(_pdh.set(d.at.x + S.nx * 0.12, d.y + 1.0, d.at.z + S.nz * 0.12), r, 0.25, 0.9, -0.3); PDV.charge.visible = !S.placed && r > 0.05; }
-  } else if (S.ph === 'in') low = 0;
+    else if (S.way === 'hand') {   // the hand comes up, takes the door's handle from above - on the door itself, wherever it is - goes with it a little way and lets go
+      low = 0.35 * sm(a, 0, 0.2) * (1 - sm(a, 1.3, 1.5)); drop = sm(a, 0, 0.14) * (1 - sm(a, 1.28, 1.45));
+      const r = sm(a, 0.14, 0.48) * (1 - (S.let ? sm(a, S.let, S.let + 0.4) : 0)), turn = sm(a, 0.44, 0.5) * (1 - sm(a, 0.6, 0.75)), d = S.d;
+      d.pivot.updateMatrixWorld(true); const hw = d.pivot.localToWorld(_pdh.set(1.38, 1.02, 0)), nz = _pdn.set(0, 0, 1).applyQuaternion(d.pivot.getWorldQuaternion(_pdq)); if (nz.dot(_pdl.copy(camera.position).sub(hw)) < 0) nz.negate();
+      hw.addScaledVector(nz, 0.045); hw.y += 0.02 - 0.012 * turn;   /* the palm on top of the handle, the fingers over it and down behind it; it is pressed down a little */
+      camera.updateMatrixWorld(); S.over = 0; if (r > 0.002 && a > 0.13) { PDV.grip.visible = true; S.over = pdoorArmTo(PDV.grip, hw, r, pdoorBody(_pdc.set(-0.15, 1, 0.05).normalize(), _pdb)); } }
+    else {   // the open hand brings the charge up to the door, presses it on and leaves it there
+      low = 0.6 * sm(a, 0, 0.2) * (1 - sm(a, 1.3, 1.6)); drop = sm(a, 0, 0.14) * (1 - sm(a, 1.12, 1.28)); const r = sm(a, 0.14, 0.5) * (1 - sm(a, 0.62, 0.9)), d = S.d;
+      camera.updateMatrixWorld(); const up = pdoorBody(_pdc.set(0.12, 1, 0).normalize(), _pdb);   /* the fingers up, leaning a little to the right */
+      if (r > 0.002 && a > 0.13) { PDV.press.visible = true; pdoorArmTo(PDV.press, _pdh.set(d.at.x + S.nx * 0.099, d.y + 1.05, d.at.z + S.nz * 0.099), r, up); }
+      PDV.charge.visible = !S.placed;
+      if (PDV.press.visible && !S.placed) { _pdq.setFromAxisAngle(_pdY, Math.atan2(S.nx, S.nz)).premultiply(camera.getWorldQuaternion(_pdq2).invert()); PDV.charge.quaternion.copy(PDV.press.quaternion).invert().multiply(_pdq); } }   /* flat on his palm, turned level as it will sit on the door */
+  }
+  // the rifle down, and the hand on it gone down out of the picture while the other one works
   vm.position.y -= 0.24 * low; vm.position.x += 0.06 * low; vm.rotation.x -= 0.7 * low; vm.rotation.z += 0.3 * low;
+  const L = VMR.armL; L.position.y -= 0.42 * drop; L.position.x -= 0.06 * drop; L.rotation.x -= 0.5 * drop; L.visible = !(PDV.grip.visible || PDV.press.visible);
 }
-const _pdh = V3(), _pdn = V3(), _pdp = V3(), _pdq = new THREE.Quaternion();
-/* the left hand to a point in the world (r: how far there): the hands are drawn with their own lens, so the point is taken where it shows on
-   the screen; the arm turned about the palm, so the palm lands on it */
-function pdoorHandTo(w, r, rx, ry, rz) {
-  const L = VMR.armL; camera.updateMatrixWorld(); const cs = camera.worldToLocal(w), fk = Math.tan(THREE.MathUtils.degToRad(vmCamera.fov) / 2) / Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2); cs.x *= fk; cs.y *= fk;
-  L.rotation.set(rx * r, ry * r, rz * r); vm.updateMatrixWorld(true); const vl = vm.worldToLocal(cs).sub(_pdp.copy(VM_HAND.L.palm).applyEuler(L.rotation)); L.position.copy(VM_LHG).lerp(vl, r);
+const _pdh = V3(), _pdn = V3(), _pdb = V3(), _pdq = new THREE.Quaternion(), _pdq2 = new THREE.Quaternion();
+/* a door hand to a point in the world (r: how far there, from below the picture), its axis (pdoorArm) turned toward 'dir' (camera space). The hands
+   are drawn with their own lens, so the point is taken where it shows on the screen. It is kept within reach of his shoulder, and the forearm
+   laid from the wrist to where his elbow is (between the shoulder and the hand, bent down and out) - so the arm always runs from the hand down
+   out of the picture to him and never hangs loose in the air. Returns how far the point is beyond his reach */
+const PD_SHB = V3(-0.18, -0.27, -0.03), PD_POLEB = V3(-0.6, -1, 0.1).normalize(), PD_FROMB = V3(-0.2, -0.72, -0.2), PD_UA = 0.37, PD_FA = 0.39, PD_PALM = V3(0, -0.014, 0.05);   /* his body's frame: x right, y up, z back */
+const _pda = V3(), _pdc = V3(), _pdt = V3(), _pdm = new THREE.Matrix4(), PD_SH = V3(), PD_POLE = V3(), PD_FROM = V3(), _pdY = V3(0, 1, 0);
+/* a direction in his body's frame as the camera sees it: turned with his heading, not with his look - bent over a door, his shoulder comes
+   forward with his head */
+function pdoorBody(v, out) { return out.copy(v).applyAxisAngle(_pdY, P.yaw).transformDirection(camera.matrixWorldInverse); }
+function pdoorArmTo(G, w, r, dir) {
+  camera.updateMatrixWorld(); const T = camera.worldToLocal(_pdt.copy(w)), fk = Math.tan(THREE.MathUtils.degToRad(vmCamera.fov) / 2) / Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2); T.x *= fk; T.y *= fk;
+  pdoorBody(PD_SHB, PD_SH).multiplyScalar(PD_SHB.length()); PD_SH.x *= fk; PD_SH.y *= fk; pdoorBody(PD_POLEB, PD_POLE); pdoorBody(PD_FROMB, PD_FROM).multiplyScalar(PD_FROMB.length());
+  T.sub(PD_FROM).multiplyScalar(r).add(PD_FROM);   // on its way up from below the picture
+  const u = _pda.copy(T).sub(PD_SH), d0 = u.length(), reach = PD_UA + PD_FA - 0.015, over = Math.max(0, d0 - reach), dd = Math.min(d0, reach); u.multiplyScalar(1 / (d0 || 1)); if (over) T.copy(PD_SH).addScaledVector(u, dd);
+  const ca = clamp((PD_UA * PD_UA + dd * dd - PD_FA * PD_FA) / (2 * PD_UA * dd), -1, 1), sa = Math.sqrt(1 - ca * ca), v = _pdc.copy(PD_POLE).addScaledVector(u, -PD_POLE.dot(u)).normalize();
+  const f = v.multiplyScalar(PD_UA * sa).addScaledVector(u, PD_UA * ca).add(PD_SH).sub(T).normalize(), b = _pda.copy(dir); b.addScaledVector(f, -b.dot(f)).normalize();   // to the elbow; the hand's own axis turned the way asked
+  _pdm.makeBasis(f, b, _pdn.copy(f).cross(b)).multiply(G.userData.B); G.quaternion.setFromRotationMatrix(_pdm);
+  G.position.copy(T).sub(_pda.copy(PD_PALM).applyQuaternion(G.quaternion));
+  return over;
 }
 /* his right leg from the soldiers' own figure: the trouser leg below the crotch and the boot, in its bind pose (hanging, toes forward),
    moved so the hip is at the origin - with the uniform's own material, its paint and creases */
