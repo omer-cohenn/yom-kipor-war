@@ -190,11 +190,12 @@ function segBoxT(k, ax, ay, az, bx, by, bz) {
   const y0 = ay + (by - ay) * t0, y1 = ay + (by - ay) * t1; if (Math.min(y0, y1) >= k.top - 0.02 || Math.max(y0, y1) <= k.bot + 0.02) return -1;
   if (y0 < k.top) return t0; return t0 + (t1 - t0) * (y0 - k.top) / ((y0 - y1) || 1e-6);
 }
+let SEG_K = null;   // the box the last segHitT struck (for the mark a round leaves on it)
 function segHitT(ax, ay, az, bx, by, bz, skipNear = 0) {
-  const dx = bx - ax, dz = bz - az, L = Math.hypot(dx, dz), n = Math.max(1, Math.ceil(L / (CG * 0.8))); const seen = new Set(); let best = 2;
+  const dx = bx - ax, dz = bz - az, L = Math.hypot(dx, dz), n = Math.max(1, Math.ceil(L / (CG * 0.8))); const seen = new Set(); let best = 2; SEG_K = null;
   for (let st = 0; st <= n; st++) {
     const t = st / n; if (best < t - 0.2) break; const ci = Math.floor((ax + dx * t) / CG), cj = Math.floor((az + dz * t) / CG); const a = CGRID.get(cgk(ci, cj)); if (!a) continue;
-    for (const k of a) { if (seen.has(k) || k.noShot) continue; seen.add(k); const h = segBoxT(k, ax, ay, az, bx, by, bz); if (h >= 0 && h < best && h * L > skipNear) best = h; }
+    for (const k of a) { if (seen.has(k) || k.noShot) continue; seen.add(k); const h = segBoxT(k, ax, ay, az, bx, by, bz); if (h >= 0 && h < best && h * L > skipNear) { best = h; SEG_K = k; } }
   }
   return best <= 1 ? best : -1;
 }

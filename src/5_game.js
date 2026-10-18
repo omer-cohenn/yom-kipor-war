@@ -143,7 +143,7 @@ function castShot(o, d, maxD, fromSide) {
   }
   if (fromSide !== 'e') { const vh = rayVeh(o, d, best.t); if (vh) best = vh; }
   if (fromSide !== 'f') for (const f of FRIENDS) { if (f.state === 'carried' || !f.unit.rig.root.visible) continue; const [a, b, r] = f.unit.capsule(); const h = rayCapsule(o, d, a, b, r * 0.9); if (h && h.t < best.t && h.t > 1.0) best = { t: h.t, kind: 'friend', f }; }
-  { const wt = segHitT(o.x, o.y, o.z, o.x + d.x * best.t, o.y + d.y * best.t, o.z + d.z * best.t, 0.35); if (wt >= 0) best = { t: wt * best.t, kind: 'wall' }; }
+  { const wt = segHitT(o.x, o.y, o.z, o.x + d.x * best.t, o.y + d.y * best.t, o.z + d.z * best.t, 0.35); if (wt >= 0) best = { t: wt * best.t, kind: 'wall', k: SEG_K }; }
   if (fromSide !== 'e') { const ph = propRay(o, d, best.t); if (ph) best = { t: ph.t, kind: 'prop', prop: ph.item }; }
   best.p = V3(o.x + d.x * best.t, o.y + d.y * best.t, o.z + d.z * best.t); best.dir = d; best.o = o;
   return best;
@@ -457,7 +457,7 @@ function enemyFire(e) {
   const tp = tgt.player ? playerEye() : tgt.f.unit.chest(); const d = from.distanceTo(tp); const rangeF = clamp(1 - d / W.range, 0.25, 1) * (W.range < 200 && d > W.range * 0.6 ? 0.3 : 1);
   fxMuzzle(from, W.snd === 'lmg'); sndShot(W.snd, from);
   let hit = false; const eye = e.eye(); const wt = segHitT(eye.x, eye.y, eye.z, tp.x, tp.y, tp.z, FIELDM() ? 0.25 : 0.7);
-  if (wt >= 0) { const wp = V3(lerp(eye.x, tp.x, wt), lerp(eye.y, tp.y, wt), lerp(eye.z, tp.z, wt)); if (Math.random() < 0.5) fxTracer(from, wp, true); fxDust(wp); e.scanCd = 0; return; }
+  if (wt >= 0) { const wk = SEG_K, wp = V3(lerp(eye.x, tp.x, wt), lerp(eye.y, tp.y, wt), lerp(eye.z, tp.z, wt)); if (Math.random() < 0.5) fxTracer(from, wp, true); fxDust(wp); if (wk && camera.position.distanceTo(wp) < 60) { const dv = V3(tp.x - eye.x, tp.y - eye.y, tp.z - eye.z).normalize(); bulletHole(wp, colNormal(wk, wp, dv)); } e.scanCd = 0; return; }   /* the walls round the player are pocked by their fire too */
   if (tgt.player) { let p = W.acc * (FIELDM() ? (CH().hard || 0.7) : 1) * (SURV.on ? SURV.acc : 1) * diff.acc * rangeF * (d < 12 ? 2 : 1) * (P.mode === 'tank' ? 0.45 : 1) * (P.crouch ? 0.55 : 1) * (moving() ? 0.7 : 1) * (P.post ? 0.8 : 1) * (e.stance === 'crouch' ? 1.1 : 1) * (FIELDM() && P.mode === 'rifle' && inConceal(P.pos.x, P.pos.z) ? 0.45 : 1) * (e.wild ? 0.3 : 1) * (mz ? mz.acc * (SCENES[Math.max(0, D.scene)].acc || 1) : 1) * (e.wild ? 1 : tacAcc(e)); hit = Math.random() < p; if (hit && P.mode === 'tank' && P.crouch) { hit = false; fxDust(tp.clone().add(V3(rand(-0.6, 0.6), rand(-0.3, 0.3), rand(-0.6, 0.6)))); } if (hit) hurtPlayer(rand(diff.dmg[0], diff.dmg[1]) * W.dmg, from); else if (d < 60 && Math.random() < 0.35) sndWhiz(); }
   else { sqfSpot(e, tgt.f); hit = Math.random() < diff.accF * (1 - 0.6 * clamp(e.supp || 0, 0, 1)) * rangeF * (FIELDM() ? 0.45 : 1) * (tgt.f.duckT > 0 ? 0.25 : 1) * (tgt.f.unit.stance === 'crouch' ? 0.7 : 1) * (tgt.f.cov ? 0.55 : 1) * (mz ? mz.fHit : 1); if (hit) woundFriend(tgt.f, Math.random() < 0.18); else tgt.f.supp = (tgt.f.supp || 0) + 1; }
   const end = tp.clone(); if (!hit) end.add(V3(rand(-1.4, 1.4), rand(-0.4, 1.4), rand(-1.4, 1.4)));
@@ -1306,6 +1306,36 @@ function rideMG() {
   fxMuzzle(from, true); sndShot('mag'); if (Math.random() < 0.45) fxTracer(from, hit.p, false); FX.shake = Math.max(FX.shake, 0.08); P.pitch += 0.0025; P.yaw += rand(-0.002, 0.002); P.vmKick = 1;
   applyHit(hit, 140);
 }
+/* ================= the marks rounds leave =================
+   Every round that strikes a wall, a sandbag, a door, a piece of furniture leaves its hole there - dark in the middle, a ring of chipped
+   plaster or splintered wood, dust round it - turned to the face it struck, and it stays (when there are too many the oldest go). Small
+   things struck, or beside the strike, jump off */
+const HOLES = { n: 0, max: LITE ? 180 : 420, mesh: null, m4: new THREE.Matrix4(), q: new THREE.Quaternion(), q2: new THREE.Quaternion(), z: V3(0, 0, 1) };
+function holeTex() {
+  const N = 128, c = canvas(N), g = c.getContext('2d'), r = rng(7713), C = N / 2;
+  let gr = g.createRadialGradient(C, C, 4, C, C, C); gr.addColorStop(0, 'rgba(40,34,28,0.55)'); gr.addColorStop(0.45, 'rgba(70,62,52,0.25)'); gr.addColorStop(1, 'rgba(70,62,52,0)'); g.fillStyle = gr; g.fillRect(0, 0, N, N);   /* the dust and the scorch round it */
+  g.fillStyle = 'rgba(205,196,180,0.75)'; g.beginPath(); for (let a = 0; a <= 6.3; a += 0.35) { const rr = 14 + r() * 9; g.lineTo(C + Math.cos(a) * rr, C + Math.sin(a) * rr); } g.fill();   /* the chipped ring, lighter */
+  g.strokeStyle = 'rgba(30,26,22,0.6)'; g.lineWidth = 1.2; for (let k = 0; k < 6; k++) { let a = r() * 6.28, x = C + Math.cos(a) * 10, y = C + Math.sin(a) * 10; g.beginPath(); g.moveTo(x, y); for (let j = 0; j < 4; j++) { a += (r() - 0.5) * 0.7; x += Math.cos(a) * (5 + r() * 6); y += Math.sin(a) * (5 + r() * 6); g.lineTo(x, y); } g.stroke(); }   /* cracks */
+  gr = g.createRadialGradient(C, C, 0, C, C, 11); gr.addColorStop(0, 'rgba(6,5,4,1)'); gr.addColorStop(0.7, 'rgba(18,15,12,0.95)'); gr.addColorStop(1, 'rgba(30,26,22,0)'); g.fillStyle = gr; g.beginPath(); g.arc(C, C, 11, 0, 6.2832); g.fill();   /* the hole */
+  return tex(c);
+}
+function holesInit() {
+  const m = new THREE.MeshStandardMaterial({ map: holeTex(), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3, roughness: 0.95, metalness: 0 });
+  const im = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1), m, HOLES.max); im.count = 0; im.frustumCulled = false; im.renderOrder = 2; scene.add(onLayer1(im)); HOLES.mesh = im;
+}
+function bulletHole(p, n, size = rand(0.07, 0.1)) {
+  if (!HOLES.mesh) holesInit(); const H = HOLES, i = H.n % H.max; H.n++;
+  H.q.setFromUnitVectors(H.z, n); H.q2.setFromAxisAngle(H.z, rand(0, 6.28)); H.q.multiply(H.q2);
+  H.m4.compose(V3(p.x + n.x * 0.006, p.y + n.y * 0.006, p.z + n.z * 0.006), H.q, V3(size, size, 1)); H.mesh.setMatrixAt(i, H.m4); H.mesh.count = Math.min(H.n, H.max); H.mesh.instanceMatrix.needsUpdate = true;
+}
+function holesClear() { HOLES.n = 0; if (HOLES.mesh) HOLES.mesh.count = 0; }
+/* the face of a box a round struck: the side nearest the point (its top, or one of its four sides), turned toward the shooter */
+function colNormal(k, p, dir) {
+  const dx = p.x - k.x, dz = p.z - k.z, lx = dx * k.c - dz * k.s, lz = dx * k.s + dz * k.c, ex = k.hx - Math.abs(lx), ez = k.hz - Math.abs(lz), ey = Math.abs(k.top - p.y);
+  let n; if (ey < ex && ey < ez) n = V3(0, 1, 0); else if (ex < ez) { const sx = Math.sign(lx) || 1; n = V3(k.c * sx, 0, -k.s * sx); } else { const sz = Math.sign(lz) || 1; n = V3(k.s * sz, 0, k.c * sz); }
+  if (dir && n.dot(dir) > 0) n.negate(); return n;
+}
+function propsNear(p, R, dir) { if (typeof PROPS === 'undefined') return; for (const it of PROPS.items) { if (it.mode !== PROPS.cur) continue; const d = Math.hypot(it.x - p.x, it.y + it.L.h * 0.5 - p.y, it.z - p.z); if (d < R) propKick(it, dir, 1.6 * (1 - d / R) + 0.5); } }
 function applyHit(hit, dmg) {
   if (hit.o) suppressAlong(hit.o, hit.p, dmg > 120 ? 1.5 : 1);   // every round of ours pins the men it cracks past
   if (hit.kind === 'enemy') { const e = hit.u; const dd = hit.head ? dmg * 2.5 : dmg; e.hp -= dd; const kill = e.hp <= 0; if (kill) killEnemy(e, hit.head); hitmark(kill); fxDust(hit.p.clone(), false); if (e.dormant || kill) wakeNear(e.pos, 9); }
@@ -1313,8 +1343,9 @@ function applyHit(hit, dmg) {
   else if (hit.kind === 'boat') { hit.boat.hp -= dmg * 0.2; fxDust(hit.p.clone(), true); hitmark(false); }
   else if (hit.kind === 'friend') { toast('זהירות', 'אש על כוחותינו'); }
   else if (hit.kind === 'veh') { if (hit.v.alive && hit.v.armor > 0) { vehHit(hit.v, dmg * hit.v.armor, hit.p); hitmark(!hit.v.alive); } fxDust(hit.p.clone(), false); }
-  else if (hit.kind === 'prop') { propKick(hit.prop, hit.dir || V3(0, 0, 1), 1); fxDust(hit.p.clone(), false); }
-  else if (hit.kind === 'ground' || hit.kind === 'water' || hit.kind === 'wall') fxDust(hit.p.clone().add(V3(0, 0.15, 0)), hit.kind === 'water');
+  else if (hit.kind === 'prop') { const dir = hit.dir || V3(0, 0, 1); propKick(hit.prop, dir, 2.3); propsNear(hit.p, 0.4, dir); fxDust(hit.p.clone(), false); }
+  else if (hit.kind === 'wall') { const n = hit.k ? colNormal(hit.k, hit.p, hit.dir) : null; if (n) bulletHole(hit.p, n); fxDust(hit.p.clone().addScaledVector(n || V3(0, 1, 0), 0.08), false); propsNear(hit.p, 0.35, hit.dir || V3(0, 0, 1)); }
+  else if (hit.kind === 'ground' || hit.kind === 'water') fxDust(hit.p.clone().add(V3(0, 0.15, 0)), hit.kind === 'water');
 }
 function magShoot() {
   const m = P.post.mag; if (m.big) { survCannonShoot(); return; } if (m.reload > 0 || P.fireCd > 0) return;
@@ -1700,6 +1731,7 @@ function drawMinimap() {
 
 /* ================= game flow ================= */
 function clearBattle() {
+  holesClear();   /* a new battle: the old one's bullet holes go */
   SLOW.left = 0; SLOW.k = 1; SLOW.look = null;
   for (const e of UNITS.enemies) { e.alive = false; e.rig.root.visible = false; e.deadAt = undefined; e.tag.visible = false; e.cover = null; e.state = 'dead'; e.sz = null; e.slot = null; e.cov = null; }
   for (const b of [...BOATS]) b.dispose(); BOATS.length = 0; GROUPS.length = 0; DIRQ.length = 0; dropsClear(); flotReset(); ROWS.on = false; LANDCAP.n = 999; LANDCAP.wave = 0;
