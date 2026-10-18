@@ -849,19 +849,20 @@ function buildWaterfront() {
   // the minaret and the dome of the mosque by the harbour
   { const zm = 64, xm = shore(zm) - 40, g = groundAt(xm, zm); parts.push([G.cyl(1.25, 1.45, 27, 12), 0xe6dfcf, M4(xm, g + 13.5, zm)], [G.cyl(1.9, 1.9, 0.5, 14), 0xd6ccb6, M4(xm, g + 21, zm)], [G.cyl(0.95, 1.15, 4, 12), 0xe6dfcf, M4(xm, g + 29, zm)], [G.cone(1.0, 2.4, 12), 0x9aa49a, M4(xm, g + 32.2, zm)]);
     parts.push([G.sph(6.5, 18, 10, 0, Math.PI * 2, 0, Math.PI / 2), 0xdcd4c2, M4(xm - 11, g + 9, zm + 4)], [boxUV(...[xm - 20, xm - 2], g, g + 9, zm - 5, zm + 13, 12, 9.9), 0xe2d8c4]); }
-  const mat = new THREE.MeshStandardMaterial({ vertexColors: true, map: T, roughness: 0.95 }); scene.add(SH(onLayer1(new THREE.Mesh(build(parts), mat)), true, false));
+  const mat = townFog(new THREE.MeshStandardMaterial({ vertexColors: true, map: T, roughness: 0.95 }), 'w'); scene.add(SH(onLayer1(new THREE.Mesh(build(parts), mat)), true, false));   /* the waterfront takes the haze too */
   if (dark.length) scene.add(onLayer1(new THREE.Mesh(build(dark), MAT.vc)));
 }
 /* the towns across the canal through the haze of the first day: the dust and smoke of the barrage hang over Port Tewfik and Suez. In the
    stronghold's mission their houses take the haze faster than the open desert (a heavier fog on them alone: they are silhouettes, not boxes),
    and soft banks of dust and smoke drift low in front of them and over their roofs, slowly, with the wind */
 const TOWN_FOG = { value: 1 }; let TOWN_HAZE = null;
-function townMat() {
-  if (MAT.townWall) return MAT.townWall; const m = MAT.wall.clone();
-  m.onBeforeCompile = (sh) => { sh.uniforms.uFogK = TOWN_FOG; sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform float uFogK;')
+function townFog(m, tag) {
+  const prev = m.onBeforeCompile;
+  m.onBeforeCompile = (sh, r) => { if (prev) prev.call(m, sh, r); sh.uniforms.uFogK = TOWN_FOG; sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform float uFogK;')
     .replace('#include <fog_fragment>', '#ifdef USE_FOG\n#ifdef FOG_EXP2\nfloat fogFactor = 1.0 - exp(-fogDensity * fogDensity * uFogK * uFogK * vFogDepth * vFogDepth);\n#else\nfloat fogFactor = smoothstep(fogNear, fogFar / uFogK, vFogDepth);\n#endif\ngl_FragColor.rgb = mix(gl_FragColor.rgb, fogColor, fogFactor);\n#endif'); };
-  m.customProgramCacheKey = () => 'townFog'; return (MAT.townWall = m);
+  m.customProgramCacheKey = () => 'townFog' + tag; return m;
 }
+function townMat() { return MAT.townWall || (MAT.townWall = townFog(MAT.wall.clone(), 'b')); }
 function hazeTex() {
   const W = 256, H = 96, c = canvas(W, H), g = c.getContext('2d'), r = rng(4417);
   for (let i = 0; i < 70; i++) { const x = W * (0.12 + r() * 0.76), y = H * (0.35 + r() * 0.35), rad = H * (0.18 + r() * 0.3), gr = g.createRadialGradient(x, y, 0, x, y, rad);
@@ -873,7 +874,9 @@ function townHaze() {
   const bank = (n, x0, x1, y0, y1, w, h, op, col) => { for (let i = 0; i < n; i++) { const x = lerp(x0, x1, r()), z = -560 + (i + r() * 0.6) * (1000 / n), y = Math.max(groundAt(x, z), 0) + lerp(y0, y1, r());
     const m = new THREE.SpriteMaterial({ map: T, color: col, transparent: true, opacity: op * (0.75 + r() * 0.4), depthWrite: false }); const sp = new THREE.Sprite(m); sp.scale.set(w * (0.8 + r() * 0.5), h * (0.8 + r() * 0.4), 1); sp.position.set(x, y, z); sp.material.rotation = (r() - 0.5) * 0.08;
     grp.add(sp); list.push({ sp, x, z, y, op: m.opacity, ph: r() * 6.28 }); } };
-  bank(8, -400, -470, 9, 17, 250, 55, 0.5, 0xd2c6aa);   // low along the far bank's ramparts, behind them
+  bank(9, -268, -285, 3, 10, 230, 40, 0.42, 0xd6cbb0);   // low over the far edge of the water, in front of the waterfront
+  bank(8, -330, -380, 10, 20, 260, 60, 0.55, 0xd2c6aa);   // over the waterfront's roofs
+  bank(8, -400, -470, 9, 17, 250, 55, 0.5, 0xd2c6aa);   // behind it
   bank(8, -600, -760, 16, 30, 320, 85, 0.55, 0xc9bda2);   // through the middle of the town
   bank(6, -560, -880, 40, 60, 380, 70, 0.32, 0xb9b0a0);   // smoke over the roofs
   grp.visible = false; scene.add(grp); TOWN_HAZE = grp;

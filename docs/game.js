@@ -1593,19 +1593,20 @@ function buildWaterfront() {
   // the minaret and the dome of the mosque by the harbour
   { const zm = 64, xm = shore(zm) - 40, g = groundAt(xm, zm); parts.push([G.cyl(1.25, 1.45, 27, 12), 0xe6dfcf, M4(xm, g + 13.5, zm)], [G.cyl(1.9, 1.9, 0.5, 14), 0xd6ccb6, M4(xm, g + 21, zm)], [G.cyl(0.95, 1.15, 4, 12), 0xe6dfcf, M4(xm, g + 29, zm)], [G.cone(1.0, 2.4, 12), 0x9aa49a, M4(xm, g + 32.2, zm)]);
     parts.push([G.sph(6.5, 18, 10, 0, Math.PI * 2, 0, Math.PI / 2), 0xdcd4c2, M4(xm - 11, g + 9, zm + 4)], [boxUV(...[xm - 20, xm - 2], g, g + 9, zm - 5, zm + 13, 12, 9.9), 0xe2d8c4]); }
-  const mat = new THREE.MeshStandardMaterial({ vertexColors: true, map: T, roughness: 0.95 }); scene.add(SH(onLayer1(new THREE.Mesh(build(parts), mat)), true, false));
+  const mat = townFog(new THREE.MeshStandardMaterial({ vertexColors: true, map: T, roughness: 0.95 }), 'w'); scene.add(SH(onLayer1(new THREE.Mesh(build(parts), mat)), true, false));   /* the waterfront takes the haze too */
   if (dark.length) scene.add(onLayer1(new THREE.Mesh(build(dark), MAT.vc)));
 }
 /* the towns across the canal through the haze of the first day: the dust and smoke of the barrage hang over Port Tewfik and Suez. In the
    stronghold's mission their houses take the haze faster than the open desert (a heavier fog on them alone: they are silhouettes, not boxes),
    and soft banks of dust and smoke drift low in front of them and over their roofs, slowly, with the wind */
 const TOWN_FOG = { value: 1 }; let TOWN_HAZE = null;
-function townMat() {
-  if (MAT.townWall) return MAT.townWall; const m = MAT.wall.clone();
-  m.onBeforeCompile = (sh) => { sh.uniforms.uFogK = TOWN_FOG; sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform float uFogK;')
+function townFog(m, tag) {
+  const prev = m.onBeforeCompile;
+  m.onBeforeCompile = (sh, r) => { if (prev) prev.call(m, sh, r); sh.uniforms.uFogK = TOWN_FOG; sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform float uFogK;')
     .replace('#include <fog_fragment>', '#ifdef USE_FOG\n#ifdef FOG_EXP2\nfloat fogFactor = 1.0 - exp(-fogDensity * fogDensity * uFogK * uFogK * vFogDepth * vFogDepth);\n#else\nfloat fogFactor = smoothstep(fogNear, fogFar / uFogK, vFogDepth);\n#endif\ngl_FragColor.rgb = mix(gl_FragColor.rgb, fogColor, fogFactor);\n#endif'); };
-  m.customProgramCacheKey = () => 'townFog'; return (MAT.townWall = m);
+  m.customProgramCacheKey = () => 'townFog' + tag; return m;
 }
+function townMat() { return MAT.townWall || (MAT.townWall = townFog(MAT.wall.clone(), 'b')); }
 function hazeTex() {
   const W = 256, H = 96, c = canvas(W, H), g = c.getContext('2d'), r = rng(4417);
   for (let i = 0; i < 70; i++) { const x = W * (0.12 + r() * 0.76), y = H * (0.35 + r() * 0.35), rad = H * (0.18 + r() * 0.3), gr = g.createRadialGradient(x, y, 0, x, y, rad);
@@ -1617,7 +1618,9 @@ function townHaze() {
   const bank = (n, x0, x1, y0, y1, w, h, op, col) => { for (let i = 0; i < n; i++) { const x = lerp(x0, x1, r()), z = -560 + (i + r() * 0.6) * (1000 / n), y = Math.max(groundAt(x, z), 0) + lerp(y0, y1, r());
     const m = new THREE.SpriteMaterial({ map: T, color: col, transparent: true, opacity: op * (0.75 + r() * 0.4), depthWrite: false }); const sp = new THREE.Sprite(m); sp.scale.set(w * (0.8 + r() * 0.5), h * (0.8 + r() * 0.4), 1); sp.position.set(x, y, z); sp.material.rotation = (r() - 0.5) * 0.08;
     grp.add(sp); list.push({ sp, x, z, y, op: m.opacity, ph: r() * 6.28 }); } };
-  bank(8, -400, -470, 9, 17, 250, 55, 0.5, 0xd2c6aa);   // low along the far bank's ramparts, behind them
+  bank(9, -268, -285, 3, 10, 230, 40, 0.42, 0xd6cbb0);   // low over the far edge of the water, in front of the waterfront
+  bank(8, -330, -380, 10, 20, 260, 60, 0.55, 0xd2c6aa);   // over the waterfront's roofs
+  bank(8, -400, -470, 9, 17, 250, 55, 0.5, 0xd2c6aa);   // behind it
   bank(8, -600, -760, 16, 30, 320, 85, 0.55, 0xc9bda2);   // through the middle of the town
   bank(6, -560, -880, 40, 60, 380, 70, 0.32, 0xb9b0a0);   // smoke over the roofs
   grp.visible = false; scene.add(grp); TOWN_HAZE = grp;
@@ -4221,6 +4224,56 @@ function nsWebTex() {
   for (const y of [3, W - 4]) { g.fillStyle = 'rgba(40,36,28,0.35)'; g.fillRect(0, y, W, 1); for (let x = 0; x < W; x += 4) { g.fillStyle = 'rgba(40,36,28,0.5)'; g.fillRect(x, y + 1, 2, 1); } }
   const t = tex(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(3, 3); return t;
 }
+/* ---------- the faces: one head, many men ----------
+   Each face is the head's own photograph with a man's own colouring and features over it: his skin a shade darker or fairer, a moustache, a
+   beard or days of stubble, heavier brows, the lines of a reservist in his forties; and the face itself moved a few millimetres - a bigger
+   nose, a wider jaw, a longer chin, fuller cheeks - in the head's own (bind) frame, before the skin follows the bones. Read in that frame:
+   the chin at y .565, the lips .607-.627, the nose's tip .65 (z .153), the eyes .67-.70, the brows .705-.72, the front +z */
+const NS_MORPH_FN = `uniform vec4 uMorph;
+vec3 nsMorph(vec3 p) {
+  vec3 d = vec3(0.0), nt = p - vec3(0.0, 0.655, 0.128); float wn = exp(-dot(nt * vec3(28.0, 26.0, 24.0), nt * vec3(28.0, 26.0, 24.0))) * step(0.1, p.z);
+  d += vec3(nt.x * 0.55, -0.003, max(nt.z, 0.0) * 0.8 + 0.003) * wn * uMorph.x;
+  float wj = (1.0 - smoothstep(0.6, 0.655, p.y)) * smoothstep(0.53, 0.565, p.y) * smoothstep(-0.03, 0.06, p.z);
+  d.x += p.x * 0.16 * uMorph.y * wj;
+  float wc = (1.0 - smoothstep(0.58, 0.612, p.y)) * smoothstep(0.06, 0.11, p.z) * (1.0 - smoothstep(0.025, 0.055, abs(p.x)));
+  d += vec3(0.0, -0.007, 0.006) * uMorph.z * wc;
+  float wk = exp(-pow((p.y - 0.642) / 0.022, 2.0)) * smoothstep(0.028, 0.055, abs(p.x)) * (1.0 - smoothstep(0.075, 0.09, abs(p.x))) * smoothstep(0.0, 0.07, p.z);
+  d += vec3(sign(p.x) * 0.005, 0.0, 0.004) * uMorph.w * wk;
+  return d;
+}`;
+const NS_FACE = `{ vec3 b = vBindP; float ax = abs(b.x), front = smoothstep(0.07, 0.11, b.z);
+  diffuseColor.rgb *= uSkin;
+  float hn = fract(sin(dot(floor(b * vec3(1500.0, 650.0, 1500.0)), vec3(12.9898, 78.233, 45.164))) * 43758.5453);
+  float lips = (1.0 - smoothstep(0.021, 0.028, ax)) * smoothstep(0.606, 0.61, b.y) * (1.0 - smoothstep(0.624, 0.628, b.y)) * front;
+  float line = 0.627 + max(ax - 0.028, 0.0) * 0.55;   /* the beard's edge on the cheek, rising to the ear */
+  float beard = (1.0 - smoothstep(line - 0.004, line + 0.004, b.y)) * smoothstep(0.548, 0.566, b.y) * smoothstep(-0.035, 0.035, b.z) * (1.0 - lips);
+  float must = (1.0 - smoothstep(0.034 + (0.636 - b.y) * 0.5, 0.041 + (0.636 - b.y) * 0.5, ax)) * smoothstep(0.626, 0.629, b.y) * (1.0 - smoothstep(0.64, 0.645, b.y)) * front;
+  float brow = smoothstep(0.011, 0.016, ax) * (1.0 - smoothstep(0.05, 0.057, ax)) * smoothstep(0.704, 0.707, b.y - (ax - 0.03) * (ax - 0.03) * -6.0) * (1.0 - smoothstep(0.715, 0.719, b.y - (ax - 0.03) * (ax - 0.03) * -6.0)) * smoothstep(0.09, 0.11, b.z);
+  nsHairK = clamp(uHair.x * must * (0.7 + 0.5 * hn) + uHair.y * beard * (0.5 + 0.5 * hn) + uHair.z * beard * step(0.5, hn) * 0.65 + uHair.w * brow * (0.55 + 0.45 * hn), 0.0, 1.0);
+  diffuseColor.rgb = mix(diffuseColor.rgb, uHairC * (0.75 + 0.5 * hn), nsHairK);
+  float fore = smoothstep(0.725, 0.73, b.y) * (1.0 - smoothstep(0.758, 0.764, b.y)) * (1.0 - smoothstep(0.038, 0.052, ax)) * front;
+  float lines = fore * smoothstep(0.8, 1.0, sin(b.y * 1050.0 + sin(b.x * 70.0) * 1.5));
+  float crow = smoothstep(0.052, 0.057, ax) * (1.0 - smoothstep(0.07, 0.076, ax)) * smoothstep(0.674, 0.678, b.y) * (1.0 - smoothstep(0.698, 0.702, b.y)) * smoothstep(0.8, 1.0, sin((b.y + ax * 0.7) * 1000.0));
+  float bags = smoothstep(0.012, 0.02, ax) * (1.0 - smoothstep(0.05, 0.058, ax)) * exp(-pow((b.y - 0.668) / 0.006, 2.0)) * front;
+  diffuseColor.rgb *= 1.0 - uAge * (0.28 * (lines + crow) + 0.12 * bags); }`;
+/* who they are: [skin, [moustache, beard, stubble, brows], hair colour, [nose, jaw, chin, cheeks], age]. Ours: the base face, a Mizrahi
+   moustache, a freckled redhead, a reservist in his forties, a bearded boy; theirs (over the Egyptian head, moustached already): the base,
+   a dark Upper Egyptian, a fair man unshaven, a thin conscript, a greying sergeant with a beard */
+const NS_FACES = {
+  f: [null, [[0.88, 0.8, 0.72], [1.0, 0, 0.35, 0.6], [0.025, 0.02, 0.016], [0.6, 0.25, 0, 0.1], 0.15], [[1.06, 0.98, 0.94], [0, 0, 0.45, 0.3], [0.16, 0.07, 0.03], [-0.25, -0.3, 0.5, -0.2], 0],
+      [[0.96, 0.9, 0.84], [0.35, 0, 0.9, 0.5], [0.12, 0.11, 0.1], [0.3, 0.6, -0.2, 0.6], 0.85], [[0.93, 0.86, 0.8], [0.6, 0.85, 0, 0.5], [0.03, 0.022, 0.015], [0.2, 0.1, 0.3, -0.3], 0]],
+  e: [null, [[0.72, 0.64, 0.58], [0.3, 0, 0.4, 0.5], [0.02, 0.016, 0.012], [0.5, 0.35, 0, 0.2], 0.1], [[1.05, 1.0, 0.95], [0, 0, 0.9, 0.7], [0.03, 0.022, 0.016], [-0.2, 0.4, -0.3, 0.3], 0.2],
+      [[0.9, 0.84, 0.78], [0, 0, 0.25, 0.3], [0.02, 0.016, 0.012], [0.1, -0.45, 0.45, -0.5], 0], [[0.84, 0.76, 0.7], [0.8, 0.7, 0, 0.8], [0.09, 0.085, 0.08], [0.4, 0.5, -0.1, 0.5], 0.9]],
+};
+function nsFaceMat(m, V) {   // m: a skin material over the head's photograph
+  nsBindPaint(m, NS_FACE, 'face'); const prev = m.onBeforeCompile, key = m.customProgramCacheKey();
+  const U = { uSkin: { value: new THREE.Vector3(...V[0]) }, uHair: { value: new THREE.Vector4(...V[1]) }, uHairC: { value: new THREE.Vector3(...V[2]) }, uMorph: { value: new THREE.Vector4(...V[3]) }, uAge: { value: V[4] } };
+  m.onBeforeCompile = (sh, r) => { prev.call(m, sh, r); Object.assign(sh.uniforms, U);
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\n' + NS_MORPH_FN).replace('#include <begin_vertex>', '#include <begin_vertex>\ntransformed += nsMorph(position);');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform vec3 uSkin; uniform vec4 uHair; uniform vec3 uHairC; uniform float uAge; float nsHairK = 0.0;')
+      .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\ntotalEmissiveRadiance *= uSkin * (1.0 - 0.9 * nsHairK);'); };
+  m.customProgramCacheKey = () => key + '|fv'; return m;
+}
 function nsMaterials() {
   if (NEWSOL.mats) return NEWSOL.mats;
   const T = SOLDIER_DATA.tex, std = (o) => new THREE.MeshStandardMaterial(Object.assign({ roughness: 0.9, metalness: 0 }, o));
@@ -4238,14 +4291,21 @@ function nsMaterials() {
   const e = [waist(cloth('e', NEWSOL.camo.eg, 0xffffff), 'e'), belt('e', 0x5e4c32), std({ color: 0x1d1b19, roughness: 0.55 }), skin(headAr, 0xf0d5ba), skin(hands, 0xf0d5ba), std({ map: eyes, roughness: 0.15 }),
     hidden, hidden, NEWSOL.helm.cover];
   const e2 = e.slice(); e2[8] = NEWSOL.helm.net;   // one man in three bare-helmeted under a net
-  NEWSOL.mats = { f, e, e2 }; nsUniformFor(MODE); return NEWSOL.mats;
+  // a set of the materials for each face: only the head and the hands differ (the hands take the face's skin)
+  const tintOf = (hex, V) => (V ? new THREE.Color(hex).multiply(new THREE.Color(V[0][0], V[0][1], V[0][2])) : new THREE.Color(hex));
+  const faces = (base, side, hmap) => NS_FACES[side].map((V) => { if (!V) return base; const a = base.slice(), t0 = side === 'e' ? 0xf0d5ba : 0xffffff;
+    a[3] = nsFaceMat(skin(hmap, tintOf(t0, V)), V); a[4] = skin(hands, tintOf(t0, V)); a[3].userData.face = V; a[4].userData.face = V; return a; });
+  const fv = faces(f, 'f', head), ev = faces(e, 'e', headAr), e2v = ev.map((a) => { const b = a.slice(); b[8] = NEWSOL.helm.net; return b; }); e2v[0] = e2;
+  NEWSOL.mats = { f, e, e2, fv, ev, e2v }; nsUniformFor(MODE); return NEWSOL.mats;
 }
 /* the enemy's uniform with the chapter: the Syrians on the Hermon in their forest pattern, the Egyptians everywhere else in khaki */
 function nsUniformFor(mode) {
   if (!NEWSOL.mats) return; const sy = mode === 'hermon', E = NEWSOL.mats.e;
   if (sy && !NEWSOL.camo.sy) NEWSOL.camo.sy = nsCamo(NS_CAMO.sy);
-  E[0].map = sy ? NEWSOL.camo.sy : NEWSOL.camo.eg; E[1].color.set(sy ? 0x3c3f2a : 0x5e4c32); E[3].color.set(sy ? 0xf2dac2 : 0xf0d5ba); E[4].color.copy(E[3].color);
-  const Hm = NEWSOL.helm; E[8] = sy ? Hm.sy : Hm.cover; NEWSOL.mats.e2[8] = sy ? Hm.sy : Hm.net;
+  E[0].map = sy ? NEWSOL.camo.sy : NEWSOL.camo.eg; E[1].color.set(sy ? 0x3c3f2a : 0x5e4c32);
+  const Hm = NEWSOL.helm, M = NEWSOL.mats;
+  for (const [list, net] of [[M.ev, false], [M.e2v, true]]) for (const a of list) {   /* every face: the Syrians a shade fairer; their helmets painted */
+    const V = a[3].userData.face; a[3].color.set(sy ? 0xf2dac2 : 0xf0d5ba); if (V) a[3].color.multiply(new THREE.Color(V[0][0], V[0][1], V[0][2])); a[4].color.copy(a[3].color); a[8] = sy ? Hm.sy : net ? Hm.net : Hm.cover; }
   for (const m of [E[0], E[1]]) m.needsUpdate = true;
 }
 { const _uf = uniformFor; uniformFor = function (mode) { _uf(mode); nsUniformFor(mode); nsRefresh(); }; }   /* reassigns the declaration in 4_actors.js (one module) */
@@ -4265,7 +4325,8 @@ function nsAttach(R) {
   R.sR.quaternion.setFromAxisAngle(_nsZ, -Math.PI / 2); R.sL.quaternion.setFromAxisAngle(_nsZ, Math.PI / 2);
   R.root.updateMatrixWorld(true);
   const bones = J.map((o) => { const b = new THREE.Bone(); o.add(b); return b; });
-  NEWSOL.n = (NEWSOL.n || 0) + 1; const m = new THREE.SkinnedMesh(nsGeometry(), nsMaterials()[R.side === 'e' ? (NEWSOL.n % 3 === 0 ? 'e2' : 'e') : 'f']); R.hips.add(m); m.boundingSphere = new THREE.Sphere(V3(0, -0.15, 0), 1.5);
+  NEWSOL.n = (NEWSOL.n || 0) + 1; const M = nsMaterials(), fi = (NEWSOL.n * 3 + (NEWSOL.n >> 2)) % 5;   /* his face, and (theirs) one in three bare-helmeted */
+  const m = new THREE.SkinnedMesh(nsGeometry(), R.side === 'e' ? (NEWSOL.n % 3 === 0 ? M.e2v : M.ev)[fi] : M.fv[fi]); R.hips.add(m); m.boundingSphere = new THREE.Sphere(V3(0, -0.15, 0), 1.5);
   R.root.updateMatrixWorld(true); m.bind(new THREE.Skeleton(bones)); SH(m, true, false); onLayer1(m);
   J.forEach((o, i) => { o.quaternion.copy(save[i][0]); o.scale.copy(save[i][1]); }); R.root.updateMatrixWorld(true);
   R.ns = m;
@@ -8453,7 +8514,7 @@ function makeGround(d) {
 }
 function showWorld(mode) {
   PROPS.cur = mode; if (mode !== 'suez') szClarityOff();
-  TOWN_FOG.value = mode === 'mezach' ? 1.9 : 1; if (TOWN_HAZE) TOWN_HAZE.visible = mode === 'mezach';   /* the haze of the first day over the town across the canal */
+  TOWN_FOG.value = mode === 'mezach' ? 2.5 : 1; if (TOWN_HAZE) TOWN_HAZE.visible = mode === 'mezach';   /* the haze of the first day over the town across the canal */
   const lists = { mezach: SZ.mezObjs, suez: SZ.objs }; for (const k in CHAP) if (k !== 'mezach' && k !== 'suez') lists[k] = CHAP[k].objs || [];
   for (const v of VEH) if (v.tag) v.tag.visible = false;
   for (const k in lists) if (k !== mode) for (const o of lists[k]) o.visible = false;
