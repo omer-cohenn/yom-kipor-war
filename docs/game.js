@@ -1963,7 +1963,12 @@ function buildTrenches() {
   const wood = [], iron = [];
   for (const k of ROOF_K) {
     const { p, nx, nz, tx, tz, fl } = frame(k), rot = Math.atan2(-tz, tx), W2 = TW + 0.75;
-    for (const sd of [-1, 1]) for (let lay = 0; lay < 5; lay++) for (let a = -1.6; a <= 1.61; a += 0.53) { const o = a + (lay % 2 ? 0.26 : 0); if (Math.abs(o) > 1.75) continue; BATCH.bag.push([p[0] + tx * o + nx * sd * (TW + 0.3), fl + 1.12 + lay * 0.17, p[1] + tz * o + nz * sd * (TW + 0.3), rot]); }
+    /* the raised walls of bags stand on the earth top, clear of the planks: the plank face leans back as it rises (TW at the floor, TW + 0.18 at
+       its top), so a bag only 0.3 m out had its belly through the boards - a thin pointed sliver of it showing. Where the trench is deeper than
+       a layer, that layer is in the earth behind the planks and is not laid at all */
+    for (const sd of [-1, 1]) for (let lay = 0; lay < 5; lay++) for (let a = -1.6; a <= 1.61; a += 0.53) { const o = a + (lay % 2 ? 0.26 : 0); if (Math.abs(o) > 1.75) continue;
+      const y = fl + 1.12 + lay * 0.17, ax = p[0] + tx * o + nx * sd * TW, az = p[1] + tz * o + nz * sd * TW; if (y + 0.1 < Math.max(fl + 1.12, groundAt(ax, az) + trenchCut(ax, az) + 0.12)) continue;
+      BATCH.bag.push([p[0] + tx * o + nx * sd * (TW + 0.44), y, p[1] + tz * o + nz * sd * (TW + 0.44), rot]); }
     for (let a = -1.65; a <= 1.66; a += 0.33) wood.push([p[0] + tx * a, fl + 2.02, p[1] + tz * a, rot, 0.26, 0.2, W2 * 2]);
     for (const a of [-1.85, 1.85]) wood.push([p[0] + tx * a, fl + 1.98, p[1] + tz * a, rot, 0.3, 0.34, W2 * 2 + 0.3]);
     iron.push([p[0], fl + 2.15, p[1], rot, 3.9, 0.05, W2 * 2 + 0.2]);
