@@ -855,11 +855,11 @@ function buildWaterfront() {
 /* the towns across the canal through the haze of the first day: the dust and smoke of the barrage hang over Port Tewfik and Suez. In the
    stronghold's mission their houses take the haze faster than the open desert (a heavier fog on them alone: they are silhouettes, not boxes),
    and soft banks of dust and smoke drift low in front of them and over their roofs, slowly, with the wind */
-const TOWN_FOG = { value: 1 }; let TOWN_HAZE = null;
+const TOWN_FOG = { value: 1 }, TOWN_SMOKE = { value: new THREE.Color(0.45, 0.44, 0.43) }, TOWN_SMOKEK = { value: 0 }, FOG_DAY_REF = new THREE.Color(0xbac5cc); let TOWN_HAZE = null;
 function townFog(m, tag) {
   const prev = m.onBeforeCompile;
-  m.onBeforeCompile = (sh, r) => { if (prev) prev.call(m, sh, r); sh.uniforms.uFogK = TOWN_FOG; sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform float uFogK;')
-    .replace('#include <fog_fragment>', '#ifdef USE_FOG\n#ifdef FOG_EXP2\nfloat fogFactor = 1.0 - exp(-fogDensity * fogDensity * uFogK * uFogK * vFogDepth * vFogDepth);\n#else\nfloat fogFactor = smoothstep(fogNear, fogFar / uFogK, vFogDepth);\n#endif\ngl_FragColor.rgb = mix(gl_FragColor.rgb, fogColor, fogFactor);\n#endif'); };
+  m.onBeforeCompile = (sh, r) => { if (prev) prev.call(m, sh, r); sh.uniforms.uFogK = TOWN_FOG; sh.uniforms.uSmokeC = TOWN_SMOKE; sh.uniforms.uSmokeK = TOWN_SMOKEK; sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform float uFogK; uniform vec3 uSmokeC; uniform float uSmokeK;')
+    .replace('#include <fog_fragment>', '#ifdef USE_FOG\n#ifdef FOG_EXP2\nfloat fogFactor = 1.0 - exp(-fogDensity * fogDensity * uFogK * uFogK * vFogDepth * vFogDepth);\n#else\nfloat fogFactor = smoothstep(fogNear, fogFar / uFogK, vFogDepth);\n#endif\ngl_FragColor.rgb = mix(gl_FragColor.rgb, mix(fogColor, uSmokeC, uSmokeK), fogFactor);\n#endif'); };
   m.customProgramCacheKey = () => 'townFog' + tag; return m;
 }
 function townMat() { return MAT.townWall || (MAT.townWall = townFog(MAT.wall.clone(), 'b')); }
@@ -870,19 +870,23 @@ function hazeTex() {
   const t = tex(c); return t;
 }
 function townHaze() {
-  const grp = new THREE.Group(), T = hazeTex(), r = rng(9203), list = [];
-  const bank = (n, x0, x1, y0, y1, w, h, op, col) => { for (let i = 0; i < n; i++) { const x = lerp(x0, x1, r()), z = -560 + (i + r() * 0.6) * (1000 / n), y = Math.max(groundAt(x, z), 0) + lerp(y0, y1, r());
-    const m = new THREE.SpriteMaterial({ map: T, color: col, transparent: true, opacity: op * (0.75 + r() * 0.4), depthWrite: false }); const sp = new THREE.Sprite(m); sp.scale.set(w * (0.8 + r() * 0.5), h * (0.8 + r() * 0.4), 1); sp.position.set(x, y, z); sp.material.rotation = (r() - 0.5) * 0.08;
-    grp.add(sp); list.push({ sp, x, z, y, op: m.opacity, ph: r() * 6.28 }); } };
-  bank(9, -268, -285, 3, 10, 230, 40, 0.42, 0xd6cbb0);   // low over the far edge of the water, in front of the waterfront
-  bank(8, -330, -380, 10, 20, 260, 60, 0.55, 0xd2c6aa);   // over the waterfront's roofs
-  bank(8, -400, -470, 9, 17, 250, 55, 0.5, 0xd2c6aa);   // behind it
-  bank(8, -600, -760, 16, 30, 320, 85, 0.55, 0xc9bda2);   // through the middle of the town
-  bank(6, -560, -880, 40, 60, 380, 70, 0.32, 0xb9b0a0);   // smoke over the roofs
+  /* a smoke screen, as the Egyptians laid along their bank for the crossing: grey smoke rolling low over the far edge of the water - the boats
+     come out of it - billowing up over the waterfront, and the smoke of the barrage over the town behind, so that the town is all but gone */
+  if (!SMOKE_T) SMOKE_T = puffTex();
+  const grp = new THREE.Group(), r = rng(9203), list = [], shore = (z) => { let x = -470 + PTDX; while (x > -620 + PTDX && groundAt(x, z) < 1.0) x -= 2; return x; };
+  const puff = (x, z, y, sc, op, grey) => { const c = new THREE.Color(grey, grey, grey * 0.98), m = new THREE.SpriteMaterial({ map: SMOKE_T, color: c, transparent: true, opacity: op, depthWrite: false });
+    const sp = new THREE.Sprite(m); sp.scale.setScalar(sc); sp.position.set(x, y, z); m.rotation = r() * 6.28; grp.add(sp); list.push({ sp, x, z, y, sc, op, c0: c.clone(), ph: r() * 6.28, rs: (r() - 0.5) * 0.06 }); };
+  const NL = LITE ? 60 : 110, NU = LITE ? 26 : 50, NT = LITE ? 22 : 40;
+  for (let i = 0; i < NL; i++) { const z = -580 + (i + r()) * (1040 / NL), x = shore(z) + 10 - r() * 34; puff(x, z, Math.max(groundAt(x, z), 0) + 3 + r() * 12, 28 + r() * 26, 0.82 + r() * 0.14, 0.5 + r() * 0.12); }   // low over the water's edge
+  for (let i = 0; i < NU; i++) { const z = -580 + (i + r()) * (1040 / NU), x = shore(z) - 15 - r() * 60; puff(x, z, Math.max(groundAt(x, z), 0) + 16 + r() * 22, 46 + r() * 34, 0.66 + r() * 0.2, 0.46 + r() * 0.12); }   // billowing up over the waterfront
+  for (let i = 0; i < NT; i++) { const z = -600 + r() * 1080, x = -330 - r() * 520; puff(x, z, Math.max(groundAt(x, z), 0) + 22 + r() * 40, 80 + r() * 70, 0.5 + r() * 0.25, 0.4 + r() * 0.12); }   // the barrage's smoke over the town
   grp.visible = false; scene.add(grp); TOWN_HAZE = grp;
-  { const prev = scene.onBeforeRender; scene.onBeforeRender = function (...a) { prev.apply(this, a); if (!grp.visible) return; const t = performance.now() / 1000;
-    for (const q of list) { const d = Math.sin(t * 0.021 + q.ph) * 18; q.sp.position.set(q.x + WIND.x * d, q.y + Math.sin(t * 0.05 + q.ph) * 1.5, q.z + WIND.z * d); q.sp.material.opacity = q.op * (0.85 + 0.15 * Math.sin(t * 0.07 + q.ph * 2)); } }; }
-  for (const [x, z, sz] of [[-700 + PTDX, -260, 30], [-860 + PTDX, 300, 28], [-560 + PTDX, 330, 22]]) smokeColumn(x, z, sz, false);   // and a few more fires smoking in the town
+  { const prev = scene.onBeforeRender, day = (FOG_DAY_REF.r + FOG_DAY_REF.g + FOG_DAY_REF.b) || 1; let last = performance.now() / 1000;
+    scene.onBeforeRender = function (...a) { prev.apply(this, a); if (!grp.visible) return; const t = performance.now() / 1000, dt = Math.min(0.1, t - last); last = t;
+      const fc = scene.fog.color, k = clamp((fc.r + fc.g + fc.b) / day, 0.18, 1); TOWN_SMOKE.value.setRGB(0.45 * k, 0.44 * k, 0.43 * k);   /* the smoke darkens with the light at dusk */
+      for (const q of list) { const d = Math.sin(t * 0.03 + q.ph) * 10; q.sp.position.set(q.x + WIND.x * d, q.y + Math.sin(t * 0.06 + q.ph) * 1.2, q.z + WIND.z * d); q.sp.material.rotation += q.rs * dt;
+        q.sp.scale.setScalar(q.sc * (0.94 + 0.06 * Math.sin(t * 0.09 + q.ph * 3))); q.sp.material.color.copy(q.c0).multiplyScalar(k); } }; }
+  for (const [x, z, sz] of [[-700 + PTDX, -260, 30], [-860 + PTDX, 300, 28], [-560 + PTDX, 330, 22]]) smokeColumn(x, z, sz, false);   // and fires smoking in the town
 }
 function buildTowns() {
   const r = rng(31); const WALLS = [[0.86, 0.83, 0.76], [0.82, 0.71, 0.53], [0.88, 0.80, 0.62], [0.72, 0.70, 0.66], [0.79, 0.75, 0.68]];

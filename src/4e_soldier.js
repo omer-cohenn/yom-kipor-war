@@ -268,16 +268,18 @@ function nsWebTex() {
    beard or days of stubble, heavier brows, the lines of a reservist in his forties; and the face itself moved a few millimetres - a bigger
    nose, a wider jaw, a longer chin, fuller cheeks - in the head's own (bind) frame, before the skin follows the bones. Read in that frame:
    the chin at y .565, the lips .607-.627, the nose's tip .65 (z .153), the eyes .67-.70, the brows .705-.72, the front +z */
-const NS_MORPH_FN = `uniform vec4 uMorph;
+const NS_MORPH_FN = `uniform vec4 uMorph, uMorph2;   /* nose, jaw, chin, cheeks | face width, brow ridge, lips, face length */
 vec3 nsMorph(vec3 p) {
-  vec3 d = vec3(0.0), nt = p - vec3(0.0, 0.655, 0.128); float wn = exp(-dot(nt * vec3(28.0, 26.0, 24.0), nt * vec3(28.0, 26.0, 24.0))) * step(0.1, p.z);
-  d += vec3(nt.x * 0.55, -0.003, max(nt.z, 0.0) * 0.8 + 0.003) * wn * uMorph.x;
-  float wj = (1.0 - smoothstep(0.6, 0.655, p.y)) * smoothstep(0.53, 0.565, p.y) * smoothstep(-0.03, 0.06, p.z);
-  d.x += p.x * 0.16 * uMorph.y * wj;
-  float wc = (1.0 - smoothstep(0.58, 0.612, p.y)) * smoothstep(0.06, 0.11, p.z) * (1.0 - smoothstep(0.025, 0.055, abs(p.x)));
-  d += vec3(0.0, -0.007, 0.006) * uMorph.z * wc;
-  float wk = exp(-pow((p.y - 0.642) / 0.022, 2.0)) * smoothstep(0.028, 0.055, abs(p.x)) * (1.0 - smoothstep(0.075, 0.09, abs(p.x))) * smoothstep(0.0, 0.07, p.z);
-  d += vec3(sign(p.x) * 0.005, 0.0, 0.004) * uMorph.w * wk;
+  vec3 d = vec3(0.0); float fr = smoothstep(-0.02, 0.06, p.z);
+  vec3 nt = p - vec3(0.0, 0.655, 0.128); float wn = exp(-dot(nt * vec3(26.0, 24.0, 22.0), nt * vec3(26.0, 24.0, 22.0))) * step(0.1, p.z);
+  d += vec3(nt.x * 0.9, -0.004, max(nt.z, 0.0) * 1.3 + 0.004) * wn * uMorph.x;
+  float wj = (1.0 - smoothstep(0.6, 0.655, p.y)) * smoothstep(0.53, 0.565, p.y) * fr; d.x += p.x * 0.3 * uMorph.y * wj;
+  float wc = (1.0 - smoothstep(0.58, 0.615, p.y)) * smoothstep(0.06, 0.11, p.z) * (1.0 - smoothstep(0.025, 0.055, abs(p.x))); d += vec3(0.0, -0.012, 0.01) * uMorph.z * wc;
+  float wk = exp(-pow((p.y - 0.642) / 0.024, 2.0)) * smoothstep(0.026, 0.055, abs(p.x)) * (1.0 - smoothstep(0.078, 0.095, abs(p.x))) * smoothstep(0.0, 0.07, p.z); d += vec3(sign(p.x) * 0.009, 0.0, 0.006) * uMorph.w * wk;
+  float wf = smoothstep(0.55, 0.58, p.y) * (1.0 - smoothstep(0.7, 0.74, p.y)) * smoothstep(-0.04, 0.04, p.z); d.x += p.x * 0.09 * uMorph2.x * wf;
+  float wb = exp(-pow((p.y - 0.712) / 0.012, 2.0)) * (1.0 - smoothstep(0.05, 0.07, abs(p.x))) * smoothstep(0.08, 0.11, p.z); d.z += 0.006 * uMorph2.y * wb;
+  float wl = exp(-pow((p.y - 0.617) / 0.009, 2.0)) * (1.0 - smoothstep(0.02, 0.032, abs(p.x))) * smoothstep(0.1, 0.125, p.z); d += vec3(p.x * 0.15, (p.y - 0.617) * 0.35, 0.004) * uMorph2.z * wl;
+  float wy = (1.0 - smoothstep(0.62, 0.66, p.y)) * smoothstep(0.5, 0.56, p.y) * fr; d.y -= 0.012 * uMorph2.w * wy * clamp((0.66 - p.y) / 0.1, 0.0, 1.0);
   return d;
 }`;
 const NS_FACE = `{ vec3 b = vBindP; float ax = abs(b.x), front = smoothstep(0.07, 0.11, b.z);
@@ -294,23 +296,38 @@ const NS_FACE = `{ vec3 b = vBindP; float ax = abs(b.x), front = smoothstep(0.07
   float lines = fore * smoothstep(0.8, 1.0, sin(b.y * 1050.0 + sin(b.x * 70.0) * 1.5));
   float crow = smoothstep(0.052, 0.057, ax) * (1.0 - smoothstep(0.07, 0.076, ax)) * smoothstep(0.674, 0.678, b.y) * (1.0 - smoothstep(0.698, 0.702, b.y)) * smoothstep(0.8, 1.0, sin((b.y + ax * 0.7) * 1000.0));
   float bags = smoothstep(0.012, 0.02, ax) * (1.0 - smoothstep(0.05, 0.058, ax)) * exp(-pow((b.y - 0.668) / 0.006, 2.0)) * front;
-  diffuseColor.rgb *= 1.0 - uAge * (0.28 * (lines + crow) + 0.12 * bags); }`;
+  diffuseColor.rgb *= 1.0 - uAge * (0.28 * (lines + crow) + 0.12 * bags);
+  /* the depths of the face a shade darker, as light falls into them: the eye sockets and under the brows, the folds from the nose to the
+     mouth, under the nose and the lower lip, the sides of the nose, under the chin */
+  float eye = exp(-pow((ax - 0.034) / 0.024, 2.0) - pow((b.y - 0.688) / 0.016, 2.0)) * front;
+  float ubrow = smoothstep(0.014, 0.02, ax) * (1.0 - smoothstep(0.05, 0.058, ax)) * exp(-pow((b.y - 0.703) / 0.004, 2.0)) * front;
+  vec2 q = vec2(ax, b.y) - vec2(0.021, 0.641), sd = vec2(0.011, -0.028); float hq = clamp(dot(q, sd) / dot(sd, sd), 0.0, 1.0); float nl = (1.0 - smoothstep(0.0015, 0.005, length(q - sd * hq))) * front;
+  float subn = (1.0 - smoothstep(0.012, 0.02, ax)) * exp(-pow((b.y - 0.634) / 0.003, 2.0)) * front, ulip = (1.0 - smoothstep(0.018, 0.026, ax)) * exp(-pow((b.y - 0.603) / 0.003, 2.0)) * front;
+  float under = 1.0 - smoothstep(0.555, 0.578, b.y), nside = smoothstep(0.009, 0.014, ax) * (1.0 - smoothstep(0.02, 0.026, ax)) * smoothstep(0.636, 0.645, b.y) * (1.0 - smoothstep(0.672, 0.68, b.y)) * front;
+  nsAO = clamp(0.36 * eye + 0.3 * ubrow + 0.32 * nl + 0.3 * subn + 0.25 * ulip + 0.28 * under + 0.15 * nside, 0.0, 0.6) * 0.4; diffuseColor.rgb *= 1.0 - nsAO; }`;
 /* who they are: [skin, [moustache, beard, stubble, brows], hair colour, [nose, jaw, chin, cheeks], age]. Ours: the base face, a Mizrahi
    moustache, a freckled redhead, a reservist in his forties, a bearded boy; theirs (over the Egyptian head, moustached already): the base,
-   a dark Upper Egyptian, a fair man unshaven, a thin conscript, a greying sergeant with a beard */
-const NS_FACES = {
-  f: [null, [[0.88, 0.8, 0.72], [1.0, 0, 0.35, 0.6], [0.025, 0.02, 0.016], [0.6, 0.25, 0, 0.1], 0.15], [[1.06, 0.98, 0.94], [0, 0, 0.45, 0.3], [0.16, 0.07, 0.03], [-0.25, -0.3, 0.5, -0.2], 0],
-      [[0.96, 0.9, 0.84], [0.35, 0, 0.9, 0.5], [0.12, 0.11, 0.1], [0.3, 0.6, -0.2, 0.6], 0.85], [[0.93, 0.86, 0.8], [0.6, 0.85, 0, 0.5], [0.03, 0.022, 0.015], [0.2, 0.1, 0.3, -0.3], 0]],
-  e: [null, [[0.72, 0.64, 0.58], [0.3, 0, 0.4, 0.5], [0.02, 0.016, 0.012], [0.5, 0.35, 0, 0.2], 0.1], [[1.05, 1.0, 0.95], [0, 0, 0.9, 0.7], [0.03, 0.022, 0.016], [-0.2, 0.4, -0.3, 0.3], 0.2],
-      [[0.9, 0.84, 0.78], [0, 0, 0.25, 0.3], [0.02, 0.016, 0.012], [0.1, -0.45, 0.45, -0.5], 0], [[0.84, 0.76, 0.7], [0.8, 0.7, 0, 0.8], [0.09, 0.085, 0.08], [0.4, 0.5, -0.1, 0.5], 0.9]],
+   a black Sudanese, a fair man unshaven, a thin conscript, a greying sergeant with a beard */
+const NS_FACES = {   /* [skin, [moustache, beard, stubble, brows], hair colour, [nose, jaw, chin, cheeks], age, [face width, brow ridge, lips, face length]] */
+  f: [[[1, 1, 1], [0, 0, 0, 0], [0.03, 0.022, 0.016], [0, 0, 0, 0], 0, [0, 0, 0, 0]],
+      [[0.82, 0.72, 0.62], [1.0, 0, 0.3, 0.9], [0.022, 0.017, 0.013], [1.0, 0.4, 0, 0], 0.15, [0.5, 0.6, 0.6, 0]],
+      [[1.1, 1.0, 0.95], [0, 0, 0.6, 0.6], [0.3, 0.1, 0.03], [-0.6, -0.6, 0.9, -0.4], 0, [-0.6, 0, -0.4, 0.8]],
+      [[0.95, 0.86, 0.78], [0.5, 0, 1.0, 0.6], [0.1, 0.095, 0.09], [0.4, 1.0, -0.4, 1.0], 1.0, [0.8, 0.4, 0, -0.4]],
+      [[0.9, 0.82, 0.74], [0.8, 1.0, 0, 0.5], [0.028, 0.02, 0.014], [0.3, 0.2, 0.4, -0.6], 0, [-0.3, 0.8, 0.3, 0.4]]],
+  e: [[[1, 1, 1], [0, 0, 0, 0], [0.02, 0.016, 0.012], [0, 0, 0, 0], 0, [0, 0, 0, 0]],
+      [[0.12, 0.1, 0.1], [0, 0, 0.4, 0.6], [0.012, 0.01, 0.008], [0.9, 0.6, -0.2, 0.2], 0.1, [0.6, 0.5, 1.0, -0.2]],   // a Sudanese - Sudan sent troops to the canal
+      [[1.08, 1.0, 0.94], [0, 0, 1.0, 0.9], [0.03, 0.022, 0.016], [-0.3, 0.8, -0.5, 0.5], 0.2, [0.4, 0.2, -0.2, -0.5]],
+      [[0.85, 0.77, 0.7], [0, 0, 0.3, 0.4], [0.02, 0.016, 0.012], [0.5, -0.9, 0.8, -1.0], 0, [-0.8, 0.3, -0.3, 1.0]],
+      [[0.8, 0.71, 0.64], [1.0, 0.9, 0, 1.0], [0.12, 0.115, 0.11], [0.6, 0.7, 0, 0.8], 1.0, [0.7, 0.7, 0.2, 0]]],
 };
+const NS_FACE_K = 0.2;   /* the features are moved only a fifth of the way: men who differ, not caricatures */
 function nsFaceMat(m, V) {   // m: a skin material over the head's photograph
   nsBindPaint(m, NS_FACE, 'face'); const prev = m.onBeforeCompile, key = m.customProgramCacheKey();
-  const U = { uSkin: { value: new THREE.Vector3(...V[0]) }, uHair: { value: new THREE.Vector4(...V[1]) }, uHairC: { value: new THREE.Vector3(...V[2]) }, uMorph: { value: new THREE.Vector4(...V[3]) }, uAge: { value: V[4] } };
+  const U = { uSkin: { value: new THREE.Vector3(...V[0]) }, uHair: { value: new THREE.Vector4(...V[1]) }, uHairC: { value: new THREE.Vector3(...V[2]) }, uMorph: { value: new THREE.Vector4(...V[3]).multiplyScalar(NS_FACE_K) }, uAge: { value: V[4] * 0.5 }, uMorph2: { value: new THREE.Vector4(...V[5]).multiplyScalar(NS_FACE_K) } };
   m.onBeforeCompile = (sh, r) => { prev.call(m, sh, r); Object.assign(sh.uniforms, U);
     sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\n' + NS_MORPH_FN).replace('#include <begin_vertex>', '#include <begin_vertex>\ntransformed += nsMorph(position);');
-    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform vec3 uSkin; uniform vec4 uHair; uniform vec3 uHairC; uniform float uAge; float nsHairK = 0.0;')
-      .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\ntotalEmissiveRadiance *= uSkin * (1.0 - 0.9 * nsHairK);'); };
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform vec3 uSkin; uniform vec4 uHair; uniform vec3 uHairC; uniform float uAge; float nsHairK = 0.0, nsAO = 0.0;')
+      .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\ntotalEmissiveRadiance *= uSkin * (1.0 - 0.9 * nsHairK) * (1.0 - nsAO);'); };
   m.customProgramCacheKey = () => key + '|fv'; return m;
 }
 function nsMaterials() {
@@ -332,9 +349,9 @@ function nsMaterials() {
   const e2 = e.slice(); e2[8] = NEWSOL.helm.net;   // one man in three bare-helmeted under a net
   // a set of the materials for each face: only the head and the hands differ (the hands take the face's skin)
   const tintOf = (hex, V) => (V ? new THREE.Color(hex).multiply(new THREE.Color(V[0][0], V[0][1], V[0][2])) : new THREE.Color(hex));
-  const faces = (base, side, hmap) => NS_FACES[side].map((V) => { if (!V) return base; const a = base.slice(), t0 = side === 'e' ? 0xf0d5ba : 0xffffff;
+  const faces = (base, side, hmap) => NS_FACES[side].map((V, i) => { const a = i ? base.slice() : base, t0 = side === 'e' ? 0xf0d5ba : 0xffffff;
     a[3] = nsFaceMat(skin(hmap, tintOf(t0, V)), V); a[4] = skin(hands, tintOf(t0, V)); a[3].userData.face = V; a[4].userData.face = V; return a; });
-  const fv = faces(f, 'f', head), ev = faces(e, 'e', headAr), e2v = ev.map((a) => { const b = a.slice(); b[8] = NEWSOL.helm.net; return b; }); e2v[0] = e2;
+  const fv = faces(f, 'f', head), ev = faces(e, 'e', headAr), e2v = ev.map((a) => { const b = a.slice(); b[8] = NEWSOL.helm.net; return b; });
   NEWSOL.mats = { f, e, e2, fv, ev, e2v }; nsUniformFor(MODE); return NEWSOL.mats;
 }
 /* the enemy's uniform with the chapter: the Syrians on the Hermon in their forest pattern, the Egyptians everywhere else in khaki */
