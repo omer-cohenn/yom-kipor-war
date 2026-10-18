@@ -67,6 +67,7 @@ function makeGround(d) {
 }
 function showWorld(mode) {
   PROPS.cur = mode; if (mode !== 'suez') szClarityOff();
+  TOWN_FOG.value = mode === 'mezach' ? 1.9 : 1; if (TOWN_HAZE) TOWN_HAZE.visible = mode === 'mezach';   /* the haze of the first day over the town across the canal */
   const lists = { mezach: SZ.mezObjs, suez: SZ.objs }; for (const k in CHAP) if (k !== 'mezach' && k !== 'suez') lists[k] = CHAP[k].objs || [];
   for (const v of VEH) if (v.tag) v.tag.visible = false;
   for (const k in lists) if (k !== mode) for (const o of lists[k]) o.visible = false;

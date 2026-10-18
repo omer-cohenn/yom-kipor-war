@@ -581,6 +581,9 @@ class Rig {
   arms(sr, er, sl, el, srz = 0.3, slz = -0.5) { this.T.arms = [sr, er, sl, el, srz, slz]; this.T.ik = false; }
   gunAt(px, py, pz, rx, ry, rz) { const G = this.T.gun; G[0] = px; G[1] = py; G[2] = pz; G[3] = rx; G[4] = ry; G[5] = rz; }
   pose(kind, t, pitch = 0) {
+    // no running on the spot: a man who is not getting anywhere (blocked, or jostling back and forth) stands - or crouches, if he was running low
+    if ((kind === 'run' || kind === 'walk' || kind === 'crun') && this.spd !== undefined) { this.stillT = this.spd < 0.35 ? (this.stillT || 0) + FDT : 0; if (this.stillT > 0.25) kind = kind === 'crun' ? 'crouch' : 'idle'; }
+    else this.stillT = 0;
     const R = this, T = R.T; R.hYaw = 0; T.rootX = 0; T.hipsY = 0.93; T.hipsX = 0; T.hipsZ = 0; T.hipsYaw = 0; T.torsoX = 0; T.torsoY = 0; T.torsoZ = 0; T.arms = null; T.ik = true;
     if (kind === 'run' || kind === 'walk' || kind === 'crun') {
       // the stride: legs swing, the pelvis rolls and yaws with them, the shoulders turn against the hips, the whole body leans into the run;
@@ -620,6 +623,10 @@ class Rig {
       R.arms(-0.2 + Math.sin(t * 2) * 0.15, -0.6, -2.4 + Math.sin(t * 1.7) * 0.3, -0.5, 0.2, -0.2); R.gunAt(0.3, 0.1, -0.4, 0, 0.8, 1.4);
     } else if (kind === 'throw') {
       R.legs(-0.3, 0.2, 0.3, 0.1); T.torsoX = -0.1 + t * 0.4; T.torsoY = -0.2 + t * 0.35; R.arms(-2.6 + t * 2.5, -0.4, -0.8, -0.8, 0.2, -0.4); R.gunAt(0.05, 0.25, 0.2, -0.9, 0.4, 0);
+    }
+    // a wall right in front of him: the rifle comes up, upright before his chest, instead of going into the wall
+    if (R.gunUp && R.wkind !== 'rpg' && (kind === 'aim' || kind === 'crouch' || kind === 'idle' || kind === 'walk' || kind === 'run' || kind === 'crun')) {
+      R.gunAt(-0.02, kind === 'crouch' ? 0.36 : 0.4, 0.15, -1.3, 0.22, 0); R.hYaw = 0; if (R.nsOn && (kind === 'aim' || kind === 'crouch')) T.torsoY = 0;
     }
     R.apply(kind);
   }
@@ -733,6 +740,14 @@ class Unit {
     this.rig.root.position.copy(this.pos); if (this.fall >= 0) this.rig.root.position.y += (this.fallDir < 0 ? 0.16 : 0.12) * clamp(this.fall / 0.55, 0, 1);   /* lying, he rests on his back, or on his chest (the deeper side) */
     if (this.snapHd || this.hdV === undefined || REDUCED) { this.hdV = this.heading; this.snapHd = false; } else this.hdV += wrapPi(this.heading - this.hdV) * (1 - Math.exp(-FDT * 12));
     this.rig.root.rotation.y = this.hdV;
+    // how fast he really moves (over the last half second: a man jostling on the spot is not moving), and whether his rifle would go into a wall
+    { let now = 0; try { now = GAME.t; } catch (e) { /* (a man set up while the world is built, before the game exists) */ } const tk = this.trk || (this.trk = []); const L = tk[tk.length - 1];
+      if (!L || now - L[0] >= 0.1 || now < L[0]) { if (L && now < L[0]) tk.length = 0; tk.push([now, this.pos.x, this.pos.z]); while (tk.length > 1 && now - tk[0][0] > 0.55) tk.shift(); }
+      const o = tk[0], dtt = now - o[0]; this.rig.spd = dtt > 0.08 ? Math.hypot(this.pos.x - o[1], this.pos.z - o[2]) / dtt : undefined;
+      this.gwT = (this.gwT || 0) - FDT;
+      if (this.gwT <= 0) { this.gwT = 0.12 + Math.random() * 0.06; let up = false;
+        if (this.alive && this.fall < 0 && this.rig.root.visible && this.stance !== 'hide' && camera.position.distanceTo(this.pos) < 45) { const c = this.chest(), sh = Math.sin(this.heading), ch = Math.cos(this.heading), y = c.y + 0.12; up = segHitT(c.x + sh * 0.12, y, c.z + ch * 0.12, c.x + sh * 1.0, y, c.z + ch * 1.0) >= 0; }
+        this.rig.gunUp = up; } }
     const far = camera.position.distanceTo(this.pos), hid = this.stance === 'hide' && this.side === 'e' && MODE !== 'mezach';
     { const eff = far * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2) / 0.7265 / (this.vs || 1), lv = this.rig.lod; let want = eff < QLOD[0] ? 0 : eff < QLOD[1] ? 1 : 2;
       if (want < lv && eff > QLOD[want] * 0.9) want = lv; this.rig.setLOD(want); }

@@ -128,7 +128,7 @@ function hmBuildKit() {
   K.fm = (name, lx, lz, y, ry = 0, solid = false, sc = 1, set = K.mdl) => {
     if (!mdlHas(name)) return y; const b = mdlBox(name), s = Array.isArray(sc) ? sc : [sc, sc, sc], [wx, wz] = HW(lx, lz);
     (set[name] = set[name] || []).push(M4(wx, y, wz, 0, ry, 0, s[0], s[1], s[2]));
-    if (solid) addCollider(wx, wz, b[0] * s[0] / 2, b[2] * s[2] / 2, ry, y + b[1] * s[1], y);
+    if (solid) (OPEN_FURN.test(name) ? addOpenCollider : addCollider)(wx, wz, b[0] * s[0] / 2, b[2] * s[2] / 2, ry, y + b[1] * s[1], y);
     return y + b[1] * s[1];
   };
   // the same knocked over: tipped rx about its own x axis and rz about its own z, then turned ry; it rests on its lowest corner. solid: a collider
@@ -138,7 +138,11 @@ function hmBuildKit() {
     if (!mdlHas(name)) return; const b = mdlBox(name), [wx, wz] = HW(lx, lz), lo = [1e9, 1e9, 1e9], hi = [-1e9, -1e9, -1e9]; _q.setFromEuler(_e.set(rx, 0, rz, 'XYZ'));
     for (const sx of [-0.5, 0.5]) for (const sy of [0, 1]) for (const sz of [-0.5, 0.5]) { _v.set(sx * b[0], sy * b[1], sz * b[2]).applyQuaternion(_q); for (let k = 0; k < 3; k++) { lo[k] = Math.min(lo[k], _v.getComponent(k)); hi[k] = Math.max(hi[k], _v.getComponent(k)); } }
     const m = _my.makeRotationY(ry).clone().multiply(_mt.makeRotationFromQuaternion(_q)); m.setPosition(wx, y - lo[1], wz); (set[name] = set[name] || []).push(m);
-    if (solid) { const cx = (lo[0] + hi[0]) / 2, cz = (lo[2] + hi[2]) / 2, c = Math.cos(ry), s = Math.sin(ry); addCollider(wx + cx * c + cz * s, wz - cx * s + cz * c, (hi[0] - lo[0]) / 2, (hi[2] - lo[2]) / 2, ry, y + hi[1] - lo[1], y); }
+    if (solid) { const cx = (lo[0] + hi[0]) / 2, cz = (lo[2] + hi[2]) / 2, c = Math.cos(ry), s = Math.sin(ry); const k = addCollider(wx + cx * c + cz * s, wz - cx * s + cz * c, (hi[0] - lo[0]) / 2, (hi[2] - lo[2]) / 2, ry, y + hi[1] - lo[1], y);
+      // what stops a round is the top, standing on its edge now, not the box round the legs behind it: a second box round the top alone
+      if (OPEN_FURN.test(name) && b[1] > 0.12) { k.noShot = true; const l2 = [1e9, 1e9, 1e9], h2 = [-1e9, -1e9, -1e9], y0 = 1 - 0.07 / b[1];
+        for (const sx of [-0.5, 0.5]) for (const sy of [y0, 1]) for (const sz of [-0.5, 0.5]) { _v.set(sx * b[0], sy * b[1], sz * b[2]).applyQuaternion(_q); for (let q = 0; q < 3; q++) { l2[q] = Math.min(l2[q], _v.getComponent(q)); h2[q] = Math.max(h2[q], _v.getComponent(q)); } }
+        const tx = (l2[0] + h2[0]) / 2, tz = (l2[2] + h2[2]) / 2; addCollider(wx + tx * c + tz * s, wz - tx * s + tz * c, (h2[0] - l2[0]) / 2, (h2[2] - l2[2]) / 2, ry, y + h2[1] - lo[1], y + l2[1] - lo[1]).noMove = true; } }
   };
   // a pile of crates: layers of the long weapons crates n side by side, then ammunition boxes, each a little askew; it blocks. Returns its top
   const jr = rng(2311);

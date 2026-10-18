@@ -673,13 +673,13 @@ function buildCornerBuilding() {
   }
   const B = (x, y, z, w, h, d, c) => deco(new THREE.BoxGeometry(w, h, d).translate(X(x), y, Z(z)), c);
   // a solid piece: it blocks up to its top and, with cover, gives cover points round it that belong to its floor
-  const solid = (x, z, hx, hz, rot, y, h, f, cover) => { addCollider(X(x), Z(z), hx, hz, rot, y + h, y - 0.1); if (!cover) return; const k0 = COVER.length; coverBox(X(x), Z(z), hx, hz, rot, h); for (let i = k0; i < COVER.length; i++) { COVER[i].y = FY(f); COVER[i].floor = f; SZ.covers.push(COVER[i]); } };
+  const solid = (x, z, hx, hz, rot, y, h, f, cover, open = false) => { if (open) addOpenCollider(X(x), Z(z), hx, hz, rot, y + h, y - 0.1); else addCollider(X(x), Z(z), hx, hz, rot, y + h, y - 0.1); if (!cover) return; const k0 = COVER.length; coverBox(X(x), Z(z), hx, hz, rot, h); for (let i = k0; i < COVER.length; i++) { COVER[i].y = FY(f); COVER[i].floor = f; SZ.covers.push(COVER[i]); } };
   // a model: x, z in the plan, on floor f (y0 over it), turned ry (0: its front to the street). block 1: it blocks, sized from the model's own box;
   // 2: and gives cover. Each copy is an instance, all of a model drawn at once at the end. Returns the height of its top (0 when the build lacks it)
   const fm = (name, x, z, f, ry = 0, block = 0, y0 = 0) => {
     if (!mdlHas(name)) return 0; const b = mdlBox(name), y = FY(f) + y0;
     (FM[name] = FM[name] || []).push(M4(X(x), y, Z(z), 0, ry, 0));
-    if (block) solid(x, z, b[0] / 2, b[2] / 2, ry, y, b[1], f, block > 1);
+    if (block) solid(x, z, b[0] / 2, b[2] / 2, ry, y, b[1], f, block > 1, OPEN_FURN.test(name));
     return y0 + b[1];
   };
   // a pile: layers of the long weapons crates two side by side, then ammunition boxes on top, each a little askew. It blocks; returns its height

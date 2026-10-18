@@ -159,10 +159,17 @@ function addCollider(x, z, hx, hz, rot, top, bot = -1e9) {
   for (let i = Math.floor((x - r) / CG); i <= Math.floor((x + r) / CG); i++) for (let j = Math.floor((z - r) / CG); j <= Math.floor((z + r) / CG); j++) { let a = CGRID.get(cgk(i, j)); if (!a) CGRID.set(cgk(i, j), (a = [])); a.push(k); }
   return k;
 }
+/* open furniture - a table, a bench, a bed: a man cannot walk through it, but a round goes under its top and between its legs. So two boxes:
+   the whole of it for walking (not for bullets or eyes), and only its top for bullets and eyes */
+function addOpenCollider(x, z, hx, hz, rot, top, bot, slab = 0.07) {
+  const k = addCollider(x, z, hx, hz, rot, top, bot); k.noShot = true;
+  const t = addCollider(x, z, hx, hz, rot, top, top - slab); t.noMove = true; return k;
+}
+const OPEN_FURN = /table|bench|chair|stool|bed|cot/;
 function blocked(x, z, r, feet) {
   const a = CGRID.get(cgk(Math.floor(x / CG), Math.floor(z / CG))); if (!a) return false;
   for (const k of a) {
-    if (k.top < feet + 0.45 || k.bot > feet + 1.5) continue;
+    if (k.noMove || k.top < feet + 0.45 || k.bot > feet + 1.5) continue;
     const dx = x - k.x, dz = z - k.z; const lx = dx * k.c - dz * k.s, lz = dx * k.s + dz * k.c;
     if (Math.abs(lx) < k.hx + r && Math.abs(lz) < k.hz + r) return true;
   }
@@ -181,7 +188,7 @@ function segHitT(ax, ay, az, bx, by, bz, skipNear = 0) {
   const dx = bx - ax, dz = bz - az, L = Math.hypot(dx, dz), n = Math.max(1, Math.ceil(L / (CG * 0.8))); const seen = new Set(); let best = 2;
   for (let st = 0; st <= n; st++) {
     const t = st / n; if (best < t - 0.2) break; const ci = Math.floor((ax + dx * t) / CG), cj = Math.floor((az + dz * t) / CG); const a = CGRID.get(cgk(ci, cj)); if (!a) continue;
-    for (const k of a) { if (seen.has(k)) continue; seen.add(k); const h = segBoxT(k, ax, ay, az, bx, by, bz); if (h >= 0 && h < best && h * L > skipNear) best = h; }
+    for (const k of a) { if (seen.has(k) || k.noShot) continue; seen.add(k); const h = segBoxT(k, ax, ay, az, bx, by, bz); if (h >= 0 && h < best && h * L > skipNear) best = h; }
   }
   return best <= 1 ? best : -1;
 }
@@ -845,6 +852,35 @@ function buildWaterfront() {
   const mat = new THREE.MeshStandardMaterial({ vertexColors: true, map: T, roughness: 0.95 }); scene.add(SH(onLayer1(new THREE.Mesh(build(parts), mat)), true, false));
   if (dark.length) scene.add(onLayer1(new THREE.Mesh(build(dark), MAT.vc)));
 }
+/* the towns across the canal through the haze of the first day: the dust and smoke of the barrage hang over Port Tewfik and Suez. In the
+   stronghold's mission their houses take the haze faster than the open desert (a heavier fog on them alone: they are silhouettes, not boxes),
+   and soft banks of dust and smoke drift low in front of them and over their roofs, slowly, with the wind */
+const TOWN_FOG = { value: 1 }; let TOWN_HAZE = null;
+function townMat() {
+  if (MAT.townWall) return MAT.townWall; const m = MAT.wall.clone();
+  m.onBeforeCompile = (sh) => { sh.uniforms.uFogK = TOWN_FOG; sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform float uFogK;')
+    .replace('#include <fog_fragment>', '#ifdef USE_FOG\n#ifdef FOG_EXP2\nfloat fogFactor = 1.0 - exp(-fogDensity * fogDensity * uFogK * uFogK * vFogDepth * vFogDepth);\n#else\nfloat fogFactor = smoothstep(fogNear, fogFar / uFogK, vFogDepth);\n#endif\ngl_FragColor.rgb = mix(gl_FragColor.rgb, fogColor, fogFactor);\n#endif'); };
+  m.customProgramCacheKey = () => 'townFog'; return (MAT.townWall = m);
+}
+function hazeTex() {
+  const W = 256, H = 96, c = canvas(W, H), g = c.getContext('2d'), r = rng(4417);
+  for (let i = 0; i < 70; i++) { const x = W * (0.12 + r() * 0.76), y = H * (0.35 + r() * 0.35), rad = H * (0.18 + r() * 0.3), gr = g.createRadialGradient(x, y, 0, x, y, rad);
+    gr.addColorStop(0, `rgba(255,255,255,${0.1 + r() * 0.1})`); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.beginPath(); g.arc(x, y, rad, 0, 6.2832); g.fill(); }
+  const t = tex(c); return t;
+}
+function townHaze() {
+  const grp = new THREE.Group(), T = hazeTex(), r = rng(9203), list = [];
+  const bank = (n, x0, x1, y0, y1, w, h, op, col) => { for (let i = 0; i < n; i++) { const x = lerp(x0, x1, r()), z = -560 + (i + r() * 0.6) * (1000 / n), y = Math.max(groundAt(x, z), 0) + lerp(y0, y1, r());
+    const m = new THREE.SpriteMaterial({ map: T, color: col, transparent: true, opacity: op * (0.75 + r() * 0.4), depthWrite: false }); const sp = new THREE.Sprite(m); sp.scale.set(w * (0.8 + r() * 0.5), h * (0.8 + r() * 0.4), 1); sp.position.set(x, y, z); sp.material.rotation = (r() - 0.5) * 0.08;
+    grp.add(sp); list.push({ sp, x, z, y, op: m.opacity, ph: r() * 6.28 }); } };
+  bank(8, -400, -470, 9, 17, 250, 55, 0.5, 0xd2c6aa);   // low along the far bank's ramparts, behind them
+  bank(8, -600, -760, 16, 30, 320, 85, 0.55, 0xc9bda2);   // through the middle of the town
+  bank(6, -560, -880, 40, 60, 380, 70, 0.32, 0xb9b0a0);   // smoke over the roofs
+  grp.visible = false; scene.add(grp); TOWN_HAZE = grp;
+  { const prev = scene.onBeforeRender; scene.onBeforeRender = function (...a) { prev.apply(this, a); if (!grp.visible) return; const t = performance.now() / 1000;
+    for (const q of list) { const d = Math.sin(t * 0.021 + q.ph) * 18; q.sp.position.set(q.x + WIND.x * d, q.y + Math.sin(t * 0.05 + q.ph) * 1.5, q.z + WIND.z * d); q.sp.material.opacity = q.op * (0.85 + 0.15 * Math.sin(t * 0.07 + q.ph * 2)); } }; }
+  for (const [x, z, sz] of [[-700 + PTDX, -260, 30], [-860 + PTDX, 300, 28], [-560 + PTDX, 330, 22]]) smokeColumn(x, z, sz, false);   // and a few more fires smoking in the town
+}
 function buildTowns() {
   const r = rng(31); const WALLS = [[0.86, 0.83, 0.76], [0.82, 0.71, 0.53], [0.88, 0.80, 0.62], [0.72, 0.70, 0.66], [0.79, 0.75, 0.68]];
   const pt = [];
@@ -855,7 +891,7 @@ function buildTowns() {
     const ruined = r() < 0.2; pt.push({ x: jx, z: jz, w: 10 + r() * 8, d: 9 + r() * 6, h: ruined ? 1.8 + r() * 2.5 : 6 + r() * 5, rot: (r() - .5) * 0.06, c: ruined ? [0.5, 0.47, 0.42] : pick(WALLS) });
   }
   buildWaterfront();
-  instBoxes(pt);
+  instBoxes(pt).material = townMat(); townHaze();
   const suez = [];
   for (let x = -5200; x <= -1250; x += 40) for (let z = -5600; z <= -1700; z += 40) {
     const dc = Math.hypot(x + 2700, z + 3100); if (r() > 0.85 * Math.exp(-dc / 2300)) continue;
@@ -863,7 +899,7 @@ function buildTowns() {
     const ruined = r() < 0.14; suez.push({ x: jx, z: jz, w: 12 + r() * 12, d: 12 + r() * 12, h: ruined ? 2 + r() * 3 : 5 + r() * r() * 16, rot: 0.31 + (r() - .5) * 0.05, c: ruined ? [0.48, 0.45, 0.4] : pick(WALLS) });
     if (suez.length > (LITE ? 450 : 1800)) break;
   }
-  instBoxes(suez);
+  instBoxes(suez).material = townMat();
   const pl = [];
   for (let z = -470; z <= 380; z += LITE ? 34 : 19) { let x = -470 + PTDX; while (x > -600 + PTDX && groundAt(x, z) < 1.0) x -= 2; if (x <= -600 + PTDX) continue; pl.push([x - 5 - r() * 7, z + (r() - 0.5) * 6, 0.8 + r() * 0.45, r() * 6.28]); }
   for (let i = 0; i < (LITE ? 20 : 70); i++) { const x = -560 + PTDX - r() * 480, z = -520 + r() * 900; if (inPoly(x, z, PT_ZONE) && groundAt(x, z) > 0.9) pl.push([x, z, 0.75 + r() * 0.4, r() * 6.28]); }

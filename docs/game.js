@@ -903,10 +903,17 @@ function addCollider(x, z, hx, hz, rot, top, bot = -1e9) {
   for (let i = Math.floor((x - r) / CG); i <= Math.floor((x + r) / CG); i++) for (let j = Math.floor((z - r) / CG); j <= Math.floor((z + r) / CG); j++) { let a = CGRID.get(cgk(i, j)); if (!a) CGRID.set(cgk(i, j), (a = [])); a.push(k); }
   return k;
 }
+/* open furniture - a table, a bench, a bed: a man cannot walk through it, but a round goes under its top and between its legs. So two boxes:
+   the whole of it for walking (not for bullets or eyes), and only its top for bullets and eyes */
+function addOpenCollider(x, z, hx, hz, rot, top, bot, slab = 0.07) {
+  const k = addCollider(x, z, hx, hz, rot, top, bot); k.noShot = true;
+  const t = addCollider(x, z, hx, hz, rot, top, top - slab); t.noMove = true; return k;
+}
+const OPEN_FURN = /table|bench|chair|stool|bed|cot/;
 function blocked(x, z, r, feet) {
   const a = CGRID.get(cgk(Math.floor(x / CG), Math.floor(z / CG))); if (!a) return false;
   for (const k of a) {
-    if (k.top < feet + 0.45 || k.bot > feet + 1.5) continue;
+    if (k.noMove || k.top < feet + 0.45 || k.bot > feet + 1.5) continue;
     const dx = x - k.x, dz = z - k.z; const lx = dx * k.c - dz * k.s, lz = dx * k.s + dz * k.c;
     if (Math.abs(lx) < k.hx + r && Math.abs(lz) < k.hz + r) return true;
   }
@@ -925,7 +932,7 @@ function segHitT(ax, ay, az, bx, by, bz, skipNear = 0) {
   const dx = bx - ax, dz = bz - az, L = Math.hypot(dx, dz), n = Math.max(1, Math.ceil(L / (CG * 0.8))); const seen = new Set(); let best = 2;
   for (let st = 0; st <= n; st++) {
     const t = st / n; if (best < t - 0.2) break; const ci = Math.floor((ax + dx * t) / CG), cj = Math.floor((az + dz * t) / CG); const a = CGRID.get(cgk(ci, cj)); if (!a) continue;
-    for (const k of a) { if (seen.has(k)) continue; seen.add(k); const h = segBoxT(k, ax, ay, az, bx, by, bz); if (h >= 0 && h < best && h * L > skipNear) best = h; }
+    for (const k of a) { if (seen.has(k) || k.noShot) continue; seen.add(k); const h = segBoxT(k, ax, ay, az, bx, by, bz); if (h >= 0 && h < best && h * L > skipNear) best = h; }
   }
   return best <= 1 ? best : -1;
 }
@@ -1589,6 +1596,35 @@ function buildWaterfront() {
   const mat = new THREE.MeshStandardMaterial({ vertexColors: true, map: T, roughness: 0.95 }); scene.add(SH(onLayer1(new THREE.Mesh(build(parts), mat)), true, false));
   if (dark.length) scene.add(onLayer1(new THREE.Mesh(build(dark), MAT.vc)));
 }
+/* the towns across the canal through the haze of the first day: the dust and smoke of the barrage hang over Port Tewfik and Suez. In the
+   stronghold's mission their houses take the haze faster than the open desert (a heavier fog on them alone: they are silhouettes, not boxes),
+   and soft banks of dust and smoke drift low in front of them and over their roofs, slowly, with the wind */
+const TOWN_FOG = { value: 1 }; let TOWN_HAZE = null;
+function townMat() {
+  if (MAT.townWall) return MAT.townWall; const m = MAT.wall.clone();
+  m.onBeforeCompile = (sh) => { sh.uniforms.uFogK = TOWN_FOG; sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform float uFogK;')
+    .replace('#include <fog_fragment>', '#ifdef USE_FOG\n#ifdef FOG_EXP2\nfloat fogFactor = 1.0 - exp(-fogDensity * fogDensity * uFogK * uFogK * vFogDepth * vFogDepth);\n#else\nfloat fogFactor = smoothstep(fogNear, fogFar / uFogK, vFogDepth);\n#endif\ngl_FragColor.rgb = mix(gl_FragColor.rgb, fogColor, fogFactor);\n#endif'); };
+  m.customProgramCacheKey = () => 'townFog'; return (MAT.townWall = m);
+}
+function hazeTex() {
+  const W = 256, H = 96, c = canvas(W, H), g = c.getContext('2d'), r = rng(4417);
+  for (let i = 0; i < 70; i++) { const x = W * (0.12 + r() * 0.76), y = H * (0.35 + r() * 0.35), rad = H * (0.18 + r() * 0.3), gr = g.createRadialGradient(x, y, 0, x, y, rad);
+    gr.addColorStop(0, `rgba(255,255,255,${0.1 + r() * 0.1})`); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.beginPath(); g.arc(x, y, rad, 0, 6.2832); g.fill(); }
+  const t = tex(c); return t;
+}
+function townHaze() {
+  const grp = new THREE.Group(), T = hazeTex(), r = rng(9203), list = [];
+  const bank = (n, x0, x1, y0, y1, w, h, op, col) => { for (let i = 0; i < n; i++) { const x = lerp(x0, x1, r()), z = -560 + (i + r() * 0.6) * (1000 / n), y = Math.max(groundAt(x, z), 0) + lerp(y0, y1, r());
+    const m = new THREE.SpriteMaterial({ map: T, color: col, transparent: true, opacity: op * (0.75 + r() * 0.4), depthWrite: false }); const sp = new THREE.Sprite(m); sp.scale.set(w * (0.8 + r() * 0.5), h * (0.8 + r() * 0.4), 1); sp.position.set(x, y, z); sp.material.rotation = (r() - 0.5) * 0.08;
+    grp.add(sp); list.push({ sp, x, z, y, op: m.opacity, ph: r() * 6.28 }); } };
+  bank(8, -400, -470, 9, 17, 250, 55, 0.5, 0xd2c6aa);   // low along the far bank's ramparts, behind them
+  bank(8, -600, -760, 16, 30, 320, 85, 0.55, 0xc9bda2);   // through the middle of the town
+  bank(6, -560, -880, 40, 60, 380, 70, 0.32, 0xb9b0a0);   // smoke over the roofs
+  grp.visible = false; scene.add(grp); TOWN_HAZE = grp;
+  { const prev = scene.onBeforeRender; scene.onBeforeRender = function (...a) { prev.apply(this, a); if (!grp.visible) return; const t = performance.now() / 1000;
+    for (const q of list) { const d = Math.sin(t * 0.021 + q.ph) * 18; q.sp.position.set(q.x + WIND.x * d, q.y + Math.sin(t * 0.05 + q.ph) * 1.5, q.z + WIND.z * d); q.sp.material.opacity = q.op * (0.85 + 0.15 * Math.sin(t * 0.07 + q.ph * 2)); } }; }
+  for (const [x, z, sz] of [[-700 + PTDX, -260, 30], [-860 + PTDX, 300, 28], [-560 + PTDX, 330, 22]]) smokeColumn(x, z, sz, false);   // and a few more fires smoking in the town
+}
 function buildTowns() {
   const r = rng(31); const WALLS = [[0.86, 0.83, 0.76], [0.82, 0.71, 0.53], [0.88, 0.80, 0.62], [0.72, 0.70, 0.66], [0.79, 0.75, 0.68]];
   const pt = [];
@@ -1599,7 +1635,7 @@ function buildTowns() {
     const ruined = r() < 0.2; pt.push({ x: jx, z: jz, w: 10 + r() * 8, d: 9 + r() * 6, h: ruined ? 1.8 + r() * 2.5 : 6 + r() * 5, rot: (r() - .5) * 0.06, c: ruined ? [0.5, 0.47, 0.42] : pick(WALLS) });
   }
   buildWaterfront();
-  instBoxes(pt);
+  instBoxes(pt).material = townMat(); townHaze();
   const suez = [];
   for (let x = -5200; x <= -1250; x += 40) for (let z = -5600; z <= -1700; z += 40) {
     const dc = Math.hypot(x + 2700, z + 3100); if (r() > 0.85 * Math.exp(-dc / 2300)) continue;
@@ -1607,7 +1643,7 @@ function buildTowns() {
     const ruined = r() < 0.14; suez.push({ x: jx, z: jz, w: 12 + r() * 12, d: 12 + r() * 12, h: ruined ? 2 + r() * 3 : 5 + r() * r() * 16, rot: 0.31 + (r() - .5) * 0.05, c: ruined ? [0.48, 0.45, 0.4] : pick(WALLS) });
     if (suez.length > (LITE ? 450 : 1800)) break;
   }
-  instBoxes(suez);
+  instBoxes(suez).material = townMat();
   const pl = [];
   for (let z = -470; z <= 380; z += LITE ? 34 : 19) { let x = -470 + PTDX; while (x > -600 + PTDX && groundAt(x, z) < 1.0) x -= 2; if (x <= -600 + PTDX) continue; pl.push([x - 5 - r() * 7, z + (r() - 0.5) * 6, 0.8 + r() * 0.45, r() * 6.28]); }
   for (let i = 0; i < (LITE ? 20 : 70); i++) { const x = -560 + PTDX - r() * 480, z = -520 + r() * 900; if (inPoly(x, z, PT_ZONE) && groundAt(x, z) > 0.9) pl.push([x, z, 0.75 + r() * 0.4, r() * 6.28]); }
@@ -3032,6 +3068,9 @@ class Rig {
   arms(sr, er, sl, el, srz = 0.3, slz = -0.5) { this.T.arms = [sr, er, sl, el, srz, slz]; this.T.ik = false; }
   gunAt(px, py, pz, rx, ry, rz) { const G = this.T.gun; G[0] = px; G[1] = py; G[2] = pz; G[3] = rx; G[4] = ry; G[5] = rz; }
   pose(kind, t, pitch = 0) {
+    // no running on the spot: a man who is not getting anywhere (blocked, or jostling back and forth) stands - or crouches, if he was running low
+    if ((kind === 'run' || kind === 'walk' || kind === 'crun') && this.spd !== undefined) { this.stillT = this.spd < 0.35 ? (this.stillT || 0) + FDT : 0; if (this.stillT > 0.25) kind = kind === 'crun' ? 'crouch' : 'idle'; }
+    else this.stillT = 0;
     const R = this, T = R.T; R.hYaw = 0; T.rootX = 0; T.hipsY = 0.93; T.hipsX = 0; T.hipsZ = 0; T.hipsYaw = 0; T.torsoX = 0; T.torsoY = 0; T.torsoZ = 0; T.arms = null; T.ik = true;
     if (kind === 'run' || kind === 'walk' || kind === 'crun') {
       // the stride: legs swing, the pelvis rolls and yaws with them, the shoulders turn against the hips, the whole body leans into the run;
@@ -3071,6 +3110,10 @@ class Rig {
       R.arms(-0.2 + Math.sin(t * 2) * 0.15, -0.6, -2.4 + Math.sin(t * 1.7) * 0.3, -0.5, 0.2, -0.2); R.gunAt(0.3, 0.1, -0.4, 0, 0.8, 1.4);
     } else if (kind === 'throw') {
       R.legs(-0.3, 0.2, 0.3, 0.1); T.torsoX = -0.1 + t * 0.4; T.torsoY = -0.2 + t * 0.35; R.arms(-2.6 + t * 2.5, -0.4, -0.8, -0.8, 0.2, -0.4); R.gunAt(0.05, 0.25, 0.2, -0.9, 0.4, 0);
+    }
+    // a wall right in front of him: the rifle comes up, upright before his chest, instead of going into the wall
+    if (R.gunUp && R.wkind !== 'rpg' && (kind === 'aim' || kind === 'crouch' || kind === 'idle' || kind === 'walk' || kind === 'run' || kind === 'crun')) {
+      R.gunAt(-0.02, kind === 'crouch' ? 0.36 : 0.4, 0.15, -1.3, 0.22, 0); R.hYaw = 0; if (R.nsOn && (kind === 'aim' || kind === 'crouch')) T.torsoY = 0;
     }
     R.apply(kind);
   }
@@ -3184,6 +3227,14 @@ class Unit {
     this.rig.root.position.copy(this.pos); if (this.fall >= 0) this.rig.root.position.y += (this.fallDir < 0 ? 0.16 : 0.12) * clamp(this.fall / 0.55, 0, 1);   /* lying, he rests on his back, or on his chest (the deeper side) */
     if (this.snapHd || this.hdV === undefined || REDUCED) { this.hdV = this.heading; this.snapHd = false; } else this.hdV += wrapPi(this.heading - this.hdV) * (1 - Math.exp(-FDT * 12));
     this.rig.root.rotation.y = this.hdV;
+    // how fast he really moves (over the last half second: a man jostling on the spot is not moving), and whether his rifle would go into a wall
+    { let now = 0; try { now = GAME.t; } catch (e) { /* (a man set up while the world is built, before the game exists) */ } const tk = this.trk || (this.trk = []); const L = tk[tk.length - 1];
+      if (!L || now - L[0] >= 0.1 || now < L[0]) { if (L && now < L[0]) tk.length = 0; tk.push([now, this.pos.x, this.pos.z]); while (tk.length > 1 && now - tk[0][0] > 0.55) tk.shift(); }
+      const o = tk[0], dtt = now - o[0]; this.rig.spd = dtt > 0.08 ? Math.hypot(this.pos.x - o[1], this.pos.z - o[2]) / dtt : undefined;
+      this.gwT = (this.gwT || 0) - FDT;
+      if (this.gwT <= 0) { this.gwT = 0.12 + Math.random() * 0.06; let up = false;
+        if (this.alive && this.fall < 0 && this.rig.root.visible && this.stance !== 'hide' && camera.position.distanceTo(this.pos) < 45) { const c = this.chest(), sh = Math.sin(this.heading), ch = Math.cos(this.heading), y = c.y + 0.12; up = segHitT(c.x + sh * 0.12, y, c.z + ch * 0.12, c.x + sh * 1.0, y, c.z + ch * 1.0) >= 0; }
+        this.rig.gunUp = up; } }
     const far = camera.position.distanceTo(this.pos), hid = this.stance === 'hide' && this.side === 'e' && MODE !== 'mezach';
     { const eff = far * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2) / 0.7265 / (this.vs || 1), lv = this.rig.lod; let want = eff < QLOD[0] ? 0 : eff < QLOD[1] ? 1 : 2;
       if (want < lv && eff > QLOD[want] * 0.9) want = lv; this.rig.setLOD(want); }
@@ -7293,13 +7344,13 @@ function buildCornerBuilding() {
   }
   const B = (x, y, z, w, h, d, c) => deco(new THREE.BoxGeometry(w, h, d).translate(X(x), y, Z(z)), c);
   // a solid piece: it blocks up to its top and, with cover, gives cover points round it that belong to its floor
-  const solid = (x, z, hx, hz, rot, y, h, f, cover) => { addCollider(X(x), Z(z), hx, hz, rot, y + h, y - 0.1); if (!cover) return; const k0 = COVER.length; coverBox(X(x), Z(z), hx, hz, rot, h); for (let i = k0; i < COVER.length; i++) { COVER[i].y = FY(f); COVER[i].floor = f; SZ.covers.push(COVER[i]); } };
+  const solid = (x, z, hx, hz, rot, y, h, f, cover, open = false) => { if (open) addOpenCollider(X(x), Z(z), hx, hz, rot, y + h, y - 0.1); else addCollider(X(x), Z(z), hx, hz, rot, y + h, y - 0.1); if (!cover) return; const k0 = COVER.length; coverBox(X(x), Z(z), hx, hz, rot, h); for (let i = k0; i < COVER.length; i++) { COVER[i].y = FY(f); COVER[i].floor = f; SZ.covers.push(COVER[i]); } };
   // a model: x, z in the plan, on floor f (y0 over it), turned ry (0: its front to the street). block 1: it blocks, sized from the model's own box;
   // 2: and gives cover. Each copy is an instance, all of a model drawn at once at the end. Returns the height of its top (0 when the build lacks it)
   const fm = (name, x, z, f, ry = 0, block = 0, y0 = 0) => {
     if (!mdlHas(name)) return 0; const b = mdlBox(name), y = FY(f) + y0;
     (FM[name] = FM[name] || []).push(M4(X(x), y, Z(z), 0, ry, 0));
-    if (block) solid(x, z, b[0] / 2, b[2] / 2, ry, y, b[1], f, block > 1);
+    if (block) solid(x, z, b[0] / 2, b[2] / 2, ry, y, b[1], f, block > 1, OPEN_FURN.test(name));
     return y0 + b[1];
   };
   // a pile: layers of the long weapons crates two side by side, then ammunition boxes on top, each a little askew. It blocks; returns its height
@@ -8402,6 +8453,7 @@ function makeGround(d) {
 }
 function showWorld(mode) {
   PROPS.cur = mode; if (mode !== 'suez') szClarityOff();
+  TOWN_FOG.value = mode === 'mezach' ? 1.9 : 1; if (TOWN_HAZE) TOWN_HAZE.visible = mode === 'mezach';   /* the haze of the first day over the town across the canal */
   const lists = { mezach: SZ.mezObjs, suez: SZ.objs }; for (const k in CHAP) if (k !== 'mezach' && k !== 'suez') lists[k] = CHAP[k].objs || [];
   for (const v of VEH) if (v.tag) v.tag.visible = false;
   for (const k in lists) if (k !== mode) for (const o of lists[k]) o.visible = false;
@@ -12055,7 +12107,7 @@ function hmBuildKit() {
   K.fm = (name, lx, lz, y, ry = 0, solid = false, sc = 1, set = K.mdl) => {
     if (!mdlHas(name)) return y; const b = mdlBox(name), s = Array.isArray(sc) ? sc : [sc, sc, sc], [wx, wz] = HW(lx, lz);
     (set[name] = set[name] || []).push(M4(wx, y, wz, 0, ry, 0, s[0], s[1], s[2]));
-    if (solid) addCollider(wx, wz, b[0] * s[0] / 2, b[2] * s[2] / 2, ry, y + b[1] * s[1], y);
+    if (solid) (OPEN_FURN.test(name) ? addOpenCollider : addCollider)(wx, wz, b[0] * s[0] / 2, b[2] * s[2] / 2, ry, y + b[1] * s[1], y);
     return y + b[1] * s[1];
   };
   // the same knocked over: tipped rx about its own x axis and rz about its own z, then turned ry; it rests on its lowest corner. solid: a collider
@@ -12065,7 +12117,11 @@ function hmBuildKit() {
     if (!mdlHas(name)) return; const b = mdlBox(name), [wx, wz] = HW(lx, lz), lo = [1e9, 1e9, 1e9], hi = [-1e9, -1e9, -1e9]; _q.setFromEuler(_e.set(rx, 0, rz, 'XYZ'));
     for (const sx of [-0.5, 0.5]) for (const sy of [0, 1]) for (const sz of [-0.5, 0.5]) { _v.set(sx * b[0], sy * b[1], sz * b[2]).applyQuaternion(_q); for (let k = 0; k < 3; k++) { lo[k] = Math.min(lo[k], _v.getComponent(k)); hi[k] = Math.max(hi[k], _v.getComponent(k)); } }
     const m = _my.makeRotationY(ry).clone().multiply(_mt.makeRotationFromQuaternion(_q)); m.setPosition(wx, y - lo[1], wz); (set[name] = set[name] || []).push(m);
-    if (solid) { const cx = (lo[0] + hi[0]) / 2, cz = (lo[2] + hi[2]) / 2, c = Math.cos(ry), s = Math.sin(ry); addCollider(wx + cx * c + cz * s, wz - cx * s + cz * c, (hi[0] - lo[0]) / 2, (hi[2] - lo[2]) / 2, ry, y + hi[1] - lo[1], y); }
+    if (solid) { const cx = (lo[0] + hi[0]) / 2, cz = (lo[2] + hi[2]) / 2, c = Math.cos(ry), s = Math.sin(ry); const k = addCollider(wx + cx * c + cz * s, wz - cx * s + cz * c, (hi[0] - lo[0]) / 2, (hi[2] - lo[2]) / 2, ry, y + hi[1] - lo[1], y);
+      // what stops a round is the top, standing on its edge now, not the box round the legs behind it: a second box round the top alone
+      if (OPEN_FURN.test(name) && b[1] > 0.12) { k.noShot = true; const l2 = [1e9, 1e9, 1e9], h2 = [-1e9, -1e9, -1e9], y0 = 1 - 0.07 / b[1];
+        for (const sx of [-0.5, 0.5]) for (const sy of [y0, 1]) for (const sz of [-0.5, 0.5]) { _v.set(sx * b[0], sy * b[1], sz * b[2]).applyQuaternion(_q); for (let q = 0; q < 3; q++) { l2[q] = Math.min(l2[q], _v.getComponent(q)); h2[q] = Math.max(h2[q], _v.getComponent(q)); } }
+        const tx = (l2[0] + h2[0]) / 2, tz = (l2[2] + h2[2]) / 2; addCollider(wx + tx * c + tz * s, wz - tx * s + tz * c, (h2[0] - l2[0]) / 2, (h2[2] - l2[2]) / 2, ry, y + h2[1] - lo[1], y + l2[1] - lo[1]).noMove = true; } }
   };
   // a pile of crates: layers of the long weapons crates n side by side, then ammunition boxes, each a little askew; it blocks. Returns its top
   const jr = rng(2311);
