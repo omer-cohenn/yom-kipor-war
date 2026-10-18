@@ -996,8 +996,8 @@ function pdoorVM(dt) {
   let low = 0;
   if (S.ph === 'act') {
     if (S.way === 'kick') { low = sm(a, 0, 0.15) * (1 - sm(a, 0.6, 0.8)); const th = sm(a, 0.22, 0.36) * (1 - sm(a, 0.42, 0.72));
-      PDV.leg.visible = th > 0.01; PDV.leg.position.set(0.04, lerp(-1.05, -0.5, th), lerp(-0.25, -0.62, th)); PDV.leg.rotation.set(lerp(-0.9, -0.15, th), 0.05, 0); }
-    else if (S.way === 'hand') { low = 0.6 * sm(a, 0, 0.2) * (1 - sm(a, 1.0, 1.25)); const r = sm(a, 0.05, 0.4) * (1 - sm(a, 0.9, 1.2)), push = sm(a, 0.45, 0.85) * (1 - sm(a, 0.9, 1.2));
+      PDV.leg.visible = th > 0.01; PDV.leg.position.set(0.05, lerp(-1.0, -0.3, th), lerp(-0.2, -0.45, th)); PDV.leg.rotation.set(lerp(-1.0, 0.12, th), 0.04, 0); }   /* at the blow the boot is up in the picture, at the lock */
+    else if (S.way === 'hand') { low = 0.3 * sm(a, 0, 0.2) * (1 - sm(a, 1.0, 1.25)); const r = sm(a, 0.05, 0.4) * (1 - sm(a, 0.9, 1.2)), push = sm(a, 0.45, 0.85) * (1 - sm(a, 0.9, 1.2));
       const L = VMR.armL; L.position.set(VM_LHG.x - 0.1 * r, VM_LHG.y + 0.2 * r + 0.03 * push, VM_LHG.z - 0.28 * r - 0.14 * push); L.rotation.set(-0.5 * r, 0.6 * r, 0.3 * r); }
     else { low = sm(a, 0, 0.2) * (1 - sm(a, 1.3, 1.6)); const r = sm(a, 0.05, 0.5) * (1 - sm(a, 0.6, 0.85));
       const L = VMR.armL; L.position.set(VM_LHG.x - 0.08 * r, VM_LHG.y + 0.22 * r, VM_LHG.z - 0.3 * r); L.rotation.set(-0.5 * r, 0.5 * r, 0.3 * r);

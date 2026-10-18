@@ -5041,6 +5041,7 @@ function sqfNade(f, dt) {
       f.dodgeX = u.pos.x + dx * k + rand(-1, 1); f.dodgeZ = u.pos.z + dz * k + rand(-1, 1); f.dodgeT = Math.min(q.fuse + 0.5, 2.0); sqfTakeCover(f, null); f.moving = true; f.holdP = null; return true; } }
   return false;
 }
+const PDOOR = { on: false };   /* the player opening a door himself (13_hermon.js): for a moment his feet, his eyes and his hands are the scene's */
 const FCALL = { t: -99 };   // the last time a friend shouted a warning
 function updFriend(f, dt, time) {
   const u = f.unit; u.anim += dt; sqfFrame();
@@ -6202,7 +6203,7 @@ function updPlayer(dt) {
   { const mz = mzEase(), rd = mz ? mz.regen[0] : diff.regenD + (FIELDM() ? 0 : 0.5), rr = mz ? mz.regen[1] : FIELDM() ? 30 : 24, rc = mz ? mz.regen[2] : diff.regenCap;   /* healing: sooner and all the way on the easy level, later and only to 60 on the hard one (the stronghold heals faster) */
     if (GAME.t - P.lastHit > rd && P.hp < rc) P.hp = Math.min(rc, P.hp + rr * dt); }
   aimMagnet(dt);
-  if (INPUT.fire) { if (P.mode === 'mag' || INPUT.fireEdge || (P.ride && P.ride.mg)) playerShoot(); INPUT.fireEdge = false; }
+  if (INPUT.fire && !PDOOR.on) { if (P.mode === 'mag' || INPUT.fireEdge || (P.ride && P.ride.mg)) playerShoot(); INPUT.fireEdge = false; }
   // hold F
   if (promptState && promptState.hold && (k.KeyF || INPUT.tHold) && !moving()) {
     P.hold += dt; if (P.hold >= 3) { const f = promptState.f; P.hold = 0; STATS.treated++; STATS.saved++; reviveFriend(f); feed(`${f.name} חבוש. הוא חוזר להילחם`, 'good'); radio(f.name, pick(['תודה. אני בסדר, חוזר לעמדה!', 'חבשת אותי טוב. ממשיכים!', 'כואב, אבל אני יכול לירות.']), 2.6); }
@@ -6225,6 +6226,7 @@ function updPlayer(dt) {
     const k = P.ads > 0.5 ? 0 : 1 - P.ads * 2; tpvCam(e, k, true); tpvBody(k > 0.3 && !CINE.on, e);
   } else {
     let fwd = (k.KeyW || k.ArrowUp ? 1 : 0) - (k.KeyS || k.ArrowDown ? 1 : 0) - INPUT.joy.y, str = (k.KeyD || k.ArrowRight ? 1 : 0) - (k.KeyA || k.ArrowLeft ? 1 : 0) + INPUT.joy.x;
+    if (PDOOR.on) { fwd = 0; str = 0; }   /* the player at a door: his feet are the scene's (pdoorMove) */
     const l = Math.hypot(fwd, str); if (l > 1) { fwd /= l; str /= l; }
     const sprint = (k.ShiftLeft || k.ShiftRight || l > 0.95 && TOUCH && Math.hypot(INPUT.joy.x, INPUT.joy.y) > 0.95) && fwd > 0 && P.mode === 'rifle' && !P.crouch;
     const sp = P.mode === 'carry' ? 2.7 : P.crouch ? 2.2 : sprint ? 6.8 : 4.4;
@@ -6241,6 +6243,7 @@ function updPlayer(dt) {
     const nSub = Math.max(1, Math.ceil(Math.hypot(dx, dz) / 0.12)), sdx = dx / nSub, sdz = dz / nSub;
     for (let si = 0; si < nSub; si++) { if (ok(P.pos.x + sdx, P.pos.z)) P.pos.x += sdx; else { P.vx *= 0.2; break; } } for (let si = 0; si < nSub; si++) { if (ok(P.pos.x, P.pos.z + sdz)) P.pos.z += sdz; else { P.vz *= 0.2; break; } }
     { const want = Math.hypot(dx, dz), got = Math.hypot(P.pos.x - x0, P.pos.z - z0); if (want > 1e-4 && got < want * 0.35) { const px = -dz / want, pz = dx / want; for (const sg of [1, -1]) { const sx = P.pos.x + px * sg * want * 0.9, sz = P.pos.z + pz * sg * want * 0.9; if (ok(sx, sz) && ok(sx + dx, sz + dz)) { P.pos.x = sx; P.pos.z = sz; break; } } } }
+    if (PDOOR.on) pdoorMove(dt);
     // caught inside a wall or a sandbag heap (a slope that led into it, a step down off it): ease out to the nearest free ground instead of freezing
     if (blocked(P.pos.x, P.pos.z, 0.3, P.pos.y)) { P.stuckT = (P.stuckT || 0) + dt; let best = null, bd = 1e9; for (let rr = 0.25; rr <= 2.6 && !best; rr += 0.25) for (let k = 0; k < 16; k++) { const a = k / 16 * Math.PI * 2, x = P.pos.x + Math.cos(a) * rr, z = P.pos.z + Math.sin(a) * rr; if (groundAt(x, z) > -0.3 && !blocked(x, z, 0.32, P.pos.y) && !blocked(x, z, 0.32, hAt(x, z, P.pos.y))) { const d = Math.abs(hAt(x, z, P.pos.y) - P.pos.y) * 2 + rr; if (d < bd) { bd = d; best = [x, z]; } } }
       if (best) { const k = Math.min(1, dt * 8 + (P.stuckT > 0.45 ? 1 : 0)); P.pos.x += (best[0] - P.pos.x) * k; P.pos.z += (best[1] - P.pos.z) * k; } } else P.stuckT = 0;
@@ -6280,6 +6283,7 @@ function updPlayer(dt) {
   const crv = P.mode === 'rifle' ? (P.crV || 0) * sw : 0, crm = Math.abs(crv); vp.y -= crm * 0.012; vp.z += crm * 0.006; vp.x -= crv * 0.003;
   vm.position.copy(vp); vm.rotation.set(P.kick * 0.07 + 0.12 * renv + (P.swy || 0) * 1.2 * sw - Math.sin(P.bob) * 0.004 * amp - crm * 0.045, 0.5 * sk + VM_YAW * lerp(0.75, 1, vfit) * (1 - P.ads) * (1 - sk) + 0.3 * renv + (P.swx || 0) * 1.5 * sw - crv * 0.02, VM_ROLL * (1 - P.ads) * (1 - sk) - 0.88 * renv + Math.sin(P.bob) * 0.012 * amp + (P.swx || 0) * 0.8 * sw + crv * 0.03);
   vmAnimate(dt, (INPUT.fire || INPUT.mFire || INPUT.kFire) && P.mag > 0 && P.reloadT <= 0 && !P.sprint && P.throwT <= 0, P.reloadT > 0 ? clamp(1 - P.reloadT / RELOAD_T, 0, 1) : null);
+  pdoorVM(dt);   /* at a door: the rifle down, the boot, the hand, the charge */
   vmMuzzle.intensity = Math.max(0, vmMuzzle.intensity - dt * 60); LIGHTS.muzzle.intensity = Math.max(0, LIGHTS.muzzle.intensity - dt * 12000);
   interactions();
 }
@@ -12375,7 +12379,11 @@ function hmDoorsSet(stage, g0 = 0) {
 }
 function hmDoorsUpd(dt) {
   const st = HM.stage;
-  if ((st === 3 || st === 4) && GATE.on && GATE.clear) { const d = HM_DOORS[st - 3][GATE.i + 1]; if (d && !d.open && !d.req) d.req = GAME.t + 1.1; }
+  if ((st === 3 || st === 4) && GATE.on && GATE.clear) { const d = HM_DOORS[st - 3][GATE.i + 1]; if (d && !d.open && !d.ready) { d.ready = GAME.t; radio('מ״פ', pick(['החדר נקי! לדלת - פורצים!', 'נקי. הדלת הבאה שלך - פרוץ אותה!']), 2.2); } }
+  // a door the player may open: he does it himself as he comes up to it (pdoorStart); left alone too long, a man of the squad does it
+  if (!PDOOR.on && P.alive && P.mode === 'rifle' && !P.ride && !CINE.on) for (const L of HM_DOORS) for (const d of L) { if (!d || d.open || d.job || !(HM_SANDBOX || d.ready)) continue;
+    if (Math.hypot(P.pos.x - d.at.x, P.pos.z - d.at.z) < 2.1 && Math.abs(P.pos.y - d.y) < 1.4) { pdoorStart(d); break; }
+    if (!HM_SANDBOX && GAME.t - d.ready > 14) hmDoorOpen(d); }
   for (const L of HM_DOORS) for (const d of L) { if (!d) continue;
     if (d.req && GAME.t >= d.req) hmDoorOpen(d);
     if (d.job) hmDoorJob(d, dt); if (d.fly) hmDoorFly(d, dt);
@@ -12399,11 +12407,9 @@ function hmDoorJob(d, dt) {
   const J = d.job, t = GAME.t;
   if (J.go === null) { const ready = J.f && J.f.doorJob && J.f.doorJob.ready; if (ready || !J.f || t - J.t0 > 3.2 || J.f.state !== 'door') J.go = t + (J.f ? 0 : 0.2); return; }
   const k = t - J.go;
-  if (J.way === 'kick' && k >= 0.24) {   // the boot meets the lock: the door bursts open, a bang, dust, a jolt
-    d.rate = 18; hmDoorSet(d, true, false); sndBoom(d.at, 0.3); sndClick(180, 0.3); fxDust(d.at.clone()); if (camera.position.distanceTo(d.at) < 8) FX.shake = Math.max(FX.shake, 0.14); d.job = null;
-  } else if (J.way === 'hand' && k >= 0.5) {   // the handle turned, the door swung open slowly, creaking
-    d.rate = 1.6; hmDoorSet(d, true, false); sndClick(150, 0.18); sndClick(120, 0.12); d.job = null;
-  } else if (J.way === 'charge') {
+  if (J.way === 'kick' && k >= 0.24) { hmDoorKicked(d); d.job = null; }
+  else if (J.way === 'hand' && k >= 0.5) { hmDoorPushed(d); d.job = null; }
+  else if (J.way === 'charge') {
     if (!J.m && k >= (J.f ? 0.9 : 0.1)) {   // the charge on the door at the lock, its light blinking
       if (!HM_CHARGE_G) HM_CHARGE_G = build([[G.box(0.24, 0.14, 0.07), 0x4e5638, M4(0, 0, 0)], [G.box(0.06, 0.03, 0.02), 0x1c1c1a, M4(0.06, 0.03, 0.045)], [G.cyl(0.008, 0.008, 0.18, 5), 0x2a2a28, M4(-0.1, 0.09, 0.04, 0, 0, 0.6)]]);
       J.m = new THREE.Mesh(HM_CHARGE_G, MAT.vc); J.m.position.set(d.at.x + J.nx * 0.07, d.y + 1.05, d.at.z + J.nz * 0.07); J.m.rotation.y = Math.atan2(J.nx, J.nz); scene.add(onLayer1(J.m));
@@ -12418,6 +12424,8 @@ function hmDoorJob(d, dt) {
         d.job = null; } }
   }
 }
+function hmDoorKicked(d) { d.rate = 18; hmDoorSet(d, true, false); sndBoom(d.at, 0.3); sndClick(180, 0.3); fxDust(d.at.clone()); if (camera.position.distanceTo(d.at) < 8) FX.shake = Math.max(FX.shake, 0.16); }   /* the boot meets the lock: it bursts open, a bang, dust, a jolt */
+function hmDoorPushed(d) { d.rate = 1.6; hmDoorSet(d, true, false); sndClick(150, 0.18); sndClick(120, 0.12); }   /* the handle turned, it swings open slowly, creaking */
 function hmDoorBlow(d, dx, dz) {   // the leaf, torn off its hinges, flies tumbling into the room and falls flat
   d.blown = true; d.pivot.visible = false; const g = d.geo.clone().translate(-0.78, -1.12, 0), m = new THREE.Mesh(g, d.mat);
   d.pivot.updateMatrixWorld(true); m.position.copy(d.pivot.localToWorld(_hdv.set(0.78, 1.12, 0))); m.quaternion.copy(d.pivot.getWorldQuaternion(new THREE.Quaternion())); scene.add(SH(onLayer1(m), true, true));
@@ -12428,7 +12436,7 @@ function hmDoorFly(d, dt) {
   if (F.m.position.y < F.floor + 0.6 && F.v.y < 0) { F.rest = true; const yaw = F.m.rotation.y; F.m.rotation.set(-Math.PI / 2, 0, 0); F.m.rotateOnWorldAxis(_hdv.set(0, 1, 0), yaw); F.m.position.y = F.floor + 0.035; sndBoom(F.m.position, 0.15); fxDust(F.m.position.clone()); }
   else if (blocked(F.m.position.x, F.m.position.z, 0.3, F.floor)) { F.v.x *= -0.25; F.v.z *= -0.25; }
 }
-function hmDoorMend(d) { if (d.fly) { scene.remove(d.fly.m); d.fly = null; } if (d.job && d.job.m) scene.remove(d.job.m); d.job = null; d.blown = false; d.pivot.visible = true; d.rate = 7; }
+function hmDoorMend(d) { if (d.fly) { scene.remove(d.fly.m); d.fly = null; } if (d.job && d.job.m) scene.remove(d.job.m); d.job = null; d.blown = false; d.pivot.visible = true; d.rate = 7; d.ready = 0; }
 /* ---------- the rooms: a Syrian company has lived in the post for two weeks, and the attack catches it at breakfast ----------
    Bunks with the blankets thrown back and mattresses dragged to the floor, rifles left on the beds and on the mess tables, chairs knocked over,
    the radio room with its sets still on, crates of ammunition opened in the store, the officers' beds and the commander's desk. Every piece is a
@@ -13077,7 +13085,67 @@ function hmSandbox() {
   for (const e of UNITS.enemies) if (e.alive || e.rig.root.visible) { e.alive = false; e.rig.root.visible = false; if (e.tag) e.tag.visible = false; if (e.slot) { e.slot.used = false; e.slot = null; } }
   DIRQ.length = 0; GATE.on = false; P.hp = 100; if (GAME.t < 2) TUT.radioQ.length = 0; TUT.queue.length = 0;
   for (const f of FRIENDS) if (f.state !== 'bunker') { f.state = 'bunker'; f.unit.rig.root.visible = false; if (f.unit.tag) f.unit.tag.visible = false; f.marker.visible = false; }
-  for (const L of HM_DOORS) for (const d of L) if (d && !d.open && !d.job && Math.hypot(P.pos.x - d.at.x, P.pos.z - d.at.z) < 2.4 && Math.abs(P.pos.y - d.y) < 1.5) hmDoorOpen(d);   /* the doors open as he comes up to them, each another way */
+}
+
+/* ---------- the player at a door: he does it himself, each door another way in turn ----------
+   He steps up to the door's near side and - the rifle lowered - kicks it in (the boot comes up into view and drives at the lock), or reaches
+   for the handle and pushes it open, or presses a charge to the lock, backs off to the side of the frame, crouches with his back to the wall
+   while it beeps, and when it goes, gets up and goes in. Then the door is behind him and he has his rifle up in the room. While it lasts his
+   feet and his eyes are the scene's (5_game.js PDOOR) */
+const PDV = { leg: null, charge: null };
+function pdoorStart(d) {
+  const way = HM_DOOR_WAY.ways[HM_DOOR_WAY.n++ % 3], side = Math.sign((P.pos.x - d.at.x) * d.nIn.x + (P.pos.z - d.at.z) * d.nIn.z) || -1;
+  const nx = d.nIn.x * side, nz = d.nIn.z * side, tx = -nz, tz = nx, sd = blocked(d.at.x + nx * 1.0 + tx * 1.25, d.at.z + nz * 1.0 + tz * 1.25, 0.3, d.y) ? -1 : 1;
+  let ek = 1.9; while (ek > 0.8 && blocked(d.at.x - nx * ek, d.at.z - nz * ek, 0.3, d.y)) ek -= 0.3;
+  Object.assign(PDOOR, { on: true, d, way, t0: GAME.t, ph: 'go', tA: 0, nx, nz, stand: [d.at.x + nx * 0.95, d.at.z + nz * 0.95], side: [d.at.x + nx * 1.0 + tx * 1.25 * sd, d.at.z + nz * 1.0 + tz * 1.25 * sd], entry: [d.at.x - nx * ek, d.at.z - nz * ek], placed: false, kicked: false, pushed: false, boomT: 0 });
+  P.vx = 0; P.vz = 0; if (P.reloadT > 0) P.reloadT = 0.01;
+  if (way === 'charge') radio('אתה', 'מצמיד מטען... להתרחק!', 1.8); else if (way === 'kick') radio('אתה', 'בועט!', 1.2);
+}
+function pdoorMove(dt) {
+  const S = PDOOR, d = S.d, now = GAME.t; let tgt = null, sp = 2.4, look = d.at, crouch = false;
+  if (!d || d.open && S.ph === 'go') { S.on = false; return; }
+  if (S.ph === 'go') { tgt = S.stand; if (Math.hypot(P.pos.x - tgt[0], P.pos.z - tgt[1]) < 0.1 || now - S.t0 > 1.4) { S.ph = 'act'; S.tA = now; } }
+  const a = S.ph === 'act' || S.ph === 'wait' || S.ph === 'in' ? now - S.tA : 0;
+  if (S.ph === 'act') {
+    if (S.way === 'kick') { if (!S.kicked && a >= 0.36) { S.kicked = true; hmDoorKicked(d); } if (a > 0.8) { S.ph = 'in'; S.tA = now; } }
+    else if (S.way === 'hand') { if (!S.pushed && a >= 0.45) { S.pushed = true; hmDoorPushed(d); } if (a > 1.25) { S.ph = 'in'; S.tA = now; } }
+    else {   // the charge: on the lock, then off to the side of the frame, down, waiting
+      if (!S.placed && a >= 0.55) { S.placed = true; d.job = { way: 'charge', t0: now, go: now - 0.12, f: null, nx: S.nx, nz: S.nz, beep: 0 }; }
+      if (a > 0.85) { tgt = S.side; sp = 3.2; crouch = a > 1.2; }
+      if (S.placed && d.open && !S.boomT) S.boomT = now;
+      if (S.boomT && now - S.boomT > 0.6) { S.ph = 'in'; S.tA = now; S.fromSide = true; }
+    }
+  }
+  if (S.ph === 'in') {   // through the door, the rifle up
+    const fs = S.fromSide && Math.hypot(P.pos.x - S.stand[0], P.pos.z - S.stand[1]) > 0.25 && !S.passed; if (!fs) S.passed = true;
+    tgt = fs ? S.stand : S.entry; sp = 2.6; const ex = S.entry[0] - S.nx * 3, ez = S.entry[1] - S.nz * 3; look = _pdl.set(ex, d.y + 1.2, ez);
+    if ((!fs && Math.hypot(P.pos.x - S.entry[0], P.pos.z - S.entry[1]) < 0.12) || now - S.tA > 3.5) { S.on = false; P.crouch = false; return; }
+  }
+  if (tgt) { const dx = tgt[0] - P.pos.x, dz = tgt[1] - P.pos.z, dl = Math.hypot(dx, dz), st = Math.min(dl, sp * dt); if (dl > 1e-4) { P.pos.x += dx / dl * st; P.pos.z += dz / dl * st; } P.bobAmp = Math.max(P.bobAmp || 0, dl > 0.05 ? 0.6 : 0); }
+  const yaw = Math.atan2(-(look.x - P.pos.x), -(look.z - P.pos.z)), pit = Math.atan2(look.y - (P.pos.y + (P.eyeH || 1.65)), Math.hypot(look.x - P.pos.x, look.z - P.pos.z));
+  P.yaw += wrapPi(yaw - P.yaw) * Math.min(1, dt * 7); P.pitch += (clamp(pit, -0.5, 0.3) - P.pitch) * Math.min(1, dt * 6); P.crouch = crouch;
+}
+const _pdl = V3();
+function pdoorVM(dt) {
+  const S = PDOOR, on = S.on && S.ph !== 'go' || (S.on && S.ph === 'go');
+  if (!PDV.leg) {   // the boot and the trouser leg, and the charge in the hand: drawn with the hands, in their own scene
+    const leg = new THREE.Group(); leg.add(new THREE.Mesh(build([[G.cyl(0.07, 0.06, 0.55, 10), 0x8f7f5e, M4(0, 0, -0.27, Math.PI / 2, 0, 0)], [G.box(0.13, 0.14, 0.3), 0x4a2c1c, M4(0, -0.02, -0.6)], [G.box(0.14, 0.03, 0.32), 0x1e1610, M4(0, -0.09, -0.6)]]), MAT.vc));
+    leg.visible = false; vmScene.add(leg); PDV.leg = leg;
+    const ch = new THREE.Mesh(build([[G.box(0.24, 0.14, 0.07), 0x4e5638, M4(0, 0, 0)], [G.box(0.06, 0.03, 0.02), 0x1c1c1a, M4(0.06, 0.03, 0.045)]]), MAT.vc); ch.visible = false; vmScene.add(ch); PDV.charge = ch;
+  }
+  PDV.leg.visible = false; PDV.charge.visible = false; if (!S.on) return;
+  const a = S.ph === 'go' ? 0 : GAME.t - S.tA, sm = (x, e0, e1) => { const t = clamp((x - e0) / (e1 - e0), 0, 1); return t * t * (3 - 2 * t); };
+  let low = 0;
+  if (S.ph === 'act') {
+    if (S.way === 'kick') { low = sm(a, 0, 0.15) * (1 - sm(a, 0.6, 0.8)); const th = sm(a, 0.22, 0.36) * (1 - sm(a, 0.42, 0.72));
+      PDV.leg.visible = th > 0.01; PDV.leg.position.set(0.05, lerp(-1.0, -0.3, th), lerp(-0.2, -0.45, th)); PDV.leg.rotation.set(lerp(-1.0, 0.12, th), 0.04, 0); }   /* at the blow the boot is up in the picture, at the lock */
+    else if (S.way === 'hand') { low = 0.3 * sm(a, 0, 0.2) * (1 - sm(a, 1.0, 1.25)); const r = sm(a, 0.05, 0.4) * (1 - sm(a, 0.9, 1.2)), push = sm(a, 0.45, 0.85) * (1 - sm(a, 0.9, 1.2));
+      const L = VMR.armL; L.position.set(VM_LHG.x - 0.1 * r, VM_LHG.y + 0.2 * r + 0.03 * push, VM_LHG.z - 0.28 * r - 0.14 * push); L.rotation.set(-0.5 * r, 0.6 * r, 0.3 * r); }
+    else { low = sm(a, 0, 0.2) * (1 - sm(a, 1.3, 1.6)); const r = sm(a, 0.05, 0.5) * (1 - sm(a, 0.6, 0.85));
+      const L = VMR.armL; L.position.set(VM_LHG.x - 0.08 * r, VM_LHG.y + 0.22 * r, VM_LHG.z - 0.3 * r); L.rotation.set(-0.5 * r, 0.5 * r, 0.3 * r);
+      if (!S.placed) { PDV.charge.visible = r > 0.05; PDV.charge.position.set(-0.06 - 0.06 * r, -0.2 + 0.18 * r, -0.42 - 0.18 * r); PDV.charge.rotation.set(0.3, 0.2, 0); } }
+  } else if (S.ph === 'in') low = 0;
+  vm.position.y -= 0.24 * low; vm.position.x += 0.06 * low; vm.rotation.x -= 0.7 * low; vm.rotation.z += 0.3 * low;
 }
 
 /* ================= survival: hold the Mezach against wave after wave =================
