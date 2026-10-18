@@ -118,7 +118,8 @@ const MAT = {
   vcMetal: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.46, metalness: 0.55, map: TX.grime }),
   cloth: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.93, metalness: 0, map: TX.fabric, bumpMap: bumpOf(TX.fabric), bumpScale: 0.35 }),
   gabion: new THREE.MeshStandardMaterial({ map: TX.gabion, bumpMap: bumpOf(TX.gabion), bumpScale: 4, roughness: 0.95 }),
-  bag: new THREE.MeshStandardMaterial({ map: TX.burlap, bumpMap: bumpOf(TX.burlap), bumpScale: 2.2, roughness: 1 }),
+  bag: mdlHas('sandbag0') ? new THREE.MeshStandardMaterial({ map: mdlTex('bag/col'), normalMap: LITE ? null : mdlTex('bag/nrm', false), normalScale: new THREE.Vector2(0.9, 0.9), roughness: 0.96 })   /* the sandbag's own burlap (4f_data_bag.js) */
+    : new THREE.MeshStandardMaterial({ map: TX.burlap, bumpMap: bumpOf(TX.burlap), bumpScale: 2.2, roughness: 1 }),
   roofStone: new THREE.MeshStandardMaterial({ map: TX.stone, bumpMap: bumpOf(TX.stone), bumpScale: 3, roughness: 1 }),
   sand: new THREE.MeshStandardMaterial({ color: 0xcdbb95, roughness: 1, map: TX.micro }),
   dark: new THREE.MeshStandardMaterial({ color: 0x0d0b0a, roughness: 1 }),
@@ -234,6 +235,23 @@ function bagWall(pts, layers, baseY = null, collide = true) {
     for (let l = 0; l < layers; l++) { const off = l % 2 ? 0.14 : -0.14; BATCH.bag.push([mx + dx / L * off, y0 + 0.11 + l * BAG_LH, mz + dz / L * off, rot]); }
   }
 }
+/* the sandbag: the downloaded bag (4f_data_bag.js) - a filled bag, its tied ends narrower, flat where it lies - in three patches of its burlap,
+   packed in the frame of the old pillow shape so every wall keeps its size; without the data the pillow */
+const BAG_GEOS = [];
+function bagGeos() { if (!BAG_GEOS.length) { if (mdlHas('sandbag0')) for (let k = 0; k < 3; k++) BAG_GEOS.push(mdlGeo('sandbag' + k, QUAL === 'low' ? 1 : 0)[0].g);   /* the round one everywhere but on low: the light one is faceted */ else BAG_GEOS.push(pillowGeo()); } return BAG_GEOS; }
+/* many bags at once: one instanced mesh for each patch, the bags dealt among them; each a little turned (j), every other one end for end, its
+   own shade (the new bags all but white over their burlap, a few dusty, a few darker with damp) */
+function bagInst(list, rr, j) {
+  const gs = bagGeos(), n = gs.length, grp = new THREE.Group(), mm = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), col = new THREE.Color(), byV = gs.map(() => []);
+  for (const b of list) byV[n > 1 ? Math.floor(rr() * n) % n : 0].push(b);
+  gs.forEach((g, v) => { const L = byV[v]; if (!L.length) return; const m = new THREE.InstancedMesh(g, MAT.bag, L.length);
+    L.forEach(([x, y, z, r], i) => { const flip = n > 1 && rr() < 0.5 ? Math.PI : 0, tl = n > 1 ? 0.07 : 0;   /* laid by hand: a little askew, each filled a little more or less */
+      e.set((rr() - 0.5) * tl, r + flip + (rr() - 0.5) * j, (rr() - 0.5) * tl, 'YXZ'); m.setMatrixAt(i, mm.compose(V3(x, y, z), q.setFromEuler(e), n > 1 ? V3(0.6 + rr() * 0.06, 0.205 + rr() * 0.035, 0.34 + rr() * 0.045) : V3(0.6 + rr() * 0.05, 0.22, 0.36)));
+      const t = rr(), w = rr(); if (n > 1) { const k = w < 0.18 ? 1.12 : w > 0.88 ? 0.78 : 0.9 + t * 0.14; col.setRGB(lin(k * (w < 0.18 ? 1.0 : 1)), lin(k * (w < 0.18 ? 0.97 : 0.98)), lin(k * (w < 0.18 ? 0.88 : 0.95))); } else { const g2 = rr() * 0.06; col.setRGB(lin(0.6 + t * 0.12 - g2), lin(0.55 + t * 0.1 - g2 * 0.5), lin(0.44 + t * 0.08)); }
+      m.setColorAt(i, col); });
+    grp.add(m); });
+  return SH(onLayer1(grp));
+}
 function pillowGeo() {
   const g = new THREE.SphereGeometry(0.5, LITE ? 10 : 16, LITE ? 6 : 10).scale(1.1, 1.1, 1.1); const p = g.attributes.position; const f = (v, e) => Math.sign(v) * Math.pow(Math.abs(v), e);
   for (let i = 0; i < p.count; i++) { let x = p.getX(i) * 2, y = p.getY(i) * 2, z = p.getZ(i) * 2; const px = f(x, 0.32), pz = f(z, 0.5); const py = f(y, 0.62) * (1 - 0.22 * px * px); p.setXYZ(i, px * 0.5, py * 0.5, pz * 0.5); }
@@ -287,9 +305,7 @@ function flushBatches() {
   const gm = new THREE.InstancedMesh(GEO.box, MAT.gabion, BATCH.gab.length);
   BATCH.gab.forEach(([x, y, z, r], i) => gm.setMatrixAt(i, mm.compose(V3(x, y, z), q.setFromAxisAngle(up, r), one)));
   scene.add(SH(onLayer1(gm)));
-  const bm = new THREE.InstancedMesh(pillowGeo(), MAT.bag, BATCH.bag.length);
-  BATCH.bag.forEach(([x, y, z, r], i) => { bm.setMatrixAt(i, mm.compose(V3(x, y, z), q.setFromAxisAngle(up, r + (rr() - .5) * 0.15), V3(0.6 + rr() * 0.05, 0.22, 0.36))); const t = rr(), g2 = rr() * 0.06; col.setRGB(lin(0.6 + t * 0.12 - g2), lin(0.55 + t * 0.1 - g2 * 0.5), lin(0.44 + t * 0.08)); bm.setColorAt(i, col); });
-  scene.add(SH(onLayer1(bm)));
+  scene.add(bagInst(BATCH.bag, rr, 0.15));
   const rg = new THREE.InstancedMesh(new THREE.BoxGeometry(0.1, 0.14, 0.5), MAT.rust, BATCH.rail.length);
   BATCH.rail.forEach(([x, y, z, r], i) => rg.setMatrixAt(i, mm.compose(V3(x, y, z), q.setFromAxisAngle(up, r), one)));
   scene.add(SH(onLayer1(rg)));
@@ -1136,11 +1152,7 @@ const TW = 1.25;   // half width of the trench floor (wall face to the centre li
 const ROOFS = [], BARRS = [], AIDPOST = { x: 0, z: 0, rot: 0 };
 const ROOF_K = [], BARR_K = [95, 135, 177, 223, 251];
 let SURV_BARR_K = [];   // the two barricades that close the small strongpoint of survival mode, filled in once the trench path exists
-function bagMesh(list) {
-  const m = new THREE.InstancedMesh(pillowGeo(), MAT.bag, list.length), mm = new THREE.Matrix4(), q = new THREE.Quaternion(), up = V3(0, 1, 0), col = new THREE.Color(), rr = rng(list.length * 7 + 3);
-  list.forEach(([x, y, z, r], i) => { m.setMatrixAt(i, mm.compose(V3(x, y, z), q.setFromAxisAngle(up, r + (rr() - .5) * 0.12), V3(0.6 + rr() * 0.05, 0.22, 0.36))); const t = rr(); col.setRGB(lin(0.58 + t * 0.1), lin(0.53 + t * 0.09), lin(0.42 + t * 0.07)); m.setColorAt(i, col); });
-  return SH(onLayer1(m));
-}
+function bagMesh(list) { return bagInst(list, rng(list.length * 7 + 3), 0.12); }
 function buildTrenches() {
   SURV_BARR_K = [kz(-49), kz(49)];
   const bt = sandbagWallTex(); MAT.bagWall = new THREE.MeshStandardMaterial({ map: bt, bumpMap: bumpOf(bt), bumpScale: 3, roughness: 1, side: THREE.DoubleSide });

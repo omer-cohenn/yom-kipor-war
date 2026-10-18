@@ -3,7 +3,7 @@
    Slow, low dives along the trench line: cannon fire walks down the line, sandbags fly, bombs fall on whoever is exposed.
    Halfway through, an Israeli Mirage is caught by a MiG over the canal, breaks up and crashes beyond the strongpoint; its pilot comes down under a parachute. */
 const AIR = { next: 30, magT: 0, mirage: false, bombs: [], debris: [], ev: null };
-const BAG_POOL = (() => { const g = pillowGeo(), list = []; for (let i = 0; i < (LITE ? 18 : 36); i++) { const m = new THREE.Mesh(g, MAT.bag); m.scale.set(0.6, 0.22, 0.36); m.visible = false; m.castShadow = SHADOWS; scene.add(onLayer1(m)); list.push({ m, v: V3(), w: V3(), t: 99, rest: false }); } return list; })();
+const BAG_POOL = (() => { const gs = bagGeos(), list = []; for (let i = 0; i < (LITE ? 18 : 36); i++) { const m = new THREE.Mesh(gs[i % gs.length], MAT.bag); m.scale.set(0.6, 0.22, 0.36); m.visible = false; m.castShadow = SHADOWS; scene.add(onLayer1(m)); list.push({ m, v: V3(), w: V3(), t: 99, rest: false }); } return list; })();
 function bagBurst(p, n) {
   for (let k = 0; k < n; k++) { let b = BAG_POOL[0]; for (const q of BAG_POOL) if (q.t > b.t) b = q; b.t = 0; b.rest = false; b.m.visible = true; b.m.position.copy(p).add(V3(rand(-0.6, 0.6), 0.6, rand(-0.6, 0.6))); b.v.set(rand(-5, 5), rand(6, 13), rand(-5, 5)); b.w.set(rand(-8, 8), rand(-8, 8), rand(-8, 8)); }
 }
