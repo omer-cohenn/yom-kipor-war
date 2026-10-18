@@ -506,8 +506,8 @@ function hmBuild() {
   // the furniture models: all the copies of each in one draw; indoors under concrete, none casts a shadow. The post's can only be seen from close by:
   // both levels of detail are built and hmUpd shows the full models inside the post, the lighter ones from the yard and none from further out
   C.furn = [[], []]; for (const n in K.mdl) for (let l = 0; l < 2; l++) for (const m of mdlInst(n, l, K.mdl[n], null, false)) { m.visible = false; m.userData.dyn = true; C.furn[l].push(m); }
-  for (const n in K.mdlC) mdlInst(n, LITE ? 1 : 0, K.mdlC[n], null, false);
-  for (const n in K.mdlT) mdlInst(n, 1, K.mdlT[n], null, false);   // along the trenches: the lighter models, seen from a few metres at the nearest
+  for (const n in K.mdlC) mdlInst(n, 0, K.mdlC[n], null, false);   /* the furniture and fittings at full detail everywhere, the phone too */
+  for (const n in K.mdlT) mdlInst(n, 0, K.mdlT[n], null, false);   // along the trenches, at full detail too
   if (K.gab.length) scene.add(SH(onLayer1(new THREE.Mesh(mergeGeometries(K.gab, false), MAT.gabion))));
   // warm bulbs in the rooms: three real lights, moved to the bulbs nearest the eye (hmUpd); the rest only glow
   C.lamps = K.lamps; C.plights = [0, 1, 2].map(() => { const lt = new THREE.PointLight(0xffd9a0, 0, 13, 2); lt.userData.dyn = true; scene.add(lt); return lt; }); C.plT = 0;
@@ -797,7 +797,7 @@ function hmUpd(dt) {
   updTrail(dt); gateUpd(dt); hmDoorsUpd(dt);
   // the post's furniture: the full models inside the post (the lighter ones in the light setting), the lighter ones within 40 m of it, none further out
   const cd = hmDist(camera.position.x - HM.o.x, camera.position.z - HM.o.z);
-  if (C.furn) { const l = cd < 4 && !LITE ? 0 : cd < 40 ? 1 : -1; C.furn.forEach((list, k) => { for (const m of list) m.visible = k === l; }); }
+  if (C.furn) { const l = cd < 40 ? 0 : -1;   /* inside the post and round it, the furniture at full detail */ C.furn.forEach((list, k) => { for (const m of list) m.visible = k === l; }); }
   // the three real lights go to the bulbs nearest the eye on its own floor; out of the post they are off
   if (C.plights && (C.plT -= dt) <= 0) { C.plT = 0.3; const c = camera.position, fl = c.y < HM_PY - 0.2 ? 0 : 1, inside = cd < 1 && c.y < HM_RY;
     const near = inside ? C.lamps.map((q) => [q, Math.hypot(q[0] - c.x, q[2] - c.z) + (q[3] === fl ? 0 : 60)]).sort((a, b) => a[1] - b[1]) : [];

@@ -9,12 +9,16 @@ function tileBlotches(g, n, r, count, rmin, rmax, colDark, colLight, pDark) {
     }
   }
 }
+/* the buildings' textures at twice the resolution: the same drawing, scaled up (hiCanvas), and over it a grain only the finer canvas can hold */
+function hiCanvas(W, H = W, k = 2) { const c = canvas(W * k, H * k), g = c.getContext('2d'); g.scale(k, k); return [c, g]; }
+function fineGrain(g, c, r, n, dark, light) { g.setTransform(1, 0, 0, 1, 0, 0); for (let i = 0; i < n; i++) { g.fillStyle = r() < 0.5 ? dark : light; g.fillRect(r() * c.width, r() * c.height, 1, 1); } }
 function grimeTex() {
-  const n = 256, c = canvas(n), g = c.getContext('2d'), r = rng(301);
+  const n = 256, [c, g] = hiCanvas(n), r = rng(301);
   g.fillStyle = '#eeeeec'; g.fillRect(0, 0, n, n);
   tileBlotches(g, n, r, 70, 10, 46, 'rgba(110,100,86,0.24)', 'rgba(255,255,255,0.32)', 0.6);
   for (let i = 0; i < 90; i++) { const x = r() * n, y = r() * n, h = 10 + r() * 60, w = 1 + r() * 2; g.fillStyle = `rgba(95,84,70,${0.05 + r() * 0.12})`; g.fillRect(x, y, w, h); if (y + h > n) g.fillRect(x, y - n, w, h); }
   for (let i = 0; i < 3200; i++) { g.fillStyle = r() < 0.5 ? `rgba(70,62,52,${0.1 + r() * 0.25})` : `rgba(255,255,255,${0.1 + r() * 0.2})`; g.fillRect(r() * n, r() * n, 1, 1); }
+  fineGrain(g, c, r, 9000, 'rgba(70,62,52,0.16)', 'rgba(255,255,255,0.14)');
   const t = tex(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; return t;
 }
 function fabricTex() {
@@ -35,7 +39,7 @@ function burlapTex() {
   const t = tex(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; return t;
 }
 function facadeTex() {
-  const W = 512, H = 512, c = canvas(W, H), g = c.getContext('2d'), r = rng(63), pk = (a) => a[Math.floor(r() * a.length)];
+  const W = 512, H = 512, [c, g] = hiCanvas(W, H), r = rng(63), pk = (a) => a[Math.floor(r() * a.length)];
   g.fillStyle = '#ece7dc'; g.fillRect(0, 0, W, H);
   tileBlotches(g, W, r, 40, 20, 90, 'rgba(150,138,118,0.22)', 'rgba(255,255,255,0.2)', 0.7);
   const top = 46, bottom = 30, rows = 3, cols = 4, fh = (H - top - bottom) / rows, cw = W / cols;
@@ -53,13 +57,15 @@ function facadeTex() {
   }
   for (let i = 0; i < 2500; i++) { g.fillStyle = r() < 0.5 ? 'rgba(90,80,66,0.18)' : 'rgba(255,255,255,0.2)'; g.fillRect(r() * W, r() * H, 1 + r() * 2, 1 + r() * 2); }
   g.fillStyle = 'rgba(80,70,58,0.35)'; g.fillRect(0, H - bottom, W, bottom);
+  fineGrain(g, c, r, 26000, 'rgba(90,80,66,0.12)', 'rgba(255,255,255,0.12)');
   return tex(c);
 }
 function woodTex() {
-  const n = 256, c = canvas(n), g = c.getContext('2d'), r = rng(88);
+  const n = 256, [c, g] = hiCanvas(n), r = rng(88);
   g.fillStyle = '#7b5334'; g.fillRect(0, 0, n, n);
   for (let i = 0; i < 70; i++) { const y0 = r() * n, a = 2 + r() * 6, f = 0.01 + r() * 0.03, ph = r() * 6; g.strokeStyle = r() < 0.6 ? `rgba(58,36,20,${0.25 + r() * 0.35})` : `rgba(170,120,78,${0.2 + r() * 0.3})`; g.lineWidth = 0.6 + r() * 1.8; g.beginPath(); for (let x = 0; x <= n; x += 4) { const y = y0 + Math.sin(x * f + ph) * a; x ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke(); }
   tileBlotches(g, n, r, 12, 10, 40, 'rgba(40,24,12,0.25)', 'rgba(200,150,100,0.15)', 0.6);
+  fineGrain(g, c, r, 7000, 'rgba(40,24,12,0.16)', 'rgba(210,160,110,0.1)');
   const t = tex(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; return t;
 }
 function netTex() {

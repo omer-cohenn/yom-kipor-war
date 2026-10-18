@@ -122,11 +122,12 @@ function facadeWeather(g, W, H, r, ground, plaster) {
   }
 }
 function plasterTex(seed, base) {
-  const W = 256, c = canvas(W, W), g = c.getContext('2d'), r = rng(seed); g.fillStyle = base; g.fillRect(0, 0, W, W);
+  const W = 256, [c, g] = hiCanvas(W), r = rng(seed); g.fillStyle = base; g.fillRect(0, 0, W, W);   /* drawn at twice the resolution */
   for (let i = 0; i < 2600; i++) { g.fillStyle = r() < 0.5 ? 'rgba(70,58,44,0.04)' : 'rgba(255,250,235,0.05)'; g.fillRect(r() * W, r() * W, 2 + r() * 6, 1 + r() * 4); }
   tileBlotches(g, W, r, 14, 12, 48, 'rgba(90,76,58,0.07)', 'rgba(255,255,255,0.06)', 0.6); g.lineCap = 'round';
   for (let k = 0; k < 3; k++) { let x = r() * W, y = r() * W; g.strokeStyle = `rgba(50,42,32,${0.2 + r() * 0.25})`; g.lineWidth = 0.6 + r() * 0.6; g.beginPath(); g.moveTo(x, y); for (let j = 0; j < 6; j++) { x += (r() - 0.5) * 14; y += 5 + r() * 12; g.lineTo(x, y); } g.stroke(); }
   for (let k = 0; k < 2; k++) { const x = r() * W, y = r() * W, w = 10 + r() * 24, h = 6 + r() * 14; g.fillStyle = 'rgba(150,140,124,0.3)'; g.beginPath(); for (let a = 0; a < 6.3; a += 0.8) g.lineTo(x + Math.cos(a) * w * (0.7 + r() * 0.4), y + Math.sin(a) * h * (0.7 + r() * 0.4)); g.closePath(); g.fill(); }
+  fineGrain(g, c, r, 8000, 'rgba(70,58,44,0.07)', 'rgba(255,250,235,0.08)');
   const t = tex(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; return t;
 }
 
@@ -374,7 +375,7 @@ function cityDressing(rr) {
   /* ---- the barricades that make the route one: nobody walks past any of them ---- */
   // across the mouth of the square, where the avenue ends: concrete blocks, a burnt jeep, hedgehogs and wire. The tank halts at it, and from here on the square is a killing ground
   { const x = -36.4; blocks([[x, -10.3, 0.1], [x, -8.9, 0.6], [x, 1.8, 0.3], [x, 3.3, 0.8], [x, 9.6, 0.2]]); szWreck(x - 0.4, -2.6, Math.PI / 2 + 0.25, false); smokeColumn(LX(x - 0.4), LZ(-2.6), 2.5, false); szWire(ws, x + 0.9, -11, x + 0.9, 11); szBar(x + 0.2, -11.2, x + 0.2, 11.2, 0.95);
-    if (mdlHas('hedgehog')) { const hm = []; for (const z of [5.3, 7.4, -6.6]) hm.push(M4(LX(x), CHH, LZ(z), 0, rr() * 3, 0)); for (const m of mdlInst('hedgehog', LITE ? 1 : 0, hm)) SZ.objs.push(m); } bag([[x - 0.4, 6.0], [x - 0.4, 8.6]], 5); }
+    if (mdlHas('hedgehog')) { const hm = []; for (const z of [5.3, 7.4, -6.6]) hm.push(M4(LX(x), CHH, LZ(z), 0, rr() * 3, 0)); for (const m of mdlInst('hedgehog', 0, hm)) SZ.objs.push(m); } bag([[x - 0.4, 6.0], [x - 0.4, 8.6]], 5); }
   // across the north street at the mouth of the square: their sandbag line facing the square (the gun pit is in it); the men behind it have their backs to the alley we come out of
   bag([[-65.8, -26.3], [-60.4, -26.3]], 6); bag([[-55.6, -26.3], [-50.2, -26.3]], 6); szWire(ws, -66, -26.3, -50, -26.3, 1.55); szBar(-66, -26.3, -50, -26.3, 0.5);
   // further up the north street: their line facing south, which the counterattack comes to
@@ -387,7 +388,7 @@ function cityDressing(rr) {
   // the Egyptian positions along it, each facing back down the alley at whoever comes: sandbags across part of it, crates and drums
   bag([[-31.8, -25.0], [-30.1, -25.0]], 4); bag([[-31.4, -35.2], [-28.4, -35.2]], 4); bag([[-49.2, -36.4], [-49.2, -35.4]], 5);
   if (mdlHas('f_crate_long') && mdlHas('f_crate_wood')) { const cm = [], cw = []; for (const [x, z, n, r] of [[-28.3, -27.6, 2, 0.1], [-42.5, -35.7, 3, Math.PI / 2], [-30.9, -14.6, 2, 0.4], [-52.2, -39.6, 2, Math.PI / 2 + 0.1]]) { for (let l = 0; l < n; l++) for (const o of [-0.15, 0.15]) cm.push(M4(LX(x) + Math.sin(r) * o, CHH + l * 0.26, LZ(z) + Math.cos(r) * o, 0, r + (rr() - 0.5) * 0.08, 0)); cw.push(M4(LX(x), CHH + n * 0.26, LZ(z), 0, r + 0.2, 0)); addCollider(LX(x), LZ(z), 0.62, 0.32, r, CHH + n * 0.26 + 0.23); coverBox(LX(x), LZ(z), 0.62, 0.32, r, n * 0.26 + 0.23); }
-    for (const m of mdlInst('f_crate_long', LITE ? 1 : 0, cm)) SZ.objs.push(m); for (const m of mdlInst('f_crate_wood', LITE ? 1 : 0, cw)) SZ.objs.push(m); }
+    for (const m of mdlInst('f_crate_long', 0, cm)) SZ.objs.push(m); for (const m of mdlInst('f_crate_wood', 0, cw)) SZ.objs.push(m); }
   drums(-42.5, -32.6, -42.5, -33.3); drums(-49.1, -32.3, -49.1, -33.1);
   for (const [x, z] of [[-31.4, -18.2], [-28.0, -31.6], [-37.2, -32.5], [-46.5, -36.0]]) drum(LX(x), LZ(z), DC[Math.floor(rr() * 4)], false, false);
   // a shot-up jeep of theirs nosed into the east side of the alley, and the rubble of a balcony that came down
@@ -729,7 +730,7 @@ function buildCornerBuilding() {
   const mk = (list, m2 = mat) => { const g = build(list.map(([gg, c]) => [gg, c])); const m = new THREE.Mesh(g, m2); scene.add(SH(onLayer1(m))); SZ.objs.push(m); };
   mk(parts); mk(furn, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85, map: TX.grime, side: THREE.DoubleSide })); { const m = new THREE.Mesh(build(slabParts.map((g) => [g, 0x9c9384])), mat); scene.add(SH(onLayer1(m))); SZ.objs.push(m); }
   // the furniture models: all the copies of each in one draw (the lighter level of detail in the light setting); only the bigger pieces cast shadows
-  for (const n in FM) for (const m of mdlInst(n, LITE ? 1 : 0, FM[n], null, Math.max(...mdlBox(n)) > 0.6)) SZ.objs.push(m);
+  for (const n in FM) for (const m of mdlInst(n, 0, FM[n], null, Math.max(...mdlBox(n)) > 0.6)) SZ.objs.push(m);
   const rugs = [rugTex(1, '#7a2a22', '#d8b878'), rugTex(2, '#2a3a5a', '#c8a868'), new THREE.CanvasTexture((() => { const c = canvas(128, 64), g = c.getContext('2d'); g.fillStyle = '#d8ccaa'; g.fillRect(0, 0, 128, 64); g.strokeStyle = '#6a4a2a'; for (let i = 0; i < 9; i++) { g.beginPath(); g.moveTo(10 + i * 12, 6); g.bezierCurveTo(30 + i * 9, 30, 4 + i * 13, 40, 20 + i * 11, 60); g.stroke(); } g.fillStyle = '#8a2a22'; g.fillRect(70, 20, 6, 6); g.fillRect(40, 38, 6, 6); return c; })())];
   for (const [g, k] of soft) { const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ map: rugs[k], roughness: 1 })); scene.add(onLayer1(m)); SZ.objs.push(m); m.receiveShadow = SHADOWS; }
   for (const [g, k] of pics) { const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ map: pictureTex(k), roughness: 0.7 })); scene.add(onLayer1(m)); SZ.objs.push(m); }
@@ -750,7 +751,7 @@ function szAidBuild(FY) {
   const g = new THREE.Group(), y = FY(1), X = LX, Z = LZ, parts = [];
   const bx = (x, yy, z, w, h, d, c, ry = 0) => parts.push([new THREE.BoxGeometry(w, h, d).rotateY(ry).translate(X(x), yy, Z(z)), c]);
   // the mattresses of the furniture pack, each with its pillow and blanket, the pillow to the east wall (none when the build lacks the model)
-  if (mdlHas('f_mattress')) for (const m of mdlInst('f_mattress', LITE ? 1 : 0, SZ_WOUNDED.map(([, x, z]) => M4(X(x), y, Z(z), 0, -Math.PI / 2, 0)), null, false)) g.add(m);
+  if (mdlHas('f_mattress')) for (const m of mdlInst('f_mattress', 0, SZ_WOUNDED.map(([, x, z]) => M4(X(x), y, Z(z), 0, -Math.PI / 2, 0)), null, false)) g.add(m);
   for (const [x, z] of [[-71.9, -37.0], [-71.9, -36.1]]) { for (const dz of [-0.22, 0.22]) bx(x, y + 0.98, z + dz, 0.07, 1.96, 0.07, 0x6b4a30); bx(x, y + 0.98, z, 0.04, 1.88, 0.4, 0x4f5a3c); }
   for (const [x, z, r] of [[-76.7, -30.0, 0.2], [-76.2, -29.75, -0.3]]) { bx(x, y + 0.2, z, 0.62, 0.4, 0.42, 0x5d6a4a, r); bx(x, y + 0.405, z, 0.3, 0.012, 0.3, 0xefece4, r); bx(x, y + 0.414, z, 0.2, 0.012, 0.06, 0xb4231a, r); bx(x, y + 0.414, z, 0.06, 0.012, 0.2, 0xb4231a, r); }
   for (const [x, z] of [[-73.9, -37.2], [-74.1, -31.55]]) { bx(x, y + 0.9, z, 0.03, 1.8, 0.03, 0x8a8a84); bx(x, y + 0.03, z, 0.4, 0.06, 0.4, 0x6a6a64); bx(x, y + 1.62, z, 0.12, 0.22, 0.05, 0xdfe6e4); }
