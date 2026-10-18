@@ -313,6 +313,17 @@ function updFriend(f, dt, time) {
   if (f.state === 'ride') { const r = f.ride(); u.pos.copy(r.p); u.heading = r.hd; u.stance = 'crouch'; u.rig.pose(r.pose || 'crouch', u.anim, 0); u.sync(); return; }
   if (f.state === 'board') { const g = f.goal(); const d = steer(u, g.x, g.z, 5.2, dt); u.anim += dt * 9.5; u.stance = 'stand'; u.rig.pose('run', u.anim); if (d < 0.8) f.onArrive(f); u.sync(); return; }
   if (f.state === 'duck') { u.stance = 'hide'; u.rig.pose('hide', u.anim); u.sync(); return; }
+  if (f.state === 'door') {   // the man opening a door: to its near side, then the kick, the hand on the handle, or the charge placed and back away from it
+    const J = f.doorJob; if (!J) { f.state = 'follow'; u.sync(); return; } u.stance = 'stand';
+    if (!J.ready) { const dd = steer(u, J.x, J.z, 4.6, dt); if (dd > 0.3 && GAME.t < J.t1) { u.anim += dt * 8; u.rig.pose('crun', u.anim); u.sync(); return; } J.ready = GAME.t; }
+    const k = GAME.t - J.ready; u.face(J.fx, J.fz);
+    if (J.way === 'kick') u.rig.pose('kick', k, 0);
+    else if (J.way === 'hand') u.rig.pose('aim', u.anim, 0);
+    else if (k < 0.9) { u.stance = 'crouch'; u.rig.pose('crouch', u.anim, -0.2); }
+    else { const dd = steer(u, J.bx, J.bz, 4.6, dt); if (dd > 0.3) { u.anim += dt * 8; u.rig.pose('crun', u.anim); } else { u.stance = 'hide'; u.face(J.fx, J.fz); u.rig.pose('hide', u.anim); } }
+    if (k > J.dur) { f.state = J.prev || 'follow'; f.doorJob = null; f.moving = true; }
+    u.sync(); return;
+  }
   if (f.state === 'toPost') {
     if (f.delay > 0) { f.delay -= dt; if (f.delay > 0) return; u.rig.root.visible = true; }
     const d = steer(u, f.goal[0], f.goal[1], 5.3, dt); u.anim += dt * 9; u.rig.pose('run', u.anim);
@@ -1328,6 +1339,26 @@ function bulletHole(p, n, size = rand(0.16, 0.22)) {
   H.q.setFromUnitVectors(H.z, n); H.q2.setFromAxisAngle(H.z, rand(0, 6.28)); H.q.multiply(H.q2);
   H.m4.compose(V3(p.x + n.x * 0.02, p.y + n.y * 0.02, p.z + n.z * 0.02), H.q, V3(size, size, 1));   /* 2 cm off the face: the far depth buffer cannot tell less */ H.mesh.setMatrixAt(i, H.m4); H.mesh.count = Math.min(H.n, H.max); H.mesh.instanceMatrix.needsUpdate = true;
 }
+/* chips: bits of the plaster, the concrete, the wood a round knocks off, thrown out of the face it struck, falling and skittering on the floor */
+const CHIPS = { max: LITE ? 140 : 300, n: 0, mesh: null, st: [], m4: new THREE.Matrix4(), q: new THREE.Quaternion(), e: new THREE.Euler(), c: new THREE.Color() };
+function chipsAt(p, n) {
+  const C = CHIPS; if (!C.mesh) { const im = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshStandardMaterial({ roughness: 0.9 }), C.max); im.count = C.max; im.frustumCulled = false; for (let i = 0; i < C.max; i++) { im.setMatrixAt(i, C.m4.makeScale(0, 0, 0)); im.setColorAt(i, C.c.set(0xcfc6b4)); C.st.push({ life: 0 }); } scene.add(onLayer1(im)); C.mesh = im; }
+  const fl = hAt(p.x + n.x * 0.4, p.z + n.z * 0.4, p.y), k = LITE ? 6 : 10;
+  for (let j = 0; j < k; j++) { const i = C.n++ % C.max, s = C.st[i];
+    Object.assign(s, { x: p.x + n.x * 0.03, y: p.y + n.y * 0.03, z: p.z + n.z * 0.03, vx: n.x * rand(1.5, 4) + rand(-1.4, 1.4), vy: n.y * rand(1.5, 3) + rand(0.5, 2.6), vz: n.z * rand(1.5, 4) + rand(-1.4, 1.4), life: rand(1.2, 2.4), sz: rand(0.008, 0.026), rx: rand(0, 6), ry: rand(0, 6), w: rand(-14, 14), floor: fl + 0.01 });
+    C.mesh.setColorAt(i, C.c.set(j % 3 ? 0xd2c9b6 : 0x7c7468)); }
+  C.mesh.instanceColor.needsUpdate = true;
+}
+function chipsUpd(dt) {
+  const C = CHIPS; if (!C.mesh) return; let any = false;
+  for (let i = 0; i < C.max; i++) { const s = C.st[i]; if (s.life <= 0) continue; any = true; s.life -= dt;
+    if (s.life <= 0) { C.mesh.setMatrixAt(i, C.m4.makeScale(0, 0, 0)); continue; }
+    s.vy -= 9.8 * dt; s.x += s.vx * dt; s.y += s.vy * dt; s.z += s.vz * dt; s.rx += s.w * dt; s.ry += s.w * 0.7 * dt;
+    if (s.y < s.floor) { s.y = s.floor; s.vy *= -0.3; s.vx *= 0.55; s.vz *= 0.55; s.w *= 0.5; }
+    C.q.setFromEuler(C.e.set(s.rx, s.ry, 0)); C.m4.compose(_hdc.set(s.x, s.y, s.z), C.q, _hds.set(s.sz, s.sz * 0.6, s.sz)); C.mesh.setMatrixAt(i, C.m4); }
+  if (any) C.mesh.instanceMatrix.needsUpdate = true;
+}
+const _hdc = V3(), _hds = V3();
 function holesClear() { HOLES.n = 0; if (HOLES.mesh) HOLES.mesh.count = 0; }
 /* the face of a box a round struck: the side nearest the point (its top, or one of its four sides), turned toward the shooter */
 function colNormal(k, p, dir) {
@@ -1344,7 +1375,7 @@ function applyHit(hit, dmg) {
   else if (hit.kind === 'friend') { toast('זהירות', 'אש על כוחותינו'); }
   else if (hit.kind === 'veh') { if (hit.v.alive && hit.v.armor > 0) { vehHit(hit.v, dmg * hit.v.armor, hit.p); hitmark(!hit.v.alive); } fxDust(hit.p.clone(), false); }
   else if (hit.kind === 'prop') { const dir = hit.dir || V3(0, 0, 1); propKick(hit.prop, dir, 1.7); propsNear(hit.p, 0.4, dir); fxDust(hit.p.clone(), false); }
-  else if (hit.kind === 'wall') { const n = hit.k ? colNormal(hit.k, hit.p, hit.dir) : null; if (n) bulletHole(hit.p, n); fxDust(hit.p.clone().addScaledVector(n || V3(0, 1, 0), 0.08), false); propsNear(hit.p, 0.35, hit.dir || V3(0, 0, 1)); }
+  else if (hit.kind === 'wall') { const n = hit.k ? colNormal(hit.k, hit.p, hit.dir) : null; if (n) { bulletHole(hit.p, n); chipsAt(hit.p, n); } fxDust(hit.p.clone().addScaledVector(n || V3(0, 1, 0), 0.08), false); propsNear(hit.p, 0.35, hit.dir || V3(0, 0, 1)); }
   else if (hit.kind === 'ground' || hit.kind === 'water') fxDust(hit.p.clone().add(V3(0, 0.15, 0)), hit.kind === 'water');
 }
 function magShoot() {
@@ -1974,7 +2005,7 @@ function frameInner() {
   // the title and mission select cover the screen with pictures: no need to draw the 3D world behind them (it saves the phone's battery)
   if (GAME.state === 'menu' && (!$('#mBrief').hidden || !$('#mOps').hidden)) return;
   if (GAME.state === 'play') update(dt, time); else if (GAME.state !== 'pause' && GAME.state !== 'end') { idleCamera(time); updJets(dt); menuFx(dt); }
-  FX.flashes.update(dt); FX.glows.update(dt); FX.smoke.update(dt); FX.dust.update(dt); FX.fire.update(dt); FX.trail.update(dt); FX.exh.update(dt); updateTracers(dt); updateFlares(dt); updateDrumFire(dt, time);
+  chipsUpd(dt); FX.flashes.update(dt); FX.glows.update(dt); FX.smoke.update(dt); FX.dust.update(dt); FX.fire.update(dt); FX.trail.update(dt); FX.exh.update(dt); updateTracers(dt); updateFlares(dt); updateDrumFire(dt, time);
   FX.boomT = (FX.boomT || 0) + dt; LIGHTS.boom.intensity *= Math.max(0, 1 - dt * 9);
   updFarSmoke(dt, time); wreckUpd(dt); animateWater(dt); waveFlags(time);
   if (HM_PANO) HM_PANO.visible = MODE === 'hermon';   // the view from the Hermon is drawn only there

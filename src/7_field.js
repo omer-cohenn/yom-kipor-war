@@ -576,6 +576,7 @@ function fieldNearest(pred, maxD = 1e9) { let best = null, bd = maxD; for (const
 const GATE = { on: false, pts: null, i: 0, clear: false, spawn: null, done: null, label: 'נקודה' };
 // lane: the half-width of the lane the advance runs in (0: none), or [half-width, the lane's own line, metres it reaches back behind the first point]
 function gateStart(pts, spawn, done, label = 'נקודה', r = 6.5, lane = 0) {
+  r = r < 4 ? r * 1.6 : Math.max(r * 2, r + 6);   /* the point to reach is a wide place, not a spot: twice as wide in the open, more than half again indoors */
   const hw = Array.isArray(lane) ? lane[0] : lane; Object.assign(GATE, { on: true, pts, i: 0, clear: false, spawn, done, label, t: 0, r, lane: hw, back: Array.isArray(lane) ? lane[2] : undefined, s0m: -1e9 });
   if (hw) { laneSet(Array.isArray(lane) ? lane[1] : pts.map((q) => [q[0], q[1]]), hw); GATE.ls = pts.map((q) => laneProj(q[0], q[1]).s); } else laneOff();   // an advance without a lane of its own leaves no old one behind
   spawn(0);

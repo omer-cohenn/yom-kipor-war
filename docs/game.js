@@ -3122,6 +3122,11 @@ class Rig {
     } else if (kind === 'prone') {
       T.rootX = -Math.PI / 2; R.legs(0.05, 0.1, -0.05, 0.25 + Math.sin(t * 1.3) * 0.1);
       R.arms(-0.2 + Math.sin(t * 2) * 0.15, -0.6, -2.4 + Math.sin(t * 1.7) * 0.3, -0.5, 0.2, -0.2); R.gunAt(0.3, 0.1, -0.4, 0, 0.8, 1.4);
+    } else if (kind === 'kick') {
+      // a door kicked in (t: seconds into it): the knee drawn up, the boot driven flat at the lock, the leg back down; the rifle across the chest
+      const a = clamp(t / 0.16, 0, 1), b = clamp((t - 0.16) / 0.09, 0, 1), c = clamp((t - 0.3) / 0.22, 0, 1), up = a * (1 - c);
+      R.legs(-1.3 * up, up * (1.75 - 1.55 * b), 0.12, 0.1); T.torsoX = -0.2 * up + 0.08 * b * (1 - c); T.hipsX = 0.03 * up;
+      R.gunAt(-0.04, 0.36, 0.2, -0.95, 0.55, 0.2);
     } else if (kind === 'throw') {
       R.legs(-0.3, 0.2, 0.3, 0.1); T.torsoX = -0.1 + t * 0.4; T.torsoY = -0.2 + t * 0.35; R.arms(-2.6 + t * 2.5, -0.4, -0.8, -0.8, 0.2, -0.4); R.gunAt(0.05, 0.25, 0.2, -0.9, 0.4, 0);
     }
@@ -5044,6 +5049,17 @@ function updFriend(f, dt, time) {
   if (f.state === 'ride') { const r = f.ride(); u.pos.copy(r.p); u.heading = r.hd; u.stance = 'crouch'; u.rig.pose(r.pose || 'crouch', u.anim, 0); u.sync(); return; }
   if (f.state === 'board') { const g = f.goal(); const d = steer(u, g.x, g.z, 5.2, dt); u.anim += dt * 9.5; u.stance = 'stand'; u.rig.pose('run', u.anim); if (d < 0.8) f.onArrive(f); u.sync(); return; }
   if (f.state === 'duck') { u.stance = 'hide'; u.rig.pose('hide', u.anim); u.sync(); return; }
+  if (f.state === 'door') {   // the man opening a door: to its near side, then the kick, the hand on the handle, or the charge placed and back away from it
+    const J = f.doorJob; if (!J) { f.state = 'follow'; u.sync(); return; } u.stance = 'stand';
+    if (!J.ready) { const dd = steer(u, J.x, J.z, 4.6, dt); if (dd > 0.3 && GAME.t < J.t1) { u.anim += dt * 8; u.rig.pose('crun', u.anim); u.sync(); return; } J.ready = GAME.t; }
+    const k = GAME.t - J.ready; u.face(J.fx, J.fz);
+    if (J.way === 'kick') u.rig.pose('kick', k, 0);
+    else if (J.way === 'hand') u.rig.pose('aim', u.anim, 0);
+    else if (k < 0.9) { u.stance = 'crouch'; u.rig.pose('crouch', u.anim, -0.2); }
+    else { const dd = steer(u, J.bx, J.bz, 4.6, dt); if (dd > 0.3) { u.anim += dt * 8; u.rig.pose('crun', u.anim); } else { u.stance = 'hide'; u.face(J.fx, J.fz); u.rig.pose('hide', u.anim); } }
+    if (k > J.dur) { f.state = J.prev || 'follow'; f.doorJob = null; f.moving = true; }
+    u.sync(); return;
+  }
   if (f.state === 'toPost') {
     if (f.delay > 0) { f.delay -= dt; if (f.delay > 0) return; u.rig.root.visible = true; }
     const d = steer(u, f.goal[0], f.goal[1], 5.3, dt); u.anim += dt * 9; u.rig.pose('run', u.anim);
@@ -6059,6 +6075,26 @@ function bulletHole(p, n, size = rand(0.16, 0.22)) {
   H.q.setFromUnitVectors(H.z, n); H.q2.setFromAxisAngle(H.z, rand(0, 6.28)); H.q.multiply(H.q2);
   H.m4.compose(V3(p.x + n.x * 0.02, p.y + n.y * 0.02, p.z + n.z * 0.02), H.q, V3(size, size, 1));   /* 2 cm off the face: the far depth buffer cannot tell less */ H.mesh.setMatrixAt(i, H.m4); H.mesh.count = Math.min(H.n, H.max); H.mesh.instanceMatrix.needsUpdate = true;
 }
+/* chips: bits of the plaster, the concrete, the wood a round knocks off, thrown out of the face it struck, falling and skittering on the floor */
+const CHIPS = { max: LITE ? 140 : 300, n: 0, mesh: null, st: [], m4: new THREE.Matrix4(), q: new THREE.Quaternion(), e: new THREE.Euler(), c: new THREE.Color() };
+function chipsAt(p, n) {
+  const C = CHIPS; if (!C.mesh) { const im = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshStandardMaterial({ roughness: 0.9 }), C.max); im.count = C.max; im.frustumCulled = false; for (let i = 0; i < C.max; i++) { im.setMatrixAt(i, C.m4.makeScale(0, 0, 0)); im.setColorAt(i, C.c.set(0xcfc6b4)); C.st.push({ life: 0 }); } scene.add(onLayer1(im)); C.mesh = im; }
+  const fl = hAt(p.x + n.x * 0.4, p.z + n.z * 0.4, p.y), k = LITE ? 6 : 10;
+  for (let j = 0; j < k; j++) { const i = C.n++ % C.max, s = C.st[i];
+    Object.assign(s, { x: p.x + n.x * 0.03, y: p.y + n.y * 0.03, z: p.z + n.z * 0.03, vx: n.x * rand(1.5, 4) + rand(-1.4, 1.4), vy: n.y * rand(1.5, 3) + rand(0.5, 2.6), vz: n.z * rand(1.5, 4) + rand(-1.4, 1.4), life: rand(1.2, 2.4), sz: rand(0.008, 0.026), rx: rand(0, 6), ry: rand(0, 6), w: rand(-14, 14), floor: fl + 0.01 });
+    C.mesh.setColorAt(i, C.c.set(j % 3 ? 0xd2c9b6 : 0x7c7468)); }
+  C.mesh.instanceColor.needsUpdate = true;
+}
+function chipsUpd(dt) {
+  const C = CHIPS; if (!C.mesh) return; let any = false;
+  for (let i = 0; i < C.max; i++) { const s = C.st[i]; if (s.life <= 0) continue; any = true; s.life -= dt;
+    if (s.life <= 0) { C.mesh.setMatrixAt(i, C.m4.makeScale(0, 0, 0)); continue; }
+    s.vy -= 9.8 * dt; s.x += s.vx * dt; s.y += s.vy * dt; s.z += s.vz * dt; s.rx += s.w * dt; s.ry += s.w * 0.7 * dt;
+    if (s.y < s.floor) { s.y = s.floor; s.vy *= -0.3; s.vx *= 0.55; s.vz *= 0.55; s.w *= 0.5; }
+    C.q.setFromEuler(C.e.set(s.rx, s.ry, 0)); C.m4.compose(_hdc.set(s.x, s.y, s.z), C.q, _hds.set(s.sz, s.sz * 0.6, s.sz)); C.mesh.setMatrixAt(i, C.m4); }
+  if (any) C.mesh.instanceMatrix.needsUpdate = true;
+}
+const _hdc = V3(), _hds = V3();
 function holesClear() { HOLES.n = 0; if (HOLES.mesh) HOLES.mesh.count = 0; }
 /* the face of a box a round struck: the side nearest the point (its top, or one of its four sides), turned toward the shooter */
 function colNormal(k, p, dir) {
@@ -6075,7 +6111,7 @@ function applyHit(hit, dmg) {
   else if (hit.kind === 'friend') { toast('זהירות', 'אש על כוחותינו'); }
   else if (hit.kind === 'veh') { if (hit.v.alive && hit.v.armor > 0) { vehHit(hit.v, dmg * hit.v.armor, hit.p); hitmark(!hit.v.alive); } fxDust(hit.p.clone(), false); }
   else if (hit.kind === 'prop') { const dir = hit.dir || V3(0, 0, 1); propKick(hit.prop, dir, 1.7); propsNear(hit.p, 0.4, dir); fxDust(hit.p.clone(), false); }
-  else if (hit.kind === 'wall') { const n = hit.k ? colNormal(hit.k, hit.p, hit.dir) : null; if (n) bulletHole(hit.p, n); fxDust(hit.p.clone().addScaledVector(n || V3(0, 1, 0), 0.08), false); propsNear(hit.p, 0.35, hit.dir || V3(0, 0, 1)); }
+  else if (hit.kind === 'wall') { const n = hit.k ? colNormal(hit.k, hit.p, hit.dir) : null; if (n) { bulletHole(hit.p, n); chipsAt(hit.p, n); } fxDust(hit.p.clone().addScaledVector(n || V3(0, 1, 0), 0.08), false); propsNear(hit.p, 0.35, hit.dir || V3(0, 0, 1)); }
   else if (hit.kind === 'ground' || hit.kind === 'water') fxDust(hit.p.clone().add(V3(0, 0.15, 0)), hit.kind === 'water');
 }
 function magShoot() {
@@ -6705,7 +6741,7 @@ function frameInner() {
   // the title and mission select cover the screen with pictures: no need to draw the 3D world behind them (it saves the phone's battery)
   if (GAME.state === 'menu' && (!$('#mBrief').hidden || !$('#mOps').hidden)) return;
   if (GAME.state === 'play') update(dt, time); else if (GAME.state !== 'pause' && GAME.state !== 'end') { idleCamera(time); updJets(dt); menuFx(dt); }
-  FX.flashes.update(dt); FX.glows.update(dt); FX.smoke.update(dt); FX.dust.update(dt); FX.fire.update(dt); FX.trail.update(dt); FX.exh.update(dt); updateTracers(dt); updateFlares(dt); updateDrumFire(dt, time);
+  chipsUpd(dt); FX.flashes.update(dt); FX.glows.update(dt); FX.smoke.update(dt); FX.dust.update(dt); FX.fire.update(dt); FX.trail.update(dt); FX.exh.update(dt); updateTracers(dt); updateFlares(dt); updateDrumFire(dt, time);
   FX.boomT = (FX.boomT || 0) + dt; LIGHTS.boom.intensity *= Math.max(0, 1 - dt * 9);
   updFarSmoke(dt, time); wreckUpd(dt); animateWater(dt); waveFlags(time);
   if (HM_PANO) HM_PANO.visible = MODE === 'hermon';   // the view from the Hermon is drawn only there
@@ -9084,6 +9120,7 @@ function fieldNearest(pred, maxD = 1e9) { let best = null, bd = maxD; for (const
 const GATE = { on: false, pts: null, i: 0, clear: false, spawn: null, done: null, label: 'נקודה' };
 // lane: the half-width of the lane the advance runs in (0: none), or [half-width, the lane's own line, metres it reaches back behind the first point]
 function gateStart(pts, spawn, done, label = 'נקודה', r = 6.5, lane = 0) {
+  r = r < 4 ? r * 1.6 : Math.max(r * 2, r + 6);   /* the point to reach is a wide place, not a spot: twice as wide in the open, more than half again indoors */
   const hw = Array.isArray(lane) ? lane[0] : lane; Object.assign(GATE, { on: true, pts, i: 0, clear: false, spawn, done, label, t: 0, r, lane: hw, back: Array.isArray(lane) ? lane[2] : undefined, s0m: -1e9 });
   if (hw) { laneSet(Array.isArray(lane) ? lane[1] : pts.map((q) => [q[0], q[1]]), hw); GATE.ls = pts.map((q) => laneProj(q[0], q[1]).s); } else laneOff();   // an advance without a lane of its own leaves no old one behind
   spawn(0);
@@ -12326,10 +12363,11 @@ function hmDoorsBuild() {
     const pivot = new THREE.Group(); pivot.position.set(wx, y, wz); pivot.rotation.y = phi;
     pivot.add(new THREE.Mesh(geo, mat)); scene.add(SH(onLayer1(pivot), false, true));
     const [cx, cz] = HW(x, z), col = addCollider(cx, cz, 0.82, 0.12, Math.atan2(-u[1], u[0]), y + 2.3, y - 0.1);
-    HM_DOORS[f][k] = { pivot, phi, sgn, col, top: col.top, bot: col.bot, ang: 0, open: false, at: V3(cx, y + 1.2, cz) };
+    const [qx, qz] = HW(x + n[0], z + n[1]), nl = Math.hypot(qx - cx, qz - cz) || 1;   /* into the room it leads to, in the world */
+    HM_DOORS[f][k] = { pivot, phi, sgn, col, top: col.top, bot: col.bot, ang: 0, open: false, at: V3(cx, y + 1.2, cz), y, nIn: V3((qx - cx) / nl, 0, (qz - cz) / nl), geo, mat };
   });
 }
-function hmDoorSet(d, open, now = true) { if (!d) return; d.open = open; d.req = null; d.col.top = open ? -1e9 : d.top; d.col.bot = open ? -1e9 - 1 : d.bot; if (now) { d.ang = open ? 1 : 0; d.pivot.rotation.y = d.phi + d.sgn * d.ang * 1.66; } }
+function hmDoorSet(d, open, now = true) { if (!d) return; if (!open) hmDoorMend(d); d.open = open; d.req = null; d.col.top = open ? -1e9 : d.top; d.col.bot = open ? -1e9 - 1 : d.bot; if (now) { d.ang = open ? 1 : 0; d.pivot.rotation.y = d.phi + d.sgn * d.ang * 1.66; } }
 // the doors as a stage of the post begins (or comes back from a checkpoint at bound g0): every door up to the room the player stands in is open
 function hmDoorsSet(stage, g0 = 0) {
   HM_DOORS[0].forEach((d, k) => hmDoorSet(d, stage > 3 || (stage === 3 && k <= g0)));
@@ -12339,9 +12377,58 @@ function hmDoorsUpd(dt) {
   const st = HM.stage;
   if ((st === 3 || st === 4) && GATE.on && GATE.clear) { const d = HM_DOORS[st - 3][GATE.i + 1]; if (d && !d.open && !d.req) d.req = GAME.t + 1.1; }
   for (const L of HM_DOORS) for (const d of L) { if (!d) continue;
-    if (d.req && GAME.t >= d.req) { hmDoorSet(d, true, false); sndBoom(d.at, 0.12); sndClick(260, 0.22); radio('לוחם', pick(['פותחים! רימון ונכנסים!', 'הדלת פתוחה - פנימה!', 'דלת! מכסים, נכנסים!']), 1.8); }
-    const tg = d.open ? 1 : 0; if (Math.abs(d.ang - tg) > 1e-3) { d.ang += (tg - d.ang) * Math.min(1, dt * 7); d.pivot.rotation.y = d.phi + d.sgn * d.ang * 1.66; } }
+    if (d.req && GAME.t >= d.req) hmDoorOpen(d);
+    if (d.job) hmDoorJob(d, dt); if (d.fly) hmDoorFly(d, dt);
+    const tg = d.open ? 1 : 0; if (!d.blown && Math.abs(d.ang - tg) > 1e-3) { d.ang += (tg - d.ang) * Math.min(1, dt * (d.rate || 7)); d.pivot.rotation.y = d.phi + d.sgn * d.ang * 1.66; } }
 }
+/* ---------- how a door is opened: each time another way, in turn - kicked in, opened by hand, or blown with a charge ----------
+   A man of the squad (the nearest) goes to the door's near side and does it; on the building's own page the player does, coming up to it */
+const HM_DOOR_WAY = { n: 0, ways: ['kick', 'hand', 'charge'] }, _hdv = V3();
+let HM_CHARGE_G = null;
+function hmDoorOpen(d) {
+  if (d.job || d.open) return; d.req = null; const way = HM_DOOR_WAY.ways[HM_DOOR_WAY.n++ % 3];
+  const side = Math.sign((P.pos.x - d.at.x) * d.nIn.x + (P.pos.z - d.at.z) * d.nIn.z) || -1, nx = d.nIn.x * side, nz = d.nIn.z * side;   /* the near side's normal */
+  const J = d.job = { way, t0: GAME.t, go: null, f: null, nx, nz, beep: 0 };
+  if (!HM_SANDBOX) { let best = null, bd = 14; for (const f of FRIENDS) { if (f.state !== 'follow' || !f.unit.alive) continue; const q = f.unit.pos.distanceTo(d.at); if (q < bd) { bd = q; best = f; } }
+    if (best) { const off = way === 'kick' ? 0.75 : way === 'charge' ? 0.55 : 0.6, sideOff = way === 'hand' ? 0.55 : 0, tx = -nz, tz = nx;
+      best.doorJob = { way, x: d.at.x + nx * off + tx * sideOff, z: d.at.z + nz * off + tz * sideOff, fx: d.at.x, fz: d.at.z, bx: d.at.x + nx * 2.6 + tx * 1.2, bz: d.at.z + nz * 2.6 + tz * 1.2, t1: GAME.t + 3, prev: 'follow', ready: 0, dur: way === 'kick' ? 0.8 : way === 'charge' ? 4.0 : 1.8 };
+      best.prevState = best.state; best.state = 'door'; J.f = best; } }
+  radio('לוחם', pick(way === 'kick' ? ['בועט בדלת!', 'דלת! בועט, נכנסים!'] : way === 'hand' ? ['פותח... בשקט.', 'הדלת לא נעולה. פותח.'] : ['מטען על הדלת! להתרחק!', 'מצמיד מטען! כולם אחורה!']), 1.8);
+}
+function hmDoorJob(d, dt) {
+  const J = d.job, t = GAME.t;
+  if (J.go === null) { const ready = J.f && J.f.doorJob && J.f.doorJob.ready; if (ready || !J.f || t - J.t0 > 3.2 || J.f.state !== 'door') J.go = t + (J.f ? 0 : 0.2); return; }
+  const k = t - J.go;
+  if (J.way === 'kick' && k >= 0.24) {   // the boot meets the lock: the door bursts open, a bang, dust, a jolt
+    d.rate = 18; hmDoorSet(d, true, false); sndBoom(d.at, 0.3); sndClick(180, 0.3); fxDust(d.at.clone()); if (camera.position.distanceTo(d.at) < 8) FX.shake = Math.max(FX.shake, 0.14); d.job = null;
+  } else if (J.way === 'hand' && k >= 0.5) {   // the handle turned, the door swung open slowly, creaking
+    d.rate = 1.6; hmDoorSet(d, true, false); sndClick(150, 0.18); sndClick(120, 0.12); d.job = null;
+  } else if (J.way === 'charge') {
+    if (!J.m && k >= (J.f ? 0.9 : 0.1)) {   // the charge on the door at the lock, its light blinking
+      if (!HM_CHARGE_G) HM_CHARGE_G = build([[G.box(0.24, 0.14, 0.07), 0x4e5638, M4(0, 0, 0)], [G.box(0.06, 0.03, 0.02), 0x1c1c1a, M4(0.06, 0.03, 0.045)], [G.cyl(0.008, 0.008, 0.18, 5), 0x2a2a28, M4(-0.1, 0.09, 0.04, 0, 0, 0.6)]]);
+      J.m = new THREE.Mesh(HM_CHARGE_G, MAT.vc); J.m.position.set(d.at.x + J.nx * 0.07, d.y + 1.05, d.at.z + J.nz * 0.07); J.m.rotation.y = Math.atan2(J.nx, J.nz); scene.add(onLayer1(J.m));
+      J.led = new THREE.Mesh(new THREE.SphereGeometry(0.012, 6, 4), new THREE.MeshBasicMaterial({ color: 0xff2a10 })); J.led.position.set(0.06, 0.03, 0.06); J.m.add(J.led); J.armed = t; sndClick(900, 0.12);
+    }
+    if (J.armed) { const e = t - J.armed, iv = Math.max(0.12, 0.5 - e * 0.17); J.led.visible = ((e % iv) / iv) < 0.5;
+      if (e - J.beep >= iv) { J.beep = e; sndClick(1900, 0.12); }
+      if (e >= 2.6) {   // the charge goes: the door is torn off and thrown into the room
+        fxExplosion(d.at.clone().setY(d.y + 0.3), 0.4); sndBoom(d.at, 0.9); const cd = camera.position.distanceTo(d.at); FX.shake = Math.max(FX.shake, clamp(0.5 - cd * 0.04, 0.08, 0.45));
+        scene.remove(J.m); hmDoorSet(d, true, false); hmDoorBlow(d, -J.nx, -J.nz); if (typeof propsBlast === 'function') propsBlast(d.at, 4, 1.8);
+        for (const en of UNITS.enemies) { if (!en.alive) continue; const q = en.pos.distanceTo(d.at); if (q < 1.7) killEnemy(en, false); else if (q < 4.5) supPin(en, 1.2); }
+        d.job = null; } }
+  }
+}
+function hmDoorBlow(d, dx, dz) {   // the leaf, torn off its hinges, flies tumbling into the room and falls flat
+  d.blown = true; d.pivot.visible = false; const g = d.geo.clone().translate(-0.78, -1.12, 0), m = new THREE.Mesh(g, d.mat);
+  d.pivot.updateMatrixWorld(true); m.position.copy(d.pivot.localToWorld(_hdv.set(0.78, 1.12, 0))); m.quaternion.copy(d.pivot.getWorldQuaternion(new THREE.Quaternion())); scene.add(SH(onLayer1(m), true, true));
+  d.fly = { m, v: V3(dx * rand(6, 8), rand(2.2, 3.2), dz * rand(6, 8)), w: V3(rand(-3, 3), rand(-4, 4), rand(-2, 2)), floor: d.y, rest: false };
+}
+function hmDoorFly(d, dt) {
+  const F = d.fly; if (F.rest) return; F.v.y -= 9.8 * dt; F.m.position.addScaledVector(F.v, dt); F.m.rotation.x += F.w.x * dt; F.m.rotation.y += F.w.y * dt; F.m.rotation.z += F.w.z * dt;
+  if (F.m.position.y < F.floor + 0.6 && F.v.y < 0) { F.rest = true; const yaw = F.m.rotation.y; F.m.rotation.set(-Math.PI / 2, 0, 0); F.m.rotateOnWorldAxis(_hdv.set(0, 1, 0), yaw); F.m.position.y = F.floor + 0.035; sndBoom(F.m.position, 0.15); fxDust(F.m.position.clone()); }
+  else if (blocked(F.m.position.x, F.m.position.z, 0.3, F.floor)) { F.v.x *= -0.25; F.v.z *= -0.25; }
+}
+function hmDoorMend(d) { if (d.fly) { scene.remove(d.fly.m); d.fly = null; } if (d.job && d.job.m) scene.remove(d.job.m); d.job = null; d.blown = false; d.pivot.visible = true; d.rate = 7; }
 /* ---------- the rooms: a Syrian company has lived in the post for two weeks, and the attack catches it at breakfast ----------
    Bunks with the blankets thrown back and mattresses dragged to the floor, rifles left on the beds and on the mess tables, chairs knocked over,
    the radio room with its sets still on, crates of ammunition opened in the store, the officers' beds and the commander's desk. Every piece is a
@@ -12499,7 +12586,7 @@ function hmBuild() {
   const K = hmBuildKit(), r = rng(2210), stone = [], L = (x, z) => [x - HM.o.x, z - HM.o.z], y0 = HM_L0, y1 = HM_PY, yR = HM_RY;
   const { x0, x1, z0, z1 } = HM_F, [dx] = HM_DOOR, U = HM_U, ST = HM_STAIR, RS = HM_RSTAIR;
   // ---- the two floors: walls, paint, floors, ceilings; the furniture and the defenders' places ----
-  hmFloorGeo(K, 0); hmFloorGeo(K, 1); hmFurnish(K, 0); hmFurnish(K, 1); hmDoorsBuild();
+  hmFloorGeo(K, 0); hmFloorGeo(K, 1); hmFurnish(K, 0); hmFurnish(K, 1); hmDoorsBuild(); hmLoose();
   // the hall's stair: rising east along the hall's south wall through a hole in the slab into the signals room; a stringer wall along its open
   // side rising with it, the solid under the steps, and the high end walled in below so nobody walks in under it
   { const [a, b] = HW(ST.x0, ST.z0), [c, d] = HW(ST.x1, ST.z1); addRamp(a, c, b, d, 'x', a, c, y0, y1);
@@ -12849,6 +12936,15 @@ function hmWake(st, k) {
   }
 }
 const HM_TABLE_PROPS = [['mess', 'cups', 'ashtray'], ['cards', 'cigs', 'canteen'], ['papers', 'cups'], ['tin', 'bottle', 'ashtray'], ['binocs', 'canteen', 'cups'], ['mess', 'thermos'], ['cigs', 'ashtray', 'cups'], ['oilcan', 'ammo']];
+/* the floors strewn with what the garrison dropped when the attack came - jerrycans, helmets, canteens, boots, ammunition, packs, books -
+   loose, to be kicked and shot about; never in a doorway, never inside the furniture */
+function hmLoose() {
+  const r = rng(6611), kinds = ['jerry', 'helmet', 'canteen', 'boots', 'ammo', 'pack', 'bucket', 'books', 'tin', 'mess', 'oilcan', 'papers', 'cigs', 'blanket', 'canteen', 'helmet'];
+  for (let f = 0; f < 2; f++) { const y = hmY(f); HM_RM[f].forEach((rm, ri) => { let n = 0;
+    for (let tries = 0; tries < 30 && n < 6; tries++) { const lx = lerp(rm.x0 + 0.6, rm.x1 - 0.6, r()), lz = lerp(rm.z0 + 0.6, rm.z1 - 0.6, r());
+      if (HM_DR[f].some((d) => d && Math.hypot(d[0] - lx, d[1] - lz) < 1.5)) continue; const [wx, wz] = HW(lx, lz);
+      if (blocked(wx, wz, 0.32, y)) continue; propAdd('hermon', kinds[(ri * 5 + n * 3 + f) % kinds.length], wx, y, wz, r() * 6.28, y); n++; } }); }
+}
 /* ---------- stages ---------- */
 function hmSetup(stage) {
   if (HM_SANDBOX) stage = 3;   /* the building alone: straight to the bunker's door */
@@ -12979,9 +13075,9 @@ CHAP.hermon = { stages: HM_STAGES, st: () => HM.stage, dbg: () => ({ py: HM_PY, 
 const HM_SANDBOX = (() => { try { return window.YK_SANDBOX === 'hermon'; } catch (e) { return false; } })();
 function hmSandbox() {
   for (const e of UNITS.enemies) if (e.alive || e.rig.root.visible) { e.alive = false; e.rig.root.visible = false; if (e.tag) e.tag.visible = false; if (e.slot) { e.slot.used = false; e.slot = null; } }
-  DIRQ.length = 0; GATE.on = false; P.hp = 100; TUT.radioQ.length = 0; TUT.queue.length = 0;
+  DIRQ.length = 0; GATE.on = false; P.hp = 100; if (GAME.t < 2) TUT.radioQ.length = 0; TUT.queue.length = 0;
   for (const f of FRIENDS) if (f.state !== 'bunker') { f.state = 'bunker'; f.unit.rig.root.visible = false; if (f.unit.tag) f.unit.tag.visible = false; f.marker.visible = false; }
-  for (const L of HM_DOORS) for (const d of L) if (d && !d.open) hmDoorSet(d, true, false);
+  for (const L of HM_DOORS) for (const d of L) if (d && !d.open && !d.job && Math.hypot(P.pos.x - d.at.x, P.pos.z - d.at.z) < 2.4 && Math.abs(P.pos.y - d.y) < 1.5) hmDoorOpen(d);   /* the doors open as he comes up to them, each another way */
 }
 
 /* ================= survival: hold the Mezach against wave after wave =================

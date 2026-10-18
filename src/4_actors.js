@@ -621,6 +621,11 @@ class Rig {
     } else if (kind === 'prone') {
       T.rootX = -Math.PI / 2; R.legs(0.05, 0.1, -0.05, 0.25 + Math.sin(t * 1.3) * 0.1);
       R.arms(-0.2 + Math.sin(t * 2) * 0.15, -0.6, -2.4 + Math.sin(t * 1.7) * 0.3, -0.5, 0.2, -0.2); R.gunAt(0.3, 0.1, -0.4, 0, 0.8, 1.4);
+    } else if (kind === 'kick') {
+      // a door kicked in (t: seconds into it): the knee drawn up, the boot driven flat at the lock, the leg back down; the rifle across the chest
+      const a = clamp(t / 0.16, 0, 1), b = clamp((t - 0.16) / 0.09, 0, 1), c = clamp((t - 0.3) / 0.22, 0, 1), up = a * (1 - c);
+      R.legs(-1.3 * up, up * (1.75 - 1.55 * b), 0.12, 0.1); T.torsoX = -0.2 * up + 0.08 * b * (1 - c); T.hipsX = 0.03 * up;
+      R.gunAt(-0.04, 0.36, 0.2, -0.95, 0.55, 0.2);
     } else if (kind === 'throw') {
       R.legs(-0.3, 0.2, 0.3, 0.1); T.torsoX = -0.1 + t * 0.4; T.torsoY = -0.2 + t * 0.35; R.arms(-2.6 + t * 2.5, -0.4, -0.8, -0.8, 0.2, -0.4); R.gunAt(0.05, 0.25, 0.2, -0.9, 0.4, 0);
     }
