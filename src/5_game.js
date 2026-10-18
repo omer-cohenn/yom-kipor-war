@@ -305,6 +305,7 @@ function sqfNade(f, dt) {
       f.dodgeX = u.pos.x + dx * k + rand(-1, 1); f.dodgeZ = u.pos.z + dz * k + rand(-1, 1); f.dodgeT = Math.min(q.fuse + 0.5, 2.0); sqfTakeCover(f, null); f.moving = true; f.holdP = null; return true; } }
   return false;
 }
+const PDOOR = { on: false };   /* the player opening a door himself (13_hermon.js): for a moment his feet, his eyes and his hands are the scene's */
 const FCALL = { t: -99 };   // the last time a friend shouted a warning
 function updFriend(f, dt, time) {
   const u = f.unit; u.anim += dt; sqfFrame();
@@ -1466,7 +1467,7 @@ function updPlayer(dt) {
   { const mz = mzEase(), rd = mz ? mz.regen[0] : diff.regenD + (FIELDM() ? 0 : 0.5), rr = mz ? mz.regen[1] : FIELDM() ? 30 : 24, rc = mz ? mz.regen[2] : diff.regenCap;   /* healing: sooner and all the way on the easy level, later and only to 60 on the hard one (the stronghold heals faster) */
     if (GAME.t - P.lastHit > rd && P.hp < rc) P.hp = Math.min(rc, P.hp + rr * dt); }
   aimMagnet(dt);
-  if (INPUT.fire) { if (P.mode === 'mag' || INPUT.fireEdge || (P.ride && P.ride.mg)) playerShoot(); INPUT.fireEdge = false; }
+  if (INPUT.fire && !PDOOR.on) { if (P.mode === 'mag' || INPUT.fireEdge || (P.ride && P.ride.mg)) playerShoot(); INPUT.fireEdge = false; }
   // hold F
   if (promptState && promptState.hold && (k.KeyF || INPUT.tHold) && !moving()) {
     P.hold += dt; if (P.hold >= 3) { const f = promptState.f; P.hold = 0; STATS.treated++; STATS.saved++; reviveFriend(f); feed(`${f.name} חבוש. הוא חוזר להילחם`, 'good'); radio(f.name, pick(['תודה. אני בסדר, חוזר לעמדה!', 'חבשת אותי טוב. ממשיכים!', 'כואב, אבל אני יכול לירות.']), 2.6); }
@@ -1489,6 +1490,7 @@ function updPlayer(dt) {
     const k = P.ads > 0.5 ? 0 : 1 - P.ads * 2; tpvCam(e, k, true); tpvBody(k > 0.3 && !CINE.on, e);
   } else {
     let fwd = (k.KeyW || k.ArrowUp ? 1 : 0) - (k.KeyS || k.ArrowDown ? 1 : 0) - INPUT.joy.y, str = (k.KeyD || k.ArrowRight ? 1 : 0) - (k.KeyA || k.ArrowLeft ? 1 : 0) + INPUT.joy.x;
+    if (PDOOR.on) { fwd = 0; str = 0; }   /* the player at a door: his feet are the scene's (pdoorMove) */
     const l = Math.hypot(fwd, str); if (l > 1) { fwd /= l; str /= l; }
     const sprint = (k.ShiftLeft || k.ShiftRight || l > 0.95 && TOUCH && Math.hypot(INPUT.joy.x, INPUT.joy.y) > 0.95) && fwd > 0 && P.mode === 'rifle' && !P.crouch;
     const sp = P.mode === 'carry' ? 2.7 : P.crouch ? 2.2 : sprint ? 6.8 : 4.4;
@@ -1505,6 +1507,7 @@ function updPlayer(dt) {
     const nSub = Math.max(1, Math.ceil(Math.hypot(dx, dz) / 0.12)), sdx = dx / nSub, sdz = dz / nSub;
     for (let si = 0; si < nSub; si++) { if (ok(P.pos.x + sdx, P.pos.z)) P.pos.x += sdx; else { P.vx *= 0.2; break; } } for (let si = 0; si < nSub; si++) { if (ok(P.pos.x, P.pos.z + sdz)) P.pos.z += sdz; else { P.vz *= 0.2; break; } }
     { const want = Math.hypot(dx, dz), got = Math.hypot(P.pos.x - x0, P.pos.z - z0); if (want > 1e-4 && got < want * 0.35) { const px = -dz / want, pz = dx / want; for (const sg of [1, -1]) { const sx = P.pos.x + px * sg * want * 0.9, sz = P.pos.z + pz * sg * want * 0.9; if (ok(sx, sz) && ok(sx + dx, sz + dz)) { P.pos.x = sx; P.pos.z = sz; break; } } } }
+    if (PDOOR.on) pdoorMove(dt);
     // caught inside a wall or a sandbag heap (a slope that led into it, a step down off it): ease out to the nearest free ground instead of freezing
     if (blocked(P.pos.x, P.pos.z, 0.3, P.pos.y)) { P.stuckT = (P.stuckT || 0) + dt; let best = null, bd = 1e9; for (let rr = 0.25; rr <= 2.6 && !best; rr += 0.25) for (let k = 0; k < 16; k++) { const a = k / 16 * Math.PI * 2, x = P.pos.x + Math.cos(a) * rr, z = P.pos.z + Math.sin(a) * rr; if (groundAt(x, z) > -0.3 && !blocked(x, z, 0.32, P.pos.y) && !blocked(x, z, 0.32, hAt(x, z, P.pos.y))) { const d = Math.abs(hAt(x, z, P.pos.y) - P.pos.y) * 2 + rr; if (d < bd) { bd = d; best = [x, z]; } } }
       if (best) { const k = Math.min(1, dt * 8 + (P.stuckT > 0.45 ? 1 : 0)); P.pos.x += (best[0] - P.pos.x) * k; P.pos.z += (best[1] - P.pos.z) * k; } } else P.stuckT = 0;
@@ -1544,6 +1547,7 @@ function updPlayer(dt) {
   const crv = P.mode === 'rifle' ? (P.crV || 0) * sw : 0, crm = Math.abs(crv); vp.y -= crm * 0.012; vp.z += crm * 0.006; vp.x -= crv * 0.003;
   vm.position.copy(vp); vm.rotation.set(P.kick * 0.07 + 0.12 * renv + (P.swy || 0) * 1.2 * sw - Math.sin(P.bob) * 0.004 * amp - crm * 0.045, 0.5 * sk + VM_YAW * lerp(0.75, 1, vfit) * (1 - P.ads) * (1 - sk) + 0.3 * renv + (P.swx || 0) * 1.5 * sw - crv * 0.02, VM_ROLL * (1 - P.ads) * (1 - sk) - 0.88 * renv + Math.sin(P.bob) * 0.012 * amp + (P.swx || 0) * 0.8 * sw + crv * 0.03);
   vmAnimate(dt, (INPUT.fire || INPUT.mFire || INPUT.kFire) && P.mag > 0 && P.reloadT <= 0 && !P.sprint && P.throwT <= 0, P.reloadT > 0 ? clamp(1 - P.reloadT / RELOAD_T, 0, 1) : null);
+  pdoorVM(dt);   /* at a door: the rifle down, the boot, the hand, the charge */
   vmMuzzle.intensity = Math.max(0, vmMuzzle.intensity - dt * 60); LIGHTS.muzzle.intensity = Math.max(0, LIGHTS.muzzle.intensity - dt * 12000);
   interactions();
 }
