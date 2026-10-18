@@ -250,7 +250,33 @@ function hmDoorsUpd(dt) {
 /* ---------- how a door is opened: each time another way, in turn - kicked in, opened by hand, or blown with a charge ----------
    A man of the squad (the nearest) goes to the door's near side and does it; on the building's own page the player does, coming up to it */
 const HM_DOOR_WAY = { n: 0, ways: ['kick', 'hand', 'charge'] }, _hdv = V3();
-let HM_CHARGE_G = null;
+/* the charge as an engineer of 1973 would set it: a block of TNT in its olive wrapper, stencilled in yellow, taped to the lock with two
+   strips of black tape; a blasting cap pushed into its end and from it a coil of green time fuse with the pull igniter at its tail -
+   no blinking light: the fuse is lit, it hisses and its spark runs up it to the cap */
+let HM_CHG = null;
+function hmChargeKit() {
+  if (HM_CHG) return HM_CHG;
+  const c = canvas(256, 128), g = c.getContext('2d'), r = rng(1973); g.fillStyle = '#4c5232'; g.fillRect(0, 0, 256, 128);
+  for (let i = 0; i < 900; i++) { g.fillStyle = r() < 0.5 ? 'rgba(30,32,20,0.18)' : 'rgba(120,124,90,0.14)'; g.fillRect(r() * 256, r() * 128, 1 + r() * 3, 1 + r() * 2); }
+  g.fillStyle = '#d8b832'; g.font = 'bold 44px sans-serif'; g.textAlign = 'center'; g.direction = 'rtl'; g.fillText('חנ״ם', 128, 58); g.font = 'bold 20px sans-serif'; g.direction = 'ltr'; g.fillText('TNT  400 g', 128, 92);
+  g.fillStyle = 'rgba(216,184,50,0.9)'; g.fillRect(12, 104, 232, 5);
+  const T = tex(c), blockM = new THREE.MeshStandardMaterial({ map: T, roughness: 0.85 }), plain = (col, rough = 0.8, metal = 0) => new THREE.MeshStandardMaterial({ color: col, roughness: rough, metalness: metal });
+  const fuse = new THREE.CatmullRomCurve3([V3(0.11, 0.0, 0.0), V3(0.16, -0.02, 0.02), V3(0.17, -0.12, 0.04), V3(0.1, -0.2, 0.05), V3(0.02, -0.17, 0.06), V3(0.04, -0.27, 0.05), V3(0.09, -0.36, 0.04)]);
+  HM_CHG = { blockG: new THREE.BoxGeometry(0.2, 0.06, 0.05, 2, 1, 1), blockM, tapeG: new THREE.BoxGeometry(0.012, 0.075, 0.056), tapeM: plain(0x141414, 0.6), capG: new THREE.CylinderGeometry(0.0038, 0.0038, 0.05, 10).rotateZ(Math.PI / 2), capM: plain(0xb8b8b0, 0.35, 0.8),
+    fuseG: new THREE.TubeGeometry(fuse, 48, 0.0032, 6, false), fuseM: plain(0x2f4a28, 0.7), ignG: new THREE.CylinderGeometry(0.008, 0.008, 0.06, 10), ignM: plain(0x6c6c62, 0.4, 0.6), fuse };
+  return HM_CHG;
+}
+function hmChargeMesh() {
+  const K = hmChargeKit(), g = new THREE.Group();
+  g.add(new THREE.Mesh(K.blockG, [K.blockM, K.blockM, K.blockM, K.blockM, K.blockM, K.blockM]));
+  for (const x of [-0.06, 0.06]) { const t = new THREE.Mesh(K.tapeG, K.tapeM); t.position.x = x; g.add(t); }
+  const cap = new THREE.Mesh(K.capG, K.capM); cap.position.set(0.11, 0, 0); g.add(cap); g.add(new THREE.Mesh(K.fuseG, K.fuseM));
+  const ig = new THREE.Mesh(K.ignG, K.ignM); ig.position.copy(K.fuse.getPoint(1)).add(V3(0, -0.03, 0)); g.add(ig);
+  return g;
+}
+let HM_SPARK = null;
+function hmSpark() { if (!HM_SPARK) HM_SPARK = new THREE.SpriteMaterial({ map: FXT.flash, color: 0xffb050, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, toneMapped: false }); const s = new THREE.Sprite(HM_SPARK); s.scale.setScalar(0.07); return s; }
+function sndHiss() { if (AUD.ctx) nz(AUD.ctx.currentTime, 0.22, { f: 4600, q: 0.8, vol: 0.045 }); }
 function hmDoorOpen(d) {
   if (d.job || d.open) return; d.req = null; const way = HM_DOOR_WAY.ways[HM_DOOR_WAY.n++ % 3];
   const side = Math.sign((P.pos.x - d.at.x) * d.nIn.x + (P.pos.z - d.at.z) * d.nIn.z) || -1, nx = d.nIn.x * side, nz = d.nIn.z * side;   /* the near side's normal */
@@ -268,13 +294,12 @@ function hmDoorJob(d, dt) {
   if (J.way === 'kick' && k >= 0.24) { hmDoorKicked(d); d.job = null; }
   else if (J.way === 'hand' && k >= 0.5) { hmDoorPushed(d); d.job = null; }
   else if (J.way === 'charge') {
-    if (!J.m && k >= (J.f ? 0.9 : 0.1)) {   // the charge on the door at the lock, its light blinking
-      if (!HM_CHARGE_G) HM_CHARGE_G = build([[G.box(0.24, 0.14, 0.07), 0x4e5638, M4(0, 0, 0)], [G.box(0.06, 0.03, 0.02), 0x1c1c1a, M4(0.06, 0.03, 0.045)], [G.cyl(0.008, 0.008, 0.18, 5), 0x2a2a28, M4(-0.1, 0.09, 0.04, 0, 0, 0.6)]]);
-      J.m = new THREE.Mesh(HM_CHARGE_G, MAT.vc); J.m.position.set(d.at.x + J.nx * 0.07, d.y + 1.05, d.at.z + J.nz * 0.07); J.m.rotation.y = Math.atan2(J.nx, J.nz); scene.add(onLayer1(J.m));
-      J.led = new THREE.Mesh(new THREE.SphereGeometry(0.012, 6, 4), new THREE.MeshBasicMaterial({ color: 0xff2a10 })); J.led.position.set(0.06, 0.03, 0.06); J.m.add(J.led); J.armed = t; sndClick(900, 0.12);
+    if (!J.m && k >= (J.f ? 0.9 : 0.1)) {   // the block taped to the lock, the fuse lit
+      J.m = hmChargeMesh(); J.m.position.set(d.at.x + J.nx * 0.06, d.y + 1.05, d.at.z + J.nz * 0.06); J.m.rotation.y = Math.atan2(J.nx, J.nz); scene.add(onLayer1(J.m));
+      J.spark = hmSpark(); J.m.add(J.spark); J.armed = t; sndClick(700, 0.16);
     }
-    if (J.armed) { const e = t - J.armed, iv = Math.max(0.12, 0.5 - e * 0.17); J.led.visible = ((e % iv) / iv) < 0.5;
-      if (e - J.beep >= iv) { J.beep = e; sndClick(1900, 0.12); }
+    if (J.armed) { const e = t - J.armed, u = clamp(1 - e / 2.6, 0, 1);   /* the spark runs up the fuse to the cap */
+      J.spark.position.copy(hmChargeKit().fuse.getPoint(u)); J.spark.scale.setScalar(0.05 + 0.04 * Math.random()); if (e - J.beep >= 0.22) { J.beep = e; sndHiss(); if (Math.random() < 0.5) fxDust(J.m.localToWorld(J.spark.position.clone()), false); }
       if (e >= 2.6) {   // the charge goes: the door is torn off and thrown into the room
         fxExplosion(d.at.clone().setY(d.y + 0.3), 0.4); sndBoom(d.at, 0.9); const cd = camera.position.distanceTo(d.at); FX.shake = Math.max(FX.shake, clamp(0.5 - cd * 0.04, 0.08, 0.45));
         scene.remove(J.m); hmDoorSet(d, true, false); hmDoorBlow(d, -J.nx, -J.nz); if (typeof propsBlast === 'function') propsBlast(d.at, 4, 1.8);
@@ -986,22 +1011,46 @@ function pdoorMove(dt) {
 const _pdl = V3();
 function pdoorVM(dt) {
   const S = PDOOR, on = S.on && S.ph !== 'go' || (S.on && S.ph === 'go');
-  if (!PDV.leg) {   // the boot and the trouser leg, and the charge in the hand: drawn with the hands, in their own scene
-    const leg = new THREE.Group(); leg.add(new THREE.Mesh(build([[G.cyl(0.07, 0.06, 0.55, 10), 0x8f7f5e, M4(0, 0, -0.27, Math.PI / 2, 0, 0)], [G.box(0.13, 0.14, 0.3), 0x4a2c1c, M4(0, -0.02, -0.6)], [G.box(0.14, 0.03, 0.32), 0x1e1610, M4(0, -0.09, -0.6)]]), MAT.vc));
-    leg.visible = false; vmScene.add(leg); PDV.leg = leg;
-    const ch = new THREE.Mesh(build([[G.box(0.24, 0.14, 0.07), 0x4e5638, M4(0, 0, 0)], [G.box(0.06, 0.03, 0.02), 0x1c1c1a, M4(0.06, 0.03, 0.045)]]), MAT.vc); ch.visible = false; vmScene.add(ch); PDV.charge = ch;
+  if (!PDV.leg) {   // his own leg - the soldiers' trouser leg and boot, every crease - and the charge in his hand: drawn with the hands, in their own scene
+    const pivot = new THREE.Group(), inner = new THREE.Group(); pivot.add(inner); inner.rotation.y = Math.PI; inner.add(pdoorLegMesh()); pivot.visible = false; vmScene.add(pivot); PDV.leg = pivot;
+    const ch = hmChargeMesh(); ch.scale.setScalar(1.0); ch.visible = false; VMR.armL.add(ch); ch.position.copy(VM_HAND.L.palm).add(V3(0.02, 0.05, -0.06)); ch.rotation.set(0.2, 0.4, 0.1); PDV.charge = ch;
   }
   PDV.leg.visible = false; PDV.charge.visible = false; if (!S.on) return;
   const a = S.ph === 'go' ? 0 : GAME.t - S.tA, sm = (x, e0, e1) => { const t = clamp((x - e0) / (e1 - e0), 0, 1); return t * t * (3 - 2 * t); };
   let low = 0;
   if (S.ph === 'act') {
-    if (S.way === 'kick') { low = sm(a, 0, 0.15) * (1 - sm(a, 0.6, 0.8)); const th = sm(a, 0.22, 0.36) * (1 - sm(a, 0.42, 0.72));
-      PDV.leg.visible = th > 0.01; PDV.leg.position.set(0.05, lerp(-1.0, -0.3, th), lerp(-0.2, -0.45, th)); PDV.leg.rotation.set(lerp(-1.0, 0.12, th), 0.04, 0); }   /* at the blow the boot is up in the picture, at the lock */
-    else if (S.way === 'hand') { low = 0.3 * sm(a, 0, 0.2) * (1 - sm(a, 1.0, 1.25)); const r = sm(a, 0.05, 0.4) * (1 - sm(a, 0.9, 1.2)), push = sm(a, 0.45, 0.85) * (1 - sm(a, 0.9, 1.2));
-      const L = VMR.armL; L.position.set(VM_LHG.x - 0.1 * r, VM_LHG.y + 0.2 * r + 0.03 * push, VM_LHG.z - 0.28 * r - 0.14 * push); L.rotation.set(-0.5 * r, 0.6 * r, 0.3 * r); }
-    else { low = sm(a, 0, 0.2) * (1 - sm(a, 1.3, 1.6)); const r = sm(a, 0.05, 0.5) * (1 - sm(a, 0.6, 0.85));
-      const L = VMR.armL; L.position.set(VM_LHG.x - 0.08 * r, VM_LHG.y + 0.22 * r, VM_LHG.z - 0.3 * r); L.rotation.set(-0.5 * r, 0.5 * r, 0.3 * r);
-      if (!S.placed) { PDV.charge.visible = r > 0.05; PDV.charge.position.set(-0.06 - 0.06 * r, -0.2 + 0.18 * r, -0.42 - 0.18 * r); PDV.charge.rotation.set(0.3, 0.2, 0); } }
+    if (S.way === 'kick') { low = sm(a, 0, 0.15) * (1 - sm(a, 0.6, 0.8)); const th = sm(a, 0.16, 0.36) * (1 - sm(a, 0.44, 0.75));
+      // the leg swings up from the hip, straight, until the boot is flat at the lock, sole first; set in the body's frame and turned with his look
+      const p = P.pitch, hy = -0.72, hz = 0.1; PDV.leg.visible = th > 0.02; PDV.leg.position.set(0.11, hy * Math.cos(p) + hz * Math.sin(p), -hy * Math.sin(p) + hz * Math.cos(p)); PDV.leg.rotation.set(1.62 * th - p, 0, 0); }
+    else if (S.way === 'hand') { low = 0.35 * sm(a, 0, 0.2) * (1 - sm(a, 1.0, 1.25)); const r = sm(a, 0.05, 0.42) * (1 - sm(a, 0.92, 1.22));
+      // the left hand leaves the handguard, takes the door's handle - on the door itself, wherever it is - and goes with it as the door swings
+      vm.position.y -= 0.24 * low; vm.position.x += 0.06 * low; vm.rotation.x -= 0.7 * low; vm.rotation.z += 0.3 * low; low = 0; const d = S.d, L = VMR.armL;
+      d.pivot.updateMatrixWorld(true); const hw = d.pivot.localToWorld(_pdh.set(1.38, 1.02, 0)), nz = _pdn.set(0, 0, 1).applyQuaternion(d.pivot.getWorldQuaternion(_pdq)); if (nz.dot(_pdl.copy(camera.position).sub(hw)) < 0) nz.negate(); hw.addScaledVector(nz, 0.07);
+      pdoorHandTo(hw, r, 0.25, 0.9, -0.3); }
+    else { low = 0.6 * sm(a, 0, 0.2) * (1 - sm(a, 1.3, 1.6)); const r = sm(a, 0.05, 0.5) * (1 - sm(a, 0.6, 0.85));   /* the hand takes the charge to the lock and leaves it there */
+      vm.position.y -= 0.24 * low; vm.position.x += 0.06 * low; vm.rotation.x -= 0.7 * low; vm.rotation.z += 0.3 * low; low = 0; const d = S.d;
+      pdoorHandTo(_pdh.set(d.at.x + S.nx * 0.12, d.y + 1.0, d.at.z + S.nz * 0.12), r, 0.25, 0.9, -0.3); PDV.charge.visible = !S.placed && r > 0.05; }
   } else if (S.ph === 'in') low = 0;
   vm.position.y -= 0.24 * low; vm.position.x += 0.06 * low; vm.rotation.x -= 0.7 * low; vm.rotation.z += 0.3 * low;
+}
+const _pdh = V3(), _pdn = V3(), _pdp = V3(), _pdq = new THREE.Quaternion();
+/* the left hand to a point in the world (r: how far there): the hands are drawn with their own lens, so the point is taken where it shows on
+   the screen; the arm turned about the palm, so the palm lands on it */
+function pdoorHandTo(w, r, rx, ry, rz) {
+  const L = VMR.armL; camera.updateMatrixWorld(); const cs = camera.worldToLocal(w), fk = Math.tan(THREE.MathUtils.degToRad(vmCamera.fov) / 2) / Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2); cs.x *= fk; cs.y *= fk;
+  L.rotation.set(rx * r, ry * r, rz * r); vm.updateMatrixWorld(true); const vl = vm.worldToLocal(cs).sub(_pdp.copy(VM_HAND.L.palm).applyEuler(L.rotation)); L.position.copy(VM_LHG).lerp(vl, r);
+}
+/* his right leg from the soldiers' own figure: the trouser leg below the crotch and the boot, in its bind pose (hanging, toes forward),
+   moved so the hip is at the origin - with the uniform's own material, its paint and creases */
+function pdoorLegMesh() {
+  const geo = nsGeometry(), M = nsMaterials(), pos = geo.attributes.position, nrm = geo.attributes.normal, uv = geo.attributes.uv, idx = geo.index.array, J = SOLDIER_DATA.hdr.joints.hR;
+  const P2 = [], N2 = [], U2 = [], G2 = [];
+  for (const gr of geo.groups) { if (gr.materialIndex !== 0 && gr.materialIndex !== 2) continue; const start = P2.length / 3;
+    for (let i = gr.start; i < gr.start + gr.count; i += 3) { const a = idx[i], b = idx[i + 1], c = idx[i + 2]; let ok = true;
+      for (const v of [a, b, c]) { const x = pos.getX(v), y = pos.getY(v); if (x > -0.004 || y > (gr.materialIndex === 0 ? -0.06 : 0)) { ok = false; break; } } if (!ok) continue;
+      for (const v of [a, b, c]) { P2.push(pos.getX(v), pos.getY(v), pos.getZ(v)); N2.push(nrm.getX(v), nrm.getY(v), nrm.getZ(v)); U2.push(uv.getX(v), uv.getY(v)); } }
+    G2.push([start, P2.length / 3 - start, gr.materialIndex === 0 ? 0 : 1]); }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(P2, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(N2, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(U2, 2));
+  for (const [st, n, m] of G2) g.addGroup(st, n, m);
+  const mesh = new THREE.Mesh(g, [M.f[0], M.f[2]]); mesh.position.set(-J[0], -J[1], -J[2]); mesh.frustumCulled = false; return mesh;
 }
