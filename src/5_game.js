@@ -1918,7 +1918,7 @@ const clock = new THREE.Clock(); let firstFrame = true;
 const _fwd = V3();
 function frame() {
   // the first frame only puts up the menu, which covers the screen: no world is drawn (and no shader compiled) until a mission is chosen
-  if (firstFrame) { firstFrame = false; window.__gameReady = true; clearTimeout(window.__gameTimer); LD.finish(); LD.hide(); showTitle(); GAME.state = 'menu'; setTimeout(facesIdle, 1500); return; }
+  if (firstFrame) { firstFrame = false; window.__gameReady = true; clearTimeout(window.__gameTimer); LD.finish(); LD.hide(); showTitle(); GAME.state = 'menu'; setTimeout(facesIdle, 1500); if (HM_SANDBOX) setTimeout(() => startChapter('hermon'), 50); return; }   /* the building alone goes straight in */
   try { frameInner(); } catch (err) { if (!frame.err) { frame.err = true; console.error(err); } }
 }
 const SLOW = { k: 1, left: 0, fade: 0.8, look: null };

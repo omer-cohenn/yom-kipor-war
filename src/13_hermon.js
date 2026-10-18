@@ -746,6 +746,7 @@ function hmWake(st, k) {
 }
 /* ---------- stages ---------- */
 function hmSetup(stage) {
+  if (HM_SANDBOX) stage = 3;   /* the building alone: straight to the bunker's door */
   const C = CHAP.hermon; fieldSetupCommon(C, stage); resetTrail(); HM.msgs = {};
   if (C.syFlag) { C.syFlag.children[1].visible = true; C.syFlag.children[1].position.y = 8.2; } if (C.ilFlag) C.ilFlag.children[1].visible = false; C.lower = 0; C.raise = 0;
   P.mode = 'rifle'; vm.visible = true; if (TANK.g) TANK.g.visible = false;
@@ -789,6 +790,7 @@ function hmGate0(k) {
   if (k > 0) radio('מ״פ', pick(['קומנדו סורי בצד הדרך! לירות לפני שהם קמים!', 'צלף על הסלע משמאל!', 'הם מחזיקים את הקטע הבא! ממחסה למחסה!', 'מקלע שלנו בידיים שלהם, מהסלעים מימין!']), 2.4);
 }
 function hmUpd(dt) {
+  if (HM_SANDBOX) hmSandbox();
   const C = CHAP.hermon; C.t += dt; if (Math.floor(C.t * 2) !== Math.floor((C.t - dt) * 2)) szEnemyCleanup();
   for (let i = DIRQ.length - 1; i >= 0; i--) if (DIRQ[i] && GAME.t >= DIRQ[i].at) { const q = DIRQ.splice(i, 1)[0]; q.fn(); }
   // inside and on the roof every man of the room being taken counts until he is down, seen or not (one behind the wardrobes still holds the
@@ -866,3 +868,13 @@ function hmEnd(win, why) {
 CHAP.hermon = { stages: HM_STAGES, st: () => HM.stage, dbg: () => ({ py: HM_PY, l0: HM_L0, ry: HM_RY }), cp: () => CHAP.hermon.cpN || 0, upd: hmUpd, snapAfter: () => hmDoorsSet(HM.stage, GATE.on ? GATE.i : 0), obj: hmObj, hints: hmHints, items: hmItems, mini: hmMini, restore: fieldRestore, end: hmEnd, tank: false, dry: true, cloth: 0xf0eee6,
   tod: () => [7 * 60 + 40, 8 * 60 + 35, 9 * 60, 9 * 60 + 25, 9 * 60 + 50, 10 * 60 + 25][HM.stage] - START_MIN + CHAP.hermon.t / 6,
   build: () => chapterBuild(CHAP.hermon, hmBuild), setup: hmSetup, clock: '22.10.1973 · החרמון', toast: ['22 באוקטובר 1973 · לפנות בוקר', 'גולני עולים להחזיר את החרמון'], start: () => fieldStart('hermon') };
+
+/* ---------- the building alone: a page of its own (window.YK_SANDBOX = 'hermon', set by that page) opens straight at the bunker's door,
+   with nobody in the post - no enemy, no squad, no orders - every door open and the player unhurt, to walk through it and look ---------- */
+const HM_SANDBOX = (() => { try { return window.YK_SANDBOX === 'hermon'; } catch (e) { return false; } })();
+function hmSandbox() {
+  for (const e of UNITS.enemies) if (e.alive || e.rig.root.visible) { e.alive = false; e.rig.root.visible = false; if (e.tag) e.tag.visible = false; if (e.slot) { e.slot.used = false; e.slot = null; } }
+  DIRQ.length = 0; GATE.on = false; P.hp = 100; TUT.radioQ.length = 0; TUT.queue.length = 0;
+  for (const f of FRIENDS) if (f.state !== 'bunker') { f.state = 'bunker'; f.unit.rig.root.visible = false; if (f.unit.tag) f.unit.tag.visible = false; f.marker.visible = false; }
+  for (const L of HM_DOORS) for (const d of L) if (d && !d.open) hmDoorSet(d, true, false);
+}
