@@ -129,6 +129,9 @@ function hmBuildKit() {
     if (!mdlHas(name)) return y; const b = mdlBox(name), s = Array.isArray(sc) ? sc : [sc, sc, sc], [wx, wz] = HW(lx, lz);
     (set[name] = set[name] || []).push(M4(wx, y, wz, 0, ry, 0, s[0], s[1], s[2]));
     if (solid) (OPEN_FURN.test(name) ? addOpenCollider : addCollider)(wx, wz, b[0] * s[0] / 2, b[2] * s[2] / 2, ry, y + b[1] * s[1], y);
+    // the small things men leave on a table in a post - a mess tin, a cup, an ashtray, cards, a canteen - loose, so a round sends them flying
+    if (set !== K.mdlT && /^f_table/.test(name) && b[1] * s[1] > 0.5) { K.propN = (K.propN || 0) + 1; const L = HM_TABLE_PROPS[K.propN % HM_TABLE_PROPS.length];
+      propsOn('hermon', L, wx, wz, y + b[1] * s[1], b[0] * s[0] * 0.7, b[2] * s[2] * 0.7, ry, 7100 + K.propN * 13, y); }
     return y + b[1] * s[1];
   };
   // the same knocked over: tipped rx about its own x axis and rz about its own z, then turned ry; it rests on its lowest corner. solid: a collider
@@ -744,6 +747,7 @@ function hmWake(st, k) {
     if (st === 5 && k === 0) hint('hm-lane', 'על הגג אין לאן לברוח: בין קירות הגביונים יש <b>מסלול אחד</b> שמתפתל מהפתח עד התורן. בכל קטע עמדה מחכה מול המעבר.', 7);
   }
 }
+const HM_TABLE_PROPS = [['mess', 'cups', 'ashtray'], ['cards', 'cigs', 'canteen'], ['papers', 'cups'], ['tin', 'bottle', 'ashtray'], ['binocs', 'canteen', 'cups'], ['mess', 'thermos'], ['cigs', 'ashtray', 'cups'], ['oilcan', 'ammo']];
 /* ---------- stages ---------- */
 function hmSetup(stage) {
   if (HM_SANDBOX) stage = 3;   /* the building alone: straight to the bunker's door */

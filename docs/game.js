@@ -6044,20 +6044,20 @@ function rideMG() {
 const HOLES = { n: 0, max: LITE ? 180 : 420, mesh: null, m4: new THREE.Matrix4(), q: new THREE.Quaternion(), q2: new THREE.Quaternion(), z: V3(0, 0, 1) };
 function holeTex() {
   const N = 128, c = canvas(N), g = c.getContext('2d'), r = rng(7713), C = N / 2;
-  let gr = g.createRadialGradient(C, C, 4, C, C, C); gr.addColorStop(0, 'rgba(40,34,28,0.55)'); gr.addColorStop(0.45, 'rgba(70,62,52,0.25)'); gr.addColorStop(1, 'rgba(70,62,52,0)'); g.fillStyle = gr; g.fillRect(0, 0, N, N);   /* the dust and the scorch round it */
-  g.fillStyle = 'rgba(205,196,180,0.75)'; g.beginPath(); for (let a = 0; a <= 6.3; a += 0.35) { const rr = 14 + r() * 9; g.lineTo(C + Math.cos(a) * rr, C + Math.sin(a) * rr); } g.fill();   /* the chipped ring, lighter */
-  g.strokeStyle = 'rgba(30,26,22,0.6)'; g.lineWidth = 1.2; for (let k = 0; k < 6; k++) { let a = r() * 6.28, x = C + Math.cos(a) * 10, y = C + Math.sin(a) * 10; g.beginPath(); g.moveTo(x, y); for (let j = 0; j < 4; j++) { a += (r() - 0.5) * 0.7; x += Math.cos(a) * (5 + r() * 6); y += Math.sin(a) * (5 + r() * 6); g.lineTo(x, y); } g.stroke(); }   /* cracks */
-  gr = g.createRadialGradient(C, C, 0, C, C, 11); gr.addColorStop(0, 'rgba(6,5,4,1)'); gr.addColorStop(0.7, 'rgba(18,15,12,0.95)'); gr.addColorStop(1, 'rgba(30,26,22,0)'); g.fillStyle = gr; g.beginPath(); g.arc(C, C, 11, 0, 6.2832); g.fill();   /* the hole */
+  let gr = g.createRadialGradient(C, C, 4, C, C, C); gr.addColorStop(0, 'rgba(34,29,24,0.75)'); gr.addColorStop(0.45, 'rgba(62,55,46,0.38)'); gr.addColorStop(1, 'rgba(70,62,52,0)'); g.fillStyle = gr; g.fillRect(0, 0, N, N);   /* the dust and the scorch round it */
+  g.fillStyle = 'rgba(205,196,180,0.75)'; g.beginPath(); for (let a = 0; a <= 6.3; a += 0.3) { const rr = 18 + r() * 10; g.lineTo(C + Math.cos(a) * rr, C + Math.sin(a) * rr); } g.fill();   /* the chipped ring, lighter */
+  g.strokeStyle = 'rgba(30,26,22,0.6)'; g.lineWidth = 1.2; for (let k = 0; k < 6; k++) { let a = r() * 6.28, x = C + Math.cos(a) * 13, y = C + Math.sin(a) * 13; g.beginPath(); g.moveTo(x, y); for (let j = 0; j < 4; j++) { a += (r() - 0.5) * 0.7; x += Math.cos(a) * (5 + r() * 6); y += Math.sin(a) * (5 + r() * 6); g.lineTo(x, y); } g.stroke(); }   /* cracks */
+  gr = g.createRadialGradient(C, C, 0, C, C, 15); gr.addColorStop(0, 'rgba(4,3,2,1)'); gr.addColorStop(0.75, 'rgba(14,12,10,0.97)'); gr.addColorStop(1, 'rgba(30,26,22,0)'); g.fillStyle = gr; g.beginPath(); g.arc(C, C, 15, 0, 6.2832); g.fill();   /* the hole */
   return tex(c);
 }
 function holesInit() {
   const m = new THREE.MeshStandardMaterial({ map: holeTex(), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3, roughness: 0.95, metalness: 0 });
   const im = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1), m, HOLES.max); im.count = 0; im.frustumCulled = false; im.renderOrder = 2; scene.add(onLayer1(im)); HOLES.mesh = im;
 }
-function bulletHole(p, n, size = rand(0.07, 0.1)) {
+function bulletHole(p, n, size = rand(0.16, 0.22)) {
   if (!HOLES.mesh) holesInit(); const H = HOLES, i = H.n % H.max; H.n++;
   H.q.setFromUnitVectors(H.z, n); H.q2.setFromAxisAngle(H.z, rand(0, 6.28)); H.q.multiply(H.q2);
-  H.m4.compose(V3(p.x + n.x * 0.006, p.y + n.y * 0.006, p.z + n.z * 0.006), H.q, V3(size, size, 1)); H.mesh.setMatrixAt(i, H.m4); H.mesh.count = Math.min(H.n, H.max); H.mesh.instanceMatrix.needsUpdate = true;
+  H.m4.compose(V3(p.x + n.x * 0.02, p.y + n.y * 0.02, p.z + n.z * 0.02), H.q, V3(size, size, 1));   /* 2 cm off the face: the far depth buffer cannot tell less */ H.mesh.setMatrixAt(i, H.m4); H.mesh.count = Math.min(H.n, H.max); H.mesh.instanceMatrix.needsUpdate = true;
 }
 function holesClear() { HOLES.n = 0; if (HOLES.mesh) HOLES.mesh.count = 0; }
 /* the face of a box a round struck: the side nearest the point (its top, or one of its four sides), turned toward the shooter */
@@ -6074,7 +6074,7 @@ function applyHit(hit, dmg) {
   else if (hit.kind === 'boat') { hit.boat.hp -= dmg * 0.2; fxDust(hit.p.clone(), true); hitmark(false); }
   else if (hit.kind === 'friend') { toast('זהירות', 'אש על כוחותינו'); }
   else if (hit.kind === 'veh') { if (hit.v.alive && hit.v.armor > 0) { vehHit(hit.v, dmg * hit.v.armor, hit.p); hitmark(!hit.v.alive); } fxDust(hit.p.clone(), false); }
-  else if (hit.kind === 'prop') { const dir = hit.dir || V3(0, 0, 1); propKick(hit.prop, dir, 2.3); propsNear(hit.p, 0.4, dir); fxDust(hit.p.clone(), false); }
+  else if (hit.kind === 'prop') { const dir = hit.dir || V3(0, 0, 1); propKick(hit.prop, dir, 1.7); propsNear(hit.p, 0.4, dir); fxDust(hit.p.clone(), false); }
   else if (hit.kind === 'wall') { const n = hit.k ? colNormal(hit.k, hit.p, hit.dir) : null; if (n) bulletHole(hit.p, n); fxDust(hit.p.clone().addScaledVector(n || V3(0, 1, 0), 0.08), false); propsNear(hit.p, 0.35, hit.dir || V3(0, 0, 1)); }
   else if (hit.kind === 'ground' || hit.kind === 'water') fxDust(hit.p.clone().add(V3(0, 0.15, 0)), hit.kind === 'water');
 }
@@ -12230,6 +12230,9 @@ function hmBuildKit() {
     if (!mdlHas(name)) return y; const b = mdlBox(name), s = Array.isArray(sc) ? sc : [sc, sc, sc], [wx, wz] = HW(lx, lz);
     (set[name] = set[name] || []).push(M4(wx, y, wz, 0, ry, 0, s[0], s[1], s[2]));
     if (solid) (OPEN_FURN.test(name) ? addOpenCollider : addCollider)(wx, wz, b[0] * s[0] / 2, b[2] * s[2] / 2, ry, y + b[1] * s[1], y);
+    // the small things men leave on a table in a post - a mess tin, a cup, an ashtray, cards, a canteen - loose, so a round sends them flying
+    if (set !== K.mdlT && /^f_table/.test(name) && b[1] * s[1] > 0.5) { K.propN = (K.propN || 0) + 1; const L = HM_TABLE_PROPS[K.propN % HM_TABLE_PROPS.length];
+      propsOn('hermon', L, wx, wz, y + b[1] * s[1], b[0] * s[0] * 0.7, b[2] * s[2] * 0.7, ry, 7100 + K.propN * 13, y); }
     return y + b[1] * s[1];
   };
   // the same knocked over: tipped rx about its own x axis and rz about its own z, then turned ry; it rests on its lowest corner. solid: a collider
@@ -12845,6 +12848,7 @@ function hmWake(st, k) {
     if (st === 5 && k === 0) hint('hm-lane', 'על הגג אין לאן לברוח: בין קירות הגביונים יש <b>מסלול אחד</b> שמתפתל מהפתח עד התורן. בכל קטע עמדה מחכה מול המעבר.', 7);
   }
 }
+const HM_TABLE_PROPS = [['mess', 'cups', 'ashtray'], ['cards', 'cigs', 'canteen'], ['papers', 'cups'], ['tin', 'bottle', 'ashtray'], ['binocs', 'canteen', 'cups'], ['mess', 'thermos'], ['cigs', 'ashtray', 'cups'], ['oilcan', 'ammo']];
 /* ---------- stages ---------- */
 function hmSetup(stage) {
   if (HM_SANDBOX) stage = 3;   /* the building alone: straight to the bunker's door */
