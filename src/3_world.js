@@ -661,12 +661,21 @@ function concertina() {
 function egyScrub() {
   const ring = outwardRing(MAOZ, 14), loop = [...ring, ring[0]], step = LITE ? 0.72 : 0.5, tufts = [], bush = [], r = rng(813);
   for (const sd of [-1, 1]) {
-    const road = sd < 0 ? ROAD_ACCESS : ROAD_SOUTH, ok = (x, z) => sd * z > 92 && !inPoly(x, z, ring) && distPolyline(x, z, loop) < 32 && distPolyline(x, z, road) > 5 && SAP_LIST.every((sp) => distPolyline(x, z, sp) > 1.25) && groundAt(x, z) > 0.3;
-    const z0 = sd < 0 ? -142 : 90, z1 = sd < 0 ? -90 : 142;
+    const road = sd < 0 ? ROAD_ACCESS : ROAD_SOUTH, ok = (x, z) => { const dl = distPolyline(x, z, loop); return sd * z > 92 && !inPoly(x, z, ring) && dl > 22 && dl < 56 && distPolyline(x, z, road) > 5 && SAP_LIST.every((sp) => distPolyline(x, z, sp) > 1.25) && groundAt(x, z) > 0.3; };   /* from some forty metres out from our trench: open ground nearer in */
+    const z0 = sd < 0 ? -168 : 90, z1 = sd < 0 ? -90 : 168;
     for (let z = z0; z < z1; z += step) for (let x = -68; x < 30; x += step) { const px = x + (r() - 0.5) * step * 0.9, pz = z + (r() - 0.5) * step * 0.9; if (!ok(px, pz)) continue;
       tufts.push([px, pz, 0.8 + r() * 0.4, r() * 6, dryBush(r), -0.04, 0.85 + r() * 0.35]);
       if (r() < (LITE ? 0.05 : 0.08)) bush.push([px + (r() - 0.5) * 0.3, pz + (r() - 0.5) * 0.3, 0.9 + r() * 0.4, r() * 6, dryBush(r), -0.05, 0.85 + r() * 0.3]); }
   }
+  // the cover on the open ground between the scrub and the saps' heads: a rock or a short wall of sandbags at every point, each with its place behind it
+  const rocks = [];
+  for (const A of SAP_APPR) for (const [si, st] of A.st.entries()) for (const [pi, [x, z]] of st.entries()) {
+    const nx = 0, nz = 1, h = 0.8; A.nodes = A.nodes || [[], []];
+    if ((si + pi) % 2) { rocks.push([x, z, 1.15 + r() * 0.35, r() * 6, 0x8f8366, -0.25, 0.75]); addCollider(x, z, 0.65, 0.55, 0, groundAt(x, z) + 0.85); }
+    else bagWall([[x - 1.0, z], [x + 1.0, z]], 3, groundAt(x, z) - 0.05);
+    const c = { x: x - nx * 0.85, z: z - nz * 0.85, nx, nz, h, by: null }; COVER.push(c); A.nodes[si].push(c);
+  }
+  instScatter(BOULDER_G, rocks);
   instScatter(TALL_G, tufts, undefined, false); instScatter(BUSH_G, bush.filter((_, i) => i % 2), undefined, !LITE); instScatter(BUSH_TWIG_G, bush.filter((_, i) => !(i % 2)), undefined, !LITE);
 }
 function riprap() {

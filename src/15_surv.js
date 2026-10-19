@@ -52,7 +52,7 @@ function survSidePlan(side, e, i, hold = 0) {
 function survSideGroup(side, n, delay, kinds = []) {
   const Z = SURV_ZONE[side], north = side === 'n', saps = SAPS[side];
   for (let i = 0; i < n; i++) {
-    const k = kinds[i] || 'rifle', r = rng(91 + i * 37 + SURV.wave * 11 + (side === 'n' ? 7 : 0)), j = i + SURV.wave * 7, sap = saps[j % 2], go = () => { const e = spawnEnemy(sap[0][0] + (r() - 0.5) * 0.8, sap[0][1] + (r() - 0.5) * 0.8, varyKind(k, i * 3.7 + SURV.wave, delay), null, null); if (!e) { DIRQ.push({ at: GAME.t + 1, spawn: true, fn: go }); return; } e.plan = sapPlan(e, sap, j + (north ? 0 : 50)); e.state = 'plan'; };
+    const k = kinds[i] || 'rifle', r = rng(91 + i * 37 + SURV.wave * 11 + (side === 'n' ? 7 : 0)), j = i + SURV.wave * 7, sap = saps[j % 2], go = () => { const sp = sapSpawn(sap, r), e = spawnEnemy(sp[0], sp[1], varyKind(k, i * 3.7 + SURV.wave, delay), null, null); if (!e) { DIRQ.push({ at: GAME.t + 1, spawn: true, fn: go }); return; } e.plan = sapPlan(e, sap, j + (north ? 0 : 50)); e.state = 'plan'; };
     DIRQ.push({ at: GAME.t + delay + i * 1.9, spawn: true, fn: go });   /* one at a time out of the scrub, not a stream */
   }
 }

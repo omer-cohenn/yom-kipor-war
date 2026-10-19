@@ -160,6 +160,12 @@ function trenchCut(x, z) {
 const SAPS = { n: [[[-24.5, -113.5], [-28.5, -106], [-25.5, -99], [-27.3, -92.15]], [[-51, -109], [-47, -102], [-49.8, -95.5], [-48.7, -88.05]]],
   s: [[[-24.5, 111], [-28.5, 103.5], [-25.6, 96], [-27.3, 89.25]], [[-47.5, 107], [-43.5, 100], [-46, 93], [-44.7, 86.25]]] };
 const SAP_LIST = [...SAPS.n, ...SAPS.s];
+/* the way to each northern sap's head across the open ground (the scrub begins some forty metres out from our trench): where its men wait in the
+   bushes, and two lines of cover between (rocks and short sandbag walls) they bound from one to the next */
+const SAP_APPR = [
+  { sap: SAPS.n[0], spawn: [-23, -137], st: [[[-27, -126], [-21, -125.5], [-31.5, -127]], [[-25, -119.5], [-29.5, -120], [-20.5, -119]]] },
+  { sap: SAPS.n[1], spawn: [-53, -133], st: [[[-49, -122], [-55, -121.5], [-44.5, -122.5]], [[-51, -115.5], [-46.5, -116], [-55.5, -115]]] },
+];
 function sapCut(x, z) {
   if (x < -59 || x > -16 || Math.abs(z) < 82 || Math.abs(z) > 120) return 0;
   let best = 0;
@@ -1421,12 +1427,21 @@ function concertina() {
 function egyScrub() {
   const ring = outwardRing(MAOZ, 14), loop = [...ring, ring[0]], step = LITE ? 0.72 : 0.5, tufts = [], bush = [], r = rng(813);
   for (const sd of [-1, 1]) {
-    const road = sd < 0 ? ROAD_ACCESS : ROAD_SOUTH, ok = (x, z) => sd * z > 92 && !inPoly(x, z, ring) && distPolyline(x, z, loop) < 32 && distPolyline(x, z, road) > 5 && SAP_LIST.every((sp) => distPolyline(x, z, sp) > 1.25) && groundAt(x, z) > 0.3;
-    const z0 = sd < 0 ? -142 : 90, z1 = sd < 0 ? -90 : 142;
+    const road = sd < 0 ? ROAD_ACCESS : ROAD_SOUTH, ok = (x, z) => { const dl = distPolyline(x, z, loop); return sd * z > 92 && !inPoly(x, z, ring) && dl > 22 && dl < 56 && distPolyline(x, z, road) > 5 && SAP_LIST.every((sp) => distPolyline(x, z, sp) > 1.25) && groundAt(x, z) > 0.3; };   /* from some forty metres out from our trench: open ground nearer in */
+    const z0 = sd < 0 ? -168 : 90, z1 = sd < 0 ? -90 : 168;
     for (let z = z0; z < z1; z += step) for (let x = -68; x < 30; x += step) { const px = x + (r() - 0.5) * step * 0.9, pz = z + (r() - 0.5) * step * 0.9; if (!ok(px, pz)) continue;
       tufts.push([px, pz, 0.8 + r() * 0.4, r() * 6, dryBush(r), -0.04, 0.85 + r() * 0.35]);
       if (r() < (LITE ? 0.05 : 0.08)) bush.push([px + (r() - 0.5) * 0.3, pz + (r() - 0.5) * 0.3, 0.9 + r() * 0.4, r() * 6, dryBush(r), -0.05, 0.85 + r() * 0.3]); }
   }
+  // the cover on the open ground between the scrub and the saps' heads: a rock or a short wall of sandbags at every point, each with its place behind it
+  const rocks = [];
+  for (const A of SAP_APPR) for (const [si, st] of A.st.entries()) for (const [pi, [x, z]] of st.entries()) {
+    const nx = 0, nz = 1, h = 0.8; A.nodes = A.nodes || [[], []];
+    if ((si + pi) % 2) { rocks.push([x, z, 1.15 + r() * 0.35, r() * 6, 0x8f8366, -0.25, 0.75]); addCollider(x, z, 0.65, 0.55, 0, groundAt(x, z) + 0.85); }
+    else bagWall([[x - 1.0, z], [x + 1.0, z]], 3, groundAt(x, z) - 0.05);
+    const c = { x: x - nx * 0.85, z: z - nz * 0.85, nx, nz, h, by: null }; COVER.push(c); A.nodes[si].push(c);
+  }
+  instScatter(BOULDER_G, rocks);
   instScatter(TALL_G, tufts, undefined, false); instScatter(BUSH_G, bush.filter((_, i) => i % 2), undefined, !LITE); instScatter(BUSH_TWIG_G, bush.filter((_, i) => !(i % 2)), undefined, !LITE);
 }
 function riprap() {
@@ -5548,18 +5563,22 @@ function wireCross(x0, z0, x1, z1) {
 /* the way in out of the scrub (north or south): up their own sap at a crouching run, hidden in it and in the bushes, to its end under our
    parapet - and from there over it into the trench. They come up some fifteen metres from the stronghold, never over open ground */
 function sapPlan(e, sap, j) {
-  const r = rng(5150 + j * 37), plan = [];
+  const r = rng(5150 + j * 37), RR = (a, b) => a + r() * (b - a), plan = [], A = SAP_APPR.find((q) => q.sap === sap), sup = j % 3 === 2;
+  // out of the scrub across the open ground, from one line of cover to the next (a short burst from each); a man of the covering fire stays at the second
+  if (A && A.nodes) A.nodes.forEach((st, si) => { const c = st.find((q) => !q.by) || st[Math.floor(r() * st.length)]; if (!c) return; if (!c.by) c.by = e; const o = RR(-0.5, 0.5);
+    plan.push({ t: 'cover', c, x: c.x + o, z: c.z, nx: c.nx, nz: c.nz, h: c.h, dur: sup && si === 1 ? RR(24, 38) : RR(1.6, 3.2), supp: sup && si === 1 });
+    const ox = c.x + c.nx * 0.85, oz = c.z + c.nz * 0.85, nxt = si === 0 && A.nodes[1].length ? A.nodes[1][0] : { x: sap[0][0], z: sap[0][1] }, sd = Math.sign((nxt.x - ox) || (r() - 0.5));
+    plan.push({ t: 'run', near: 0.7, x: ox + sd * 1.9 - c.nz * 0, z: oz + c.nz * 0.2 }); });   /* round the side of his rock or wall, never into it */
+  plan.push({ t: 'run', crun: true, near: 0.9, x: sap[0][0], z: sap[0][1] });   /* down into the head of the sap */
   for (let i = 1; i < sap.length - 1; i++) plan.push({ t: 'run', crun: true, near: 0.8, x: sap[i][0] + (r() - 0.5) * 0.4, z: sap[i][1] + (r() - 0.5) * 0.4 });
-  if (j % 3 === 2) {   // covering fire from the sap: halfway up it, standing to fire over its lip at our parapet, a long while, before he too goes in
-    const m = sap[1], e2 = sap[sap.length - 1], dx = e2[0] - m[0], dz = e2[1] - m[1], l = Math.hypot(dx, dz) || 1;
-    plan.splice(1, 0, { t: 'cover', supp: true, x: m[0] + (r() - 0.5) * 0.6, z: m[1] + (r() - 0.5) * 0.6, nx: dx / l, nz: dz / l, h: 1.6, dur: 24 + r() * 14 });
-  }
   const end = sap[sap.length - 1], k = clamp(trK(end[0], end[1])[0], 1, TR.pts.length - 2), p = TR.pts[k];
   plan.push({ t: 'run', crun: true, x: end[0], z: end[1], near: 0.6 });
   const o = TR.out[k]; plan.push({ t: 'run', final: true, x: p[0] + o[0] * PARA_D, z: p[1] + o[1] * PARA_D });   /* out of the sap and up the slope on foot, right up to the sandbags */
   plan.push({ t: 'vault', x: p[0], z: p[1] });
   return plan;
 }
+/* where a man of a sap's force starts: hidden in the scrub on its line (or, with no way laid to it, at the sap's head) */
+function sapSpawn(sap, r) { const A = SAP_APPR.find((q) => q.sap === sap), p = A ? A.spawn : sap[0], w = A ? 4 : 0.8; return [p[0] + (r() - 0.5) * w, p[1] + (r() - 0.5) * (A ? 3 : 0.8)]; }
 function northPlan(e, i) { return sapPlan(e, SAPS.n[i % 2], i); }
 /* men already ashore before the player gets there: each waits in his place on the sand (the cover he ran to, or where he jumped down) until
    'until', firing from it, and only then goes for the rampart */
@@ -5896,7 +5915,7 @@ function southGroup(n, delay, kinds = [], i0 = 0) {   // the same out of the sou
 function northGroup(n, delay, kinds = [], i0 = 0) {   // i0: the first man's number in the whole force, so each squad has its own starts and its own routes
   for (let i = 0; i < n; i++) {
     const k = kinds[i] || 'rifle', j = i + i0;
-    const r = rng(77 + j * 31), sap = SAPS.n[j % 2], go = () => { const e = spawnEnemy(sap[0][0] + (r() - 0.5) * 0.8, sap[0][1] + (r() - 0.5) * 0.8, varyKind(k, j * 3.7, delay), null, null);   /* at the head of one of their saps, in the scrub */ if (!e) { DIRQ.push({ at: GAME.t + 1, spawn: true, fn: go }); return; } e.plan = northPlan(e, j); e.state = 'plan'; };
+    const r = rng(77 + j * 31), sap = SAPS.n[j % 2], go = () => { const sp = sapSpawn(sap, r), e = spawnEnemy(sp[0], sp[1], varyKind(k, j * 3.7, delay), null, null);   /* at the head of one of their saps, in the scrub */ if (!e) { DIRQ.push({ at: GAME.t + 1, spawn: true, fn: go }); return; } e.plan = northPlan(e, j); e.state = 'plan'; };
     DIRQ.push({ at: GAME.t + delay + i * 1.7, spawn: true, fn: go });   /* out of the scrub one after another, a little apart */
   }
 }
@@ -13412,7 +13431,7 @@ function survSidePlan(side, e, i, hold = 0) {
 function survSideGroup(side, n, delay, kinds = []) {
   const Z = SURV_ZONE[side], north = side === 'n', saps = SAPS[side];
   for (let i = 0; i < n; i++) {
-    const k = kinds[i] || 'rifle', r = rng(91 + i * 37 + SURV.wave * 11 + (side === 'n' ? 7 : 0)), j = i + SURV.wave * 7, sap = saps[j % 2], go = () => { const e = spawnEnemy(sap[0][0] + (r() - 0.5) * 0.8, sap[0][1] + (r() - 0.5) * 0.8, varyKind(k, i * 3.7 + SURV.wave, delay), null, null); if (!e) { DIRQ.push({ at: GAME.t + 1, spawn: true, fn: go }); return; } e.plan = sapPlan(e, sap, j + (north ? 0 : 50)); e.state = 'plan'; };
+    const k = kinds[i] || 'rifle', r = rng(91 + i * 37 + SURV.wave * 11 + (side === 'n' ? 7 : 0)), j = i + SURV.wave * 7, sap = saps[j % 2], go = () => { const sp = sapSpawn(sap, r), e = spawnEnemy(sp[0], sp[1], varyKind(k, i * 3.7 + SURV.wave, delay), null, null); if (!e) { DIRQ.push({ at: GAME.t + 1, spawn: true, fn: go }); return; } e.plan = sapPlan(e, sap, j + (north ? 0 : 50)); e.state = 'plan'; };
     DIRQ.push({ at: GAME.t + delay + i * 1.9, spawn: true, fn: go });   /* one at a time out of the scrub, not a stream */
   }
 }

@@ -159,6 +159,12 @@ function trenchCut(x, z) {
 const SAPS = { n: [[[-24.5, -113.5], [-28.5, -106], [-25.5, -99], [-27.3, -92.15]], [[-51, -109], [-47, -102], [-49.8, -95.5], [-48.7, -88.05]]],
   s: [[[-24.5, 111], [-28.5, 103.5], [-25.6, 96], [-27.3, 89.25]], [[-47.5, 107], [-43.5, 100], [-46, 93], [-44.7, 86.25]]] };
 const SAP_LIST = [...SAPS.n, ...SAPS.s];
+/* the way to each northern sap's head across the open ground (the scrub begins some forty metres out from our trench): where its men wait in the
+   bushes, and two lines of cover between (rocks and short sandbag walls) they bound from one to the next */
+const SAP_APPR = [
+  { sap: SAPS.n[0], spawn: [-23, -137], st: [[[-27, -126], [-21, -125.5], [-31.5, -127]], [[-25, -119.5], [-29.5, -120], [-20.5, -119]]] },
+  { sap: SAPS.n[1], spawn: [-53, -133], st: [[[-49, -122], [-55, -121.5], [-44.5, -122.5]], [[-51, -115.5], [-46.5, -116], [-55.5, -115]]] },
+];
 function sapCut(x, z) {
   if (x < -59 || x > -16 || Math.abs(z) < 82 || Math.abs(z) > 120) return 0;
   let best = 0;

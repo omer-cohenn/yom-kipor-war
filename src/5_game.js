@@ -751,18 +751,22 @@ function wireCross(x0, z0, x1, z1) {
 /* the way in out of the scrub (north or south): up their own sap at a crouching run, hidden in it and in the bushes, to its end under our
    parapet - and from there over it into the trench. They come up some fifteen metres from the stronghold, never over open ground */
 function sapPlan(e, sap, j) {
-  const r = rng(5150 + j * 37), plan = [];
+  const r = rng(5150 + j * 37), RR = (a, b) => a + r() * (b - a), plan = [], A = SAP_APPR.find((q) => q.sap === sap), sup = j % 3 === 2;
+  // out of the scrub across the open ground, from one line of cover to the next (a short burst from each); a man of the covering fire stays at the second
+  if (A && A.nodes) A.nodes.forEach((st, si) => { const c = st.find((q) => !q.by) || st[Math.floor(r() * st.length)]; if (!c) return; if (!c.by) c.by = e; const o = RR(-0.5, 0.5);
+    plan.push({ t: 'cover', c, x: c.x + o, z: c.z, nx: c.nx, nz: c.nz, h: c.h, dur: sup && si === 1 ? RR(24, 38) : RR(1.6, 3.2), supp: sup && si === 1 });
+    const ox = c.x + c.nx * 0.85, oz = c.z + c.nz * 0.85, nxt = si === 0 && A.nodes[1].length ? A.nodes[1][0] : { x: sap[0][0], z: sap[0][1] }, sd = Math.sign((nxt.x - ox) || (r() - 0.5));
+    plan.push({ t: 'run', near: 0.7, x: ox + sd * 1.9 - c.nz * 0, z: oz + c.nz * 0.2 }); });   /* round the side of his rock or wall, never into it */
+  plan.push({ t: 'run', crun: true, near: 0.9, x: sap[0][0], z: sap[0][1] });   /* down into the head of the sap */
   for (let i = 1; i < sap.length - 1; i++) plan.push({ t: 'run', crun: true, near: 0.8, x: sap[i][0] + (r() - 0.5) * 0.4, z: sap[i][1] + (r() - 0.5) * 0.4 });
-  if (j % 3 === 2) {   // covering fire from the sap: halfway up it, standing to fire over its lip at our parapet, a long while, before he too goes in
-    const m = sap[1], e2 = sap[sap.length - 1], dx = e2[0] - m[0], dz = e2[1] - m[1], l = Math.hypot(dx, dz) || 1;
-    plan.splice(1, 0, { t: 'cover', supp: true, x: m[0] + (r() - 0.5) * 0.6, z: m[1] + (r() - 0.5) * 0.6, nx: dx / l, nz: dz / l, h: 1.6, dur: 24 + r() * 14 });
-  }
   const end = sap[sap.length - 1], k = clamp(trK(end[0], end[1])[0], 1, TR.pts.length - 2), p = TR.pts[k];
   plan.push({ t: 'run', crun: true, x: end[0], z: end[1], near: 0.6 });
   const o = TR.out[k]; plan.push({ t: 'run', final: true, x: p[0] + o[0] * PARA_D, z: p[1] + o[1] * PARA_D });   /* out of the sap and up the slope on foot, right up to the sandbags */
   plan.push({ t: 'vault', x: p[0], z: p[1] });
   return plan;
 }
+/* where a man of a sap's force starts: hidden in the scrub on its line (or, with no way laid to it, at the sap's head) */
+function sapSpawn(sap, r) { const A = SAP_APPR.find((q) => q.sap === sap), p = A ? A.spawn : sap[0], w = A ? 4 : 0.8; return [p[0] + (r() - 0.5) * w, p[1] + (r() - 0.5) * (A ? 3 : 0.8)]; }
 function northPlan(e, i) { return sapPlan(e, SAPS.n[i % 2], i); }
 /* men already ashore before the player gets there: each waits in his place on the sand (the cover he ran to, or where he jumped down) until
    'until', firing from it, and only then goes for the rampart */
@@ -1099,7 +1103,7 @@ function southGroup(n, delay, kinds = [], i0 = 0) {   // the same out of the sou
 function northGroup(n, delay, kinds = [], i0 = 0) {   // i0: the first man's number in the whole force, so each squad has its own starts and its own routes
   for (let i = 0; i < n; i++) {
     const k = kinds[i] || 'rifle', j = i + i0;
-    const r = rng(77 + j * 31), sap = SAPS.n[j % 2], go = () => { const e = spawnEnemy(sap[0][0] + (r() - 0.5) * 0.8, sap[0][1] + (r() - 0.5) * 0.8, varyKind(k, j * 3.7, delay), null, null);   /* at the head of one of their saps, in the scrub */ if (!e) { DIRQ.push({ at: GAME.t + 1, spawn: true, fn: go }); return; } e.plan = northPlan(e, j); e.state = 'plan'; };
+    const r = rng(77 + j * 31), sap = SAPS.n[j % 2], go = () => { const sp = sapSpawn(sap, r), e = spawnEnemy(sp[0], sp[1], varyKind(k, j * 3.7, delay), null, null);   /* at the head of one of their saps, in the scrub */ if (!e) { DIRQ.push({ at: GAME.t + 1, spawn: true, fn: go }); return; } e.plan = northPlan(e, j); e.state = 'plan'; };
     DIRQ.push({ at: GAME.t + delay + i * 1.7, spawn: true, fn: go });   /* out of the scrub one after another, a little apart */
   }
 }
