@@ -561,6 +561,17 @@ const RPG_W = wpnModel('rpg7', build([
   [G.cyl(0.035, 0.035, 0.95, 10), 0x4d5040, M4(0, 0.02, 0.05, Math.PI / 2, 0, 0)], [G.cone(0.045, 0.28, 10), 0x5a5f4a, M4(0, 0.02, 0.72, Math.PI / 2, 0, 0)], [G.cyl(0.045, 0.03, 0.12, 10), 0x5a5f4a, M4(0, 0.02, 0.55, Math.PI / 2, 0, 0)],
   [G.box(0.03, 0.09, 0.04), 0x3a2a1a, M4(0, -0.06, -0.05, -0.2, 0, 0)], [G.box(0.03, 0.09, 0.04), 0x3a2a1a, M4(0, -0.06, 0.15, -0.2, 0, 0)],
 ]));
+/* the RPG-7 split at the mouth of the tube (z = RPG_CUT, muzzle along +z): the launcher without its round, shown from the shot until the
+   man has reloaded, and the round itself, which is what flies (its tail at the origin, its nose along +z, on the tube's axis) */
+const RPG_CUT = 0.315;
+function rpgSplit(geo, round) {
+  const g = geo.clone(), pa = g.attributes.position, keep = (a, b, c) => ((pa.getZ(a) + pa.getZ(b) + pa.getZ(c)) / 3 > RPG_CUT) === round;
+  if (g.index) { const ix = g.index.array, out = []; for (let i = 0; i < ix.length; i += 3) if (keep(ix[i], ix[i + 1], ix[i + 2])) out.push(ix[i], ix[i + 1], ix[i + 2]); g.setIndex(out); }
+  else { const out = []; for (let i = 0; i < pa.count; i += 3) if (keep(i, i + 1, i + 2)) out.push(i, i + 1, i + 2); g.setIndex(out); }
+  return g;
+}
+const RPG_EMPTY = (() => { const u = RPG_W.userData || {}, L = u.lods || [RPG_W]; const v = { wmat: u.wmat, lods: L.map((g) => rpgSplit(g, false)) }; for (const g of v.lods) g.userData = v; return v.lods[0]; })();
+const RPG_ROUND = (() => { const u = RPG_W.userData || {}, L = u.lods || [RPG_W]; const g = rpgSplit(L[Math.min(1, L.length - 1)], true).translate(0, -0.02, -RPG_CUT); g.userData = {}; return g; })();
 /* the 106 mm recoilless rifle of survival mode: a long tube with the spotting rifle on top, breech and venturi behind, sight and hand wheels on the left; on a tripod */
 const RCL_GEO = build([
   [G.cyl(0.085, 0.085, 3.4, 14), 0x4d5240, M4(0, 0.08, 0.7, Math.PI / 2, 0, 0)], [G.cyl(0.1, 0.1, 0.14, 14), 0x3a3d32, M4(0, 0.08, 2.35, Math.PI / 2, 0, 0)],

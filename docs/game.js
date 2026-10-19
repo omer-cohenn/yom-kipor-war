@@ -1391,6 +1391,17 @@ const RPG_W = wpnModel('rpg7', build([
   [G.cyl(0.035, 0.035, 0.95, 10), 0x4d5040, M4(0, 0.02, 0.05, Math.PI / 2, 0, 0)], [G.cone(0.045, 0.28, 10), 0x5a5f4a, M4(0, 0.02, 0.72, Math.PI / 2, 0, 0)], [G.cyl(0.045, 0.03, 0.12, 10), 0x5a5f4a, M4(0, 0.02, 0.55, Math.PI / 2, 0, 0)],
   [G.box(0.03, 0.09, 0.04), 0x3a2a1a, M4(0, -0.06, -0.05, -0.2, 0, 0)], [G.box(0.03, 0.09, 0.04), 0x3a2a1a, M4(0, -0.06, 0.15, -0.2, 0, 0)],
 ]));
+/* the RPG-7 split at the mouth of the tube (z = RPG_CUT, muzzle along +z): the launcher without its round, shown from the shot until the
+   man has reloaded, and the round itself, which is what flies (its tail at the origin, its nose along +z, on the tube's axis) */
+const RPG_CUT = 0.315;
+function rpgSplit(geo, round) {
+  const g = geo.clone(), pa = g.attributes.position, keep = (a, b, c) => ((pa.getZ(a) + pa.getZ(b) + pa.getZ(c)) / 3 > RPG_CUT) === round;
+  if (g.index) { const ix = g.index.array, out = []; for (let i = 0; i < ix.length; i += 3) if (keep(ix[i], ix[i + 1], ix[i + 2])) out.push(ix[i], ix[i + 1], ix[i + 2]); g.setIndex(out); }
+  else { const out = []; for (let i = 0; i < pa.count; i += 3) if (keep(i, i + 1, i + 2)) out.push(i, i + 1, i + 2); g.setIndex(out); }
+  return g;
+}
+const RPG_EMPTY = (() => { const u = RPG_W.userData || {}, L = u.lods || [RPG_W]; const v = { wmat: u.wmat, lods: L.map((g) => rpgSplit(g, false)) }; for (const g of v.lods) g.userData = v; return v.lods[0]; })();
+const RPG_ROUND = (() => { const u = RPG_W.userData || {}, L = u.lods || [RPG_W]; const g = rpgSplit(L[Math.min(1, L.length - 1)], true).translate(0, -0.02, -RPG_CUT); g.userData = {}; return g; })();
 /* the 106 mm recoilless rifle of survival mode: a long tube with the spotting rifle on top, breech and venturi behind, sight and hand wheels on the left; on a tripod */
 const RCL_GEO = build([
   [G.cyl(0.085, 0.085, 3.4, 14), 0x4d5240, M4(0, 0.08, 0.7, Math.PI / 2, 0, 0)], [G.cyl(0.1, 0.1, 0.14, 14), 0x3a3d32, M4(0, 0.08, 2.35, Math.PI / 2, 0, 0)],
@@ -3383,6 +3394,7 @@ class Unit {
   setKind(kind) { this.kind = kind; this.rig.wkind = this.side === 'f' ? 'rifle' : WKIND(kind); gunGeo(this.rig.gun, this.side === 'f' ? FAL_W : WGEO[WKIND(kind)], this.rig.lod); }
   place(x, z, y) { this.pos.set(x, y === undefined ? groundAt(x, z) : hAt(x, z, y), z); this.snapHd = true; this.rig.snapNext = true; }
   sync() {
+    if (this.rpgEmptyT) rpgReloaded(this);
     this.rig.root.position.copy(this.pos); if (this.fall >= 0) this.rig.root.position.y += (this.fallDir < 0 ? 0.16 : 0.12) * clamp(this.fall / 0.55, 0, 1);   /* lying, he rests on his back, or on his chest (the deeper side) */
     if (this.snapHd || this.hdV === undefined || REDUCED) { this.hdV = this.heading; this.snapHd = false; } else this.hdV += wrapPi(this.heading - this.hdV) * (1 - Math.exp(-FDT * 12));
     this.rig.root.rotation.y = this.hdV;
@@ -3740,11 +3752,24 @@ function throwGrenade(from, vel, owner) {
    the shooter's own position does not set it off) */
 const ROCKET_FLAME = new THREE.SpriteMaterial({ map: FXT.flash, color: new THREE.Color(HDRK * 1.0, HDRK * 0.62, HDRK * 0.28), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending });
 const ROCKET_SPEED = 85;
-function fireRocket(from, to, owner) {
-  const dir = to.clone().sub(from).normalize(), p0 = from.clone().addScaledVector(dir, 1.0);
-  const m = new THREE.Mesh(ROCKET_GEO, MAT.vc); m.scale.setScalar(1.7); m.position.copy(p0); m.lookAt(to);
-  const fl = new THREE.Sprite(ROCKET_FLAME); fl.position.set(0, 0, -0.45); fl.scale.setScalar(0.5); m.add(fl); onLayer1(m); scene.add(m);
-  PROJ.push({ type: 'rocket', m, fl, v: dir.multiplyScalar(ROCKET_SPEED), owner, age: 0, life: Math.min(6, p0.distanceTo(to) / ROCKET_SPEED + 1.2), target: to.clone() });
+/* the shot leaves the launcher: the round is taken off the soldier's RPG (it is shown empty until he has reloaded, a few seconds later),
+   the backblast throws dust out behind him, and the rocket starts where the round sat, at the mouth of the tube */
+const _rl = V3(), _rs = V3();
+function rpgLaunch(e) {
+  const R = e && e.rig; if (!R || R.wkind !== 'rpg' || !R.gun || !R.gun.visible) return null;
+  R.gun.updateMatrixWorld(true); const p = V3(0, 0.02, RPG_CUT).applyMatrix4(R.gun.matrixWorld); R.gun.getWorldScale(_rs);
+  const back = _rl.set(0, 0.02, -0.65).applyMatrix4(R.gun.matrixWorld);
+  for (let i = 0; i < 4; i++) { const d = FX.dust.get(); d.life = 1.2 + Math.random() * 0.6; const k = i * 0.35; d.s.position.copy(back).lerp(p, -k); d.s.material.color.set(0xb6a98c); const vx = (back.x - p.x) * 2.2, vz = (back.z - p.z) * 2.2; d.upd = (q, u, dt) => { q.s.position.x += vx * dt * (1 - u); q.s.position.z += vz * dt * (1 - u); q.s.position.y += 0.3 * dt; q.s.scale.setScalar(0.5 + u * 2.4); q.s.material.opacity = 0.7 * (1 - u); }; }
+  gunGeo(R.gun, RPG_EMPTY, R.lod); e.rpgEmptyT = GAME.t + 3.4;
+  return { p, s: _rs.x };
+}
+function rpgReloaded(e) { if (e.rpgEmptyT && GAME.t > e.rpgEmptyT) { e.rpgEmptyT = 0; if (e.rig.wkind === 'rpg') gunGeo(e.rig.gun, RPG_W, e.rig.lod); } }
+function fireRocket(from, to, owner, shooter = null) {
+  const L = rpgLaunch(shooter); if (L) from = L.p;
+  const dir = to.clone().sub(from).normalize(), p0 = L ? from.clone() : from.clone().addScaledVector(dir, 1.0);
+  const m = L ? new THREE.Mesh(RPG_ROUND, RPG_W.userData && RPG_W.userData.wmat || MAT.vc) : new THREE.Mesh(ROCKET_GEO, MAT.vc); m.scale.setScalar(L ? L.s : 1.7); m.position.copy(p0); m.lookAt(to);
+  const fl = new THREE.Sprite(ROCKET_FLAME); fl.position.set(0, 0, L ? -0.08 : -0.45); fl.scale.setScalar(0.5); m.add(fl); onLayer1(m); scene.add(m);
+  const q = { type: 'rocket', m, fl, v: dir.multiplyScalar(ROCKET_SPEED), owner, age: 0, life: Math.min(6, p0.distanceTo(to) / ROCKET_SPEED + 1.2), target: to.clone() }; PROJ.push(q); return q;
 }
 await LD.mod(1354, 348, 2000);
 
@@ -5428,7 +5453,7 @@ const wpnOf = (e) => WPN[e.kind] || WPN.rifle, wBurst = (e) => { const b = wpnOf
 /* an RPG man fires his launcher, and only that: down on a knee, a rocket, then the long reload (no rifle bursts from a man holding a tube) */
 function rpgShoot(e, tp) {
   const from = e.muzzle(); e.rpgCd = rand(8, 12); e.rpgPause = 1.0; e.face(tp.x, tp.z);
-  fireRocket(from, tp.clone().add(V3(rand(-1.4, 1.4), rand(-0.4, 0.7), rand(-1.4, 1.4))), 'e'); fxMuzzle(from, true); sndRocket(from);
+  const q = fireRocket(from, tp.clone().add(V3(rand(-1.4, 1.4), rand(-0.4, 0.7), rand(-1.4, 1.4))), 'e', e), at = q ? q.m.position : from; fxMuzzle(at, true); sndRocket(at);
 }
 function enemyFire(e) {
   if (e.kind === 'rpg' && e.target) { const tp = e.target.player ? playerEye() : e.target.f.unit.chest(), d = e.pos.distanceTo(tp); if (e.rpgCd <= 0 && d > (e.state === 'trench' ? 6 : 12) && d < 230) rpgShoot(e, tp); return; }
@@ -6292,7 +6317,7 @@ function updProjectiles(dt) {
       const p = q.m.position;
       if (FIELDM() && q.owner === 'e' && TANK.alive && TANK.g && TANK.g.visible && p.distanceTo(tankTurretWorld(_tw)) < 3.0) { tankHit(p.clone(), false, null, p.clone().addScaledVector(q.v, -1)); scene.remove(q.m); PROJ.splice(i, 1); continue; }
       if (q.owner === 'e') { let hv = null; for (const v of VEH) if (v.rpgHit && v.alive && v.mode === MODE && v.g.visible && Math.hypot(p.x - v.g.position.x, p.z - v.g.position.z) < 3.6 && p.y < v.g.position.y + v.half[1] + 1.2) { hv = v; break; } if (hv) { vehHit(hv, hv.rpgHit, p); fxExplosion(p.clone(), 1.0); sndBoom(p, 1.0); FX.shake = Math.max(FX.shake, 0.3); scene.remove(q.m); PROJ.splice(i, 1); continue; } }
-      const hitT = p.distanceTo(q.target) < 2.5 || (q.age > 0.05 && p.y < hAt(p.x, p.z, p.y) + 0.2);   // armed after a few metres
+      const hitT = p.distanceTo(q.target) < 2.5 || (q.age > 0.08 && p.y < hAt(p.x, p.z, p.y) + 0.2);   // armed after a few metres
       if (hitT || q.life <= 0) { explode(p.clone(), 0.9, FIELDM() ? 5.5 : 7, FIELDM() ? 75 : 140, 'rpg'); scene.remove(q.m); PROJ.splice(i, 1); }
     }
   }
@@ -8547,7 +8572,7 @@ function suezEnemyStep(e, dt, shoot, aimPitch) {
       e.stance = 'stand';
       if (e.kind === 'rpg') {
         const tp = szRpgTarget(e);
-        const mz = e.muzzle(); if (tp && e.rpgCd <= 0 && losW(mz.x, mz.y, mz.z, tp.x, tp.y, tp.z)) { e.face(tp.x, tp.z); if (e.rpgAim === 0) szRpgCall(e); e.rpgAim += dt; if (e.rpgAim > 2.4) { const from = e.muzzle(); fireRocket(from, tp, 'e'); if (MODE === 'suez' && (P.mode === 'tank' || tp.distanceTo(P.pos) < 8)) szFireAt(e, from); fxMuzzle(from, true); sndRocket(from); e.rpgCd = rand(16, 24); e.cyc = 0.4; } }
+        const mz = e.muzzle(); if (tp && e.rpgCd <= 0 && losW(mz.x, mz.y, mz.z, tp.x, tp.y, tp.z)) { e.face(tp.x, tp.z); if (e.rpgAim === 0) szRpgCall(e); e.rpgAim += dt; if (e.rpgAim > 2.4) { const from = e.muzzle(); fireRocket(from, tp, 'e', e); if (MODE === 'suez' && (P.mode === 'tank' || tp.distanceTo(P.pos) < 8)) szFireAt(e, from); fxMuzzle(from, true); sndRocket(from); e.rpgCd = rand(16, 24); e.cyc = 0.4; } }
         else if (e.target) e.face(e.target.p.x, e.target.p.z);
         e.rig.pose('aim', e.anim, aimPitch());
       } else { if (e.target) shoot(); else e.heading = Math.atan2(s.nx, s.nz); e.rig.pose('aim', e.anim, aimPitch()); }
@@ -8575,7 +8600,7 @@ function suezEnemyStep(e, dt, shoot, aimPitch) {
     if (e.pi >= e.path.length && e.toSlot) { if (!e.toSlot.used) { szSeat(e, e.toSlot); e.toSlot = null; return; } e.toSlot = null; }
     if (e.pi < e.path.length) { const w = e.path[e.pi], x0 = e.pos.x, z0 = e.pos.z; e.anim += dt * 9.5; e.stance = 'stand'; if (steer(e, w[0], w[1], 4.6, dt) < 0.9) e.pi++; e.stuckT = Math.hypot(e.pos.x - x0, e.pos.z - z0) < dt * 0.5 ? (e.stuckT || 0) + dt : 0; if (e.stuckT > 2.5) { e.stuckT = 0; e.pi++; } e.rig.pose('run', e.anim); if (seesP && Math.random() < dt * 0.4) { e.face(P.pos.x, P.pos.z); enemyFire(e); } return; }
     if (e.climb) { e.sz = 'climb'; e.raid = SZ.stage >= 5; e.cpath = (e.raidP || SZ_RAID).map(([x, z, f]) => [LX(x), LZ(z), f]); e.ci = 0; return; }
-    if (e.kind === 'rpg' && e.rpgCd <= 0 && e.target) { const tp = szRpgTarget(e), mz = e.muzzle(); if (tp && (e.rpgMiss || losW(mz.x, mz.y, mz.z, tp.x, tp.y, tp.z))) { e.face(tp.x, tp.z); e.peek = true; e.stance = 'stand'; if (e.rpgAim === 0) szRpgCall(e); e.rpgAim += dt; e.rig.pose('aim', e.anim, 0); if (e.rpgAim > (e.wild ? 1.2 : 2.2)) { const from = e.muzzle(); fireRocket(from, tp, 'e'); if (MODE === 'suez' && (P.mode === 'tank' || tp.distanceTo(P.pos) < 8)) szFireAt(e, from); fxMuzzle(from, true); sndRocket(from); e.rpgCd = e.wild ? rand(5, 9) : rand(16, 24); e.rpgAim = 0; e.peek = false; } return; } }
+    if (e.kind === 'rpg' && e.rpgCd <= 0 && e.target) { const tp = szRpgTarget(e), mz = e.muzzle(); if (tp && (e.rpgMiss || losW(mz.x, mz.y, mz.z, tp.x, tp.y, tp.z))) { e.face(tp.x, tp.z); e.peek = true; e.stance = 'stand'; if (e.rpgAim === 0) szRpgCall(e); e.rpgAim += dt; e.rig.pose('aim', e.anim, 0); if (e.rpgAim > (e.wild ? 1.2 : 2.2)) { const from = e.muzzle(); fireRocket(from, tp, 'e', e); if (MODE === 'suez' && (P.mode === 'tank' || tp.distanceTo(P.pos) < 8)) szFireAt(e, from); fxMuzzle(from, true); sndRocket(from); e.rpgCd = e.wild ? rand(5, 9) : rand(16, 24); e.rpgAim = 0; e.peek = false; } return; } }
     // men firing wild stand in the open and shoot from the hip: no cover, no crouching
     if (e.wild) { e.stance = 'stand'; if (e.target) shoot(); e.rig.pose('aim', e.anim, aimPitch()); return; }
     // each man fights one of two ways: he storms (cover to cover, always closer, the last metres at a run) or he holds (the best cover in reach, kept while it still covers him)
@@ -8787,7 +8812,7 @@ function szLeadFilm() {
       { d: 2.8, slow: 0.3, cam: camLerp(() => Lp().addScaledVector(r, -13).addScaledVector(f, -3).add(V3(0, 1.4, 0)), () => Lp().addScaledVector(r, -11).addScaledVector(f, -1).add(V3(0, 1.6, 0)), turret, turret, 46) },
       { d: 3.6, cam: (u) => ({ p: tankHeadPos(), l: Lp().add(V3(0, 1.6 + u * 0.4, 0)), fov: 52 }) },
     ],
-    ev: [[3.0, () => { if (g && g.alive) { const from = g.muzzle(); fireRocket(from, turret(), 'e'); fxMuzzle(from, true); sndRocket(from); } }],
+    ev: [[3.0, () => { if (g && g.alive) { const from = g.muzzle(); fireRocket(from, turret(), 'e', g); fxMuzzle(from, true); sndRocket(from); } }],
       [3.85, () => { vehDestroy(L); FX.shake = 0.6; }], [9.6, () => { if (g) { g.cyc = 1.5; g.rpgCd = rand(4, 6); } }]],
     caps: [[0.2, '<b>2א:</b> נכנסים לשדרה. שקט מדי.', 2.4], [2.6, '<b>תותחן:</b> בזוקה בחלון!', 1.8], [5.4, '<b>מ״פ:</b> 2א, 2א, ענה!', 2.2], [7.5, '<b>תותחן:</b> אין תשובה. אף אחד לא יוצא מהטנק.', 3.2]],
     end: () => { if (g) { g.cyc = 1.5; g.rpgCd = rand(4, 6); } radio('מ״פ', 'הטנק של 2א נפגע. שמרו על החלונות, הוא עוד שם!', 3.5); },
@@ -9358,7 +9383,8 @@ function crewUpd(dt) {
 }
 /* ---------- the Sagger: a wire-guided missile. It flies only as long as its operator keeps looking at the target ---------- */
 function fireAtgm(e, tgt = null) {
-  const from = e.muzzle(); const m = new THREE.Group(); m.add(new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.8, 8).rotateX(Math.PI / 2), MAT.dark));
+  const L = rpgLaunch(e), from = L ? L.p : e.muzzle(); const m = new THREE.Group();
+  if (L) { const r = new THREE.Mesh(RPG_ROUND, RPG_W.userData && RPG_W.userData.wmat || MAT.dark); r.scale.setScalar(L.s * 1.3); m.add(r); } else m.add(new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.8, 8).rotateX(Math.PI / 2), MAT.dark));
   const bright = !!(CH() && CH().atgmBright), fl = new THREE.Sprite(new THREE.SpriteMaterial({ map: FXT.fire, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, color: bright ? new THREE.Color(5, 4.2, 0.7) : new THREE.Color(4, 1.6, 0.6) })); fl.scale.setScalar(bright ? 3.4 : 0.9); fl.position.z = -0.5; m.add(fl);
   // a bright missile also carries a glow of fixed size on the screen, so the yellow exhaust reads at three hundred metres
   if (bright) { const gl = new THREE.Sprite(new THREE.SpriteMaterial({ map: FXT.glow || FXT.fire, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, depthTest: false, sizeAttenuation: false, fog: false, toneMapped: false, color: new THREE.Color(3.2, 2.6, 0.4) })); gl.scale.setScalar(0.045); gl.position.z = -0.5; gl.renderOrder = 6; m.add(gl); }

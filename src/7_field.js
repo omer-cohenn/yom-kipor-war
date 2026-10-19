@@ -526,7 +526,8 @@ function crewUpd(dt) {
 }
 /* ---------- the Sagger: a wire-guided missile. It flies only as long as its operator keeps looking at the target ---------- */
 function fireAtgm(e, tgt = null) {
-  const from = e.muzzle(); const m = new THREE.Group(); m.add(new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.8, 8).rotateX(Math.PI / 2), MAT.dark));
+  const L = rpgLaunch(e), from = L ? L.p : e.muzzle(); const m = new THREE.Group();
+  if (L) { const r = new THREE.Mesh(RPG_ROUND, RPG_W.userData && RPG_W.userData.wmat || MAT.dark); r.scale.setScalar(L.s * 1.3); m.add(r); } else m.add(new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.8, 8).rotateX(Math.PI / 2), MAT.dark));
   const bright = !!(CH() && CH().atgmBright), fl = new THREE.Sprite(new THREE.SpriteMaterial({ map: FXT.fire, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, color: bright ? new THREE.Color(5, 4.2, 0.7) : new THREE.Color(4, 1.6, 0.6) })); fl.scale.setScalar(bright ? 3.4 : 0.9); fl.position.z = -0.5; m.add(fl);
   // a bright missile also carries a glow of fixed size on the screen, so the yellow exhaust reads at three hundred metres
   if (bright) { const gl = new THREE.Sprite(new THREE.SpriteMaterial({ map: FXT.glow || FXT.fire, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, depthTest: false, sizeAttenuation: false, fog: false, toneMapped: false, color: new THREE.Color(3.2, 2.6, 0.4) })); gl.scale.setScalar(0.045); gl.position.z = -0.5; gl.renderOrder = 6; m.add(gl); }

@@ -524,7 +524,7 @@ const wpnOf = (e) => WPN[e.kind] || WPN.rifle, wBurst = (e) => { const b = wpnOf
 /* an RPG man fires his launcher, and only that: down on a knee, a rocket, then the long reload (no rifle bursts from a man holding a tube) */
 function rpgShoot(e, tp) {
   const from = e.muzzle(); e.rpgCd = rand(8, 12); e.rpgPause = 1.0; e.face(tp.x, tp.z);
-  fireRocket(from, tp.clone().add(V3(rand(-1.4, 1.4), rand(-0.4, 0.7), rand(-1.4, 1.4))), 'e'); fxMuzzle(from, true); sndRocket(from);
+  const q = fireRocket(from, tp.clone().add(V3(rand(-1.4, 1.4), rand(-0.4, 0.7), rand(-1.4, 1.4))), 'e', e), at = q ? q.m.position : from; fxMuzzle(at, true); sndRocket(at);
 }
 function enemyFire(e) {
   if (e.kind === 'rpg' && e.target) { const tp = e.target.player ? playerEye() : e.target.f.unit.chest(), d = e.pos.distanceTo(tp); if (e.rpgCd <= 0 && d > (e.state === 'trench' ? 6 : 12) && d < 230) rpgShoot(e, tp); return; }
@@ -1388,7 +1388,7 @@ function updProjectiles(dt) {
       const p = q.m.position;
       if (FIELDM() && q.owner === 'e' && TANK.alive && TANK.g && TANK.g.visible && p.distanceTo(tankTurretWorld(_tw)) < 3.0) { tankHit(p.clone(), false, null, p.clone().addScaledVector(q.v, -1)); scene.remove(q.m); PROJ.splice(i, 1); continue; }
       if (q.owner === 'e') { let hv = null; for (const v of VEH) if (v.rpgHit && v.alive && v.mode === MODE && v.g.visible && Math.hypot(p.x - v.g.position.x, p.z - v.g.position.z) < 3.6 && p.y < v.g.position.y + v.half[1] + 1.2) { hv = v; break; } if (hv) { vehHit(hv, hv.rpgHit, p); fxExplosion(p.clone(), 1.0); sndBoom(p, 1.0); FX.shake = Math.max(FX.shake, 0.3); scene.remove(q.m); PROJ.splice(i, 1); continue; } }
-      const hitT = p.distanceTo(q.target) < 2.5 || (q.age > 0.05 && p.y < hAt(p.x, p.z, p.y) + 0.2);   // armed after a few metres
+      const hitT = p.distanceTo(q.target) < 2.5 || (q.age > 0.08 && p.y < hAt(p.x, p.z, p.y) + 0.2);   // armed after a few metres
       if (hitT || q.life <= 0) { explode(p.clone(), 0.9, FIELDM() ? 5.5 : 7, FIELDM() ? 75 : 140, 'rpg'); scene.remove(q.m); PROJ.splice(i, 1); }
     }
   }

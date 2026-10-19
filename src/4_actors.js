@@ -750,6 +750,7 @@ class Unit {
   setKind(kind) { this.kind = kind; this.rig.wkind = this.side === 'f' ? 'rifle' : WKIND(kind); gunGeo(this.rig.gun, this.side === 'f' ? FAL_W : WGEO[WKIND(kind)], this.rig.lod); }
   place(x, z, y) { this.pos.set(x, y === undefined ? groundAt(x, z) : hAt(x, z, y), z); this.snapHd = true; this.rig.snapNext = true; }
   sync() {
+    if (this.rpgEmptyT) rpgReloaded(this);
     this.rig.root.position.copy(this.pos); if (this.fall >= 0) this.rig.root.position.y += (this.fallDir < 0 ? 0.16 : 0.12) * clamp(this.fall / 0.55, 0, 1);   /* lying, he rests on his back, or on his chest (the deeper side) */
     if (this.snapHd || this.hdV === undefined || REDUCED) { this.hdV = this.heading; this.snapHd = false; } else this.hdV += wrapPi(this.heading - this.hdV) * (1 - Math.exp(-FDT * 12));
     this.rig.root.rotation.y = this.hdV;
@@ -1107,9 +1108,22 @@ function throwGrenade(from, vel, owner) {
    the shooter's own position does not set it off) */
 const ROCKET_FLAME = new THREE.SpriteMaterial({ map: FXT.flash, color: new THREE.Color(HDRK * 1.0, HDRK * 0.62, HDRK * 0.28), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending });
 const ROCKET_SPEED = 85;
-function fireRocket(from, to, owner) {
-  const dir = to.clone().sub(from).normalize(), p0 = from.clone().addScaledVector(dir, 1.0);
-  const m = new THREE.Mesh(ROCKET_GEO, MAT.vc); m.scale.setScalar(1.7); m.position.copy(p0); m.lookAt(to);
-  const fl = new THREE.Sprite(ROCKET_FLAME); fl.position.set(0, 0, -0.45); fl.scale.setScalar(0.5); m.add(fl); onLayer1(m); scene.add(m);
-  PROJ.push({ type: 'rocket', m, fl, v: dir.multiplyScalar(ROCKET_SPEED), owner, age: 0, life: Math.min(6, p0.distanceTo(to) / ROCKET_SPEED + 1.2), target: to.clone() });
+/* the shot leaves the launcher: the round is taken off the soldier's RPG (it is shown empty until he has reloaded, a few seconds later),
+   the backblast throws dust out behind him, and the rocket starts where the round sat, at the mouth of the tube */
+const _rl = V3(), _rs = V3();
+function rpgLaunch(e) {
+  const R = e && e.rig; if (!R || R.wkind !== 'rpg' || !R.gun || !R.gun.visible) return null;
+  R.gun.updateMatrixWorld(true); const p = V3(0, 0.02, RPG_CUT).applyMatrix4(R.gun.matrixWorld); R.gun.getWorldScale(_rs);
+  const back = _rl.set(0, 0.02, -0.65).applyMatrix4(R.gun.matrixWorld);
+  for (let i = 0; i < 4; i++) { const d = FX.dust.get(); d.life = 1.2 + Math.random() * 0.6; const k = i * 0.35; d.s.position.copy(back).lerp(p, -k); d.s.material.color.set(0xb6a98c); const vx = (back.x - p.x) * 2.2, vz = (back.z - p.z) * 2.2; d.upd = (q, u, dt) => { q.s.position.x += vx * dt * (1 - u); q.s.position.z += vz * dt * (1 - u); q.s.position.y += 0.3 * dt; q.s.scale.setScalar(0.5 + u * 2.4); q.s.material.opacity = 0.7 * (1 - u); }; }
+  gunGeo(R.gun, RPG_EMPTY, R.lod); e.rpgEmptyT = GAME.t + 3.4;
+  return { p, s: _rs.x };
+}
+function rpgReloaded(e) { if (e.rpgEmptyT && GAME.t > e.rpgEmptyT) { e.rpgEmptyT = 0; if (e.rig.wkind === 'rpg') gunGeo(e.rig.gun, RPG_W, e.rig.lod); } }
+function fireRocket(from, to, owner, shooter = null) {
+  const L = rpgLaunch(shooter); if (L) from = L.p;
+  const dir = to.clone().sub(from).normalize(), p0 = L ? from.clone() : from.clone().addScaledVector(dir, 1.0);
+  const m = L ? new THREE.Mesh(RPG_ROUND, RPG_W.userData && RPG_W.userData.wmat || MAT.vc) : new THREE.Mesh(ROCKET_GEO, MAT.vc); m.scale.setScalar(L ? L.s : 1.7); m.position.copy(p0); m.lookAt(to);
+  const fl = new THREE.Sprite(ROCKET_FLAME); fl.position.set(0, 0, L ? -0.08 : -0.45); fl.scale.setScalar(0.5); m.add(fl); onLayer1(m); scene.add(m);
+  const q = { type: 'rocket', m, fl, v: dir.multiplyScalar(ROCKET_SPEED), owner, age: 0, life: Math.min(6, p0.distanceTo(to) / ROCKET_SPEED + 1.2), target: to.clone() }; PROJ.push(q); return q;
 }
