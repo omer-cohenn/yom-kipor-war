@@ -192,7 +192,7 @@ function israeliRampart(x, z) {
 let MODE = 'mezach';
 /* chapters, in the order of the days: the Mezach, the Purkan rescue, the armour battle, the Chinese Farm, the crossing, the Hermon, Suez city, the encirclement. All but the first are "field" chapters */
 const FIELDM = () => MODE !== 'mezach';
-const GOD = () => MODE === 'range';   // the test range: nothing there hurts the player, his men or his vehicles
+const GOD = () => MODE === 'range' || MODE === 'prologue';   // the test range: nothing there hurts the player, his men or his vehicles
 const CHAP = {}; const CH = () => CHAP[MODE];
 const CH_ORDER = ['mezach', 'rescue', 'armor', 'farm', 'cross', 'hermon', 'suez', 'army'];
 const CH_INFO = {

@@ -70,9 +70,11 @@ function showWorld(mode) {
   TOWN_FOG.value = mode === 'mezach' ? 3.8 : 1; TOWN_SMOKEK.value = mode === 'mezach' ? 1 : 0; if (TOWN_HAZE) TOWN_HAZE.visible = mode === 'mezach';   /* the haze of the first day over the town across the canal */
   const lists = { mezach: SZ.mezObjs, suez: SZ.objs }; for (const k in CHAP) if (k !== 'mezach' && k !== 'suez') lists[k] = CHAP[k].objs || [];
   for (const v of VEH) if (v.tag) v.tag.visible = false;
-  for (const k in lists) if (k !== mode) for (const o of lists[k]) o.visible = false;
-  for (const o of lists[mode] || []) if (o !== SZ.ht && o !== TANK.g && !o.userData.dyn) o.visible = true;
-  for (const o of WORLD.base) o.visible = mode === 'mezach' || mode === 'suez';
+  const mw = !!(CHAP[mode] && CHAP[mode].mezWorld);   // a chapter played on the stronghold's own ground (mission 0)
+  for (const k in lists) if (k !== mode && !(mw && k === 'mezach')) for (const o of lists[k]) o.visible = false;
+  for (const o of [...(lists[mode] || []), ...(mw ? lists.mezach || [] : [])]) if (o !== SZ.ht && o !== TANK.g && !o.userData.dyn) o.visible = true;
+  for (const o of WORLD.base) o.visible = mode === 'mezach' || mode === 'suez' || mw;
+  { const pz = !!(CHAP[mode] && CHAP[mode].peace); for (const c of FAR_SMOKE) { for (const p of c.parts) p.sp.visible = !pz; if (c.fire) c.fire.visible = !pz; } }   // before the war: no smoke over the far bank
   GROUND = (CHAP[mode] && CHAP[mode].ground) || null; water.visible = !(CHAP[mode] && CHAP[mode].dry);
   if (mode === 'mezach') for (const B of BARRS) B.g.visible = B.on;
   for (const v of VEH) v.g.visible = v.mode === mode && v.shown !== false;

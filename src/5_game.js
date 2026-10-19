@@ -199,6 +199,7 @@ function castShot(o, d, maxD, fromSide) {
     }
   }
   if (fromSide !== 'e') { const vh = rayVeh(o, d, best.t); if (vh) best = vh; }
+  if (fromSide === 'f' && CH() && CH().rayT) { const h = CH().rayT(o, d, best.t); if (h) best = h; }   // a chapter's own targets (mission 0)
   if (fromSide !== 'f') for (const f of FRIENDS) { if (f.state === 'carried' || !f.unit.rig.root.visible) continue; const [a, b, r] = f.unit.capsule(); const h = rayCapsule(o, d, a, b, r * 0.9); if (h && h.t < best.t && h.t > 1.0) best = { t: h.t, kind: 'friend', f }; }
   { const wt = segHitT(o.x, o.y, o.z, o.x + d.x * best.t, o.y + d.y * best.t, o.z + d.z * best.t, 0.35); if (wt >= 0) best = { t: wt * best.t, kind: 'wall', k: SEG_K }; }
   if (fromSide !== 'e') { const ph = propRay(o, d, best.t); if (ph) best = { t: ph.t, kind: 'prop', prop: ph.item }; }
@@ -1358,6 +1359,7 @@ function incomingShell() {
   DIRQ.push({ at: GAME.t + eta, fn: () => explode(V3(x, groundAt(x, z), z), 1.1, 9, 110, 'art') });
 }
 function explode(p, size, radius, dmg, src) {
+  if (CH() && CH().onBoom) CH().onBoom(p, src);
   fxExplosion(p, size); sndBoom(p, size); propsBlast(p, Math.max(radius * 0.8, 4), 1.2 + size * 0.5);
   const pd = camera.position.distanceTo(p); FX.shake = Math.max(FX.shake, clamp(1.4 - pd / 40, 0, 1.2) * size);
   const pe = playerEye(); const d = Math.hypot(pe.x - p.x, pe.y - 1 - p.y, pe.z - p.z);
@@ -1494,6 +1496,7 @@ function applyHit(hit, dmg) {
   else if (hit.kind === 'seat') { killSeat(hit.boat, hit.seat); hitmark(true); }
   else if (hit.kind === 'boat') { hit.boat.hp -= dmg * 0.2; fxDust(hit.p.clone(), true); hitmark(false); }
   else if (hit.kind === 'friend') { toast('זהירות', 'אש על כוחותינו'); }
+  else if (hit.kind === 'target') { if (CH() && CH().hitT) CH().hitT(hit); }
   else if (hit.kind === 'veh') { if (hit.v.alive && hit.v.armor > 0) { vehHit(hit.v, dmg * hit.v.armor, hit.p); hitmark(!hit.v.alive); } fxDust(hit.p.clone(), false); }
   else if (hit.kind === 'prop') { const dir = hit.dir || V3(0, 0, 1); propKick(hit.prop, dir, 1.7); propsNear(hit.p, 0.4, dir); fxDust(hit.p.clone(), false); }
   else if (hit.kind === 'wall') { const n = hit.k ? colNormal(hit.k, hit.p, hit.dir) : null; if (n) { bulletHole(hit.p, n); chipsAt(hit.p, n); } fxDust(hit.p.clone().addScaledVector(n || V3(0, 1, 0), 0.08), false); propsNear(hit.p, 0.35, hit.dir || V3(0, 0, 1)); }
@@ -1590,7 +1593,7 @@ function updPlayer(dt) {
   if (INPUT.fire && !PDOOR.on) { if (P.mode === 'mag' || INPUT.fireEdge || (P.ride && P.ride.mg)) playerShoot(); INPUT.fireEdge = false; }
   // hold F
   if (promptState && promptState.hold && (k.KeyF || INPUT.tHold) && !moving()) {
-    P.hold += dt; if (P.hold >= 3) { const f = promptState.f; P.hold = 0; STATS.treated++; STATS.saved++; reviveFriend(f); feed(`${f.name} חבוש. הוא חוזר להילחם`, 'good'); radio(f.name, pick(['תודה. אני בסדר, חוזר לעמדה!', 'חבשת אותי טוב. ממשיכים!', 'כואב, אבל אני יכול לירות.']), 2.6); }
+    P.hold += dt; if (P.hold >= 3) { const f = promptState.f; P.hold = 0; if (CH() && CH().treat) { CH().treat(f); return; } STATS.treated++; STATS.saved++; reviveFriend(f); feed(`${f.name} חבוש. הוא חוזר להילחם`, 'good'); radio(f.name, pick(['תודה. אני בסדר, חוזר לעמדה!', 'חבשת אותי טוב. ממשיכים!', 'כואב, אבל אני יכול לירות.']), 2.6); }
   } else P.hold = 0;
   // movement
   if (!P.ride && P.mode !== 'tank') tpvBody(false);   // his own figure only at a vehicle's gun
@@ -1677,14 +1680,14 @@ const TKEY = { T: 'עשן', E: 'הכפתור הירוק', F: 'פעולה (להח
 const K = (k) => `<kbd>${TOUCH && TKEY[k] ? TKEY[k] : k}</kbd>`;
 const TUT = { seen: {}, queue: [], cur: null, curT: 0, shown: 0, radioQ: [], radioT: 0, step: 'shelter' };
 function hint(key, html, dur = 7) { if (TUT.seen[key]) return; TUT.seen[key] = true; TUT.queue.push({ html, dur }); }
-function radio(who, text, dur = 4.2) { TUT.radioQ.push({ who, text, dur }); }
+function radio(who, text, dur = 4.2, quiet = false) { TUT.radioQ.push({ who, text, dur, quiet }); }   // quiet: said by a man beside the player, not over the radio
 function resetTutorial() { Object.assign(TUT, { seen: {}, queue: [], cur: null, curT: 0, shown: 0, radioQ: [], radioT: 0, step: 'shelter' }); $('#hint').classList.remove('on'); $('#radio').classList.remove('on'); clearObjective(); }
 function updTutorial(dt) {
   tutorialTriggers();
   if (TUT.cur) { TUT.curT -= dt; TUT.shown += dt; if (TUT.queue.length && TUT.shown > 4) TUT.curT = Math.min(TUT.curT, 0.4); if (TUT.curT <= 0) { TUT.cur = null; $('#hint').classList.remove('on'); } }
   if (!TUT.cur && TUT.queue.length) { TUT.cur = TUT.queue.shift(); TUT.curT = TUT.cur.dur; TUT.shown = 0; $('#hintText').innerHTML = TUT.cur.html; $('#hint').classList.add('on'); }
   TUT.radioT -= dt;
-  if (TUT.radioT <= 0) { if (TUT.radioQ.length) { const r = TUT.radioQ.shift(); $('#radioWho').textContent = r.who; $('#radioText').textContent = r.text; $('#radio').classList.add('on'); TUT.radioT = r.dur; sndRadio(); } else $('#radio').classList.remove('on'); }
+  if (TUT.radioT <= 0) { if (TUT.radioQ.length) { const r = TUT.radioQ.shift(); $('#radioWho').textContent = r.who; $('#radioText').textContent = r.text; $('#radio').classList.add('on'); $('#radio').classList.toggle('near', !!r.quiet); TUT.radioT = r.dur; if (!r.quiet) sndRadio(); } else $('#radio').classList.remove('on'); }
   updObjective();
 }
 function tutorialTriggers() {
@@ -1843,14 +1846,14 @@ function drawMinimap() {
   const poly = (pts, close = true) => { g.beginPath(); pts.forEach((p, i) => { const [a, b] = X(p[0], p[1]); i ? g.lineTo(a, b) : g.moveTo(a, b); }); if (close) g.closePath(); };
   g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, N, N); g.save(); g.beginPath(); g.arc(C, C, C - 1, 0, 6.283); g.clip();
   const dot = (x, z, r, col, ring) => { const [a, b] = X(x, z); g.beginPath(); g.arc(a, b, r, 0, 6.283); g.fillStyle = col; g.fill(); if (ring) { g.lineWidth = 2; g.strokeStyle = ring; g.stroke(); } };
-  if (FIELDM()) CH().mini(g, X, poly, dot, k); else {
+  if (FIELDM() && !CH().mezMini) CH().mini(g, X, poly, dot, k); else {
   g.fillStyle = 'rgba(92,82,62,.82)'; g.fillRect(0, 0, N, N);
   poly([...MINI.shore, [-900, 260], [-900, -260]]); g.fillStyle = 'rgba(28,70,86,.9)'; g.fill();
   poly(MAOZ); g.fillStyle = 'rgba(150,132,96,.9)'; g.fill(); g.lineWidth = 3; g.strokeStyle = 'rgba(214,176,108,.9)'; g.stroke();
   g.strokeStyle = 'rgba(60,60,58,.95)'; g.lineCap = 'round'; for (const rd of ROADS) { g.lineWidth = rd.w * k; poly(rd.pts, false); g.stroke(); }
   g.strokeStyle = 'rgba(120,88,48,.95)'; g.lineWidth = 1.6 * k; for (const t of TRENCH_LINES) { poly(t.pts, false); g.stroke(); }
   g.fillStyle = 'rgba(40,36,28,.9)'; for (const b of BUNKERS) { poly(b); g.fill(); }
-  g.lineJoin = 'round'; for (const C of curCorrs()) { g.strokeStyle = 'rgba(255,207,115,.55)'; g.lineWidth = 3.6 * k; poly(TR.pts.slice(C.k0, C.k1 + 1), false); g.stroke(); for (const L of C.extra) { poly(L, false); g.stroke(); } g.fillStyle = 'rgba(255,207,115,.4)'; for (const [bx, bz, r] of C.bays) { const [a, b] = X(bx, bz); g.beginPath(); g.arc(a, b, r * k, 0, 6.283); g.fill(); } g.fillStyle = 'rgba(255,207,115,.22)'; for (const r of C.rects) { poly([[r[0], r[1]], [r[2], r[1]], [r[2], r[3]], [r[0], r[3]]]); g.fill(); } }
+  g.lineJoin = 'round'; for (const C of (MODE === 'mezach' ? curCorrs() : [])) { g.strokeStyle = 'rgba(255,207,115,.55)'; g.lineWidth = 3.6 * k; poly(TR.pts.slice(C.k0, C.k1 + 1), false); g.stroke(); for (const L of C.extra) { poly(L, false); g.stroke(); } g.fillStyle = 'rgba(255,207,115,.4)'; for (const [bx, bz, r] of C.bays) { const [a, b] = X(bx, bz); g.beginPath(); g.arc(a, b, r * k, 0, 6.283); g.fill(); } g.fillStyle = 'rgba(255,207,115,.22)'; for (const r of C.rects) { poly([[r[0], r[1]], [r[2], r[1]], [r[2], r[3]], [r[0], r[3]]]); g.fill(); } }
   if (SURV.on) { // the small strongpoint: everything beyond its two barricades is shaded out
     g.fillStyle = 'rgba(14,12,10,.5)'; poly([[-400, -49], [400, -49], [400, -600], [-400, -600]]); g.fill(); poly([[-400, 49], [400, 49], [400, 600], [-400, 600]]); g.fill();
     g.strokeStyle = 'rgba(255,207,115,.7)'; g.lineWidth = 2; g.setLineDash([6, 5]); poly([[-86, -49], [-40, -49]], false); g.stroke(); poly([[-86, 49], [-40, 49]], false); g.stroke(); g.setLineDash([]); }
@@ -2159,9 +2162,9 @@ function bootGame() { main().catch((err) => { console.error(err); LD.error('המ
 
 /* ---------- loading a mission: only what it needs, behind a screen that shows each step ---------- */
 const LD_BOOT = 2000;   // the game's code, start to menu, on a fast computer (ms)
-const LD_PLACE = { mezach: 'המעוז', rescue: 'ציר טליסמן', armor: 'הרכסים מזרחית לתעלה', farm: 'החווה הסינית', cross: 'אזור הצליחה', hermon: 'החרמון', suez: 'העיר סואץ', army: 'הדרך מערבית לסואץ', range: 'המטווח' };
+const LD_PLACE = { mezach: 'המעוז', rescue: 'ציר טליסמן', armor: 'הרכסים מזרחית לתעלה', farm: 'החווה הסינית', cross: 'אזור הצליחה', hermon: 'החרמון', suez: 'העיר סואץ', army: 'הדרך מערבית לסואץ', range: 'המטווח', prologue: 'התרגיל במעוז' };
 // what each piece takes on a fast computer (ms); the screen stretches it by how fast this device turned out to be at start-up
-const LD_MS = { base: 420, mez: 600, setup: 250, rescue: 900, armor: 900, farm: 1200, cross: 1000, hermon: 1200, suez: 900, army: 900, range: 500 };
+const LD_MS = { base: 420, mez: 600, setup: 250, rescue: 900, armor: 900, farm: 1200, cross: 1000, hermon: 1200, suez: 900, army: 900, range: 500, prologue: 300 };
 const TEXK = ['map', 'bumpMap', 'normalMap', 'roughnessMap', 'metalnessMap', 'alphaMap', 'emissiveMap', 'aoMap', 'lightMap', 'displacementMap', 'specularMap'];
 const GFXW = new WeakSet();
 /* the graphics card gets everything before the battle starts, a little at a time so the screen keeps moving: first the shader program of
@@ -2171,7 +2174,8 @@ async function gfxWarm(m, cb) {
   // the other missions' battlefields stay out of it (hidden, and lit differently): the scene is shown to the compiler without them for a moment
   const skip = new Set(), mm = m === 'surv' ? 'mezach' : m, add = (l) => { if (l) for (const o of l) skip.add(o); };
   for (const k in CHAP) if (k !== mm && k !== 'mezach' && k !== 'suez') add(CHAP[k].objs);
-  if (mm !== 'mezach') add(SZ.mezObjs); if (mm !== 'suez') add(SZ.objs); if (mm !== 'mezach' && mm !== 'suez') add(WORLD.base);
+  const mw = mm === 'mezach' || !!(CHAP[mm] && CHAP[mm].mezWorld);
+  if (!mw) add(SZ.mezObjs); if (mm !== 'suez') add(SZ.objs); if (!mw && mm !== 'suez') add(WORLD.base);
   const texs = [], seen = new Set(), all = scene.children;
   const addT = (t) => { if (t && t.isTexture && !seen.has(t) && !t.isRenderTargetTexture && !t.isVideoTexture && t.image && t.version > 0 && renderer.properties.get(t).__version !== t.version) { seen.add(t); texs.push(t); } };
   scene.children = all.filter((o) => !skip.has(o));
@@ -2192,14 +2196,14 @@ async function gfxWarm(m, cb) {
 async function loadMission(m, go) {
   if (LD.busy) return; LD.busy = true; const t0 = performance.now(), info = CH_INFO[m], surv = m === 'surv';
   for (const v of document.querySelectorAll('.menu video')) v.pause(); for (const k of ['#mBrief', '#mOps', '#mSet', '#mEnd', '#mPause']) $(k).hidden = true;
-  const base = (m === 'mezach' || surv || m === 'suez') && !WORLDB.towns, mez = (m === 'mezach' || surv) && !WORLDB.mez, chap = m !== 'mezach' && !surv && !(m === 'suez' ? SZ.built : CHAP[m].built);
+  const mezW = !!(CHAP[m] && CHAP[m].mezWorld), base = (m === 'mezach' || surv || m === 'suez' || mezW) && !WORLDB.towns, mez = (m === 'mezach' || surv || mezW) && !WORLDB.mez, chap = m !== 'mezach' && !surv && !(m === 'suez' ? SZ.built : CHAP[m].built);
   const steps = [];
   if (base) steps.push(['base', 'בונה את השטח ואת התעלה', 3]);
   if (mez) steps.push(['mez', 'בונה את המעוז', 4]);
   if (chap) steps.push(['chap', `בונה את ${LD_PLACE[m]}`, 6]);
   if (FACEQ.length) steps.push(['faces', 'מצייר את פני הלוחמים', 2]);
   steps.push(['gfx', 'מכין את הגרפיקה', 4], ['setup', 'מציב את הכוחות', 1]);
-  LD.plan(steps, { eye: info ? `משימה ${info.n}` : surv ? 'הישרדות' : 'אימון', title: info ? info.name : surv ? 'להחזיק את המעוז' : 'המטווח', img: info || surv ? IMG(surv ? 'mezach' : m) : '', clip: info || surv ? (surv ? 'mezach' : m) : '' });
+  const pro = m === 'prologue'; LD.plan(steps, { eye: info ? `משימה ${info.n}` : surv ? 'הישרדות' : pro ? 'משימה 0' : 'אימון', title: info ? info.name : surv ? 'להחזיק את המעוז' : pro ? 'ערב יום כיפור' : 'המטווח', img: info || surv || pro ? IMG(surv || pro ? 'mezach' : m) : '', clip: info || surv || pro ? (surv || pro ? 'mezach' : m) : '' });
   try {
     await LD.paint();
     if (base) { LD.step('base', LD_MS.base); await LD.paint(); ensureBase(); }
