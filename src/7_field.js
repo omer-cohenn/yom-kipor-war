@@ -800,7 +800,7 @@ function mzBoatsFilm() {
   // beach goes up on the mines along the waterline (mzMineBoat), in the fourth shot. The film stops the battle (boatsFreeze), so the rest are
   // back where they were when it ends. The lead boat is the first wave's
   const T_LAND = 14.9 + MZ_MINE_T, zc = 20, byZ = (a, b) => Math.abs(a.zLand - zc) - Math.abs(b.zLand - zc), rowA = W.filter((b) => b.wave === 0), rowB = W.filter((b) => b.wave === 1);
-  const lead = (rowA.length ? rowA : W).slice().sort(byZ)[0], mid = (rowB.length ? rowB : W.filter((b) => b !== lead)).slice().sort(byZ)[0] || lead; lead.filmLand = true;
+  const lead = (rowA.length ? rowA : W).slice().sort(byZ)[0], mid = (rowB.length ? rowB : W.filter((b) => b !== lead)).slice().sort(byZ)[0] || lead;   /* no mines any more: the lead boat rows on with the others and lands after the film */
   if (!rowA.length) W.forEach((b, i) => { const u = b === lead ? 1 - (T_LAND * b.speed) / b.len : b === mid ? 0.55 : 0.34 + 0.28 * ((i * 0.618034) % 1); b.t = (u * b.len) / b.speed; });
   for (const b of W) filmRow(b, true);   // the oars shipped for the film, as in the drone's (up close the rowing does not look right)
   const zl = lead.zLand, bx = () => lead.g.position.clone(), cx = crestX(zc), cy = groundAt(cx, zc), fwd = (b) => V3(Math.sin(b.heading), 0, Math.cos(b.heading)), rgt = (b) => V3(Math.cos(b.heading), 0, -Math.sin(b.heading));
@@ -817,12 +817,12 @@ function mzBoatsFilm() {
       { d: 5.6, cam: camLerp(V3(beachX + 3, 2.6, zc + 26), V3(beachX + 1, 2.2, zc + 20), V3(nearX(-236), 1.2, zc - 8), V3(nearX(-222), 1.0, zc - 2), 24) },
       { d: 4.6, cam: (u) => { const b = mp(), f = fwd(mid), r = rgt(mid), sd = r.x * SUN.dir.x + r.z * SUN.dir.z > 0 ? 1 : -1; return { p: b.clone().addScaledVector(f, -2.5 + u * 3).addScaledVector(r, sd * 9).add(V3(0, 3.4, 0)), l: b.clone().addScaledVector(f, 0.5 + u * 1.5).add(V3(0, 0.6, 0)), fov: 46 }; } },
       { d: 4.0, cam: (u) => { const b = mp(), f = fwd(mid), r = rgt(mid); return { p: b.clone().addScaledVector(f, -6.5 + u * 1.2).addScaledVector(r, 1.4).add(V3(0, 2.5, 0)), l: V3(crestX(mid.zLand) - 4, groundAt(crestX(mid.zLand), mid.zLand) + 2.5, mid.zLand), fov: 48 }; } },
-      { d: 5.4, slow: 0.55, cam: (u) => ({ p: V3(beachX + 10 - u * 1.5, groundAt(beachX + 10, zl + 11) + 2.3, zl + 11), l: V3(beachX - 5.5 - u * 1.5, 1.0 + u * 2.2, zl), fov: 44 }) },   /* from the beach: the boat a few metres out, and the mine under it */
+      { d: 5.4, slow: 0.55, cam: (u) => ({ p: V3(beachX + 10 - u * 1.5, groundAt(beachX + 10, zl + 11) + 2.3, zl + 11), l: V3(beachX - 5.5 - u * 1.5, 1.0 + u * 2.2, zl), fov: 44 }) },   /* from the beach: the lead boat coming in */
       { d: 3.4, cam: (u) => { const x = crestX(zl) - 1 - u * 1.5; return { p: V3(x, groundAt(x, zl + 9) + 2.4, zl + 9), l: V3(beachX + 3 - u * 2, 1.0, zl - 3), fov: 50 }; } },
     ],
     ev,
     caps: [[0.3, '<b>לפנות ערב.</b> הם זורקים את הכול: סירות לכל אורך הסוללה המערבית, מקצה לקצה.', 4.8], [5.8, 'בכל סירה חיילים צפופים. החותרים לא עוצרים, גם כשהמים מסביבם רותחים מאש.', 4.2],
-      [10.4, '<b>תצפית:</b> הראשונים כבר ליד החוף! עוד רגע הם על הסוללה!', 3.6], [15.6, '<b>פיצוץ!</b> הסירה עלתה על מוקש בקו המים. אף אחד מהם לא הגיע לחוף.', 4.0], [19.8, '<b>מ״פ:</b> עוד עשרות סירות בדרך. אש על הסירות, עכשיו!', 3.0]],
+      [10.4, '<b>תצפית:</b> הראשונים כבר ליד החוף! עוד רגע הם על הסוללה!', 3.6], [15.6, '<b>תצפית:</b> הסירה הראשונה כמעט על החוף. הם יעלו על הסוללה!', 4.0], [19.8, '<b>מ״פ:</b> עוד עשרות סירות בדרך. אש על הסירות, עכשיו!', 3.0]],
     boatFilm: true, boatRate: 0.4, end: () => { for (const b of BOATS) if (b.filmHide) filmRow(b, false); },   /* the rest row on at less than half pace in it: none of them lands */
   });
 }

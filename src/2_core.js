@@ -153,6 +153,19 @@ function trenchCut(x, z) {
   for (const t of TRENCH_LINES) { if (x < t.bb[0] - 3 || x > t.bb[2] + 3 || z < t.bb[1] - 3 || z > t.bb[3] + 3) continue; d = Math.min(d, distPolyline(x, z, t.pts)); }
   return 1.05 * (1 - smooth(1.3, 2.4, d));
 }
+/* the Egyptians' own trenches (saps), dug in the night out of the scrub north and south of the stronghold to just under our parapet: two on
+   each side, each from a few metres beyond the wire (in among the bushes) to the foot of the parapet of our trench, a little crooked; a metre
+   deep, the spoil thrown up along both lips, the floor rising at the end where they climb out at our trench */
+const SAPS = { n: [[[-24.5, -113.5], [-28.5, -106], [-25.5, -99], [-27.3, -92.15]], [[-51, -109], [-47, -102], [-49.8, -95.5], [-48.7, -88.05]]],
+  s: [[[-24.5, 111], [-28.5, 103.5], [-25.6, 96], [-27.3, 89.25]], [[-47.5, 107], [-43.5, 100], [-46, 93], [-44.7, 86.25]]] };
+const SAP_LIST = [...SAPS.n, ...SAPS.s];
+function sapCut(x, z) {
+  if (x < -59 || x > -16 || Math.abs(z) < 82 || Math.abs(z) > 120) return 0;
+  let best = 0;
+  for (const s of SAP_LIST) { const d = distPolyline(x, z, s); if (d > 4) continue; const s0 = s[0], e = s[s.length - 1], ramp = smooth(0.4, 4.5, Math.hypot(x - s0[0], z - s0[1])), fin = 1 - 0.45 * (1 - smooth(0.4, 2.4, Math.hypot(x - e[0], z - e[1])));
+    const v = (-1.05 * (1 - smooth(0.9, 2.0, d)) * fin + 0.38 * Math.exp(-(((d - 2.75) / 0.7) ** 2))) * ramp; if (Math.abs(v) > Math.abs(best)) best = v; }
+  return best;
+}
 function bankX(line, z) { for (let i = 0; i < line.length - 1; i++) { const a = line[i], b = line[i + 1]; if (z >= a[1] && z <= b[1]) return lerp(a[0], b[0], (z - a[1]) / (b[1] - a[1])); } return line[line.length - 1][0]; }
 
 /* ================= terrain function ================= */
@@ -241,6 +254,7 @@ function terrainAt0(x, z) {
     }
     h += feat; mixIn(PAL.fresh, smooth(1.2, 6, feat) * 0.5);
     const cut = trenchCut(x, z); if (cut > 0) { h -= cut; mixIn(PAL.sandD, cut * 0.4); }
+    { const sc = sapCut(x, z); if (sc) { h += sc; mixIn(PAL.sandD, Math.min(1, Math.abs(sc)) * 0.45); } }   // the Egyptians' saps
     if (DUGS && DUG_ON) h = dugCut(x, z, h);
   } else {
     h = 0.45 + 2.2 * smooth(0, 40, inl) + 0.35 * fbm(x / 350, z / 350, 3);
@@ -449,7 +463,7 @@ function axis(min, max, foci) {
   s = cap; u = max; while (u < ext) { s *= gr; u += s; hi.push(Math.min(u, ext)); }
   return lo.reverse().concat(a, hi);
 }
-const XS = axis(MAP.x0, MAP.x1, [0, -76]), ZS = axis(MAP.z0, MAP.z1, [0, -88, 86]);
+const XS = axis(MAP.x0, MAP.x1, [0, -76, -27, -48]), ZS = axis(MAP.z0, MAP.z1, [0, -88, 86, -103, 100]);   // the mesh fine along the trenches and the Egyptians' saps
 const NX = XS.length, NZ = ZS.length;
 const HGT = new Float32Array(NX * NZ);
 function buildTerrain() {

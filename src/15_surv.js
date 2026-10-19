@@ -7,7 +7,8 @@ const SURV_DIRS = { w: 'ממערב, מהתעלה', n: 'מצפון, לאורך ה
 /* survival is fought in the "small strongpoint": the middle hundred metres of the western rampart, closed at both ends by barricades that stand
    only in this mode (the whole strongpoint is far too long to run end to end between waves). The northern attack comes down the shore and
    climbs into the northern end of that stretch, the southern one up the shore into its southern end, the boats land in the middle. */
-const SURV_ZONE = { n: { spawn: [-74, -238, 22, 18], covZ: [-140, -100], ks: [-45, -43, -34, -32].map(kz) }, s: { spawn: [-74, 232, 22, 18], covZ: [100, 136], ks: [32, 35, 38, 40].map(kz) } };
+/* where they start: the northern attack already on the sand under the rampart, forty metres from the trench (the user), the southern one close in too */
+const SURV_ZONE = { n: { spawn: [-98, -86, 9, 8], band: [52, 80], ks: [-45, -43, -34, -32].map(kz) }, s: { spawn: [-97, 102, 9, 10], band: [60, 92], ks: [32, 35, 38, 40].map(kz) } };
 const SURV_TOTAL = [8, 12, 16, 24, 30, 37, 45, 56];
 const SURV_AIR_PTS = 2500;
 try { SURV.best = Number(localStorage.getItem('yk73.survBest') || 0); } catch (e) { SURV.best = 0; }
@@ -34,12 +35,12 @@ function survCannonShoot() {
 }
 
 /* ---------- the attacks along the shore: from the north and from the south, down the western slope of the tongue, a rush at the rampart's corner and over it ---------- */
-function survSidePlan(side, e, i) {
+function survSidePlan(side, e, i, hold = 0) {
   const Z = SURV_ZONE[side], r = rng((side === 'n' ? 4242 : 5151) + i * 137), RR = (a, b) => a + r() * (b - a), plan = [], sg = side === 'n' ? 1 : -1;
   // fire and movement down the shore: two stops behind the stones at the water's edge (they face the rampart, so they hide a man from it),
   // one far out and one closer in, a short burst from each; then the final dash at the rampart and over it
   const pick = (zMin, zMax) => { let best = null, bd = 1e9; for (const c of COVER) { const az = Math.abs(c.z); if (c.by || c.nx < 0.35 || az < zMin || az > zMax || Math.sign(c.z) !== sg * -1 || c.x > crestX(c.z) + 1 || c.x < tongueWestX(c.z) - 2) continue; const d = Math.hypot(c.x - e.pos.x, c.z - e.pos.z) + r() * 10; if (d < bd) { bd = d; best = c; } } return best; };
-  for (const [zMin, zMax, p] of [[98, 150, 0.85], [62, 97, 0.7]]) { const c = pick(zMin, zMax); if (c && r() < p) { c.by = e; const o = RR(-0.9, 0.9); plan.push({ t: 'cover', c, x: c.x - c.nz * o, z: c.z + c.nx * o, nx: c.nx, nz: c.nz, h: c.h, dur: RR(2.2, 4.0) }); } }
+  { const c = pick(Z.band[0], Z.band[1]); if (c) { c.by = e; const o = RR(-0.9, 0.9); plan.push({ t: 'cover', c, x: c.x - c.nz * o, z: c.z + c.nx * o, nx: c.nx, nz: c.nz, h: c.h, dur: RR(2.2, 4.0) + hold }); } else if (hold) plan.push({ t: 'cover', x: e.pos.x + 1.2, z: e.pos.z, nx: 1, nz: 0, h: 0.7, dur: hold }); }   /* one stop on the sand (the north: a long one - they were there before him), then the dash */
   const k = clamp(Z.ks[i % 4] + Math.floor(RR(-2, 3)), 1, TR.pts.length - 2), p = TR.pts[k], o = TR.out[k];
   plan.push({ t: 'cover', x: p[0] + o[0] * 2.6 - 1.2, z: p[1] + o[1] * 2.6 + sg * RR(2, 5), px: p[0] + o[0] * 1.4, pz: p[1], nx: 1, nz: 0, h: 1, dur: RR(1.2, 2.6) });
   plan.push({ t: 'run', final: true, x: p[0] + o[0] * 2.6, z: p[1] + o[1] * 2.6 });
@@ -47,10 +48,10 @@ function survSidePlan(side, e, i) {
   return plan;
 }
 function survSideGroup(side, n, delay, kinds = []) {
-  const Z = SURV_ZONE[side];
+  const Z = SURV_ZONE[side], north = side === 'n';
   for (let i = 0; i < n; i++) {
-    const k = kinds[i] || 'rifle', r = rng(91 + i * 37 + SURV.wave * 11 + (side === 'n' ? 7 : 0)), go = () => { const e = spawnEnemy(Z.spawn[0] + (r() - 0.5) * Z.spawn[2], Z.spawn[1] + (r() - 0.5) * Z.spawn[3], varyKind(k, i * 3.7 + SURV.wave, delay), null, null); if (!e) { DIRQ.push({ at: GAME.t + 1, spawn: true, fn: go }); return; } e.plan = survSidePlan(side, e, i); e.state = 'plan'; };
-    DIRQ.push({ at: GAME.t + delay + i * 1.5, spawn: true, fn: go });
+    const k = kinds[i] || 'rifle', r = rng(91 + i * 37 + SURV.wave * 11 + (side === 'n' ? 7 : 0)), go = () => { const e = spawnEnemy(Z.spawn[0] + (r() - 0.5) * Z.spawn[2], Z.spawn[1] + (r() - 0.5) * Z.spawn[3], varyKind(k, i * 3.7 + SURV.wave, delay), null, null); if (!e) { DIRQ.push({ at: GAME.t + 1, spawn: true, fn: go }); return; } e.plan = survSidePlan(side, e, i, north ? 3 + r() * 5 : 0); e.state = 'plan'; };
+    DIRQ.push({ at: GAME.t + delay + i * (north ? 0.3 : 1.5), spawn: true, fn: go });   /* the north is on the beach all at once */
   }
 }
 
@@ -88,7 +89,7 @@ function survWave(n) {
   dirs.forEach((dr, di) => {
     const T = di * 32;   // each further direction is a wave of its own, half a minute behind the one before: never two sides in the same breath
     if (dr === 'w') { const nb = Math.max(2, Math.ceil(per / 3)); for (let i = 0; i < nb; i++) { const z = rand(-30, 34), b = launchBoat(z, T + 2 + i * rand(1.4, 2.4), Math.min(7, 4 + Math.floor(n / 3)), Math.random() < 0.2 + n * 0.04 ? 1 : 0, n >= 5 && Math.random() < 0.15 ? 1 : 0); b.hp = 170; } }
-    else if (dr === 'n') { survSideGroup('n', per, T + 3, survKinds(n, per)); if (n >= 4) for (let i = 0; i < 2; i++) launchBoat(rand(-62, -46), T + 4 + i * 3, 4, 0); }
+    else if (dr === 'n') { const pn = Math.max(3, Math.round(per * 0.6)); survSideGroup('n', pn, T + 0.5, survKinds(n, pn));   /* fewer of them: they are right there */ if (n >= 4) for (let i = 0; i < 2; i++) launchBoat(rand(-62, -46), T + 4 + i * 3, 4, 0); }
     else { survSideGroup('s', per, T + 3, survKinds(n, per)); if (n >= 6) launchBoat(rand(40, 56), T + 5, 4, 0); }
     // from the third wave a jeep leads the shore attacks, from the fifth a tank follows it, from the seventh two
     if (dr !== 'w') { if (n >= 3) survVeh(dr, 'jeep', T + 5); if (n >= 5) survVeh(dr, 't55', T + 10, 7); if (n >= 7) survVeh(dr, 't55', T + 17, 16); }

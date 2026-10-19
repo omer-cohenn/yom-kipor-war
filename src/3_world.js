@@ -241,12 +241,12 @@ const BAG_GEOS = [];
 function bagGeos() { if (!BAG_GEOS.length) { if (mdlHas('sandbag0')) for (let k = 0; k < 3; k++) BAG_GEOS.push(mdlGeo('sandbag' + k, QUAL === 'low' ? 1 : 0)[0].g);   /* the round one everywhere but on low: the light one is faceted */ else BAG_GEOS.push(pillowGeo()); } return BAG_GEOS; }
 /* many bags at once: one instanced mesh for each patch, the bags dealt among them; each a little turned (j), every other one end for end, its
    own shade (the new bags all but white over their burlap, a few dusty, a few darker with damp) */
-function bagInst(list, rr, j) {
+function bagInst(list, rr, j, wall = false) {
   const gs = bagGeos(), n = gs.length, grp = new THREE.Group(), mm = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), col = new THREE.Color(), byV = gs.map(() => []);
   for (const b of list) byV[n > 1 ? Math.floor(rr() * n) % n : 0].push(b);
   gs.forEach((g, v) => { const L = byV[v]; if (!L.length) return; const m = new THREE.InstancedMesh(g, MAT.bag, L.length);
-    L.forEach(([x, y, z, r], i) => { const flip = n > 1 && rr() < 0.5 ? Math.PI : 0, tl = n > 1 ? 0.07 : 0;   /* laid by hand: a little askew, each filled a little more or less */
-      e.set((rr() - 0.5) * tl, r + flip + (rr() - 0.5) * j, (rr() - 0.5) * tl, 'YXZ'); m.setMatrixAt(i, mm.compose(V3(x, y, z), q.setFromEuler(e), n > 1 ? V3(0.6 + rr() * 0.06, 0.205 + rr() * 0.035, 0.34 + rr() * 0.045) : V3(0.6 + rr() * 0.05, 0.22, 0.36)));
+    L.forEach(([x, y, z, r], i) => { const flip = n > 1 && rr() < 0.5 ? Math.PI : 0, tl = n > 1 ? (wall ? 0.02 : 0.07) : 0;   /* laid by hand: a little askew, each filled a little more or less */
+      e.set((rr() - 0.5) * tl, r + flip + (rr() - 0.5) * j, (rr() - 0.5) * tl, 'YXZ'); m.setMatrixAt(i, mm.compose(V3(x, y, z), q.setFromEuler(e), n > 1 ? (wall ? V3(0.63 + rr() * 0.03, 0.225 + rr() * 0.015, 0.37 + rr() * 0.02) : V3(0.6 + rr() * 0.06, 0.205 + rr() * 0.035, 0.34 + rr() * 0.045)) : V3(0.6 + rr() * 0.05, 0.22, 0.36)));   /* a built wall: bags laid square and tight, each pressed flat by the ones above */
       const t = rr(), w = rr(); if (n > 1) { const k = w < 0.18 ? 1.12 : w > 0.88 ? 0.78 : 0.9 + t * 0.14; col.setRGB(lin(k * (w < 0.18 ? 1.0 : 1)), lin(k * (w < 0.18 ? 0.97 : 0.98)), lin(k * (w < 0.18 ? 0.88 : 0.95))); } else { const g2 = rr() * 0.06; col.setRGB(lin(0.6 + t * 0.12 - g2), lin(0.55 + t * 0.1 - g2 * 0.5), lin(0.44 + t * 0.08)); }
       m.setColorAt(i, col); });
     grp.add(m); });
@@ -635,9 +635,11 @@ function outwardRing(poly, d, inward = false) {
     let q = [p[0] + nx * d, p[1] + nz * d]; if (inPoly(q[0], q[1], poly) !== inward) q = [p[0] - nx * d, p[1] - nz * d]; return q;
   });
 }
+const WIRE_PTS = [];   // the wire round the stronghold, point by point: the attackers hurdle it (5_game.js wireCross)
 function concertina() {
   let ring = outwardRing(MAOZ, 14); ring = [...ring, ring[0]];
-  const d = densify(ring, 0.55).map(([x, z]) => [Math.max(x, tongueWestX(z) + 2.5), z]).filter(([x, z]) => !(x < -40 && z > -150 && z < 150) && Math.hypot(x - GATE_N[0], z - GATE_N[1] - 14) > 8 && Math.hypot(x - GATE_S[0], z - GATE_S[1] + 14) > 8);
+  const d = densify(ring, 0.55).map(([x, z]) => [Math.max(x, tongueWestX(z) + 2.5), z]).filter(([x, z]) => !(x < -40 && z > -150 && z < 150) && Math.hypot(x - GATE_N[0], z - GATE_N[1] - 14) > 8 && Math.hypot(x - GATE_S[0], z - GATE_S[1] + 14) > 8 && SAP_LIST.every((sp) => distPolyline(x, z, sp) > 1.8));   /* cut where the Egyptians' saps run under it */
+  WIRE_PTS.length = 0; WIRE_PTS.push(...d);
   const geo = new THREE.TorusGeometry(0.46, 0.022, 4, LITE ? 8 : 14); const count = d.length * (LITE ? 1 : 2);
   const inst = new THREE.InstancedMesh(geo, MAT.wire, count); const r = rng(9); const q = new THREE.Quaternion(), tilt = new THREE.Quaternion(), Z = V3(0, 0, 1), t = V3(), mm = new THREE.Matrix4(), one = V3(1, 1, 1);
   let k = 0;
@@ -652,6 +654,16 @@ function concertina() {
   const pg = new THREE.InstancedMesh(new THREE.BoxGeometry(0.05, 1.1, 0.05), MAT.rust, Math.ceil(d.length / 6)); let n = 0;
   for (let i = 0; i < d.length; i += 6) { const g = groundAt(d[i][0], d[i][1]); pg.setMatrixAt(n++, mm.compose(V3(d[i][0], g + 0.45, d[i][1]), q.identity(), one)); }
   pg.count = n; scene.add(SH(onLayer1(pg)));
+}
+/* the scrub north and south of the stronghold: a carpet of dry bushes a metre high, thick, right up to the wire - the Egyptians' saps run out
+   of it, and a man crouching in one is not seen until he comes up at our parapet */
+function egyScrub() {
+  const ring = outwardRing(MAOZ, 14), loop = [...ring, ring[0]], n = LITE ? 1100 : 2800, items = [];
+  for (const [sd, seed] of [[-1, 811], [1, 812]]) {
+    const road = sd < 0 ? ROAD_ACCESS : ROAD_SOUTH, ok = (x, z) => sd * z > 92 && !inPoly(x, z, ring) && distPolyline(x, z, loop) < 32 && distPolyline(x, z, road) > 5 && SAP_LIST.every((sp) => distPolyline(x, z, sp) > 1.6) && groundAt(x, z) > 0.3;
+    items.push(...scatterIn(n, -68, 30, sd < 0 ? -142 : 90, sd < 0 ? -90 : 142, seed, ok, (x, z, r) => [x, z, 0.85 + r() * 0.45, r() * 6, dryBush(r), -0.05, 0.85 + r() * 0.3]));
+  }
+  instScatter(BUSH_G, items.filter((_, i) => i % 3), undefined, !LITE); instScatter(BUSH_TWIG_G, items.filter((_, i) => !(i % 3)), undefined, !LITE);
 }
 function riprap() {
   const rocks = [], rk = rng(55), mm = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler();
@@ -1152,7 +1164,7 @@ const TW = 1.25;   // half width of the trench floor (wall face to the centre li
 const ROOFS = [], BARRS = [], AIDPOST = { x: 0, z: 0, rot: 0 };
 const ROOF_K = [], BARR_K = [95, 135, 177, 223, 251];
 let SURV_BARR_K = [];   // the two barricades that close the small strongpoint of survival mode, filled in once the trench path exists
-function bagMesh(list) { return bagInst(list, rng(list.length * 7 + 3), 0.12); }
+function bagMesh(list, wall = false) { return bagInst(list, rng(list.length * 7 + 3), wall ? 0.04 : 0.12, wall); }
 function buildTrenches() {
   SURV_BARR_K = [kz(-49), kz(49)];
   const bt = sandbagWallTex(); MAT.bagWall = new THREE.MeshStandardMaterial({ map: bt, bumpMap: bumpOf(bt), bumpScale: 3, roughness: 1, side: THREE.DoubleSide });
@@ -1264,7 +1276,7 @@ function buildTrenches() {
   const barricade = (id, x, z, nx, nz, fl) => {
     const tx = -nz, tz = nx, rot = Math.atan2(nx, -nz) + Math.PI / 2, list = [];
     for (let lay = 0; lay < 7; lay++) for (const a of [-0.2, 0.2]) for (let b = -1.25; b <= 1.26; b += 0.5) { const o = b + (lay % 2 ? 0.25 : 0); if (Math.abs(o) > 1.4) continue; list.push([x + nx * o + tx * a, fl + 0.1 + lay * 0.19, z + nz * o + tz * a, Math.atan2(-nz, nx)]); }
-    const grp = new THREE.Group(); grp.add(bagMesh(list));
+    const grp = new THREE.Group(); grp.add(bagMesh(list, true));
     for (const s of [-1, 1]) { const sg = sign('אין מעבר', 'plain', x + tx * s * 0.38, fl + 1.0, z + tz * s * 0.38, Math.atan2(tx * s, tz * s), 0.9); scene.remove(sg); grp.add(sg); }
     scene.add(grp); const col = addCollider(x, z, 0.35, TW + 0.4, Math.atan2(-tz, tx), fl + 1.4);
     BARRS.push({ id, x, z, g: grp, col, top: fl + 1.4, on: true });
@@ -1274,7 +1286,11 @@ function buildTrenches() {
   for (const [id, k] of [['SN', SURV_BARR_K[0]], ['SS', SURV_BARR_K[1]]]) { const { p, nx, nz, fl } = frame(k); barricade(id, p[0], p[1], nx, nz, fl); const B = BARRS[BARRS.length - 1]; B.surv = true; B.on = false; B.g.visible = false; B.col.top = -1e4; }
   { const cp = densify(TRENCH_LINES[3].pts, 1); const i = 4, a = cp[i - 1], b = cp[i + 1], dx = b[0] - a[0], dz = b[1] - a[1], l = Math.hypot(dx, dz); barricade('CJ', cp[i][0], cp[i][1], dz / l, -dx / l, groundAt(cp[i][0], cp[i][1])); }
   /* permanent end caps and the forward aid post at the end of the communication trench */
-  const cap = (p, a) => { const dx = p[0] - a[0], dz = p[1] - a[1], l = Math.hypot(dx, dz), nx = dz / l, nz = -dx / l; bagWall([[p[0] - nx * 1.7, p[1] - nz * 1.7], [p[0] + nx * 1.7, p[1] + nz * 1.7]], 8, groundAt(p[0], p[1]) - 0.05); };
+  /* the trench's own ends (by the gates, and the end of the communication trench): a proper wall of bags across it, wall to wall - two bags
+     thick, laid like bricks (each layer half a bag along from the one under it), seven layers to above a man's chest, square and tight */
+  const cap = (p, a) => { const dx = p[0] - a[0], dz = p[1] - a[1], l = Math.hypot(dx, dz), nx = dz / l, nz = -dx / l, tx = dx / l, tz = dz / l, y0 = groundAt(p[0], p[1]), list = [];
+    for (let lay = 0; lay < 7; lay++) for (const t of [-0.2, 0.2]) for (let b = -1.5; b <= 1.51; b += 0.55) { const o = b + (lay % 2 ? 0.275 : 0); if (Math.abs(o) > 1.6) continue; list.push([p[0] + nx * o + tx * t, y0 + 0.1 + lay * 0.19, p[1] + nz * o + tz * t, Math.atan2(-nz, nx)]); }
+    scene.add(bagMesh(list, true)); addCollider(p[0], p[1], 1.75, 0.42, Math.atan2(-nz, nx), y0 + 1.45); };
   cap(TR.pts[0], TR.pts[2]); cap(TR.pts[TR.pts.length - 1], TR.pts[TR.pts.length - 3]);
   { const cp = densify(TRENCH_LINES[3].pts, 1), e = cp[cp.length - 1], e2 = cp[cp.length - 3]; cap(e, e2); const a = cp[cp.length - 4], dx = e[0] - a[0], dz = e[1] - a[1], l = Math.hypot(dx, dz);
     Object.assign(AIDPOST, { x: a[0], z: a[1], rot: Math.atan2(dx, dz) }); const fl = groundAt(e[0], e[1]);
@@ -1538,7 +1554,7 @@ function buildStronghold() {
   post('S2', 'השער הדרומי', -16, 90.8, 180, false);
   post('S3', 'מא״ג דרומי', 8, 89.6, 175, true);
   for (const [id, name, x, z, b] of GUN_SPOTS) gunPost(id, name, x, z, b);
-  concertina(); riprap(); farFires();
+  concertina(); egyScrub(); riprap(); farFires();
   // mezach darom observation post and the armour bunker
   bagWall([[-6, 1030], [0, 1027], [6, 1030]], 5);
   bunker('darom', 'מזח דרום', 0, 1060, 8, 6, Math.PI);

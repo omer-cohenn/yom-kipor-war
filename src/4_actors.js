@@ -626,6 +626,14 @@ class Rig {
       const a = clamp(t / 0.16, 0, 1), b = clamp((t - 0.16) / 0.09, 0, 1), c = clamp((t - 0.3) / 0.22, 0, 1), up = a * (1 - c);
       R.legs(-1.3 * up, up * (1.75 - 1.55 * b), 0.12, 0.1); T.torsoX = -0.2 * up + 0.08 * b * (1 - c); T.hipsX = 0.03 * up;
       R.gunAt(-0.04, 0.36, 0.2, -0.95, 0.55, 0.2);
+    } else if (kind === 'vault') {
+      // over an obstacle at a run (t: 0 to 1 through it): down to spring, a hand on it as the body turns side-on, the knees tucked and swung
+      // over, then down on the far side on bent legs and up again; the rifle held across the chest
+      const ss = (x) => x * x * (3 - 2 * x), a = ss(clamp(t / 0.28, 0, 1)), b = ss(clamp((t - 0.22) / 0.33, 0, 1)), c = ss(clamp((t - 0.58) / 0.3, 0, 1)), up = b * (1 - c), sp = a * (1 - b), land = c * (1 - ss(clamp((t - 0.86) / 0.14, 0, 1)));
+      T.hipsY = 0.93 - 0.22 * sp - 0.3 * land; T.hipsYaw = 0.85 * up; T.hipsZ = 0.22 * up;
+      R.legs(-0.6 * sp - 1.75 * up - 0.85 * land, 0.9 * sp + 2.05 * up + 1.15 * land, -0.3 * sp - 1.45 * up - 0.55 * land, 0.55 * sp + 1.9 * up + 0.95 * land);
+      T.torsoX = 0.38 * sp + 0.3 * up + 0.25 * land; T.torsoY = -0.5 * up; T.torsoZ = -0.18 * up;
+      R.gunAt(-0.04, 0.36, 0.2, -0.95, 0.55, 0.2);
     } else if (kind === 'throw') {
       R.legs(-0.3, 0.2, 0.3, 0.1); T.torsoX = -0.1 + t * 0.4; T.torsoY = -0.2 + t * 0.35; R.arms(-2.6 + t * 2.5, -0.4, -0.8, -0.8, 0.2, -0.4); R.gunAt(0.05, 0.25, 0.2, -0.9, 0.4, 0);
     }

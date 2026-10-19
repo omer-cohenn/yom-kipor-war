@@ -154,6 +154,19 @@ function trenchCut(x, z) {
   for (const t of TRENCH_LINES) { if (x < t.bb[0] - 3 || x > t.bb[2] + 3 || z < t.bb[1] - 3 || z > t.bb[3] + 3) continue; d = Math.min(d, distPolyline(x, z, t.pts)); }
   return 1.05 * (1 - smooth(1.3, 2.4, d));
 }
+/* the Egyptians' own trenches (saps), dug in the night out of the scrub north and south of the stronghold to just under our parapet: two on
+   each side, each from a few metres beyond the wire (in among the bushes) to the foot of the parapet of our trench, a little crooked; a metre
+   deep, the spoil thrown up along both lips, the floor rising at the end where they climb out at our trench */
+const SAPS = { n: [[[-24.5, -113.5], [-28.5, -106], [-25.5, -99], [-27.3, -92.15]], [[-51, -109], [-47, -102], [-49.8, -95.5], [-48.7, -88.05]]],
+  s: [[[-24.5, 111], [-28.5, 103.5], [-25.6, 96], [-27.3, 89.25]], [[-47.5, 107], [-43.5, 100], [-46, 93], [-44.7, 86.25]]] };
+const SAP_LIST = [...SAPS.n, ...SAPS.s];
+function sapCut(x, z) {
+  if (x < -59 || x > -16 || Math.abs(z) < 82 || Math.abs(z) > 120) return 0;
+  let best = 0;
+  for (const s of SAP_LIST) { const d = distPolyline(x, z, s); if (d > 4) continue; const s0 = s[0], e = s[s.length - 1], ramp = smooth(0.4, 4.5, Math.hypot(x - s0[0], z - s0[1])), fin = 1 - 0.45 * (1 - smooth(0.4, 2.4, Math.hypot(x - e[0], z - e[1])));
+    const v = (-1.05 * (1 - smooth(0.9, 2.0, d)) * fin + 0.38 * Math.exp(-(((d - 2.75) / 0.7) ** 2))) * ramp; if (Math.abs(v) > Math.abs(best)) best = v; }
+  return best;
+}
 function bankX(line, z) { for (let i = 0; i < line.length - 1; i++) { const a = line[i], b = line[i + 1]; if (z >= a[1] && z <= b[1]) return lerp(a[0], b[0], (z - a[1]) / (b[1] - a[1])); } return line[line.length - 1][0]; }
 
 /* ================= terrain function ================= */
@@ -242,6 +255,7 @@ function terrainAt0(x, z) {
     }
     h += feat; mixIn(PAL.fresh, smooth(1.2, 6, feat) * 0.5);
     const cut = trenchCut(x, z); if (cut > 0) { h -= cut; mixIn(PAL.sandD, cut * 0.4); }
+    { const sc = sapCut(x, z); if (sc) { h += sc; mixIn(PAL.sandD, Math.min(1, Math.abs(sc)) * 0.45); } }   // the Egyptians' saps
     if (DUGS && DUG_ON) h = dugCut(x, z, h);
   } else {
     h = 0.45 + 2.2 * smooth(0, 40, inl) + 0.35 * fbm(x / 350, z / 350, 3);
@@ -450,7 +464,7 @@ function axis(min, max, foci) {
   s = cap; u = max; while (u < ext) { s *= gr; u += s; hi.push(Math.min(u, ext)); }
   return lo.reverse().concat(a, hi);
 }
-const XS = axis(MAP.x0, MAP.x1, [0, -76]), ZS = axis(MAP.z0, MAP.z1, [0, -88, 86]);
+const XS = axis(MAP.x0, MAP.x1, [0, -76, -27, -48]), ZS = axis(MAP.z0, MAP.z1, [0, -88, 86, -103, 100]);   // the mesh fine along the trenches and the Egyptians' saps
 const NX = XS.length, NZ = ZS.length;
 const HGT = new Float32Array(NX * NZ);
 function buildTerrain() {
@@ -987,12 +1001,12 @@ const BAG_GEOS = [];
 function bagGeos() { if (!BAG_GEOS.length) { if (mdlHas('sandbag0')) for (let k = 0; k < 3; k++) BAG_GEOS.push(mdlGeo('sandbag' + k, QUAL === 'low' ? 1 : 0)[0].g);   /* the round one everywhere but on low: the light one is faceted */ else BAG_GEOS.push(pillowGeo()); } return BAG_GEOS; }
 /* many bags at once: one instanced mesh for each patch, the bags dealt among them; each a little turned (j), every other one end for end, its
    own shade (the new bags all but white over their burlap, a few dusty, a few darker with damp) */
-function bagInst(list, rr, j) {
+function bagInst(list, rr, j, wall = false) {
   const gs = bagGeos(), n = gs.length, grp = new THREE.Group(), mm = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), col = new THREE.Color(), byV = gs.map(() => []);
   for (const b of list) byV[n > 1 ? Math.floor(rr() * n) % n : 0].push(b);
   gs.forEach((g, v) => { const L = byV[v]; if (!L.length) return; const m = new THREE.InstancedMesh(g, MAT.bag, L.length);
-    L.forEach(([x, y, z, r], i) => { const flip = n > 1 && rr() < 0.5 ? Math.PI : 0, tl = n > 1 ? 0.07 : 0;   /* laid by hand: a little askew, each filled a little more or less */
-      e.set((rr() - 0.5) * tl, r + flip + (rr() - 0.5) * j, (rr() - 0.5) * tl, 'YXZ'); m.setMatrixAt(i, mm.compose(V3(x, y, z), q.setFromEuler(e), n > 1 ? V3(0.6 + rr() * 0.06, 0.205 + rr() * 0.035, 0.34 + rr() * 0.045) : V3(0.6 + rr() * 0.05, 0.22, 0.36)));
+    L.forEach(([x, y, z, r], i) => { const flip = n > 1 && rr() < 0.5 ? Math.PI : 0, tl = n > 1 ? (wall ? 0.02 : 0.07) : 0;   /* laid by hand: a little askew, each filled a little more or less */
+      e.set((rr() - 0.5) * tl, r + flip + (rr() - 0.5) * j, (rr() - 0.5) * tl, 'YXZ'); m.setMatrixAt(i, mm.compose(V3(x, y, z), q.setFromEuler(e), n > 1 ? (wall ? V3(0.63 + rr() * 0.03, 0.225 + rr() * 0.015, 0.37 + rr() * 0.02) : V3(0.6 + rr() * 0.06, 0.205 + rr() * 0.035, 0.34 + rr() * 0.045)) : V3(0.6 + rr() * 0.05, 0.22, 0.36)));   /* a built wall: bags laid square and tight, each pressed flat by the ones above */
       const t = rr(), w = rr(); if (n > 1) { const k = w < 0.18 ? 1.12 : w > 0.88 ? 0.78 : 0.9 + t * 0.14; col.setRGB(lin(k * (w < 0.18 ? 1.0 : 1)), lin(k * (w < 0.18 ? 0.97 : 0.98)), lin(k * (w < 0.18 ? 0.88 : 0.95))); } else { const g2 = rr() * 0.06; col.setRGB(lin(0.6 + t * 0.12 - g2), lin(0.55 + t * 0.1 - g2 * 0.5), lin(0.44 + t * 0.08)); }
       m.setColorAt(i, col); });
     grp.add(m); });
@@ -1381,9 +1395,11 @@ function outwardRing(poly, d, inward = false) {
     let q = [p[0] + nx * d, p[1] + nz * d]; if (inPoly(q[0], q[1], poly) !== inward) q = [p[0] - nx * d, p[1] - nz * d]; return q;
   });
 }
+const WIRE_PTS = [];   // the wire round the stronghold, point by point: the attackers hurdle it (5_game.js wireCross)
 function concertina() {
   let ring = outwardRing(MAOZ, 14); ring = [...ring, ring[0]];
-  const d = densify(ring, 0.55).map(([x, z]) => [Math.max(x, tongueWestX(z) + 2.5), z]).filter(([x, z]) => !(x < -40 && z > -150 && z < 150) && Math.hypot(x - GATE_N[0], z - GATE_N[1] - 14) > 8 && Math.hypot(x - GATE_S[0], z - GATE_S[1] + 14) > 8);
+  const d = densify(ring, 0.55).map(([x, z]) => [Math.max(x, tongueWestX(z) + 2.5), z]).filter(([x, z]) => !(x < -40 && z > -150 && z < 150) && Math.hypot(x - GATE_N[0], z - GATE_N[1] - 14) > 8 && Math.hypot(x - GATE_S[0], z - GATE_S[1] + 14) > 8 && SAP_LIST.every((sp) => distPolyline(x, z, sp) > 1.8));   /* cut where the Egyptians' saps run under it */
+  WIRE_PTS.length = 0; WIRE_PTS.push(...d);
   const geo = new THREE.TorusGeometry(0.46, 0.022, 4, LITE ? 8 : 14); const count = d.length * (LITE ? 1 : 2);
   const inst = new THREE.InstancedMesh(geo, MAT.wire, count); const r = rng(9); const q = new THREE.Quaternion(), tilt = new THREE.Quaternion(), Z = V3(0, 0, 1), t = V3(), mm = new THREE.Matrix4(), one = V3(1, 1, 1);
   let k = 0;
@@ -1398,6 +1414,16 @@ function concertina() {
   const pg = new THREE.InstancedMesh(new THREE.BoxGeometry(0.05, 1.1, 0.05), MAT.rust, Math.ceil(d.length / 6)); let n = 0;
   for (let i = 0; i < d.length; i += 6) { const g = groundAt(d[i][0], d[i][1]); pg.setMatrixAt(n++, mm.compose(V3(d[i][0], g + 0.45, d[i][1]), q.identity(), one)); }
   pg.count = n; scene.add(SH(onLayer1(pg)));
+}
+/* the scrub north and south of the stronghold: a carpet of dry bushes a metre high, thick, right up to the wire - the Egyptians' saps run out
+   of it, and a man crouching in one is not seen until he comes up at our parapet */
+function egyScrub() {
+  const ring = outwardRing(MAOZ, 14), loop = [...ring, ring[0]], n = LITE ? 1100 : 2800, items = [];
+  for (const [sd, seed] of [[-1, 811], [1, 812]]) {
+    const road = sd < 0 ? ROAD_ACCESS : ROAD_SOUTH, ok = (x, z) => sd * z > 92 && !inPoly(x, z, ring) && distPolyline(x, z, loop) < 32 && distPolyline(x, z, road) > 5 && SAP_LIST.every((sp) => distPolyline(x, z, sp) > 1.6) && groundAt(x, z) > 0.3;
+    items.push(...scatterIn(n, -68, 30, sd < 0 ? -142 : 90, sd < 0 ? -90 : 142, seed, ok, (x, z, r) => [x, z, 0.85 + r() * 0.45, r() * 6, dryBush(r), -0.05, 0.85 + r() * 0.3]));
+  }
+  instScatter(BUSH_G, items.filter((_, i) => i % 3), undefined, !LITE); instScatter(BUSH_TWIG_G, items.filter((_, i) => !(i % 3)), undefined, !LITE);
 }
 function riprap() {
   const rocks = [], rk = rng(55), mm = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler();
@@ -1898,7 +1924,7 @@ const TW = 1.25;   // half width of the trench floor (wall face to the centre li
 const ROOFS = [], BARRS = [], AIDPOST = { x: 0, z: 0, rot: 0 };
 const ROOF_K = [], BARR_K = [95, 135, 177, 223, 251];
 let SURV_BARR_K = [];   // the two barricades that close the small strongpoint of survival mode, filled in once the trench path exists
-function bagMesh(list) { return bagInst(list, rng(list.length * 7 + 3), 0.12); }
+function bagMesh(list, wall = false) { return bagInst(list, rng(list.length * 7 + 3), wall ? 0.04 : 0.12, wall); }
 function buildTrenches() {
   SURV_BARR_K = [kz(-49), kz(49)];
   const bt = sandbagWallTex(); MAT.bagWall = new THREE.MeshStandardMaterial({ map: bt, bumpMap: bumpOf(bt), bumpScale: 3, roughness: 1, side: THREE.DoubleSide });
@@ -2010,7 +2036,7 @@ function buildTrenches() {
   const barricade = (id, x, z, nx, nz, fl) => {
     const tx = -nz, tz = nx, rot = Math.atan2(nx, -nz) + Math.PI / 2, list = [];
     for (let lay = 0; lay < 7; lay++) for (const a of [-0.2, 0.2]) for (let b = -1.25; b <= 1.26; b += 0.5) { const o = b + (lay % 2 ? 0.25 : 0); if (Math.abs(o) > 1.4) continue; list.push([x + nx * o + tx * a, fl + 0.1 + lay * 0.19, z + nz * o + tz * a, Math.atan2(-nz, nx)]); }
-    const grp = new THREE.Group(); grp.add(bagMesh(list));
+    const grp = new THREE.Group(); grp.add(bagMesh(list, true));
     for (const s of [-1, 1]) { const sg = sign('אין מעבר', 'plain', x + tx * s * 0.38, fl + 1.0, z + tz * s * 0.38, Math.atan2(tx * s, tz * s), 0.9); scene.remove(sg); grp.add(sg); }
     scene.add(grp); const col = addCollider(x, z, 0.35, TW + 0.4, Math.atan2(-tz, tx), fl + 1.4);
     BARRS.push({ id, x, z, g: grp, col, top: fl + 1.4, on: true });
@@ -2020,7 +2046,11 @@ function buildTrenches() {
   for (const [id, k] of [['SN', SURV_BARR_K[0]], ['SS', SURV_BARR_K[1]]]) { const { p, nx, nz, fl } = frame(k); barricade(id, p[0], p[1], nx, nz, fl); const B = BARRS[BARRS.length - 1]; B.surv = true; B.on = false; B.g.visible = false; B.col.top = -1e4; }
   { const cp = densify(TRENCH_LINES[3].pts, 1); const i = 4, a = cp[i - 1], b = cp[i + 1], dx = b[0] - a[0], dz = b[1] - a[1], l = Math.hypot(dx, dz); barricade('CJ', cp[i][0], cp[i][1], dz / l, -dx / l, groundAt(cp[i][0], cp[i][1])); }
   /* permanent end caps and the forward aid post at the end of the communication trench */
-  const cap = (p, a) => { const dx = p[0] - a[0], dz = p[1] - a[1], l = Math.hypot(dx, dz), nx = dz / l, nz = -dx / l; bagWall([[p[0] - nx * 1.7, p[1] - nz * 1.7], [p[0] + nx * 1.7, p[1] + nz * 1.7]], 8, groundAt(p[0], p[1]) - 0.05); };
+  /* the trench's own ends (by the gates, and the end of the communication trench): a proper wall of bags across it, wall to wall - two bags
+     thick, laid like bricks (each layer half a bag along from the one under it), seven layers to above a man's chest, square and tight */
+  const cap = (p, a) => { const dx = p[0] - a[0], dz = p[1] - a[1], l = Math.hypot(dx, dz), nx = dz / l, nz = -dx / l, tx = dx / l, tz = dz / l, y0 = groundAt(p[0], p[1]), list = [];
+    for (let lay = 0; lay < 7; lay++) for (const t of [-0.2, 0.2]) for (let b = -1.5; b <= 1.51; b += 0.55) { const o = b + (lay % 2 ? 0.275 : 0); if (Math.abs(o) > 1.6) continue; list.push([p[0] + nx * o + tx * t, y0 + 0.1 + lay * 0.19, p[1] + nz * o + tz * t, Math.atan2(-nz, nx)]); }
+    scene.add(bagMesh(list, true)); addCollider(p[0], p[1], 1.75, 0.42, Math.atan2(-nz, nx), y0 + 1.45); };
   cap(TR.pts[0], TR.pts[2]); cap(TR.pts[TR.pts.length - 1], TR.pts[TR.pts.length - 3]);
   { const cp = densify(TRENCH_LINES[3].pts, 1), e = cp[cp.length - 1], e2 = cp[cp.length - 3]; cap(e, e2); const a = cp[cp.length - 4], dx = e[0] - a[0], dz = e[1] - a[1], l = Math.hypot(dx, dz);
     Object.assign(AIDPOST, { x: a[0], z: a[1], rot: Math.atan2(dx, dz) }); const fl = groundAt(e[0], e[1]);
@@ -2284,7 +2314,7 @@ function buildStronghold() {
   post('S2', 'השער הדרומי', -16, 90.8, 180, false);
   post('S3', 'מא״ג דרומי', 8, 89.6, 175, true);
   for (const [id, name, x, z, b] of GUN_SPOTS) gunPost(id, name, x, z, b);
-  concertina(); riprap(); farFires();
+  concertina(); egyScrub(); riprap(); farFires();
   // mezach darom observation post and the armour bunker
   bagWall([[-6, 1030], [0, 1027], [6, 1030]], 5);
   bunker('darom', 'מזח דרום', 0, 1060, 8, 6, Math.PI);
@@ -3145,6 +3175,14 @@ class Rig {
       // a door kicked in (t: seconds into it): the knee drawn up, the boot driven flat at the lock, the leg back down; the rifle across the chest
       const a = clamp(t / 0.16, 0, 1), b = clamp((t - 0.16) / 0.09, 0, 1), c = clamp((t - 0.3) / 0.22, 0, 1), up = a * (1 - c);
       R.legs(-1.3 * up, up * (1.75 - 1.55 * b), 0.12, 0.1); T.torsoX = -0.2 * up + 0.08 * b * (1 - c); T.hipsX = 0.03 * up;
+      R.gunAt(-0.04, 0.36, 0.2, -0.95, 0.55, 0.2);
+    } else if (kind === 'vault') {
+      // over an obstacle at a run (t: 0 to 1 through it): down to spring, a hand on it as the body turns side-on, the knees tucked and swung
+      // over, then down on the far side on bent legs and up again; the rifle held across the chest
+      const ss = (x) => x * x * (3 - 2 * x), a = ss(clamp(t / 0.28, 0, 1)), b = ss(clamp((t - 0.22) / 0.33, 0, 1)), c = ss(clamp((t - 0.58) / 0.3, 0, 1)), up = b * (1 - c), sp = a * (1 - b), land = c * (1 - ss(clamp((t - 0.86) / 0.14, 0, 1)));
+      T.hipsY = 0.93 - 0.22 * sp - 0.3 * land; T.hipsYaw = 0.85 * up; T.hipsZ = 0.22 * up;
+      R.legs(-0.6 * sp - 1.75 * up - 0.85 * land, 0.9 * sp + 2.05 * up + 1.15 * land, -0.3 * sp - 1.45 * up - 0.55 * land, 0.55 * sp + 1.9 * up + 0.95 * land);
+      T.torsoX = 0.38 * sp + 0.3 * up + 0.25 * land; T.torsoY = -0.5 * up; T.torsoZ = -0.18 * up;
       R.gunAt(-0.04, 0.36, 0.2, -0.95, 0.55, 0.2);
     } else if (kind === 'throw') {
       R.legs(-0.3, 0.2, 0.3, 0.1); T.torsoX = -0.1 + t * 0.4; T.torsoY = -0.2 + t * 0.35; R.arms(-2.6 + t * 2.5, -0.4, -0.8, -0.8, 0.2, -0.4); R.gunAt(0.05, 0.25, 0.2, -0.9, 0.4, 0);
@@ -5178,7 +5216,7 @@ function spawnEnemy(x, z, kind, group, path, opts = {}) {
   e.side = 'e'; e.setKind(kind); e.alive = true; e.hp = 100; e.fall = -1; e.stance = 'stand'; e.place(x, z); e.rig.root.visible = true; e.rig.gun.visible = true; e.deadAt = undefined; e.rig.shut = false; e.rig.head.material = MAT.faces[e.side][e.rig.faceV]; e.rig.deadOpen = Math.random() < 0.35; e.rig.blinkT = rand(1, 4);
   Object.assign(e, { state: 'move', path, pi: 0, group, t: 0, fireCd: rand(0.5, 1.5), burst: 0, scanCd: 0, target: null, stopCd: rand(2, 5), engageT: 0, gCd: diff.gren > 0 ? rand(8, 20) / diff.gren : 1e9, rpgCd: rand(4, 9), flameT: 0, hold: opts.hold ?? -1, speed: rand(3.9, 4.6), inside: false, goalCd: 0, charge: false, plan: null, ps: 0, tcov: null, tcovCd: 0, inCov: false, usedTrav: null, k: 0, meleeCd: 0, throwT: 0, cover: null, sz: null, slot: null, cov: null, dormant: false, wakeG: undefined, wakeR: 24, climb: false, raid: false, sq: undefined, guide: null, peek: false, rpgAim: 0, wild: false, rpgMiss: false, noTag: false,
     sqAuto: 'g' + Math.round(GAME.t / 4) + ':' + Math.round(x / 50) + ':' + Math.round(z / 50), supp: 0, seeT: 0, alert: false, lkp: null, lkpT: -99, fellBack: false, flanking: false, peekOff: 0, blindCd: undefined, blindN: 0, blindK: undefined, tac: undefined, flankD: false, reactCd: undefined, reactT: 0 });   // (a pooled body keeps nothing of how his last owner fought)
-  if (opts.jump) { e.state = 'jump'; e.j0 = opts.jump.clone(); e.j1 = V3(x, groundAt(x, z), z); e.pos.copy(e.j0); }
+  if (opts.jump) { e.state = 'jump'; e.jd = 0; e.j0 = opts.jump.clone(); e.j1 = V3(x, groundAt(x, z), z); e.pos.copy(e.j0); }
   e.sync(); return e;
 }
 function leaveCover(e) { if (e.cover) { e.cover.by = null; e.cover = null; } }
@@ -5364,8 +5402,10 @@ function updEnemy(e, dt) {
   e.scanCd -= dt; if (e.scanCd <= 0) { e.scanCd = rand(0.5, 0.9); const was = !!(e.target && e.target.player); e.target = targetsFor(e); if (e.target && e.target.player && !tacSees(e)) e.target = null; if (!was && e.target && e.target.player) e.fireCd = Math.max(e.fireCd, diff.react * rand(0.8, 1.2) * (mzEase() ? mzEase().react : 1)); }   /* a man who has just seen the player needs a moment before he fires: longer on the easy level */
   const g = e.group;
   if (e.state === 'jump') {
-    const u = clamp(e.t / 0.7, 0, 1); e.pos.lerpVectors(e.j0, e.j1, u); e.pos.y += Math.sin(u * Math.PI) * 0.6; e.face(e.j1.x + 1, e.j1.z);
-    e.anim += dt * 9; e.rig.pose('run', e.anim); e.sync(); if (u >= 1) { e.state = e.plan ? 'plan' : 'move'; e.t = 0; } return;
+    // over the gunwale and down onto the sand: the vault's own movement, at a pace a man can jump (not a flight)
+    if (!e.jd) e.jd = clamp(Math.hypot(e.j1.x - e.j0.x, e.j1.z - e.j0.z) / 4.2, 0.8, 1.6);
+    const u = clamp(e.t / e.jd, 0, 1), h = u * u * (3 - 2 * u); e.pos.lerpVectors(e.j0, e.j1, h); e.pos.y += Math.sin(u * Math.PI) * 0.7; e.face(e.j1.x + 1, e.j1.z);
+    e.rig.pose('vault', u); e.sync(); if (u >= 1) { e.state = e.plan ? 'plan' : 'move'; e.t = 0; e.jd = 0; } return;
   }
   if (e.state === 'retreat') { e.anim += dt * 10; if (moveAlong(e, dt, 5)) { e.alive = false; e.rig.root.visible = false; } e.rig.pose('run', e.anim); e.sync(); return; }
   // specials
@@ -5480,17 +5520,29 @@ function westPlan(e, z, i, r = Math.random) {
   plan.push({ t: 'vault', x: p[0], z: p[1] });
   return plan;
 }
-function northPlan(e, i) {
-  const r = rng(4242 + i * 131), RR = (a, b) => a + r() * (b - a), plan = [], used = new Set();
-  for (const [z0, z1] of [[-168, -128], [-128, -104]]) {
-    let best = null, bd = 1e9;
-    for (const c of COVER) { if (c.nz < 0.5 || c.z < z0 || c.z > z1 || Math.abs(c.x - 8) > 34 || used.has(c)) continue; const d = Math.hypot(c.x - e.pos.x, c.z - e.pos.z) + r() * 8; if (d < bd) { bd = d; best = c; } }
-    if (best) { used.add(best); const o = RR(-0.9, 0.9); plan.push({ t: 'cover', x: best.x - best.nz * o, z: best.z + best.nx * o, nx: best.nx, nz: best.nz, h: best.h, dur: RR(2.2, 3.8) }); }
-  }
-  const ks = [14, 22, 44, 52], k = ks[i % 4] + Math.floor(RR(-1, 2)), p = TR.pts[k], o = TR.out[k];
-  plan.push({ t: 'run', final: true, x: p[0] + o[0] * 2.6, z: p[1] + o[1] * 2.6 });
+/* where a man's way from (x0, z0) to (x1, z1) crosses the wire round the stronghold: the points a stride either side of it, or null */
+function wireCross(x0, z0, x1, z1) {
+  const L = Math.hypot(x1 - x0, z1 - z0) || 1, dx = (x1 - x0) / L, dz = (z1 - z0) / L; let best = null, bd = 2.5;
+  for (const [wx, wz] of WIRE_PTS) { const t = (wx - x0) * dx + (wz - z0) * dz; if (t < 2 || t > L - 2) continue; const d = Math.abs((wx - x0) * dz - (wz - z0) * dx); if (d < bd) { bd = d; best = t; } }
+  if (best === null) return null; const px = x0 + dx * best, pz = z0 + dz * best; return [[px - dx * 1.7, pz - dz * 1.7], [px + dx * 1.7, pz + dz * 1.7]];
+}
+/* the way in out of the scrub (north or south): up their own sap at a crouching run, hidden in it and in the bushes, to its end under our
+   parapet - and from there over it into the trench. They come up some fifteen metres from the stronghold, never over open ground */
+function sapPlan(e, sap, j) {
+  const r = rng(5150 + j * 37), plan = [];
+  for (let i = 1; i < sap.length - 1; i++) plan.push({ t: 'run', crun: true, near: 0.8, x: sap[i][0] + (r() - 0.5) * 0.4, z: sap[i][1] + (r() - 0.5) * 0.4 });
+  const end = sap[sap.length - 1], k = clamp(trK(end[0], end[1])[0], 1, TR.pts.length - 2), p = TR.pts[k];
+  plan.push({ t: 'run', crun: true, final: true, x: end[0], z: end[1] });
   plan.push({ t: 'vault', x: p[0], z: p[1] });
   return plan;
+}
+function northPlan(e, i) { return sapPlan(e, SAPS.n[i % 2], i); }
+/* men already ashore before the player gets there: each waits in his place on the sand (the cover he ran to, or where he jumped down) until
+   'until', firing from it, and only then goes for the rampart */
+function holdPlan(e, until) {
+  const s0 = e.plan && e.plan[0], dur = Math.max(1, until - GAME.t);
+  if (s0 && s0.t === 'cover' && s0.c) { s0.dur = dur; return; }
+  e.plan.unshift({ t: 'cover', x: e.pos.x + 1.2, z: e.pos.z + rand(-1, 1), nx: 1, nz: 0, h: 0.7, dur });
 }
 /* the Egyptians read the player: they duck when a rifle is on them and move when he reloads or looks away */
 const _aimV = V3(), _aimF = V3();
@@ -5550,19 +5602,24 @@ function planStep(e, dt, shoot, aimPitch) {
   if (s.t === 'run' || (s.t === 'cover' && !s.go)) {
     if (s.final && s.tt < 4 && aimedAt(e)) { e.stance = 'hide'; e.rig.pose('hide', e.anim); return; }
     if (awareReact(e, dt, shoot, aimPitch)) return;
-    e.anim += dt * 9.5; e.stance = 'stand'; const d = steer(e, s.x, s.z, e.speed, dt); e.rig.pose('run', e.anim);
-    if (s.t === 'run') { const nx = e.plan[e.ps + 1]; if (s.final && nx && d < 2.5 && s.tt < 9 && crowdedAt(nx.x, nx.z, 1.6, e)) { e.stance = 'crouch'; e.rig.pose('crouch', e.anim, 0); return; } if (d < (s.final ? 1.7 : 0.6) || s.tt > (s.final ? 6 : 14)) e.ps++; }   /* the last few steps to the parapet end in the jump, whatever stands in the way */
+    e.anim += dt * (s.crun ? 8.5 : 9.5); e.stance = s.crun ? 'crouch' : 'stand'; const d = steer(e, s.x, s.z, s.crun ? Math.min(e.speed, 3.7) : e.speed, dt); e.rig.pose(s.crun ? 'crun' : 'run', e.anim);   /* in the sap: bent low */
+    if (s.t === 'run') { const nx = e.plan[e.ps + 1]; if (s.final && nx && d < 2.5 && s.tt < 9 && crowdedAt(nx.x, nx.z, 1.6, e)) { e.stance = 'crouch'; e.rig.pose('crouch', e.anim, 0); return; }
+      if (d < (s.final ? 1.7 : s.near || 0.6) || (s.final ? s.tt > 6 && d < 3.2 : s.tt > 14)) e.ps++;   /* the last steps to the parapet end in the vault - but only from beside it, never a leap from afar */
+      else if (s.final && s.tt > 10) { const k = clamp(trK(e.pos.x, e.pos.z)[0], 1, TR.pts.length - 2), p = TR.pts[k], o = TR.out[k]; s.x = p[0] + o[0] * 2.6; s.z = p[1] + o[1] * 2.6; s.tt = 5; if (nx && nx.t === 'vault') { nx.x = p[0]; nx.z = p[1]; } } }   /* held up on the way to his place: the nearest stretch of parapet instead */
     else if (d < 1.0 || s.tt > 7) { s.go = true; e.coverT = s.dur; e.cyc = rand(0.4, 0.9); e.peek = false; }
   } else if (s.t === 'cover') {
     if (coverCycle(e, dt, s, shoot, aimPitch)) { if (s.c && s.c.by === e) s.c.by = null; e.ps++; }
-  } else if (s.t === 'vault') {
-    if (!s.a) { s.a = e.pos.clone(); s.b = V3(s.x, groundAt(s.x, s.z), s.z); s.tt = 0; e.face(s.x, s.z); }
-    const u = clamp(s.tt / 0.6, 0, 1); e.pos.lerpVectors(s.a, s.b, u); e.pos.y += Math.sin(u * Math.PI) * 0.75; e.anim += dt * 9; e.stance = 'stand'; e.rig.pose('run', e.anim);
+  } else if (s.t === 'vault' || s.t === 'hurdle') {
+    // over the parapet into the trench (vault) or over the wire fence (hurdle): one smooth arc, its height the obstacle's, with the vault's own movement
+    if (!s.a) { s.a = e.pos.clone(); s.b = V3(s.x, groundAt(s.x, s.z), s.z); s.tt = 0; e.face(s.x, s.z); let top = Math.max(s.a.y, s.b.y); for (let i = 1; i < 6; i++) top = Math.max(top, groundAt(lerp(s.a.x, s.b.x, i / 6), lerp(s.a.z, s.b.z, i / 6)));
+      s.top = top + (s.t === 'hurdle' ? 0.75 : 0.62); s.dur = clamp(Math.hypot(s.b.x - s.a.x, s.b.z - s.a.z) / 2.7, 0.8, 1.3); }
+    const u = clamp(s.tt / s.dur, 0, 1), h = u * u * (3 - 2 * u), cy = 2 * s.top - (s.a.y + s.b.y) / 2; e.pos.x = lerp(s.a.x, s.b.x, h); e.pos.z = lerp(s.a.z, s.b.z, h); e.pos.y = (1 - u) * (1 - u) * s.a.y + 2 * (1 - u) * u * cy + u * u * s.b.y;
+    e.stance = 'stand'; e.rig.pose('vault', u);
     if (u >= 1) { e.ps++; if (!e.plan[e.ps]) enterTrench(e); }
   }
 }
 function enterTrench(e) {
-  Object.assign(e, { state: 'trench', plan: null, k: trK(e.pos.x, e.pos.z)[0], stX: e.pos.x, stZ: e.pos.z, stT: 0, tcov: null, tcovCd: 0, inCov: false, usedTrav: new Set(), meleeCd: 0.5, fireCd: rand(0.3, 0.9), burst: 0, speed: rand(4.4, 5.0), patience: 0, rush: false, moving: false, cside: Math.random() < 0.5 ? 1 : -1, sideT: 0, gCd: rand(4, 9) });
+  Object.assign(e, { state: 'trench', slide: null, plan: null, k: trK(e.pos.x, e.pos.z)[0], stX: e.pos.x, stZ: e.pos.z, stT: 0, tcov: null, tcovCd: 0, inCov: false, usedTrav: new Set(), meleeCd: 0.5, fireCd: rand(0.3, 0.9), burst: 0, speed: rand(4.4, 5.0), patience: 0, rush: false, moving: false, cside: Math.random() < 0.5 ? 1 : -1, sideT: 0, gCd: rand(4, 9) });
   if (GAME.t - (D.trenchMsg || -99) > 25) { D.trenchMsg = GAME.t; radio(pick(['יוסי', 'דודו', 'רפי']), pick(['הם בתעלה! הם בתעלה!', 'מצרים קפצו לתעלה! תשמרו על הגב!', 'יש להם רגל בתעלה! לחסל אותם!']), 3.2); }
 }
 function initLanes() {
@@ -5592,8 +5649,9 @@ function trenchStep(e, dt, shoot, aimPitch) {
   // a man wedged against a sandbag traverse where the trench floor climbs steeply (the north-west corner) never reaches the cover he is
   // making for, and stood there out of sight for good, holding the stage open: after a few seconds of running on the spot he gives that
   // cover up and steps back onto the middle of the trench
+  if (e.slide) { const dx = e.slide[0] - e.pos.x, dz = e.slide[1] - e.pos.z, dl = Math.hypot(dx, dz), st = Math.min(dl, 3.2 * dt); if (dl > 0.03) { e.pos.x += dx / dl * st; e.pos.z += dz / dl * st; e.pos.y = groundAt(e.pos.x, e.pos.z); } else e.slide = null; }   /* freed: he steps across to the middle, not a jump */
   if (Math.hypot(e.pos.x - e.stX, e.pos.z - e.stZ) > 0.6) { e.stX = e.pos.x; e.stZ = e.pos.z; e.stT = 0; }
-  else if ((e.stT += dt) > 3.5 && e.moving) { if (e.tcov) { e.usedTrav.add(e.tcov); releaseCov(e); } const q = TR.pts[clamp(e.k + (TR.pK >= e.k ? 1 : -1), 0, TR.pts.length - 1)]; if (!blocked(q[0], q[1], 0.3, groundAt(q[0], q[1]))) e.pos.set(q[0], groundAt(q[0], q[1]), q[1]); e.stT = 0; }
+  else if ((e.stT += dt) > 3.5 && e.moving) { if (e.tcov) { e.usedTrav.add(e.tcov); releaseCov(e); } const q = TR.pts[clamp(e.k + (TR.pK >= e.k ? 1 : -1), 0, TR.pts.length - 1)]; if (!blocked(q[0], q[1], 0.3, groundAt(q[0], q[1]))) e.slide = [q[0], q[1]]; e.stT = 0; }
   const dk = TR.pK - e.k, dir = dk >= 0 ? 1 : -1, dP = Math.hypot(P.pos.x - e.pos.x, P.pos.z - e.pos.z), seesP = !!(e.target && e.target.player);
   for (const f of FRIENDS) if (f.state === 'post' && f.unit.pos.distanceTo(e.pos) < 2.2 && Math.random() < dt * 0.5) woundFriend(f, Math.random() < 0.4);
   e.meleeCd -= dt; e.patience += dt;
@@ -5745,7 +5803,7 @@ function updBoats(dt) {
         if (!s.alive || s.gone || bt.landT < i * 0.25) return;   // the soldiers first, then the rowers ship their oars and follow them
         const sp = bt.seatWorld(i), r = rng(bt.seed + i * 97), z = bt.zLand + (i % 2 ? 1 : -1) * (0.5 + r() * 3.5);
         const e = spawnEnemy(tongueWestX(z) + 1.6, z, varyKind(s.kind, z * 3.1, i * 7.7), null, null, { jump: sp });
-        if (!e) return; e.plan = westPlan(e, z, i, r); bt.intact = false; bt.setLod(false); s.gone = true; s.m.visible = false; if (s.oar) s.oar.visible = false;
+        if (!e) return; e.plan = westPlan(e, z, i, r); if (D.landHold && GAME.t < D.landHold && !SURV.on) holdPlan(e, D.landHold + r() * 6); bt.intact = false; bt.setLod(false); s.gone = true; s.m.visible = false; if (s.oar) s.oar.visible = false;
       });
       if (bt.seats.every((s) => !s.alive || s.gone) && bt.landT > 30) bt.dispose();
     }
@@ -5800,10 +5858,16 @@ function rowsUpd(dt) {
   }
   if (!ROWS.q.length && ROWS.men >= ROWS.total) ROWS.on = false;
 }
+function southGroup(n, delay, kinds = [], i0 = 0) {   // the same out of the southern scrub, up the southern saps
+  for (let i = 0; i < n; i++) {
+    const k = kinds[i] || 'rifle', j = i + i0, sap = SAPS.s[j % 2], r = rng(91 + j * 29), go = () => { const e = spawnEnemy(sap[0][0] + (r() - 0.5) * 0.8, sap[0][1] + (r() - 0.5) * 0.8, varyKind(k, j * 2.9, delay), null, null); if (!e) { DIRQ.push({ at: GAME.t + 1, spawn: true, fn: go }); return; } e.plan = sapPlan(e, sap, j + 50); e.state = 'plan'; };
+    DIRQ.push({ at: GAME.t + delay + i * 0.9, spawn: true, fn: go });
+  }
+}
 function northGroup(n, delay, kinds = [], i0 = 0) {   // i0: the first man's number in the whole force, so each squad has its own starts and its own routes
   for (let i = 0; i < n; i++) {
     const k = kinds[i] || 'rifle', j = i + i0;
-    const r = rng(77 + j * 31), go = () => { const e = spawnEnemy(30 + (r() - 0.5) * 14, -176 + (r() - 0.5) * 12, varyKind(k, j * 3.7, delay), null, null); if (!e) { DIRQ.push({ at: GAME.t + 1, spawn: true, fn: go }); return; } e.plan = northPlan(e, j); e.state = 'plan'; };
+    const r = rng(77 + j * 31), sap = SAPS.n[j % 2], go = () => { const e = spawnEnemy(sap[0][0] + (r() - 0.5) * 0.8, sap[0][1] + (r() - 0.5) * 0.8, varyKind(k, j * 3.7, delay), null, null);   /* at the head of one of their saps, in the scrub */ if (!e) { DIRQ.push({ at: GAME.t + 1, spawn: true, fn: go }); return; } e.plan = northPlan(e, j); e.state = 'plan'; };
     DIRQ.push({ at: GAME.t + delay + i * 0.9, spawn: true, fn: go });
   }
 }
@@ -5837,16 +5901,16 @@ const SCENES = [
   { title: 'סירות על המים', sub: 'שתיים אחרי הצהריים. מעבר לתעלה, מתוך העשן, יוצאות סירות עץ בשורה — עשרות חיילים בכל אחת, חותרים ישר אלינו. המא״ג המערבי הוא כל מה שעומד בינם לבין הסוללה.', goal: 'ירו בסירות מהמא״ג המערבי. מי שעלה לתעלה — הרגו אותו בתוכה', open: [136, 176], spawn: () => trenchAt(-1.0), face: 345, focus: w2Focus,
     entries: [-20, -14, -8, -2, 3, 8.5], radio: ['מ״פ', 'סירות במים ממערב! המא״ג המערבי שלך!'], cap: [1, 1, 2], start() { boatWave(-21, 10, 18, 3, 1.8, diff.seats, 0, 0, 150); } },
   { title: 'הפרצה בצפון', sub: 'המחסום הצפוני נפתח, ובקצה הסוללה, ליד עמדה 1, כבר מטפסים הראשונים שצלחו. בתעלה הצרה פוגשים אותם פנים אל פנים, שק חול אחרי שק חול.', goal: 'התקדמו צפונה בתעלה ונקו אותה מהצולחים', open: [96, 176], spawn: () => TR.pts[140], face: 0, focus: trFocus(-38, 'עמדה מערבית 1'),
-    entries: [-55, -50, -39.5, -27], radio: ['יוסי', 'הם עולים עליי מצפון! תביאו תגבורת לתעלה!'], cap: [1, 1, 2], pre(len) { boatWave(-57, -33, 5, 0, 0, diff.seats, 2, 0, undefined, [22 + boatSpd() * len, 14]); }, start() {} },   // the boats are on the water from the moment the stage is called: when the player gets there they are landing
+    entries: [-55, -50, -39.5, -27], radio: ['יוסי', 'הם עולים עליי מצפון! תביאו תגבורת לתעלה!'], cap: [1, 1, 2], pre(len) { const nb = [2, 2, 3][Math.max(0, DIFF.indexOf(diff))]; for (let i = 0; i < nb; i++) { const b = launchBoat(lerp(-76, -60, nb > 1 ? i / (nb - 1) : 0.5), 0, 5, i === 0 ? 1 : 0, 0, 5, 30, 3); b.t = (b.len - 1.5 - i * 5) / b.speed; } D.landHold = GAME.t + len + 2; }, start() {} },   // two boats, beached as the stage is called: their men are on the sand under the rampart, some forty metres from the trench, when the player gets there - and wait there a little before they go for it
   { title: 'קומנדו בשער', sub: 'מכביש לכסיקון, מצפון, רץ כוח קומנדו ישר אל השער. הם מכירים את המוצב מתצלומי האוויר, ויודעים שהתעלה הצפונית היא הדרך פנימה.', goal: 'עצרו את הקומנדו בתעלה הצפונית, עד הפינה — והחזיקו אותה', open: [0, 176], spawn: () => TR.pts[100], face: 0, focus: postFocus('N1', 'עמדה צפונית'),
     radio: ['תצפית', 'כוח קומנדו בכביש מצפון! הם רצים לתעלה הצפונית!'], acc: 0.8, start: mzCommando },   // acc: running men firing on the move: more of them, each one less deadly
-  { title: 'חובש!', sub: 'ההרעשה חזרה. פגז נכנס ישר לעמדה הדרומית, ובתעלה שוכבים חברים שצועקים לחובש. התאג״ד חפור בדופן התעלה, ומי שנחבש בזמן חוזר לעמדה.', goal: 'עזרה ראשונה לפצועים בתעלה הדרומית (להחזיק F) — הם חוזרים להילחם', medevac: true, open: [136, 222], spawn: () => trenchAt(-6), face: 180,
+  { title: 'חובש!', sub: 'ההרעשה חזרה. פגז נכנס ישר לעמדה הדרומית, ובתעלה שוכבים חברים שצועקים לחובש. התאג״ד חפור בדופן התעלה, ומי שנחבש בזמן חוזר לעמדה.', goal: 'עזרה ראשונה לפצועים (להחזיק F) — ועצרו את הכוח שעולה מהשיחים בדרום', medevac: true, open: [136, 316], spawn: () => trenchAt(-6), face: 180,
     focus: () => { const w = nearestWounded(); return w ? [w.unit.pos.x, w.unit.pos.y, w.unit.pos.z, `פצוע · ${w.name}`] : null; },
     entries: [12, 24, 35, 46], radio: ['דודו', 'פגיעה ישירה בעמדה! יש פצועים בתעלה הדרומית!'], start: medevacStart },
   { title: 'הגל הגדול', sub: 'לפנות ערב הם זורקים את הכול: סירות לכל אורך הסוללה המערבית, מקצה לקצה, והשמש השוקעת מאחוריהם. המוצב הקטן הזה הוא כל מה שנשאר מהקו.', goal: 'ירו בסירות מהמא״ג המערבי. אל תתנו להן להגיע לחוף', open: [96, 250], spawn: () => trenchAt(-2), face: 338, focus: w2Focus,
-    entries: [-50, -27, -14, 8.5, 24, 46, 56, 68], radio: ['מ״פ', 'גל גדול של סירות! כולם לסוללה המערבית!'], waveRoom: [20, 26, 32], mines: true, boatV: [0.55, 0.58, 0.62],
+    entries: [-50, -27, -14, 8.5, 24, 46, 56, 68], radio: ['מ״פ', 'גל גדול של סירות! כולם לסוללה המערבית!'], waveRoom: [20, 26, 32], boatV: [0.55, 0.58, 0.62],
     pre(len) { const lv = Math.max(0, DIFF.indexOf(diff)), film = !D.boatsFilm, ctrl = GAME.t + len; D.mineMsg = false;   // the film stops the battle (boatsFreeze): the player has the gun again with the boats where they were as it began - but for its own boat, which reaches the mines 14.9 s into it
-      rowsStart({ z0: -25, z1: 63, total: [120, 180, 240][lv], every: [20, 18, 16][lv], ctrl, aLand: film ? ctrl + 14.9 + MZ_MINE_T : ctrl + 4 }); }, start() { mzBoatsFilm(); } },   // the great wave: 120 men on the easy level, row after row, slowly - and not one of them lands (mines)
+      rowsStart({ z0: -25, z1: 63, total: [60, 90, 120][lv], every: [24, 22, 20][lv], ctrl, aLand: film ? ctrl + 14.9 + MZ_MINE_T : ctrl + 4 }); }, start() { mzBoatsFilm(); } },   // the great wave: half the boats it had (the user), and no mines - they land and come up the rampart
 ];
 function scCorr(i) {
   const S = SCENES[i]; if (S._c) return S._c; const [a, b] = S.open;
@@ -5872,11 +5936,14 @@ function nearestWounded() { let b = null, bd = 1e9; for (const f of FRIENDS) if 
 function medevacStart() {
   const order = ['W3', 'W4', 'T27', 'W1', 'T6', 'S2', 'S3', 'E1', 'N2', 'N3'];
   const pickF = order.map((id) => FRIENDS.find((f) => f.postId === id)).filter((f) => f && f.state === 'post').slice(0, 2);
-  pickF.forEach((f, i) => DIRQ.push({ at: GAME.t + 1.5 + i * 2.2, fn: () => {
+  pickF.forEach((f, i) => DIRQ.push({ at: GAME.t + 0.2 + i * 1.6, fn: () => {
+    if (!D.medMsg) { D.medMsg = true; sceneAnnounce(D.scene); }   /* the shell is in: now the stage is told - wounded in the trench, get to them */
     if (f.state !== 'post') return; const [x, z] = i === 0 ? (f.postId === 'W3' ? f.post.stand : trenchAt(28)) : trenchAt(44);
     f.unit.place(x, z); const b = V3(x - 1.5, groundAt(x - 1.5, z + 1), z + 1); fxExplosion(b, 1.1); sndBoom(b, 1.1); FX.shake = Math.max(FX.shake, 0.4); woundFriend(f, false, true);
   } }));
-  boatWave(30, 50, 3, 8, 6, diff.seats, 1, 0);
+  DIRQ.push({ at: GAME.t + 0.3, fn: () => { if (!D.medMsg) { D.medMsg = true; sceneAnnounce(D.scene); } } });   // told even if nobody was left at a post to be hit
+  boatWave(30, 50, 2, 8, 6, diff.seats, 1, 0);
+  { const lv = Math.max(0, DIFF.indexOf(diff)), n = [5, 6, 8][lv]; southGroup(n, 16, ['rpg'], 0); DIRQ.push({ at: GAME.t + 16.5, fn: () => radio('תצפית', 'כוח מצרי עולה מהשיחים בדרום! הם בתעלה שלהם, ממש מתחת לתעלה הדרומית!', 4) }); }   /* while the wounded are seen to, a squad comes up out of the southern scrub */
   D.artT = 6;
 }
 function pendingSpawns() { let n = 0; for (const q of DIRQ) if (q.spawn) n++; return n; }
@@ -5887,14 +5954,16 @@ function sceneClear() {
   return true;
 }
 const CP = { scene: -1, friends: null, stats: null };
+function sceneAnnounce(i) { const S = SCENES[i]; toast(`שלב ${i + 1} מתוך ${SCENES.length} · ${S.title}`, S.sub); feed(`שלב ${i + 1}: ${S.title}`); radio(S.radio[0], S.radio[1], 4.5); }
 function introScene(i, len) {
   D.scene = i; D.phase = 'intro'; D.phaseT = 0; D.introLen = len; D.objDone = false;
   CP.scene = i; CP.friends = FRIENDS.map((f) => (f.state === 'kia' ? 'kia' : f.state === 'saved' ? 'saved' : 'post')); CP.stats = { ...STATS };
   applyBarricades(i);
   for (const f of FRIENDS) if ((f.state === 'wounded' || f.state === 'stable') && !corridorHas(scCorr(i), f.unit.pos.x, f.unit.pos.z)) { f.state = 'saved'; f.marker.visible = false; feed(`חובשים פינו את ${f.name} לתאג״ד`, 'good'); }
   CP.boats = boatSnap();   // the boats already on the water as the stage begins: after a death they are put back just where they were
-  const S = SCENES[i], lv = Math.max(0, DIFF.indexOf(diff)); LANDCAP.n = S.cap ? S.cap[lv] : 999; LANDCAP.wave = S.waveRoom ? S.waveRoom[lv] : 0; LANDCAP.open = -1; if (S.pre) S.pre(len);
-  toast(`שלב ${i + 1} מתוך ${SCENES.length} · ${S.title}`, S.sub); feed(`שלב ${i + 1}: ${S.title}`); radio(S.radio[0], S.radio[1], 4.5); snapRequest('stage');
+  D.landHold = 0; const S = SCENES[i], lv = Math.max(0, DIFF.indexOf(diff)); LANDCAP.n = S.cap ? S.cap[lv] : 999; LANDCAP.wave = S.waveRoom ? S.waveRoom[lv] : 0; LANDCAP.open = -1; if (S.pre) S.pre(len);
+  if (S.medevac) D.medMsg = false; else sceneAnnounce(i);   /* the medics' stage: nothing is said until the shell has come in (medevacStart) */
+  snapRequest('stage');
   if (i > 0) { P.reserve = 160; P.gren = diff.gren0; for (const p of POSTS) if (p.mag) { p.mag.belt = p.mag.cap || 200; p.mag.reload = 0; } if (!corridorHas(scCorr(i), P.pos.x, P.pos.z)) moveToScene(i); }
 }
 function airStrike() {
@@ -5977,7 +6046,7 @@ function updDirector(dt) {
     if (D.clearT > 2.5) {
       D.clearT = 0; feed('כל המצרים באזור חוסלו', 'good');
       if (D.scene >= SCENES.length - 1) { endGame(true); return; }
-      feed('השלב הושלם', 'good'); radio('מ״פ', 'השטח נקי. משלימים תחמושת, יש עוד עבודה.'); introScene(D.scene + 1, 11); return;
+      feed('השלב הושלם', 'good'); radio('מ״פ', 'השטח נקי. משלימים תחמושת, יש עוד עבודה.'); introScene(D.scene + 1, SCENES[D.scene + 1].medevac ? 3 : 11); return;   /* before the medics' stage only three seconds of quiet, then the shell */
     }
     D.artT -= dt;
     if (D.artT <= 0) { D.artT = rand(diff.art[0], diff.art[1]) * (SCENES[D.scene].medevac ? 0.55 : 1) * (mzEase() ? mzEase().art : 1); const n = Math.floor(rand(3, 6)); for (let i = 0; i < n; i++) DIRQ.push({ at: GAME.t + i * rand(0.6, 1.4), fn: incomingShell }); }
@@ -9367,7 +9436,7 @@ function mzBoatsFilm() {
   // beach goes up on the mines along the waterline (mzMineBoat), in the fourth shot. The film stops the battle (boatsFreeze), so the rest are
   // back where they were when it ends. The lead boat is the first wave's
   const T_LAND = 14.9 + MZ_MINE_T, zc = 20, byZ = (a, b) => Math.abs(a.zLand - zc) - Math.abs(b.zLand - zc), rowA = W.filter((b) => b.wave === 0), rowB = W.filter((b) => b.wave === 1);
-  const lead = (rowA.length ? rowA : W).slice().sort(byZ)[0], mid = (rowB.length ? rowB : W.filter((b) => b !== lead)).slice().sort(byZ)[0] || lead; lead.filmLand = true;
+  const lead = (rowA.length ? rowA : W).slice().sort(byZ)[0], mid = (rowB.length ? rowB : W.filter((b) => b !== lead)).slice().sort(byZ)[0] || lead;   /* no mines any more: the lead boat rows on with the others and lands after the film */
   if (!rowA.length) W.forEach((b, i) => { const u = b === lead ? 1 - (T_LAND * b.speed) / b.len : b === mid ? 0.55 : 0.34 + 0.28 * ((i * 0.618034) % 1); b.t = (u * b.len) / b.speed; });
   for (const b of W) filmRow(b, true);   // the oars shipped for the film, as in the drone's (up close the rowing does not look right)
   const zl = lead.zLand, bx = () => lead.g.position.clone(), cx = crestX(zc), cy = groundAt(cx, zc), fwd = (b) => V3(Math.sin(b.heading), 0, Math.cos(b.heading)), rgt = (b) => V3(Math.cos(b.heading), 0, -Math.sin(b.heading));
@@ -9384,12 +9453,12 @@ function mzBoatsFilm() {
       { d: 5.6, cam: camLerp(V3(beachX + 3, 2.6, zc + 26), V3(beachX + 1, 2.2, zc + 20), V3(nearX(-236), 1.2, zc - 8), V3(nearX(-222), 1.0, zc - 2), 24) },
       { d: 4.6, cam: (u) => { const b = mp(), f = fwd(mid), r = rgt(mid), sd = r.x * SUN.dir.x + r.z * SUN.dir.z > 0 ? 1 : -1; return { p: b.clone().addScaledVector(f, -2.5 + u * 3).addScaledVector(r, sd * 9).add(V3(0, 3.4, 0)), l: b.clone().addScaledVector(f, 0.5 + u * 1.5).add(V3(0, 0.6, 0)), fov: 46 }; } },
       { d: 4.0, cam: (u) => { const b = mp(), f = fwd(mid), r = rgt(mid); return { p: b.clone().addScaledVector(f, -6.5 + u * 1.2).addScaledVector(r, 1.4).add(V3(0, 2.5, 0)), l: V3(crestX(mid.zLand) - 4, groundAt(crestX(mid.zLand), mid.zLand) + 2.5, mid.zLand), fov: 48 }; } },
-      { d: 5.4, slow: 0.55, cam: (u) => ({ p: V3(beachX + 10 - u * 1.5, groundAt(beachX + 10, zl + 11) + 2.3, zl + 11), l: V3(beachX - 5.5 - u * 1.5, 1.0 + u * 2.2, zl), fov: 44 }) },   /* from the beach: the boat a few metres out, and the mine under it */
+      { d: 5.4, slow: 0.55, cam: (u) => ({ p: V3(beachX + 10 - u * 1.5, groundAt(beachX + 10, zl + 11) + 2.3, zl + 11), l: V3(beachX - 5.5 - u * 1.5, 1.0 + u * 2.2, zl), fov: 44 }) },   /* from the beach: the lead boat coming in */
       { d: 3.4, cam: (u) => { const x = crestX(zl) - 1 - u * 1.5; return { p: V3(x, groundAt(x, zl + 9) + 2.4, zl + 9), l: V3(beachX + 3 - u * 2, 1.0, zl - 3), fov: 50 }; } },
     ],
     ev,
     caps: [[0.3, '<b>לפנות ערב.</b> הם זורקים את הכול: סירות לכל אורך הסוללה המערבית, מקצה לקצה.', 4.8], [5.8, 'בכל סירה חיילים צפופים. החותרים לא עוצרים, גם כשהמים מסביבם רותחים מאש.', 4.2],
-      [10.4, '<b>תצפית:</b> הראשונים כבר ליד החוף! עוד רגע הם על הסוללה!', 3.6], [15.6, '<b>פיצוץ!</b> הסירה עלתה על מוקש בקו המים. אף אחד מהם לא הגיע לחוף.', 4.0], [19.8, '<b>מ״פ:</b> עוד עשרות סירות בדרך. אש על הסירות, עכשיו!', 3.0]],
+      [10.4, '<b>תצפית:</b> הראשונים כבר ליד החוף! עוד רגע הם על הסוללה!', 3.6], [15.6, '<b>תצפית:</b> הסירה הראשונה כמעט על החוף. הם יעלו על הסוללה!', 4.0], [19.8, '<b>מ״פ:</b> עוד עשרות סירות בדרך. אש על הסירות, עכשיו!', 3.0]],
     boatFilm: true, boatRate: 0.4, end: () => { for (const b of BOATS) if (b.filmHide) filmRow(b, false); },   /* the rest row on at less than half pace in it: none of them lands */
   });
 }
@@ -13270,7 +13339,8 @@ const SURV_DIRS = { w: 'ממערב, מהתעלה', n: 'מצפון, לאורך ה
 /* survival is fought in the "small strongpoint": the middle hundred metres of the western rampart, closed at both ends by barricades that stand
    only in this mode (the whole strongpoint is far too long to run end to end between waves). The northern attack comes down the shore and
    climbs into the northern end of that stretch, the southern one up the shore into its southern end, the boats land in the middle. */
-const SURV_ZONE = { n: { spawn: [-74, -238, 22, 18], covZ: [-140, -100], ks: [-45, -43, -34, -32].map(kz) }, s: { spawn: [-74, 232, 22, 18], covZ: [100, 136], ks: [32, 35, 38, 40].map(kz) } };
+/* where they start: the northern attack already on the sand under the rampart, forty metres from the trench (the user), the southern one close in too */
+const SURV_ZONE = { n: { spawn: [-98, -86, 9, 8], band: [52, 80], ks: [-45, -43, -34, -32].map(kz) }, s: { spawn: [-97, 102, 9, 10], band: [60, 92], ks: [32, 35, 38, 40].map(kz) } };
 const SURV_TOTAL = [8, 12, 16, 24, 30, 37, 45, 56];
 const SURV_AIR_PTS = 2500;
 try { SURV.best = Number(localStorage.getItem('yk73.survBest') || 0); } catch (e) { SURV.best = 0; }
@@ -13297,12 +13367,12 @@ function survCannonShoot() {
 }
 
 /* ---------- the attacks along the shore: from the north and from the south, down the western slope of the tongue, a rush at the rampart's corner and over it ---------- */
-function survSidePlan(side, e, i) {
+function survSidePlan(side, e, i, hold = 0) {
   const Z = SURV_ZONE[side], r = rng((side === 'n' ? 4242 : 5151) + i * 137), RR = (a, b) => a + r() * (b - a), plan = [], sg = side === 'n' ? 1 : -1;
   // fire and movement down the shore: two stops behind the stones at the water's edge (they face the rampart, so they hide a man from it),
   // one far out and one closer in, a short burst from each; then the final dash at the rampart and over it
   const pick = (zMin, zMax) => { let best = null, bd = 1e9; for (const c of COVER) { const az = Math.abs(c.z); if (c.by || c.nx < 0.35 || az < zMin || az > zMax || Math.sign(c.z) !== sg * -1 || c.x > crestX(c.z) + 1 || c.x < tongueWestX(c.z) - 2) continue; const d = Math.hypot(c.x - e.pos.x, c.z - e.pos.z) + r() * 10; if (d < bd) { bd = d; best = c; } } return best; };
-  for (const [zMin, zMax, p] of [[98, 150, 0.85], [62, 97, 0.7]]) { const c = pick(zMin, zMax); if (c && r() < p) { c.by = e; const o = RR(-0.9, 0.9); plan.push({ t: 'cover', c, x: c.x - c.nz * o, z: c.z + c.nx * o, nx: c.nx, nz: c.nz, h: c.h, dur: RR(2.2, 4.0) }); } }
+  { const c = pick(Z.band[0], Z.band[1]); if (c) { c.by = e; const o = RR(-0.9, 0.9); plan.push({ t: 'cover', c, x: c.x - c.nz * o, z: c.z + c.nx * o, nx: c.nx, nz: c.nz, h: c.h, dur: RR(2.2, 4.0) + hold }); } else if (hold) plan.push({ t: 'cover', x: e.pos.x + 1.2, z: e.pos.z, nx: 1, nz: 0, h: 0.7, dur: hold }); }   /* one stop on the sand (the north: a long one - they were there before him), then the dash */
   const k = clamp(Z.ks[i % 4] + Math.floor(RR(-2, 3)), 1, TR.pts.length - 2), p = TR.pts[k], o = TR.out[k];
   plan.push({ t: 'cover', x: p[0] + o[0] * 2.6 - 1.2, z: p[1] + o[1] * 2.6 + sg * RR(2, 5), px: p[0] + o[0] * 1.4, pz: p[1], nx: 1, nz: 0, h: 1, dur: RR(1.2, 2.6) });
   plan.push({ t: 'run', final: true, x: p[0] + o[0] * 2.6, z: p[1] + o[1] * 2.6 });
@@ -13310,10 +13380,10 @@ function survSidePlan(side, e, i) {
   return plan;
 }
 function survSideGroup(side, n, delay, kinds = []) {
-  const Z = SURV_ZONE[side];
+  const Z = SURV_ZONE[side], north = side === 'n';
   for (let i = 0; i < n; i++) {
-    const k = kinds[i] || 'rifle', r = rng(91 + i * 37 + SURV.wave * 11 + (side === 'n' ? 7 : 0)), go = () => { const e = spawnEnemy(Z.spawn[0] + (r() - 0.5) * Z.spawn[2], Z.spawn[1] + (r() - 0.5) * Z.spawn[3], varyKind(k, i * 3.7 + SURV.wave, delay), null, null); if (!e) { DIRQ.push({ at: GAME.t + 1, spawn: true, fn: go }); return; } e.plan = survSidePlan(side, e, i); e.state = 'plan'; };
-    DIRQ.push({ at: GAME.t + delay + i * 1.5, spawn: true, fn: go });
+    const k = kinds[i] || 'rifle', r = rng(91 + i * 37 + SURV.wave * 11 + (side === 'n' ? 7 : 0)), go = () => { const e = spawnEnemy(Z.spawn[0] + (r() - 0.5) * Z.spawn[2], Z.spawn[1] + (r() - 0.5) * Z.spawn[3], varyKind(k, i * 3.7 + SURV.wave, delay), null, null); if (!e) { DIRQ.push({ at: GAME.t + 1, spawn: true, fn: go }); return; } e.plan = survSidePlan(side, e, i, north ? 3 + r() * 5 : 0); e.state = 'plan'; };
+    DIRQ.push({ at: GAME.t + delay + i * (north ? 0.3 : 1.5), spawn: true, fn: go });   /* the north is on the beach all at once */
   }
 }
 
@@ -13351,7 +13421,7 @@ function survWave(n) {
   dirs.forEach((dr, di) => {
     const T = di * 32;   // each further direction is a wave of its own, half a minute behind the one before: never two sides in the same breath
     if (dr === 'w') { const nb = Math.max(2, Math.ceil(per / 3)); for (let i = 0; i < nb; i++) { const z = rand(-30, 34), b = launchBoat(z, T + 2 + i * rand(1.4, 2.4), Math.min(7, 4 + Math.floor(n / 3)), Math.random() < 0.2 + n * 0.04 ? 1 : 0, n >= 5 && Math.random() < 0.15 ? 1 : 0); b.hp = 170; } }
-    else if (dr === 'n') { survSideGroup('n', per, T + 3, survKinds(n, per)); if (n >= 4) for (let i = 0; i < 2; i++) launchBoat(rand(-62, -46), T + 4 + i * 3, 4, 0); }
+    else if (dr === 'n') { const pn = Math.max(3, Math.round(per * 0.6)); survSideGroup('n', pn, T + 0.5, survKinds(n, pn));   /* fewer of them: they are right there */ if (n >= 4) for (let i = 0; i < 2; i++) launchBoat(rand(-62, -46), T + 4 + i * 3, 4, 0); }
     else { survSideGroup('s', per, T + 3, survKinds(n, per)); if (n >= 6) launchBoat(rand(40, 56), T + 5, 4, 0); }
     // from the third wave a jeep leads the shore attacks, from the fifth a tank follows it, from the seventh two
     if (dr !== 'w') { if (n >= 3) survVeh(dr, 'jeep', T + 5); if (n >= 5) survVeh(dr, 't55', T + 10, 7); if (n >= 7) survVeh(dr, 't55', T + 17, 16); }
