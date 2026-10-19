@@ -437,8 +437,8 @@ function flashConeTex(seed = 1) {
 function fireballTex(seed = 1) {
   const n = 256, h = n / 2, c = canvas(n), g = c.getContext('2d'), r = rng(seed); g.globalCompositeOperation = 'lighter';
   for (let i = 0; i < 18; i++) {
-    const a = r() * 6.283, d = h * 0.34 * Math.sqrt(r()), x = h + Math.cos(a) * d, y = h + Math.sin(a) * d * 0.9, rad = h * (0.2 + r() * 0.16), gr = g.createRadialGradient(x, y, 0, x, y, rad);
-    gr.addColorStop(0, 'rgba(255,232,165,.5)'); gr.addColorStop(0.45, 'rgba(255,150,50,.38)'); gr.addColorStop(0.8, 'rgba(205,62,12,.14)'); gr.addColorStop(1, 'rgba(160,40,5,0)'); g.fillStyle = gr; g.fillRect(0, 0, n, n);
+    const a = r() * 6.283, d = h * 0.3 * Math.sqrt(r()), x = h + Math.cos(a) * d, y = h + Math.sin(a) * d * 0.9, rad = h * (0.24 + r() * 0.17), gr = g.createRadialGradient(x, y, 0, x, y, rad);
+    gr.addColorStop(0, 'rgba(255,232,165,.62)'); gr.addColorStop(0.45, 'rgba(255,150,50,.5)'); gr.addColorStop(0.8, 'rgba(205,62,12,.14)'); gr.addColorStop(1, 'rgba(160,40,5,0)'); g.fillStyle = gr; g.fillRect(0, 0, n, n);
   }
   flashRag(g, n, r, 60, h, h, h * 0.1, h * 0.75, 0.22);
   const gr = g.createRadialGradient(h, h, 0, h, h, h * 0.3); gr.addColorStop(0, 'rgba(255,250,225,.75)'); gr.addColorStop(1, 'rgba(255,200,100,0)'); g.fillStyle = gr; g.fillRect(0, 0, n, n);

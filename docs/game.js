@@ -438,8 +438,8 @@ function flashConeTex(seed = 1) {
 function fireballTex(seed = 1) {
   const n = 256, h = n / 2, c = canvas(n), g = c.getContext('2d'), r = rng(seed); g.globalCompositeOperation = 'lighter';
   for (let i = 0; i < 18; i++) {
-    const a = r() * 6.283, d = h * 0.34 * Math.sqrt(r()), x = h + Math.cos(a) * d, y = h + Math.sin(a) * d * 0.9, rad = h * (0.2 + r() * 0.16), gr = g.createRadialGradient(x, y, 0, x, y, rad);
-    gr.addColorStop(0, 'rgba(255,232,165,.5)'); gr.addColorStop(0.45, 'rgba(255,150,50,.38)'); gr.addColorStop(0.8, 'rgba(205,62,12,.14)'); gr.addColorStop(1, 'rgba(160,40,5,0)'); g.fillStyle = gr; g.fillRect(0, 0, n, n);
+    const a = r() * 6.283, d = h * 0.3 * Math.sqrt(r()), x = h + Math.cos(a) * d, y = h + Math.sin(a) * d * 0.9, rad = h * (0.24 + r() * 0.17), gr = g.createRadialGradient(x, y, 0, x, y, rad);
+    gr.addColorStop(0, 'rgba(255,232,165,.62)'); gr.addColorStop(0.45, 'rgba(255,150,50,.5)'); gr.addColorStop(0.8, 'rgba(205,62,12,.14)'); gr.addColorStop(1, 'rgba(160,40,5,0)'); g.fillStyle = gr; g.fillRect(0, 0, n, n);
   }
   flashRag(g, n, r, 60, h, h, h * 0.1, h * 0.75, 0.22);
   const gr = g.createRadialGradient(h, h, 0, h, h, h * 0.3); gr.addColorStop(0, 'rgba(255,250,225,.75)'); gr.addColorStop(1, 'rgba(255,200,100,0)'); g.fillStyle = gr; g.fillRect(0, 0, n, n);
@@ -3636,13 +3636,13 @@ function fxDust(p, water = false) {
 }
 function fxExplosion(p, size = 1) {
   const land = groundAt(p.x, p.z) > 0.05;
-  const f = FX.glows.get(); f.life = 0.3; f.s.position.set(p.x, p.y + 1.4 * size, p.z); f.upd = (q, u) => { q.s.scale.setScalar((13 - 9 * u) * size); q.s.material.opacity = 1 - u; };
+  const f = FX.glows.get(); f.life = 0.3; f.s.position.set(p.x, p.y + 1.4 * size, p.z); f.upd = (q, u) => { q.s.scale.setScalar((10 - 6 * u) * size); q.s.material.opacity = 1 - u; };
   const fl = FX.flashes.get(); fl.life = 0.1; fl.s.material.map = pick(FXT.bursts); fl.s.position.set(p.x, p.y + 0.8 * size, p.z); fl.upd = (q, u) => { q.s.scale.setScalar((5.5 + 3 * u) * size); q.s.material.opacity = 1 - u; }; fl.upd(fl, 0);
   /* the fireball: a few billowing lobes that swell, climb and cool from white-yellow through orange to a dull red before the smoke takes over */
-  for (let i = 0, n = LITE ? 3 : 5; i < n; i++) {
-    const q = FX.fire.get(); q.life = rand(0.45, 0.75) * (0.8 + size * 0.2); q.s.material.map = pick(FXT.fires); const ox = rand(-0.9, 0.9) * size, oz = rand(-0.9, 0.9) * size, vy = rand(1.5, 4) * size, s1 = rand(2.2, 3.6) * size, sp = rand(-1.5, 1.5);
-    q.s.position.set(p.x + ox * 0.4, p.y + rand(0.4, 1.2) * size, p.z + oz * 0.4);
-    q.upd = (o, u, dt) => { o.s.position.y += vy * dt * (1 - u); o.s.position.x += ox * dt * 1.5; o.s.position.z += oz * dt * 1.5; o.s.material.rotation += sp * dt; o.s.scale.setScalar(s1 * (0.45 + 0.75 * Math.sqrt(u))); const c = 1 - u; o.s.material.color.setRGB(HDRK, HDRK * (0.55 + 0.45 * c), HDRK * (0.2 + 0.8 * c * c)); o.s.material.opacity = Math.pow(c, 1.4); };
+  for (let i = 0, n = LITE ? 4 : 6; i < n; i++) {
+    const q = FX.fire.get(); q.life = rand(0.6, 0.95) * (0.8 + size * 0.2); q.s.material.map = pick(FXT.fires); const ox = rand(-1.3, 1.3) * size, oz = rand(-1.3, 1.3) * size, vy = rand(2, 5) * size, s1 = rand(5.5, 8) * size, sp = rand(-1.5, 1.5);
+    q.s.position.set(p.x + ox, p.y + rand(0.8, 2) * size, p.z + oz);
+    q.upd = (o, u, dt) => { o.s.position.y += vy * dt * (1 - u); o.s.position.x += ox * dt * 2.4; o.s.position.z += oz * dt * 2.4; o.s.material.rotation += sp * dt; o.s.scale.setScalar(s1 * (0.55 + 0.6 * Math.sqrt(u))); const c = 1 - u; o.s.material.color.setRGB(HDRK, HDRK * (0.42 + 0.4 * c), HDRK * (0.12 + 0.45 * c * c)); o.s.material.opacity = 0.6 * Math.min(1, c * 1.6) * Math.pow(c, 0.6); };
     q.upd(q, 0, 0);
   }
   /* glowing fragments flung out, falling and dying */
