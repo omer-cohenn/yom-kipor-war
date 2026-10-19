@@ -140,7 +140,7 @@ const PR_STEPS = [
     done: () => prDudu().state === 'stable' },
   { id: 'carry', title: 'פינוי לתאג״ד', at: () => (P.mode === 'carry' ? [AIDPOST.x, AIDPOST.y ?? groundAt(AIDPOST.x, AIDPOST.z), AIDPOST.z, 'תאג״ד'] : null),
     say: ['עכשיו לתאג״ד. סוחבים אותו בתעלת הקשר, לא מעל הסוללה.'],
-    hint: () => `<b>פינוי:</b> ${prKey('הכפתור הירוק', K('E'))} מרים אותו. סחבו אותו לתאג״ד (◆), ושם ${prKey('הכפתור הירוק', K('E'))} מוריד אותו על האלונקה.`,
+    hint: () => `<b>פינוי:</b> ${prKey('הכפתור הירוק', K('E'))} מרים אותו. סחבו אותו לאוהל התאג״ד (◆), ושם ${prKey('הכפתור הירוק', K('E'))} משכיב אותו על האלונקה.`,
     done: () => prDudu().state === 'saved' },
   { id: 'ammo', title: 'מילוי תחמושת', at: () => { const p = prPost('G2'); return prPt(p.stand[0], p.stand[1], 1.0, 'ארגז תחמושת'); },
     say: ['ירית כמו בחתונה. בכל עמדה יש ארגז. תמלא.'],
@@ -242,7 +242,12 @@ function prBuildTent() {
   const gab = new THREE.Shape([new THREE.Vector2(-D / 2, 0), new THREE.Vector2(D / 2, 0), new THREE.Vector2(D / 2, E), new THREE.Vector2(0, H), new THREE.Vector2(-D / 2, E)]);
   { const m = new THREE.Mesh(new THREE.ShapeGeometry(gab), can); m.rotation.y = Math.PI / 2; m.position.set(W / 2, 0, 0); g.add(m); const c = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 1.5), crossM); c.rotation.y = Math.PI / 2; c.position.set(W / 2 + 0.02, 1.95, 0); g.add(c); }
   for (const sd of [-1, 1]) { const m = new THREE.Mesh(new THREE.PlaneGeometry(W, E), can); m.position.set(0, E / 2, sd * D / 2); g.add(m); const c = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 1.4), crossM); c.position.set(0, 1.0, sd * (D / 2 + 0.02)); g.add(c); }
-  { const c = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 1.2), crossM); c.rotation.y = Math.PI / 2; c.position.set(-W / 2, H - 0.75, 0); g.add(c); }   // over the open way in
+  // the front, towards the trench: canvas either side of a wooden door frame, the gable over it, and a door that opens like the post's on the Hermon
+  { const DW = 0.82, DH = 2.3, side = (D / 2 - DW) ; for (const sd of [-1, 1]) { const m = new THREE.Mesh(new THREE.PlaneGeometry(side, E), can); m.rotation.y = Math.PI / 2; m.position.set(-W / 2, E / 2, sd * (DW + side / 2)); g.add(m); }
+    const top = new THREE.Shape([new THREE.Vector2(-D / 2, E), new THREE.Vector2(-DW, E), new THREE.Vector2(-DW, DH + 0.1), new THREE.Vector2(DW, DH + 0.1), new THREE.Vector2(DW, E), new THREE.Vector2(D / 2, E), new THREE.Vector2(0, H)]); const tm = new THREE.Mesh(new THREE.ShapeGeometry(top), can); tm.rotation.y = Math.PI / 2; tm.position.set(-W / 2, 0, 0); g.add(tm);
+    const fr = new THREE.MeshStandardMaterial({ color: 0x6b5236, roughness: 0.9 }); for (const sd of [-1, 1]) { const p = new THREE.Mesh(new THREE.BoxGeometry(0.1, DH + 0.1, 0.1), fr); p.position.set(-W / 2, (DH + 0.1) / 2, sd * (DW + 0.05)); g.add(p); }
+    { const b = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, DW * 2 + 0.2), fr); b.position.set(-W / 2, DH + 0.05, 0); g.add(b); }
+    const c = new THREE.Mesh(new THREE.PlaneGeometry(1.0, 1.0), crossM); c.rotation.y = Math.PI / 2; c.position.set(-W / 2 - 0.02, H - 0.45, 0); g.add(c); }
   for (const [x, z, h] of [[-W / 2, -D / 2, E], [-W / 2, D / 2, E], [W / 2, -D / 2, E], [W / 2, D / 2, E], [-W / 2, 0, H], [W / 2, 0, H], [0, 0, H]]) { const m = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, h, 6), pole); m.position.set(x, h / 2, z); g.add(m); }
   // three stretchers on the ground (the middle one is where the wounded are laid), a medical chest, a water can
   const st = new THREE.MeshStandardMaterial({ color: 0x55603d, roughness: 1 }), bar = new THREE.MeshStandardMaterial({ color: 0x3b3a30, roughness: 0.8 });
@@ -252,6 +257,15 @@ function prBuildTent() {
   // the doctor and the medic (the game's own soldiers, dressed like the others)
   PR.medics = [[2.6, -1.0, Math.PI, 'idle'], [0.3, 1.0, Math.PI / 2, 'idle']].map(([x, z, hd, pose]) => { const u = new Unit('f', 'rifle'); scene.remove(u.tag); u.place(tx + x, tz + z); u.heading = hd; u.alive = true; u.stance = 'stand'; u.rig.root.visible = true; u.rig.gun.visible = false; u.rig.pose(pose, 0); u.sync(); return u; });
   PR.tent = { x: tx + 1.2, z: tz, rot: 0, y: undefined };
+  // the door: a wooden leaf hinged at the frame's south post; it swings into the tent (the post's door on the Hermon, pdoorStart, opens it)
+  { const dx = tx - W / 2, mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85 });
+    const geo = build([[new THREE.BoxGeometry(1.56, 2.24, 0.05), 0x7a6040, M4(0.78, 1.12, 0)], [new THREE.BoxGeometry(1.4, 0.06, 0.07), 0x5e4a30, M4(0.78, 0.35, 0)], [new THREE.BoxGeometry(1.4, 0.06, 0.07), 0x5e4a30, M4(0.78, 1.9, 0)], [new THREE.BoxGeometry(0.12, 0.04, 0.16), 0x1c1c1a, M4(1.38, 1.02, 0)]]);
+    const pivot = new THREE.Group(), phi = -Math.PI / 2; pivot.position.set(dx, g0, tz - 0.78); pivot.rotation.y = phi; pivot.add(new THREE.Mesh(geo, mat)); scene.add(SH(onLayer1(pivot), false, true));
+    const col = addCollider(dx, tz, 0.82, 0.12, -Math.PI / 2, g0 + 2.3, g0 - 0.1);
+    PR.door = { pivot, phi, sgn: 1, col, top: col.top, bot: col.bot, ang: 0, open: false, at: V3(dx, g0 + 1.2, tz), y: g0, nIn: V3(1, 0, 0), geo, mat, rate: 7 };
+    // the canvas walls hold: you go in by the door
+    addCollider(dx, tz - (0.82 + (D / 2 - 0.82) / 2), 0.08, (D / 2 - 0.82) / 2, 0, g0 + 2, g0 - 0.1); addCollider(dx, tz + (0.82 + (D / 2 - 0.82) / 2), 0.08, (D / 2 - 0.82) / 2, 0, g0 + 2, g0 - 0.1);
+    for (const sd of [-1, 1]) addCollider(tx, tz + sd * D / 2, W / 2, 0.08, 0, g0 + 2, g0 - 0.1); addCollider(tx + W / 2, tz, 0.08, D / 2, 0, g0 + 2, g0 - 0.1); }
 }
 function prBuild() {
   const C = CHAP.prologue; C.slots = []; C.covers = [];
@@ -264,6 +278,7 @@ function prBuild() {
   prBuildRaft();
 }
 function prSetup(stage = 0) {
+  if (PR.door) { hmDoorSet(PR.door, false, true); PR.door.rate = 7; } PR.bedT = 0;
   if (!PR.aid0) PR.aid0 = { ...AIDPOST }; Object.assign(AIDPOST, PR.tent); delete AIDPOST.y;   // the wounded go to the aid tent in the yard
   for (const B of BARRS) { B.on = false; B.g.visible = false; B.col.top = -1e4; }   // a drill, not the battle: every trench of the stronghold is open
   const C = CHAP.prologue; fieldSetupCommon(C, stage); C.t = 0; PR.stage = stage; PR.msgs = {}; PR.done = []; P.mode = 'rifle'; vm.visible = true; TANK.g && (TANK.g.visible = false);
@@ -326,6 +341,12 @@ function prUpd(dt) {
   const C = CHAP.prologue; C.t += dt; PR.stepT += dt;
   for (let i = DIRQ.length - 1; i >= 0; i--) if (DIRQ[i] && GAME.t >= DIRQ[i].at) { const q = DIRQ.splice(i, 1)[0]; q.fn(); }
   if (PR.medics) for (const u of PR.medics) u.sync();
+  // the aid tent's door: carrying the wounded up to it, the player opens it by hand and goes in, and lays him on the stretcher by himself
+  { const d = PR.door; if (d) {
+    if (P.mode === 'carry' && !d.open && !PDOOR.on && P.pos.x < d.at.x && Math.hypot(P.pos.x - d.at.x, P.pos.z - d.at.z) < 2.1) { HM_DOOR_WAY.n = 1; pdoorStart(d); PR.bedT = 1; }
+    const tg = d.open ? 1 : 0; if (Math.abs(d.ang - tg) > 1e-3) { d.ang += (tg - d.ang) * Math.min(1, dt * (d.rate || 7)); d.pivot.rotation.y = d.phi + d.sgn * d.ang * 1.66; }
+    if (PR.bedT === 1 && !PDOOR.on && P.mode === 'carry') { PR.bedT = 2; promptState = { act: 'drop-aid' }; doAction(); }
+  } }
   if (P.hp < 100) P.hp = 100; if (PR.stage === 0 && P.gren < 3) P.gren = 3;   // a drill: grenades without end
   // the pit catches a grenade that reaches it: on the slope of the rampart it would roll on down to the water
   for (const q of PROJ) if (q.type === 'gren' && q.owner === 'player' && Math.hypot(q.m.position.x - PR_AT.pit[0], q.m.position.z - PR_AT.pit[1]) < PR_PIT_R && q.m.position.y < groundAt(q.m.position.x, q.m.position.z) + 0.6) { q.v.set(0, Math.min(q.v.y, 0), 0); }
@@ -345,7 +366,7 @@ function prUpd(dt) {
   if (S.id === 'air' && PR.air === 'wait') { const tt = GAME.t - PR.airT; if (tt > 12.5 && tt < 15.5 && sheltered()) PR.air = 'ok'; else if (tt >= 15.5) { PR.air = 'again'; radio(PR_MC, 'בשטח פתוח המטוס הזה היה קורע אותך. עוד סיבוב!', 3.4, true); DIRQ.push({ at: GAME.t + 4, fn: prAirRun }); } }
   if (S.done()) {
     PR.done.push(S.title); feed(`✓ ${S.title}`, 'good'); sndClick(1500, 0.2); setTimeout(() => sndClick(1900, 0.18), 90);
-    if (S.id === 'carry') DIRQ.push({ at: GAME.t + 2.2, fn: () => { const f = prDudu(); reviveFriend(f); f.unit.place(AIDPOST.x + 1.2, AIDPOST.z + 1.0); radio('דודו', 'אני מת... מצחוק. תודה, חובש.', 3, true); } });
+    if (S.id === 'carry') { const u = prDudu().unit; u.pos.y = groundAt(u.pos.x, u.pos.z) + 0.24; u.sync(); DIRQ.push({ at: GAME.t + 1.6, fn: () => radio('דודו', 'אני מת... מצחוק. תודה, חובש. אני נשאר פה קצת, נוח במיטה.', 3.4, true) }); }   // he lies on the stretcher, and stays there
     if (S.id === 'shoot') for (const T of PR.tg) T.want = 0;
     PR.step = -1; DIRQ.push({ at: GAME.t + 1.3, fn: () => prStep(prSteps().indexOf(S) + 1) });
   }
