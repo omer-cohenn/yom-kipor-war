@@ -655,15 +655,19 @@ function concertina() {
   for (let i = 0; i < d.length; i += 6) { const g = groundAt(d[i][0], d[i][1]); pg.setMatrixAt(n++, mm.compose(V3(d[i][0], g + 0.45, d[i][1]), q.identity(), one)); }
   pg.count = n; scene.add(SH(onLayer1(pg)));
 }
-/* the scrub north and south of the stronghold: a carpet of dry bushes a metre high, thick, right up to the wire - the Egyptians' saps run out
-   of it, and a man crouching in one is not seen until he comes up at our parapet */
+/* the scrub north and south of the stronghold: a carpet of dry brush a metre high, thick, every stem leaning on the next, right up to the wire -
+   the Egyptians' saps run out of it, and a man crouching in one is not seen until he comes up at our parapet. A tight jittered grid of
+   tufts (cheap crossed cards, so there can be tens of thousands), with fuller bushes among them */
 function egyScrub() {
-  const ring = outwardRing(MAOZ, 14), loop = [...ring, ring[0]], n = LITE ? 1100 : 2800, items = [];
-  for (const [sd, seed] of [[-1, 811], [1, 812]]) {
-    const road = sd < 0 ? ROAD_ACCESS : ROAD_SOUTH, ok = (x, z) => sd * z > 92 && !inPoly(x, z, ring) && distPolyline(x, z, loop) < 32 && distPolyline(x, z, road) > 5 && SAP_LIST.every((sp) => distPolyline(x, z, sp) > 1.6) && groundAt(x, z) > 0.3;
-    items.push(...scatterIn(n, -68, 30, sd < 0 ? -142 : 90, sd < 0 ? -90 : 142, seed, ok, (x, z, r) => [x, z, 0.85 + r() * 0.45, r() * 6, dryBush(r), -0.05, 0.85 + r() * 0.3]));
+  const ring = outwardRing(MAOZ, 14), loop = [...ring, ring[0]], step = LITE ? 0.72 : 0.5, tufts = [], bush = [], r = rng(813);
+  for (const sd of [-1, 1]) {
+    const road = sd < 0 ? ROAD_ACCESS : ROAD_SOUTH, ok = (x, z) => sd * z > 92 && !inPoly(x, z, ring) && distPolyline(x, z, loop) < 32 && distPolyline(x, z, road) > 5 && SAP_LIST.every((sp) => distPolyline(x, z, sp) > 1.25) && groundAt(x, z) > 0.3;
+    const z0 = sd < 0 ? -142 : 90, z1 = sd < 0 ? -90 : 142;
+    for (let z = z0; z < z1; z += step) for (let x = -68; x < 30; x += step) { const px = x + (r() - 0.5) * step * 0.9, pz = z + (r() - 0.5) * step * 0.9; if (!ok(px, pz)) continue;
+      tufts.push([px, pz, 0.8 + r() * 0.4, r() * 6, dryBush(r), -0.04, 0.85 + r() * 0.35]);
+      if (r() < (LITE ? 0.05 : 0.08)) bush.push([px + (r() - 0.5) * 0.3, pz + (r() - 0.5) * 0.3, 0.9 + r() * 0.4, r() * 6, dryBush(r), -0.05, 0.85 + r() * 0.3]); }
   }
-  instScatter(BUSH_G, items.filter((_, i) => i % 3), undefined, !LITE); instScatter(BUSH_TWIG_G, items.filter((_, i) => !(i % 3)), undefined, !LITE);
+  instScatter(TALL_G, tufts, undefined, false); instScatter(BUSH_G, bush.filter((_, i) => i % 2), undefined, !LITE); instScatter(BUSH_TWIG_G, bush.filter((_, i) => !(i % 2)), undefined, !LITE);
 }
 function riprap() {
   const rocks = [], rk = rng(55), mm = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler();

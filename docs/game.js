@@ -1415,15 +1415,19 @@ function concertina() {
   for (let i = 0; i < d.length; i += 6) { const g = groundAt(d[i][0], d[i][1]); pg.setMatrixAt(n++, mm.compose(V3(d[i][0], g + 0.45, d[i][1]), q.identity(), one)); }
   pg.count = n; scene.add(SH(onLayer1(pg)));
 }
-/* the scrub north and south of the stronghold: a carpet of dry bushes a metre high, thick, right up to the wire - the Egyptians' saps run out
-   of it, and a man crouching in one is not seen until he comes up at our parapet */
+/* the scrub north and south of the stronghold: a carpet of dry brush a metre high, thick, every stem leaning on the next, right up to the wire -
+   the Egyptians' saps run out of it, and a man crouching in one is not seen until he comes up at our parapet. A tight jittered grid of
+   tufts (cheap crossed cards, so there can be tens of thousands), with fuller bushes among them */
 function egyScrub() {
-  const ring = outwardRing(MAOZ, 14), loop = [...ring, ring[0]], n = LITE ? 1100 : 2800, items = [];
-  for (const [sd, seed] of [[-1, 811], [1, 812]]) {
-    const road = sd < 0 ? ROAD_ACCESS : ROAD_SOUTH, ok = (x, z) => sd * z > 92 && !inPoly(x, z, ring) && distPolyline(x, z, loop) < 32 && distPolyline(x, z, road) > 5 && SAP_LIST.every((sp) => distPolyline(x, z, sp) > 1.6) && groundAt(x, z) > 0.3;
-    items.push(...scatterIn(n, -68, 30, sd < 0 ? -142 : 90, sd < 0 ? -90 : 142, seed, ok, (x, z, r) => [x, z, 0.85 + r() * 0.45, r() * 6, dryBush(r), -0.05, 0.85 + r() * 0.3]));
+  const ring = outwardRing(MAOZ, 14), loop = [...ring, ring[0]], step = LITE ? 0.72 : 0.5, tufts = [], bush = [], r = rng(813);
+  for (const sd of [-1, 1]) {
+    const road = sd < 0 ? ROAD_ACCESS : ROAD_SOUTH, ok = (x, z) => sd * z > 92 && !inPoly(x, z, ring) && distPolyline(x, z, loop) < 32 && distPolyline(x, z, road) > 5 && SAP_LIST.every((sp) => distPolyline(x, z, sp) > 1.25) && groundAt(x, z) > 0.3;
+    const z0 = sd < 0 ? -142 : 90, z1 = sd < 0 ? -90 : 142;
+    for (let z = z0; z < z1; z += step) for (let x = -68; x < 30; x += step) { const px = x + (r() - 0.5) * step * 0.9, pz = z + (r() - 0.5) * step * 0.9; if (!ok(px, pz)) continue;
+      tufts.push([px, pz, 0.8 + r() * 0.4, r() * 6, dryBush(r), -0.04, 0.85 + r() * 0.35]);
+      if (r() < (LITE ? 0.05 : 0.08)) bush.push([px + (r() - 0.5) * 0.3, pz + (r() - 0.5) * 0.3, 0.9 + r() * 0.4, r() * 6, dryBush(r), -0.05, 0.85 + r() * 0.3]); }
   }
-  instScatter(BUSH_G, items.filter((_, i) => i % 3), undefined, !LITE); instScatter(BUSH_TWIG_G, items.filter((_, i) => !(i % 3)), undefined, !LITE);
+  instScatter(TALL_G, tufts, undefined, false); instScatter(BUSH_G, bush.filter((_, i) => i % 2), undefined, !LITE); instScatter(BUSH_TWIG_G, bush.filter((_, i) => !(i % 2)), undefined, !LITE);
 }
 function riprap() {
   const rocks = [], rk = rng(55), mm = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler();
@@ -5403,7 +5407,7 @@ function updEnemy(e, dt) {
   const g = e.group;
   if (e.state === 'jump') {
     // over the gunwale and down onto the sand: the vault's own movement, at a pace a man can jump (not a flight)
-    if (!e.jd) e.jd = clamp(Math.hypot(e.j1.x - e.j0.x, e.j1.z - e.j0.z) / 4.2, 0.8, 1.6);
+    if (!e.jd) e.jd = clamp(Math.hypot(e.j1.x - e.j0.x, e.j1.z - e.j0.z) / 3.4, 1.0, 1.8);
     const u = clamp(e.t / e.jd, 0, 1), h = u * u * (3 - 2 * u); e.pos.lerpVectors(e.j0, e.j1, h); e.pos.y += Math.sin(u * Math.PI) * 0.7; e.face(e.j1.x + 1, e.j1.z);
     e.rig.pose('vault', u); e.sync(); if (u >= 1) { e.state = e.plan ? 'plan' : 'move'; e.t = 0; e.jd = 0; } return;
   }
@@ -5503,6 +5507,7 @@ function updEnemy(e, dt) {
 }
 
 /* ================= scripted assault: shore → cover → under the crest → into the trench → hunt the player ================= */
+const PARA_D = TW + 1.5;   // where a man stands to climb over the parapet: half a metre off the outer face of its sandbags (they lie at TW + 0.8, some 0.2 deep)
 function scEntries() { const S = SCENES[Math.max(0, D.scene)]; return S.entries || [-14, 3]; }
 function westPlan(e, z, i, r = Math.random) {
   const RR = (a, b) => a + r() * (b - a);
@@ -5516,7 +5521,7 @@ function westPlan(e, z, i, r = Math.random) {
   }
   const zc = ez + RR(-1.2, 1.2), cx = crestX(zc);
   plan.push({ t: 'cover', x: cx - 3.3, z: zc, px: cx - 1.4, pz: zc + RR(-0.6, 0.6), nx: 1, nz: 0, h: 1, dur: RR(2.6, 4.4) });
-  plan.push({ t: 'run', final: true, x: p[0] + o[0] * 2.6, z: p[1] + o[1] * 2.6 });
+  plan.push({ t: 'run', final: true, x: p[0] + o[0] * PARA_D, z: p[1] + o[1] * PARA_D });
   plan.push({ t: 'vault', x: p[0], z: p[1] });
   return plan;
 }
@@ -5532,7 +5537,8 @@ function sapPlan(e, sap, j) {
   const r = rng(5150 + j * 37), plan = [];
   for (let i = 1; i < sap.length - 1; i++) plan.push({ t: 'run', crun: true, near: 0.8, x: sap[i][0] + (r() - 0.5) * 0.4, z: sap[i][1] + (r() - 0.5) * 0.4 });
   const end = sap[sap.length - 1], k = clamp(trK(end[0], end[1])[0], 1, TR.pts.length - 2), p = TR.pts[k];
-  plan.push({ t: 'run', crun: true, final: true, x: end[0], z: end[1] });
+  plan.push({ t: 'run', crun: true, x: end[0], z: end[1], near: 0.6 });
+  const o = TR.out[k]; plan.push({ t: 'run', final: true, x: p[0] + o[0] * PARA_D, z: p[1] + o[1] * PARA_D });   /* out of the sap and up the slope on foot, right up to the sandbags */
   plan.push({ t: 'vault', x: p[0], z: p[1] });
   return plan;
 }
@@ -5604,15 +5610,15 @@ function planStep(e, dt, shoot, aimPitch) {
     if (awareReact(e, dt, shoot, aimPitch)) return;
     e.anim += dt * (s.crun ? 8.5 : 9.5); e.stance = s.crun ? 'crouch' : 'stand'; const d = steer(e, s.x, s.z, s.crun ? Math.min(e.speed, 3.7) : e.speed, dt); e.rig.pose(s.crun ? 'crun' : 'run', e.anim);   /* in the sap: bent low */
     if (s.t === 'run') { const nx = e.plan[e.ps + 1]; if (s.final && nx && d < 2.5 && s.tt < 9 && crowdedAt(nx.x, nx.z, 1.6, e)) { e.stance = 'crouch'; e.rig.pose('crouch', e.anim, 0); return; }
-      if (d < (s.final ? 1.7 : s.near || 0.6) || (s.final ? s.tt > 6 && d < 3.2 : s.tt > 14)) e.ps++;   /* the last steps to the parapet end in the vault - but only from beside it, never a leap from afar */
-      else if (s.final && s.tt > 10) { const k = clamp(trK(e.pos.x, e.pos.z)[0], 1, TR.pts.length - 2), p = TR.pts[k], o = TR.out[k]; s.x = p[0] + o[0] * 2.6; s.z = p[1] + o[1] * 2.6; s.tt = 5; if (nx && nx.t === 'vault') { nx.x = p[0]; nx.z = p[1]; } } }   /* held up on the way to his place: the nearest stretch of parapet instead */
+      if (d < (s.final ? 0.35 : s.near || 0.6) || (s.final ? s.tt > 9 && d < 1.0 : s.tt > 14)) e.ps++;   /* the last steps to the parapet end in the vault - but only from beside it, never a leap from afar */
+      else if (s.final && s.tt > 13) { const k = clamp(trK(e.pos.x, e.pos.z)[0], 1, TR.pts.length - 2), p = TR.pts[k], o = TR.out[k]; s.x = p[0] + o[0] * PARA_D; s.z = p[1] + o[1] * PARA_D; s.tt = 6; if (nx && nx.t === 'vault') { nx.x = p[0]; nx.z = p[1]; } } }   /* held up on the way to his place: the nearest stretch of parapet instead */
     else if (d < 1.0 || s.tt > 7) { s.go = true; e.coverT = s.dur; e.cyc = rand(0.4, 0.9); e.peek = false; }
   } else if (s.t === 'cover') {
     if (coverCycle(e, dt, s, shoot, aimPitch)) { if (s.c && s.c.by === e) s.c.by = null; e.ps++; }
   } else if (s.t === 'vault' || s.t === 'hurdle') {
     // over the parapet into the trench (vault) or over the wire fence (hurdle): one smooth arc, its height the obstacle's, with the vault's own movement
     if (!s.a) { s.a = e.pos.clone(); s.b = V3(s.x, groundAt(s.x, s.z), s.z); s.tt = 0; e.face(s.x, s.z); let top = Math.max(s.a.y, s.b.y); for (let i = 1; i < 6; i++) top = Math.max(top, groundAt(lerp(s.a.x, s.b.x, i / 6), lerp(s.a.z, s.b.z, i / 6)));
-      s.top = top + (s.t === 'hurdle' ? 0.75 : 0.62); s.dur = clamp(Math.hypot(s.b.x - s.a.x, s.b.z - s.a.z) / 2.7, 0.8, 1.3); }
+      s.top = top + (s.t === 'hurdle' ? 0.75 : 0.62); s.dur = clamp(Math.hypot(s.b.x - s.a.x, s.b.z - s.a.z) / 1.9, 1.1, 1.7); }   /* unhurried: a man climbing over a wall of bags */
     const u = clamp(s.tt / s.dur, 0, 1), h = u * u * (3 - 2 * u), cy = 2 * s.top - (s.a.y + s.b.y) / 2; e.pos.x = lerp(s.a.x, s.b.x, h); e.pos.z = lerp(s.a.z, s.b.z, h); e.pos.y = (1 - u) * (1 - u) * s.a.y + 2 * (1 - u) * u * cy + u * u * s.b.y;
     e.stance = 'stand'; e.rig.pose('vault', u);
     if (u >= 1) { e.ps++; if (!e.plan[e.ps]) enterTrench(e); }
@@ -13375,7 +13381,7 @@ function survSidePlan(side, e, i, hold = 0) {
   { const c = pick(Z.band[0], Z.band[1]); if (c) { c.by = e; const o = RR(-0.9, 0.9); plan.push({ t: 'cover', c, x: c.x - c.nz * o, z: c.z + c.nx * o, nx: c.nx, nz: c.nz, h: c.h, dur: RR(2.2, 4.0) + hold }); } else if (hold) plan.push({ t: 'cover', x: e.pos.x + 1.2, z: e.pos.z, nx: 1, nz: 0, h: 0.7, dur: hold }); }   /* one stop on the sand (the north: a long one - they were there before him), then the dash */
   const k = clamp(Z.ks[i % 4] + Math.floor(RR(-2, 3)), 1, TR.pts.length - 2), p = TR.pts[k], o = TR.out[k];
   plan.push({ t: 'cover', x: p[0] + o[0] * 2.6 - 1.2, z: p[1] + o[1] * 2.6 + sg * RR(2, 5), px: p[0] + o[0] * 1.4, pz: p[1], nx: 1, nz: 0, h: 1, dur: RR(1.2, 2.6) });
-  plan.push({ t: 'run', final: true, x: p[0] + o[0] * 2.6, z: p[1] + o[1] * 2.6 });
+  plan.push({ t: 'run', final: true, x: p[0] + o[0] * PARA_D, z: p[1] + o[1] * PARA_D });
   plan.push({ t: 'vault', x: p[0], z: p[1] });
   return plan;
 }

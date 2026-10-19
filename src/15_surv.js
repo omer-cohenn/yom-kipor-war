@@ -43,7 +43,7 @@ function survSidePlan(side, e, i, hold = 0) {
   { const c = pick(Z.band[0], Z.band[1]); if (c) { c.by = e; const o = RR(-0.9, 0.9); plan.push({ t: 'cover', c, x: c.x - c.nz * o, z: c.z + c.nx * o, nx: c.nx, nz: c.nz, h: c.h, dur: RR(2.2, 4.0) + hold }); } else if (hold) plan.push({ t: 'cover', x: e.pos.x + 1.2, z: e.pos.z, nx: 1, nz: 0, h: 0.7, dur: hold }); }   /* one stop on the sand (the north: a long one - they were there before him), then the dash */
   const k = clamp(Z.ks[i % 4] + Math.floor(RR(-2, 3)), 1, TR.pts.length - 2), p = TR.pts[k], o = TR.out[k];
   plan.push({ t: 'cover', x: p[0] + o[0] * 2.6 - 1.2, z: p[1] + o[1] * 2.6 + sg * RR(2, 5), px: p[0] + o[0] * 1.4, pz: p[1], nx: 1, nz: 0, h: 1, dur: RR(1.2, 2.6) });
-  plan.push({ t: 'run', final: true, x: p[0] + o[0] * 2.6, z: p[1] + o[1] * 2.6 });
+  plan.push({ t: 'run', final: true, x: p[0] + o[0] * PARA_D, z: p[1] + o[1] * PARA_D });
   plan.push({ t: 'vault', x: p[0], z: p[1] });
   return plan;
 }
