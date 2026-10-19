@@ -7068,7 +7068,7 @@ function frameInner() {
   if (GAME.state === 'play') update(dt, time); else if (GAME.state !== 'pause' && GAME.state !== 'end') { idleCamera(time); updJets(dt); menuFx(dt); }
   chipsUpd(dt); FX.flashes.update(dt); FX.glows.update(dt); FX.smoke.update(dt); FX.dust.update(dt); FX.fire.update(dt); FX.cones.update(dt); FX.sparks.update(dt); FX.trail.update(dt); FX.exh.update(dt); updateTracers(dt); updateFlares(dt); updateDrumFire(dt, time);
   FX.boomT = (FX.boomT || 0) + dt; LIGHTS.boom.intensity *= Math.max(0, 1 - dt * 9);
-  updFarSmoke(dt, time); wreckUpd(dt); animateWater(dt); waveFlags(time);
+  updFarSmoke(dt, time); wreckUpd(dt); for (const u of DUG_UNITS) if (_shown(u.rig.root)) nsDecide(u); animateWater(dt); waveFlags(time);
   if (HM_PANO) HM_PANO.visible = MODE === 'hermon';   // the view from the Hermon is drawn only there
   if (UNI_E.mode !== MODE) { UNI_E.mode = MODE; uniformFor(MODE); }   // Syrian uniforms on the Hermon, Egyptian everywhere else
   sky.position.copy(camera.position); if (NSKY.g.visible) NSKY.g.position.copy(camera.position); camera.getWorldDirection(_fwd); followSun(camera.position.x + _fwd.x * 40, camera.position.z + _fwd.z * 40); updateVmLight();
@@ -8940,6 +8940,7 @@ function showWorld(mode) {
   TOWN_FOG.value = mode === 'mezach' ? 3.8 : 1; TOWN_SMOKEK.value = mode === 'mezach' ? 1 : 0; if (TOWN_HAZE) TOWN_HAZE.visible = mode === 'mezach';   /* the haze of the first day over the town across the canal */
   const lists = { mezach: SZ.mezObjs, suez: SZ.objs }; for (const k in CHAP) if (k !== 'mezach' && k !== 'suez') lists[k] = CHAP[k].objs || [];
   for (const v of VEH) if (v.tag) v.tag.visible = false;
+  if (mode !== 'prologue' && typeof PR !== 'undefined' && PR.aid0) { Object.assign(AIDPOST, PR.aid0); PR.aid0 = null; }   // mission 0 moved the aid post to its tent
   const mw = !!(CHAP[mode] && CHAP[mode].mezWorld);   // a chapter played on the stronghold's own ground (mission 0)
   for (const k in lists) if (k !== mode && !(mw && k === 'mezach')) for (const o of lists[k]) o.visible = false;
   for (const o of [...(lists[mode] || []), ...(mw ? lists.mezach || [] : [])]) if (o !== SZ.ht && o !== TANK.g && !o.userData.dyn) o.visible = true;
@@ -15169,13 +15170,15 @@ CHAP.range = { stages: RG_STAGES, st: () => 0, cp: () => 0, upd: rgUpd, obj: () 
 const PR = { step: 0, stepT: 0, msgs: {}, stage: 0, done: [], tg: [], raft: null, pit: null };
 const PR_STAGES = [
   { title: 'תרגיל בלימה', sub: 'שישי, 5 באוקטובר 1973, ערב יום כיפור. המ״פ מריץ תרגיל כוננות לאורך הסוללה המערבית: כל מה שהמעוז צריך כדי להחזיק.', goal: 'תרגילי המ״פ, אחד אחרי השני' },
+  { title: 'מטווח טנקים', sub: 'לפני השקיעה, בקצה הדרומי של המעוז. מחלקת הטנקים מתרגלת ירי מעמדת צריח על שני טנקים ישנים שנגררו לשם כמטרות.', goal: 'שני פגזים, שתי מטרות' },
   { title: 'לילה', sub: 'קצת לפני חצות. שקט על התעלה, ומחר יום כיפור.', goal: 'שמירה על הסוללה' },
 ];
-const PR_TOD = [16 * 60 + 52, 23 * 60 + 48];
+const PR_TOD = [16 * 60 + 52, 17 * 60 + 22, 23 * 60 + 48];
+const PR_NIGHT = 2;
 // the drill's places, along the western trench (x ~ -76.5) from north to south
 const PR_AT = {
   start: [-76.9, -50], walk: [-76.8, -38.5], run: [-76.6, -24], bay: [-78.5, -19.2],
-  pit: [-101, -20], mag: 'W2', roof: [-76.4, -1.4], dudu: [-76.3, 10.5], ammo: 'G2', night: [-78.6, 4.6],
+  pit: [-101, -20], tent: [-64, 10], mag: 'W2', roof: [-76.4, -1.4], dudu: [-76.3, 10.5], ammo: 'G2', night: [-78.6, 4.6],
 };
 // the plywood targets on the beach in front of the bay (x, z, kind, label); they rise one after another
 const PR_TARGETS = [[-104, -27, 'rifle', 'רובאי'], [-107, -13, 'lmg', 'מקלען'], [-110, -33, 'sniper', 'צלף'], [-105, -6, 'rpg', 'אר־פי־ג׳י']];
@@ -15306,6 +15309,49 @@ const PR_STEPS = [
     hint: () => `<b>תחמושת:</b> בכל עמדה לאורך התעלה יש ארגז. ${prKey('הכפתור הירוק', K('E'))} ליד הארגז ממלא כדורים ורימונים.`,
     done: () => P.reserve >= 160 },
 ];
+/* ---------- the tank range: a Magach of the platoon goes up into a hull-down position at the south end of the stronghold and fires two
+   shells at two old tanks towed out there as targets ---------- */
+const PR_TK = { path: [[-6, -94], [-6, -117]], berm: [-6, -123], foes: [[-20, -262, 0.3], [24, -296, -0.25]] };
+const PR_TC = 'ניסים · מפקד הטנק';
+const prFoe = (i) => PR.foes && PR.foes[i];
+const prFoeAt = (i) => { const v = prFoe(i); return v ? [v.g.position.x, v.g.position.y + 2.2, v.g.position.z, 'מטרה'] : null; };
+const PR_TSTEPS = [
+  { id: 'tup', title: 'לעמדת צריח', at: () => null, who: PR_TC,
+    say: ['נהג, קדימה לעמדה. לאט... לאט... עצור. רק הצריח מעל הסוללה, הגוף מתחתיה. ככה הם רואים מאיתנו כמה שפחות.'],
+    start: () => { TANK.goal = pathLen(PR_TK.path) - 0.05; },
+    hint: () => '<b>עמדת צריח:</b> הטנק עולה לבד אל מאחורי סוללת העפר. רק הצריח והתותח מציצים מעליה, והגוף מוגן.',
+    done: () => TANK.goal !== null && Math.abs(TANK.s - TANK.goal) < 0.08 && Math.abs(TANK.speed) < 0.05 },
+  { id: 'tsight', title: 'כוונת התותחן', at: () => prFoeAt(0), who: PR_TC,
+    say: ['תיכנס לכוונת. שני טנקים ישנים, גררו אותם לשם בשבילנו.'],
+    hint: () => `<b>כוונת:</b> ${prKey(`${K('לחצן ימני')} נכנסים לכוונת התותחן, והעכבר מזיז את הצריח`, 'הכפתור <kbd>כוונת</kbd> מכניס לכוונת התותחן. גוררים באצבע בצד ימין כדי לסובב את הצריח')}.`,
+    done: () => P.ads > 0.5 },
+  { id: 'tfire1', title: 'פגז ראשון', at: () => prFoeAt(0), who: PR_TC,
+    say: ['טנק, ימני, אלף שמונה מאות. תותחן, אש!'],
+    hint: () => `<b>פגז:</b> שימו את הצלב על הטנק הימני ו${prKey(`לחצו ${K('G')}`, 'לחצו על הכפתור <kbd>תותח</kbd>')}. הכוונת עוזרת לכם להינעל על המטרה.`,
+    done: () => prFoe(0) && !prFoe(0).alive },
+  { id: 'tfire2', title: 'פגז שני', at: () => prFoeAt(1), who: PR_TC,
+    say: ['פגיעה! טען... מוכן. טנק שמאלי, רחוק יותר. אש!'],
+    hint: () => `<b>טעינה:</b> אחרי כל פגז הטען טוען 4 שניות (בפינה כתוב "טוען"). כוונו לטנק השמאלי ו${prKey(K('G'), 'הכפתור <kbd>תותח</kbd>')}.`,
+    done: () => prFoe(1) && !prFoe(1).alive },
+];
+const prSteps = () => (PR.stage === 1 ? PR_TSTEPS : PR_STEPS);
+function prBuildRange() {
+  // the earth bank the tank goes up behind: a long low mound across its front
+  const [bx, bz] = PR_TK.berm, g0 = groundAt(bx, bz), geo = new THREE.CylinderGeometry(1.7, 2.1, 9.5, 18, 1).rotateZ(Math.PI / 2); geo.scale(1, 0.72, 1);
+  const m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: 0xb59c6c, roughness: 1 })); m.position.set(bx, g0 - 0.12, bz); m.receiveShadow = SHADOWS; m.castShadow = SHADOWS; scene.add(m);
+  // the targets: two old T-55s, white crosses painted on them, standing in the sand far out to the south
+  PR.foes = PR_TK.foes.map(([x, z, h]) => { const v = addVeh({ mode: 'prologue', side: 'e', kind: 't55', geo: T55_HULL, turGeo: T55_TUR, turAt: [0.3, 1.42, 0], half: [3.2, 2.3, 1.75], armor: 0, hp: 100, vmax: 0, shoots: false, fireCd: 1e9 }); v.at = [x, z, Math.PI + h]; if (v.g.userData.vl) v.g.userData.vl.crew = false; return v; });   // nobody in them
+}
+function prTankSetup() {
+  for (const v of PR.foes) { vehRevive(v); v.shown = true; v.g.visible = true; v.path = null; v.fireCd = 1e9; v.shoots = false; vehPose(v, v.at[0], v.at[1], v.at[2]); }
+  tankStart(PR_TK.path, (x, z) => [x, z], 0, []); TANK.driveOn = false; TANK.free = false; TANK.goal = null; TANK.speed = 0; P.pitch = -0.04;
+  PR.step = -1; DIRQ.push({ at: GAME.t + 1.6, fn: () => prStep(0) });
+}
+function prTankDone() {
+  radio(PR_TC, 'שתי יריות, שתי פגיעות. אם הם יבואו מחר, זה מה שיקרה להם.', 4.2, true);
+  DIRQ.push({ at: GAME.t + 4.6, fn: () => radio('הטען', 'אחרי מה שעשינו להם ב־67? הם לא יעזו לחצות.', 3.6, true) });
+  DIRQ.push({ at: GAME.t + 8.6, fn: () => prCut(() => prSetup(PR_NIGHT)) });
+}
 const prPt = (x, z, h, label) => [x, groundAt(x, z) + h, z, label];
 const prNear = (at, r) => Math.hypot(at[0] - P.pos.x, at[1] - P.pos.z) < r;
 
@@ -15325,7 +15371,7 @@ function prSiren() {   // the stronghold's hand siren, wound up and down
 }
 function prWoundDudu() {
   const f = prDudu(), u = f.unit; f.prevState = 'post'; if (f.post) f.post.occupant = null;
-  u.place(PR_AT.dudu[0], PR_AT.dudu[1]); u.heading = -Math.PI / 2; u.fall = 0; u.fallDir = 1; u.stance = 'down'; u.alive = true; f.state = 'wounded'; f.bleed = 1e9; f.marker.visible = true;
+  u.place(PR_AT.dudu[0], PR_AT.dudu[1]); u.heading = 0;   /* along the trench, not into its wall */ u.fall = 0; u.fallDir = 1; u.stance = 'down'; u.alive = true; f.state = 'wounded'; f.bleed = 1e9; f.marker.visible = true;
 }
 /* the boat on the rope: towed up and down the canal before the western MAG, three figures standing in it */
 function prBuildRaft() {
@@ -15342,8 +15388,35 @@ function prRaftUpd(dt) {
 }
 
 /* ---------- the chapter ---------- */
+/* the battalion aid station for the drill: a big tent in the yard behind the western trench - canvas on poles, a red cross on white on its
+   roof and its sides, stretchers on the ground, a medical chest, a doctor and a medic waiting */
+function prBuildTent() {
+  const [tx, tz] = PR_AT.tent, g0 = groundAt(tx, tz), g = new THREE.Group(); g.position.set(tx, g0, tz);
+  const W = 9, D = 7, H = 3.1, E = 1.9, can = new THREE.MeshStandardMaterial({ color: 0x6f6a48, roughness: 0.95, side: THREE.DoubleSide }), pole = new THREE.MeshStandardMaterial({ color: 0x4a3a28, roughness: 0.9 });
+  const crossTex = (() => { const c = canvas(128, 128), q = c.getContext('2d'); q.fillStyle = '#f2efe6'; q.fillRect(0, 0, 128, 128); q.fillStyle = '#c4161c'; q.fillRect(48, 14, 32, 100); q.fillRect(14, 48, 100, 32); return tex(c); })();
+  const crossM = new THREE.MeshStandardMaterial({ map: crossTex, roughness: 0.9, side: THREE.DoubleSide, emissive: 0x220404 });
+  // the roof: two slopes from the ridge to the eaves
+  const slope = Math.hypot(D / 2, H - E), ang = Math.atan2(H - E, D / 2);
+  for (const sd of [-1, 1]) { const r = new THREE.Mesh(new THREE.PlaneGeometry(W, slope), can); r.position.set(0, (H + E) / 2, sd * D / 4); r.rotation.x = -Math.PI / 2 + sd * ang; g.add(r);
+    const c = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 2.4), crossM); c.position.set(0, (H + E) / 2 + 0.03, sd * D / 4 + sd * 0.01); c.rotation.x = -Math.PI / 2 + sd * ang; g.add(c); }
+  // the walls: the two long sides (to the eaves) and the far gable; the gable towards the trench is left open, the way in
+  const gab = new THREE.Shape([new THREE.Vector2(-D / 2, 0), new THREE.Vector2(D / 2, 0), new THREE.Vector2(D / 2, E), new THREE.Vector2(0, H), new THREE.Vector2(-D / 2, E)]);
+  { const m = new THREE.Mesh(new THREE.ShapeGeometry(gab), can); m.rotation.y = Math.PI / 2; m.position.set(W / 2, 0, 0); g.add(m); const c = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 1.5), crossM); c.rotation.y = Math.PI / 2; c.position.set(W / 2 + 0.02, 1.95, 0); g.add(c); }
+  for (const sd of [-1, 1]) { const m = new THREE.Mesh(new THREE.PlaneGeometry(W, E), can); m.position.set(0, E / 2, sd * D / 2); g.add(m); const c = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 1.4), crossM); c.position.set(0, 1.0, sd * (D / 2 + 0.02)); g.add(c); }
+  { const c = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 1.2), crossM); c.rotation.y = Math.PI / 2; c.position.set(-W / 2, H - 0.75, 0); g.add(c); }   // over the open way in
+  for (const [x, z, h] of [[-W / 2, -D / 2, E], [-W / 2, D / 2, E], [W / 2, -D / 2, E], [W / 2, D / 2, E], [-W / 2, 0, H], [W / 2, 0, H], [0, 0, H]]) { const m = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, h, 6), pole); m.position.set(x, h / 2, z); g.add(m); }
+  // three stretchers on the ground (the middle one is where the wounded are laid), a medical chest, a water can
+  const st = new THREE.MeshStandardMaterial({ color: 0x55603d, roughness: 1 }), bar = new THREE.MeshStandardMaterial({ color: 0x3b3a30, roughness: 0.8 });
+  for (const z of [-0.9, 0, 0.9]) { const s = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.04, 0.6), st); s.position.set(1.2, 0.2, z); g.add(s); for (const sd of [-1, 1]) { const b = new THREE.Mesh(new THREE.BoxGeometry(2.3, 0.05, 0.05), bar); b.position.set(1.2, 0.18, z + sd * 0.3); g.add(b); } for (const lx of [0.3, 2.1]) for (const sd of [-1, 1]) { const l = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.18, 0.05), bar); l.position.set(lx, 0.09, z + sd * 0.3); g.add(l); } }
+  { const ch = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.5, 0.55), new THREE.MeshStandardMaterial({ color: 0x4d5636, roughness: 0.9 })); ch.position.set(3.4, 0.25, -2.8); g.add(ch); const c = new THREE.Mesh(new THREE.PlaneGeometry(0.4, 0.4), crossM); c.position.set(3.4, 0.36, -2.52); g.add(c); }
+  g.traverse((m) => { if (m.isMesh) { m.castShadow = SHADOWS; m.receiveShadow = SHADOWS; } }); scene.add(g);
+  // the doctor and the medic (the game's own soldiers, dressed like the others)
+  PR.medics = [[2.6, -1.0, Math.PI, 'idle'], [0.3, 1.0, Math.PI / 2, 'idle']].map(([x, z, hd, pose]) => { const u = new Unit('f', 'rifle'); scene.remove(u.tag); u.place(tx + x, tz + z); u.heading = hd; u.alive = true; u.stance = 'stand'; u.rig.root.visible = true; u.rig.gun.visible = false; u.rig.pose(pose, 0); u.sync(); return u; });
+  PR.tent = { x: tx + 1.2, z: tz, rot: 0, y: undefined };
+}
 function prBuild() {
   const C = CHAP.prologue; C.slots = []; C.covers = [];
+  prBuildTent(); prBuildRange();
   PR.tg = PR_TARGETS.map(([x, z, kind, label]) => { const [bx, bz] = PR_AT.bay; return prTarget(kind, x, z, bx - x, bz - z, label); });
   // the grenade pit: a ring of sandbags round a hollow
   { const BAGS = [], sv = BATCH.bag; BATCH.bag = BAGS; const [px, pz] = PR_AT.pit, g0 = groundAt(px, pz), ring = []; for (let a = 0; a <= 360.1; a += 15) { const r = THREE.MathUtils.degToRad(a); ring.push([px + Math.sin(r) * PR_PIT_R, pz + Math.cos(r) * PR_PIT_R]); } bagWall(ring, 1, null, false); BATCH.bag = sv; scene.add(bagMesh(BAGS));
@@ -15352,6 +15425,7 @@ function prBuild() {
   prBuildRaft();
 }
 function prSetup(stage = 0) {
+  if (!PR.aid0) PR.aid0 = { ...AIDPOST }; Object.assign(AIDPOST, PR.tent); delete AIDPOST.y;   // the wounded go to the aid tent in the yard
   for (const B of BARRS) { B.on = false; B.g.visible = false; B.col.top = -1e4; }   // a drill, not the battle: every trench of the stronghold is open
   const C = CHAP.prologue; fieldSetupCommon(C, stage); C.t = 0; PR.stage = stage; PR.msgs = {}; PR.done = []; P.mode = 'rifle'; vm.visible = true; TANK.g && (TANK.g.visible = false);
   for (const T of PR.tg) { T.want = 0; T.up = 0; T.hit = false; T.pivot.rotation.x = -Math.PI / 2; }
@@ -15362,34 +15436,38 @@ function prSetup(stage = 0) {
   if (stage === 0) {
     const [sx, sz] = PR_AT.start; P.pos.set(sx, groundAt(sx, sz), sz); P.yaw = Math.PI; P.pitch = -0.04;
     prStep(0);
-  } else prNight();
+  } else if (stage === 1) prTankSetup(); else prNight();
   fieldStage(C, stage);
 }
 function prStep(i) {
-  PR.step = i; PR.stepT = 0; const S = PR_STEPS[i]; if (!S) { prDrillDone(); return; }
+  PR.step = i; PR.stepT = 0; const S = prSteps()[i]; if (!S) { if (PR.stage === 1) prTankDone(); else prDrillDone(); return; }
   if (S.start) S.start();
-  TUT.radioQ = TUT.radioQ.filter((r) => r.who !== PR_MC);   // the words of a step already passed are not said any more
-  for (const l of S.say) radio(PR_MC, l, Math.max(3.2, l.length * 0.075), true);
+  TUT.radioQ = TUT.radioQ.filter((r) => r.who !== PR_MC && r.who !== PR_TC);   // the words of a step already passed are not said any more
+  for (const l of S.say) radio(S.who || PR_MC, l, Math.max(3.2, l.length * 0.075), true);
   PR.hintAt = GAME.t + 0.8;   // the hint follows the words a moment later
   prMcTo(i);
 }
 /* the company commander goes ahead to the next place of the drill: he walks there if you are watching, and simply is there if you are not */
 const PR_MC_AT = { walk: [-77.6, -36.6], run: [-77.4, -26.2], crouch: [-77.4, -21.4], gren: [-77.4, -21.4], man: [-77.3, -10.6], air: [-77.0, -3.6], treat: [-75.3, 12.6], ammo: [-77.6, 21.2] };
 function prMcTo(i) {
-  const id = PR_STEPS[i].id, at = PR_MC_AT[id]; if (!at) return; const f = FRIENDS[0];
+  if (PR.stage !== 0) return; const id = PR_STEPS[i].id, at = PR_MC_AT[id]; if (!at) return; const f = FRIENDS[0];
   if (Math.hypot(f.unit.pos.x - at[0], f.unit.pos.z - at[1]) < 0.5) return;
   f.state = 'toPost'; f.goal = at; f.goalY = undefined; f.delay = 0; f.post.fx = -1; f.post.fz = 0;
 }
 function prDrillDone() {
   PR.msgs.end = GAME.t; radio(PR_MC, 'זהו. אתם מוכנים, ואני מקווה שלא נצטרך. ארוחת חג בשש, ושמירה בלילה.', 4.6, true);
-  DIRQ.push({ at: GAME.t + 5.2, fn: () => prCut(() => prSetup(1)) });
+  DIRQ.push({ at: GAME.t + 5.0, fn: () => radio('רפי', 'המפקד, המודיעין אומר "סבירות נמוכה". המצרים עושים תרגיל, כמו כל סתיו.', 4.4, true) });
+  DIRQ.push({ at: GAME.t + 9.6, fn: () => radio(PR_MC, 'שיעשו. אחרי ששת הימים הם יודעים מה מחכה להם. עכשיו לטנקים, הם יורים לפני השקיעה.', 4.6, true) });
+  DIRQ.push({ at: GAME.t + 14.6, fn: () => prCut(() => prSetup(1)) });
 }
 function prNight() {
   const [x, z] = PR_AT.night; P.pos.set(x, groundAt(x, z), z); P.yaw = Math.PI / 2; P.pitch = 0.02; PR.nightT = 0;
   FRIENDS[2].unit.place(-78.7, 2.6); FRIENDS[2].unit.heading = -Math.PI / 2; FRIENDS[2].state = 'post'; FRIENDS[2].unit.stance = 'stand';
   DIRQ.push({ at: GAME.t + 2.5, fn: () => radio('רפי', 'שקט מדי הלילה. אפילו הכלבים בצד שלהם שותקים.', 4.2, true) });
   DIRQ.push({ at: GAME.t + 8, fn: () => radio('רפי', 'מחר יום כיפור. אצלם רמדאן. אף אחד לא יירה מחר, נכון?', 4.4, true) });
-  DIRQ.push({ at: GAME.t + 15, fn: prToMission1 });
+  DIRQ.push({ at: GAME.t + 13.5, fn: () => radio('שמוליק', 'שיירו. ב־67 הם השאירו את הנעליים בחול וברחו. יש לנו את הסוללה, את הטנקים ואת חיל האוויר.', 5, true) });
+  DIRQ.push({ at: GAME.t + 19.5, fn: () => radio('רפי', 'כן... יומיים, ואנחנו בקהיר. ככה אומרים.', 3.6, true) });
+  DIRQ.push({ at: GAME.t + 25, fn: prToMission1 });
 }
 /* a fade to black and back, with the change made in the dark */
 function prCut(fn) { const f = $('#fade'); f.style.transition = 'opacity .6s'; f.style.opacity = '1'; DIRQ.push({ at: GAME.t + 0.7, fn: () => { fn(); DIRQ.push({ at: GAME.t + 0.4, fn: () => { f.style.opacity = '0'; } }); } }); }
@@ -15408,6 +15486,7 @@ function prToMission1() {
 function prUpd(dt) {
   const C = CHAP.prologue; C.t += dt; PR.stepT += dt;
   for (let i = DIRQ.length - 1; i >= 0; i--) if (DIRQ[i] && GAME.t >= DIRQ[i].at) { const q = DIRQ.splice(i, 1)[0]; q.fn(); }
+  if (PR.medics) for (const u of PR.medics) u.sync();
   if (P.hp < 100) P.hp = 100; if (PR.stage === 0 && P.gren < 3) P.gren = 3;   // a drill: grenades without end
   // the pit catches a grenade that reaches it: on the slope of the rampart it would roll on down to the water
   for (const q of PROJ) if (q.type === 'gren' && q.owner === 'player' && Math.hypot(q.m.position.x - PR_AT.pit[0], q.m.position.z - PR_AT.pit[1]) < PR_PIT_R && q.m.position.y < groundAt(q.m.position.x, q.m.position.z) + 0.6) { q.v.set(0, Math.min(q.v.y, 0), 0); }
@@ -15418,8 +15497,8 @@ function prUpd(dt) {
   }
   for (const T of PR.raft ? PR.raft.figs : []) if (T.hit && T.pivot.rotation.x > -1.4) T.pivot.rotation.x -= dt * 3;
   prRaftUpd(dt);
-  if (PR.stage !== 0) return;
-  const S = PR_STEPS[PR.step]; if (!S) return;
+  if (PR.stage === PR_NIGHT) return;
+  const S = prSteps()[PR.step]; if (!S) return;
   if (PR.hintAt && GAME.t >= PR.hintAt) { PR.hintAt = 0; TUT.seen['pr-' + S.id] = false; hint('pr-' + S.id, S.hint(), 30); }
   // the enemy grenade of the drill: away from it when it goes, or once more
   if (S.id === 'gwarn' && PR.gw === 'fly' && GAME.t - PR.gwT > 2.75) { const far = Math.hypot(P.pos.x - PR.gwAt.x, P.pos.z - PR.gwAt.z) > 4.5; PR.gw = far ? 'ok' : 'again'; if (!far) { radio(PR_MC, 'מת. בתרגיל, אבל מת. עוד פעם, והפעם תזוז!', 3.4, true); DIRQ.push({ at: GAME.t + 3.6, fn: prThrowAtPlayer }); } }
@@ -15429,7 +15508,7 @@ function prUpd(dt) {
     PR.done.push(S.title); feed(`✓ ${S.title}`, 'good'); sndClick(1500, 0.2); setTimeout(() => sndClick(1900, 0.18), 90);
     if (S.id === 'carry') DIRQ.push({ at: GAME.t + 2.2, fn: () => { const f = prDudu(); reviveFriend(f); f.unit.place(AIDPOST.x + 1.2, AIDPOST.z + 1.0); radio('דודו', 'אני מת... מצחוק. תודה, חובש.', 3, true); } });
     if (S.id === 'shoot') for (const T of PR.tg) T.want = 0;
-    PR.step = -1; DIRQ.push({ at: GAME.t + 1.3, fn: () => prStep(PR_STEPS.indexOf(S) + 1) });
+    PR.step = -1; DIRQ.push({ at: GAME.t + 1.3, fn: () => prStep(prSteps().indexOf(S) + 1) });
   }
 }
 /* the hooks: a round from the player against the targets and the boat (castShot), what it hits (applyHit), a grenade going off (explode),
@@ -15443,25 +15522,25 @@ function prRayT(o, d, maxT) {
 function prHitT(hit) {
   if (hit.raft) { PR.raftHits = (PR.raftHits || 0) + 1; fxDust(hit.p.clone(), true); const f = PR.raft.figs[PR.raftHits % 3]; if (PR.raftHits >= 12) for (const T of PR.raft.figs) T.hit = true; return; }
   const T = hit.tg; if (!T || T.hit) return; T.hit = true; fxDust(hit.p.clone(), false); sndImpact(hit.p); hitmark(true);
-  const i = PR.tg.indexOf(T); if (PR_STEPS[PR.step] && PR_STEPS[PR.step].id === 'shoot') DIRQ.push({ at: GAME.t + 0.9, fn: () => prRaise(i + 1) });
+  const i = PR.tg.indexOf(T); if (PR.stage === 0 && PR_STEPS[PR.step] && PR_STEPS[PR.step].id === 'shoot') DIRQ.push({ at: GAME.t + 0.9, fn: () => prRaise(i + 1) });
 }
-function prBoom(p, src) { if (src === 'player' && PR_STEPS[PR.step] && PR_STEPS[PR.step].id === 'gren' && Math.hypot(p.x - PR_AT.pit[0], p.z - PR_AT.pit[1]) < PR_PIT_R + 1.5) PR.boomHit = true; }
+function prBoom(p, src) { if (src === 'player' && PR.stage === 0 && PR_STEPS[PR.step] && PR_STEPS[PR.step].id === 'gren' && Math.hypot(p.x - PR_AT.pit[0], p.z - PR_AT.pit[1]) < PR_PIT_R + 1.5) PR.boomHit = true; }
 function prTreat(f) { f.state = 'stable'; f.marker.visible = true; f.bleed = 1e9; STATS.treated++; feed(`${f.name} חבוש. עכשיו לפנות`, 'good'); radio(f.name, 'איי... חבשת כמו אמא שלי. עכשיו תסחוב אותי.', 3, true); }
-function prObj() { const S = PR_STEPS[PR.step]; if (PR.stage !== 0 || !S) return null; const a = S.at(); if (!a) return null; if (a.length >= 4) return a; return [a[0], groundAt(a[0], a[1]) + 1.2, a[1], S.label || S.title]; }
+function prObj() { const S = prSteps()[PR.step]; if (PR.stage === PR_NIGHT || !S) return null; const a = S.at(); if (!a) return null; if (a.length >= 4) return a; return [a[0], groundAt(a[0], a[1]) + 1.2, a[1], S.label || S.title]; }
 function prItems(items) {
-  if (PR.stage === 1) { items.push(['go', PR_STAGES[1].goal]); return; }
-  items.push(['go', 'תרגיל כוננות · ערב יום כיפור']);
-  const n = PR_STEPS.length, i = Math.max(0, PR.step), last = PR.done[PR.done.length - 1];
+  if (PR.stage === PR_NIGHT) { items.push(['go', PR_STAGES[PR_NIGHT].goal]); return; }
+  items.push(['go', PR.stage === 1 ? 'מטווח טנקים · עמדת צריח' : 'תרגיל כוננות · ערב יום כיפור']);
+  const n = prSteps().length, i = Math.max(0, PR.step), last = PR.done[PR.done.length - 1];
   if (last) items.push(['done', `✓ ${last}`]);
-  const S = PR_STEPS[PR.step]; if (S) items.push(['next', `${S.title} <small>${Math.min(i + 1, n)}/${n}</small>`]);
+  const S = prSteps()[PR.step]; if (S) items.push(['next', `${S.title} <small>${Math.min(i + 1, n)}/${n}</small>`]);
   if (S && S.id === 'raft') items.push(['', `פגיעות בסירה: ${PR.raftHits || 0}/12`]);
   if (S && S.id === 'shoot') items.push(['', `מטרות: ${PR.tg.filter((q) => q.hit).length}/${PR.tg.length}`]);
 }
 function prHints() {}
 function prEnd() { return ['ערב יום כיפור', 'התרגיל הושלם.', [[PR.done.length, 'תרגילים']]]; }
 CHAP.prologue = { stages: PR_STAGES, st: () => PR.stage, cp: () => PR.stage, upd: prUpd, obj: prObj, hints: prHints, items: prItems, restore: fieldRestore, end: prEnd, snapOK: () => false,
-  mezWorld: true, mezMini: true, peace: true, night: true, rayT: prRayT, hitT: prHitT, onBoom: prBoom, treat: prTreat, stableTag: () => 'לתאג״ד',
-  tod: () => PR_TOD[PR.stage] - START_MIN + CHAP.prologue.t / (PR.stage ? 30 : 7),
+  mezWorld: true, mezMini: true, peace: true, night: true, tank: true, rayT: prRayT, hitT: prHitT, onBoom: prBoom, treat: prTreat, stableTag: () => 'לתאג״ד',
+  tod: () => PR_TOD[PR.stage] - START_MIN + CHAP.prologue.t / (PR.stage ? 30 : 12),
   build: () => chapterBuild(CHAP.prologue, prBuild), setup: prSetup, clock: '5.10.1973 · מעוז המזח · ערב יום כיפור', toast: ['שישי, 5 באוקטובר 1973 · 16:52', 'ערב יום כיפור במעוז המזח'], start: () => fieldStart('prologue') };
 
 /* ================= checkpoints that save the moment =================
