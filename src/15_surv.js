@@ -3,7 +3,7 @@
    Every wave comes from somewhere else: boats from the west, commandos down the road from the north, infantry from Port Tewfik in the south,
    and later from two and three sides at once. Every MG is free and never needs a new belt; three recoilless guns stand ready; enough points
    call in an air strike on the spot you look at. The game lasts as long as you do. */
-const SURV_DIRS = { w: 'ממערב, מהתעלה', n: 'מצפון, לאורך החוף', s: 'מדרום, לאורך החוף' };
+const SURV_DIRS = { w: 'ממערב, מהתעלה', n: 'מצפון, מהשיחים', s: 'מדרום, מהשיחים' };
 /* survival is fought in the "small strongpoint": the middle hundred metres of the western rampart, closed at both ends by barricades that stand
    only in this mode (the whole strongpoint is far too long to run end to end between waves). The northern attack comes down the shore and
    climbs into the northern end of that stretch, the southern one up the shore into its southern end, the boats land in the middle. */
@@ -47,11 +47,13 @@ function survSidePlan(side, e, i, hold = 0) {
   plan.push({ t: 'vault', x: p[0], z: p[1] });
   return plan;
 }
+/* the attacks from the north and the south come as in the chapter: out of the scrub and up the Egyptians' own saps to our trench (every third
+   man stays halfway up his sap and fires over its lip to keep heads down) */
 function survSideGroup(side, n, delay, kinds = []) {
-  const Z = SURV_ZONE[side], north = side === 'n';
+  const Z = SURV_ZONE[side], north = side === 'n', saps = SAPS[side];
   for (let i = 0; i < n; i++) {
-    const k = kinds[i] || 'rifle', r = rng(91 + i * 37 + SURV.wave * 11 + (side === 'n' ? 7 : 0)), go = () => { const e = spawnEnemy(Z.spawn[0] + (r() - 0.5) * Z.spawn[2], Z.spawn[1] + (r() - 0.5) * Z.spawn[3], varyKind(k, i * 3.7 + SURV.wave, delay), null, null); if (!e) { DIRQ.push({ at: GAME.t + 1, spawn: true, fn: go }); return; } e.plan = survSidePlan(side, e, i, north ? 3 + r() * 5 : 0); e.state = 'plan'; };
-    DIRQ.push({ at: GAME.t + delay + i * (north ? 0.3 : 1.5), spawn: true, fn: go });   /* the north is on the beach all at once */
+    const k = kinds[i] || 'rifle', r = rng(91 + i * 37 + SURV.wave * 11 + (side === 'n' ? 7 : 0)), j = i + SURV.wave * 7, sap = saps[j % 2], go = () => { const e = spawnEnemy(sap[0][0] + (r() - 0.5) * 0.8, sap[0][1] + (r() - 0.5) * 0.8, varyKind(k, i * 3.7 + SURV.wave, delay), null, null); if (!e) { DIRQ.push({ at: GAME.t + 1, spawn: true, fn: go }); return; } e.plan = sapPlan(e, sap, j + (north ? 0 : 50)); e.state = 'plan'; };
+    DIRQ.push({ at: GAME.t + delay + i * 1.1, spawn: true, fn: go });
   }
 }
 
@@ -87,9 +89,9 @@ function survWave(n) {
   const total = Math.round((n <= 8 ? SURV_TOTAL[n - 1] : SURV_TOTAL[7] + (n - 8) * 9) * diff.extra), per = Math.ceil(total / dirs.length);
   SURV.dirs = dirs; SURV.acc = Math.min(1.75, 1 + (n - 1) * 0.08);
   dirs.forEach((dr, di) => {
-    const T = di * 32;   // each further direction is a wave of its own, half a minute behind the one before: never two sides in the same breath
+    const T = di * 60;   // each further direction is a wave of its own, a full minute behind the one before: time to run from one side of the stronghold to the other
     if (dr === 'w') { const nb = Math.max(2, Math.ceil(per / 3)); for (let i = 0; i < nb; i++) { const z = rand(-30, 34), b = launchBoat(z, T + 2 + i * rand(1.4, 2.4), Math.min(7, 4 + Math.floor(n / 3)), Math.random() < 0.2 + n * 0.04 ? 1 : 0, n >= 5 && Math.random() < 0.15 ? 1 : 0); b.hp = 170; } }
-    else if (dr === 'n') { const pn = Math.max(3, Math.round(per * 0.6)); survSideGroup('n', pn, T + 0.5, survKinds(n, pn));   /* fewer of them: they are right there */ if (n >= 4) for (let i = 0; i < 2; i++) launchBoat(rand(-62, -46), T + 4 + i * 3, 4, 0); }
+    else if (dr === 'n') { survSideGroup('n', per, T + 3, survKinds(n, per)); if (n >= 4) for (let i = 0; i < 2; i++) launchBoat(rand(-62, -46), T + 4 + i * 3, 4, 0); }
     else { survSideGroup('s', per, T + 3, survKinds(n, per)); if (n >= 6) launchBoat(rand(40, 56), T + 5, 4, 0); }
     // from the third wave a jeep leads the shore attacks, from the fifth a tank follows it, from the seventh two
     if (dr !== 'w') { if (n >= 3) survVeh(dr, 'jeep', T + 5); if (n >= 5) survVeh(dr, 't55', T + 10, 7); if (n >= 7) survVeh(dr, 't55', T + 17, 16); }
@@ -104,7 +106,7 @@ function survClear() {
   feed(`גל ${n} נהדף · בונוס ${b}`, 'good'); radio('מ״פ', n >= 7 ? 'עוד גל נשבר עלינו! מחזיקים, לא זזים!' : pick(['הגל נהדף! מילוי תחמושת, הם יחזרו.', 'הם נסוגים! לעמדות, הגל הבא בדרך.', 'המוצב שלנו. תחמושת ורימונים, מהר.']), 3.4);
   P.hp = Math.min(100, P.hp + 45); P.gren = Math.max(P.gren, diff.gren0); P.reserve = Math.max(P.reserve, 160);
   for (const f of FRIENDS) if (f.state === 'wounded' || f.state === 'stable') { f.state = 'saved'; f.marker.visible = false; }
-  SURV.state = 'break'; SURV.t = 0; SURV.breakLen = 18; SURV.nextDirs = survDirsFor(n + 1);
+  SURV.state = 'break'; SURV.t = 0; SURV.breakLen = 30;   /* half a minute to get across the stronghold to where the next one comes from */ SURV.nextDirs = survDirsFor(n + 1);
   DIRQ.push({ at: GAME.t + 3, fn: () => { if (SURV.on && SURV.state === 'break') { toast(`הגל הבא ${SURV.nextDirs.map((d) => SURV_DIRS[d]).join(' וגם ')}`, 'החץ האדום במפה מראה מאיפה. תפסו עמדה שם'); radio('תצפית', `הגל הבא יגיע ${SURV.nextDirs.map((d) => SURV_DIRS[d]).join(' וגם ')}. ${SURV.nextDirs.length > 1 ? 'מתפצלים!' : 'כולם לשם!'}`, 3.4); } } });
 }
 
@@ -137,19 +139,19 @@ function survStart() {
   MAT.clothE.color.setHex(0xffffff); TANK.goal = null; $('#app').classList.remove('armor');
   SURV.on = true; resetGame(); survShowGuns(true); setRim(MAT.clothE, 0);
   MODE = 'mezach'; D.phase = 'surv'; D.phaseT = 0; D.scene = 0;
-  for (const B of BARRS) { B.on = !!B.surv; B.g.visible = B.on; B.col.top = B.on ? B.top : -1e4; }   // the campaign's barricades open, the two of the small strongpoint close
+  for (const B of BARRS) { B.on = false; B.g.visible = false; B.col.top = -1e4; }   // the whole stronghold is open, as in the chapter: every trench, north, west and south
   // every MG is free: the defenders who sat on them take places in the trench beside them; and everyone holds the western rampart, where the whole fight is
-  const moveTo = { W4: 'T38', N3: 'T16', S3: 'T40', W2N: 'T-26', W2S: 'T10', N2: 'T-14', S2: 'T36', E1: 'T-32', K18: 'T-12', K48: 'T34', 'T-58': 'T-29', 'T-42': 'T-42', W1: 'T-41', W3: 'T31' };   // W1 and W3 carry MAGs in this mode: their men step into the trench beside them, the guns are the player's
+  const moveTo = { W4: 'T38', N3: 'T16', S3: 'T40', W2N: 'T-26', W2S: 'T10', E1: 'T-32', K18: 'T-12', K48: 'T34', 'T-58': 'T-29', 'T-42': 'T-42', W1: 'T-41', W3: 'T31' };   // W1 and W3 carry MAGs in this mode: their men step into the trench beside them, the guns are the player's
   for (const f of FRIENDS) { if (f.post && f.post.occupant === f) f.post.occupant = null; const id = moveTo[f.postId] || f.postId; f.post = postById(id); f.post.occupant = f; const u = f.unit; u.place(f.post.stand[0], f.post.stand[1]); u.sync(); f.state = 'post'; u.stance = 'stand'; f.scanCd = rand(0.2, 1.5); }
   for (const p of POSTS) if (p.mag) { p.mag.belt = 200; p.mag.reload = 0; }
   const order = ['w', 'n', 's']; for (let i = 2; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; } if (order[0] !== 'w' && Math.random() < 0.6) { const k = order.indexOf('w'); [order[0], order[k]] = [order[k], order[0]]; }
-  Object.assign(SURV, { wave: 0, state: 'break', t: 0, breakLen: 12, bonus: 0, score: 0, air: 0, airGiven: 0, cleared: 0, dirs: [], acc: 1, order, strike: null, jetT: 30, artT: 10, vehMsg: false, lastKills: 0, lastKillT: 0, planes: 0 }); SURV.nextDirs = survDirsFor(1); if (!SURV.pool) SURV.pool = []; survVehStop();
+  Object.assign(SURV, { wave: 0, state: 'break', t: 0, breakLen: 20, bonus: 0, score: 0, air: 0, airGiven: 0, cleared: 0, dirs: [], acc: 1, order, strike: null, jetT: 30, artT: 10, vehMsg: false, lastKills: 0, lastKillT: 0, planes: 0 }); SURV.nextDirs = survDirsFor(1); if (!SURV.pool) SURV.pool = []; survVehStop();
   TUT.step = 'done'; { const [x, z] = trenchAt(-6); P.pos.set(x, groundAt(x, z), z); P.yaw = -THREE.MathUtils.degToRad(270); P.pitch = 0; }
   $('#clockSub').textContent = 'מעוז המזח · הישרדות'; markLast('mezach');
   GAME.state = 'play'; $('#app').classList.add('play'); $('#app').classList.add('surv'); for (const m of ['#mBrief', '#mPause', '#mEnd', '#mOps', '#mSet']) $(m).hidden = true;
   initAudio(); lockPointer(); toast('הישרדות', 'החזיקו את המעוז כמה שיותר זמן');
-  hint('surv', `<b>המעוז הקטן</b>: מאה מטר של סוללה, חסומים במחסומים משני הקצוות — הכול קורה כאן. הסירות נוחתות מולכם, הצפוניים עולים בקצה הצפוני והדרומיים בקצה הדרומי. כל המא״גים פנויים ואין צורך להחליף שרשרת. שלושה <b>תותחים ללא רתע</b> (צפון, מרכז, דרום) — עיגול צהוב עם קנה במפה; פגז אחד מחסל כיתה. כל ${SURV_AIR_PTS} נקודות פותחות <b>תקיפה אווירית</b>: הסתכלו על המקום ולחצו ${TOUCH ? 'על כפתור התקיפה' : '<kbd>B</kbd>'}.`, 14);
-  DIRQ.push({ at: GAME.t + 4, fn: () => { if (!SURV.on) return; radio('מפקד המעוז', 'סגרנו את התעלה משני הצדדים — מחזיקים רק את המאה מטר האלה, אף אחד לא מתפזר! שלושה תול״רים בסוללה, מסומנים במפה: פגז אחד מפרק סירה או כיתה שלמה.', 4.6); feed('המעוז הקטן · תותחים: צפון · מרכז · דרום', 'good'); } });
+  hint('surv', `<b>כל המעוז פתוח</b>: הסירות נוחתות ממערב, ומצפון ומדרום הם עולים מהשיחים בתעלות שחפרו עד מתחת לתעלה שלנו. בין גל לגל יש זמן לרוץ לצד שממנו יגיע הבא (החץ האדום במפה). כל המא״גים פנויים ואין צורך להחליף שרשרת. שלושה <b>תותחים ללא רתע</b> — עיגול צהוב עם קנה במפה; פגז אחד מחסל כיתה. כל ${SURV_AIR_PTS} נקודות פותחות <b>תקיפה אווירית</b>: הסתכלו על המקום ולחצו ${TOUCH ? 'על כפתור התקיפה' : '<kbd>B</kbd>'}.`, 14);
+  DIRQ.push({ at: GAME.t + 4, fn: () => { if (!SURV.on) return; radio('מפקד המעוז', 'כל המעוז שלנו — מצפון, ממערב ומדרום. כשגל נגמר, רצים לצד הבא! שלושה תול״רים בסוללה, מסומנים במפה: פגז אחד מפרק סירה או כיתה שלמה.', 4.6); feed('המעוז הקטן · תותחים: צפון · מרכז · דרום', 'good'); } });
 }
 function survUpd(dt) {
   updStrafe(dt); airDirector(dt); survAirUpd(dt); updVeh(dt);

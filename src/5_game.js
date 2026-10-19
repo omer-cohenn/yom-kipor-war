@@ -15,9 +15,9 @@ let diff = DIFF[1];
    the squad's fire that much deadlier, the Egyptians' fire at the squad that much weaker; boats / boatV: fewer boats, slower oars; cap: the
    capture meter that much slower; react: a man who has just seen the player waits that much longer before he fires */
 const MZ_EASE = [
-  { acc: 0.4, dmg: 0.5, gren: 0, art: 1.8, regen: [1.2, 38, 100], fAcc: 2, fHit: 0.4, boats: 0.7, boatV: 0.85, cap: 0.5, react: 1.6 },
-  { acc: 0.42, dmg: 0.55, gren: 0.3, art: 1.5, regen: [1.6, 34, 100], fAcc: 1.8, fHit: 0.5, boats: 0.7, boatV: 0.88, cap: 0.6, react: 1.4 },
-  { acc: 0.6, dmg: 0.72, gren: 0.6, art: 1.25, regen: [2.8, 28, 85], fAcc: 1.45, fHit: 0.7, boats: 0.85, boatV: 0.94, cap: 0.75, react: 1.2 },
+  { acc: 0.78, dmg: 0.55, gren: 0, art: 1.8, regen: [1.2, 38, 100], fAcc: 2, fHit: 0.4, boats: 0.7, boatV: 0.85, cap: 0.5, react: 1.6 },
+  { acc: 0.85, dmg: 0.6, gren: 0.3, art: 1.5, regen: [1.6, 34, 100], fAcc: 1.8, fHit: 0.5, boats: 0.7, boatV: 0.88, cap: 0.6, react: 1.4 },
+  { acc: 1.0, dmg: 0.75, gren: 0.6, art: 1.25, regen: [2.8, 28, 85], fAcc: 1.45, fHit: 0.7, boats: 0.85, boatV: 0.94, cap: 0.75, react: 1.2 },
 ];
 const mzEase = () => (MODE === 'mezach' && !SURV.on ? MZ_EASE[Math.max(0, DIFF.indexOf(diff))] : null);
 const GAME = { state: 'loading', t: 0, stats: null };
@@ -421,7 +421,7 @@ function spawnEnemy(x, z, kind, group, path, opts = {}) {
   e.thrT = -99; e.arcT = -9; e.shotT = -9;   /* nothing he did in an earlier life counts as fire at the player */
   if (e.mmHide || e.pitHid) fmDisguise(e, false); e.mmHide = false; e.pitHid = false;   /* a man last used as a disguised figure in a crater gets his own colours back */
   e.side = 'e'; e.setKind(kind); e.alive = true; e.hp = 100; e.fall = -1; e.stance = 'stand'; e.place(x, z); e.rig.root.visible = true; e.rig.gun.visible = true; e.deadAt = undefined; e.rig.shut = false; e.rig.head.material = MAT.faces[e.side][e.rig.faceV]; e.rig.deadOpen = Math.random() < 0.35; e.rig.blinkT = rand(1, 4);
-  Object.assign(e, { state: 'move', path, pi: 0, group, t: 0, fireCd: rand(0.5, 1.5), burst: 0, scanCd: 0, target: null, stopCd: rand(2, 5), engageT: 0, gCd: diff.gren > 0 ? rand(8, 20) / diff.gren : 1e9, rpgCd: rand(4, 9), flameT: 0, hold: opts.hold ?? -1, speed: rand(3.9, 4.6), inside: false, goalCd: 0, charge: false, plan: null, ps: 0, tcov: null, tcovCd: 0, inCov: false, usedTrav: null, k: 0, meleeCd: 0, throwT: 0, cover: null, sz: null, slot: null, cov: null, dormant: false, wakeG: undefined, wakeR: 24, climb: false, raid: false, sq: undefined, guide: null, peek: false, rpgAim: 0, wild: false, rpgMiss: false, noTag: false,
+  Object.assign(e, { state: 'move', path, pi: 0, group, t: 0, fireCd: rand(0.5, 1.5), burst: 0, scanCd: 0, target: null, stopCd: rand(2, 5), engageT: 0, gCd: diff.gren > 0 ? rand(8, 20) / diff.gren : 1e9, rpgCd: rand(2, 5), rpgPause: 0, flameT: 0, hold: opts.hold ?? -1, speed: rand(3.9, 4.6), inside: false, goalCd: 0, charge: false, plan: null, ps: 0, tcov: null, tcovCd: 0, inCov: false, usedTrav: null, k: 0, meleeCd: 0, throwT: 0, cover: null, sz: null, slot: null, cov: null, dormant: false, wakeG: undefined, wakeR: 24, climb: false, raid: false, sq: undefined, guide: null, peek: false, rpgAim: 0, wild: false, rpgMiss: false, noTag: false,
     sqAuto: 'g' + Math.round(GAME.t / 4) + ':' + Math.round(x / 50) + ':' + Math.round(z / 50), supp: 0, seeT: 0, alert: false, lkp: null, lkpT: -99, fellBack: false, flanking: false, peekOff: 0, blindCd: undefined, blindN: 0, blindK: undefined, tac: undefined, flankD: false, reactCd: undefined, reactT: 0 });   // (a pooled body keeps nothing of how his last owner fought)
   if (opts.jump) { e.state = 'jump'; e.jd = 0; e.j0 = opts.jump.clone(); e.j1 = V3(x, groundAt(x, z), z); e.pos.copy(e.j0); }
   e.sync(); return e;
@@ -464,7 +464,13 @@ function targetsFor(e) {
    machine gun hammers long bursts with tracer, the Dragunov fires single aimed rounds that reach far and hurt */
 const WPN = { rifle: { burst: [2, 5], gap: 0.12, pause: [1.4, 2.8], acc: 1, dmg: 1, range: 320, snd: 'ak' }, smg: { burst: [5, 9], gap: 0.07, pause: [1.0, 2.0], acc: 0.65, dmg: 0.7, range: 110, snd: 'smg' }, lmg: { burst: [7, 13], gap: 0.085, pause: [1.8, 3.2], acc: 0.8, dmg: 1, range: 360, snd: 'lmg', tracer: 0.8 }, sniper: { burst: [1, 1], gap: 0, pause: [2.4, 3.8], acc: 2.4, dmg: 1.9, range: 520, snd: 'svd' }, rpg: { burst: [2, 4], gap: 0.13, pause: [1.6, 3.0], acc: 0.9, dmg: 1, range: 300, snd: 'ak' }, flame: { burst: [2, 4], gap: 0.13, pause: [1.6, 3.0], acc: 0.8, dmg: 1, range: 200, snd: 'ak' } };
 const wpnOf = (e) => WPN[e.kind] || WPN.rifle, wBurst = (e) => { const b = wpnOf(e).burst; return Math.floor(rand(b[0], b[1] + 1) * (e.wild ? 1.7 : 1)); }, wGap = (e, k = 1) => wpnOf(e).gap * k, wPause = (e, k = 1) => { const p = wpnOf(e).pause; return rand(p[0], p[1]) * k * (e.wild ? 0.3 : 1); };
+/* an RPG man fires his launcher, and only that: down on a knee, a rocket, then the long reload (no rifle bursts from a man holding a tube) */
+function rpgShoot(e, tp) {
+  const from = e.muzzle(); e.rpgCd = rand(8, 12); e.rpgPause = 1.0; e.face(tp.x, tp.z);
+  fireRocket(from, tp.clone().add(V3(rand(-1.4, 1.4), rand(-0.4, 0.7), rand(-1.4, 1.4))), 'e'); fxMuzzle(from, true); sndShot('ak', from); sndBoom(from, 0.25);
+}
 function enemyFire(e) {
+  if (e.kind === 'rpg' && e.target) { const tp = e.target.player ? playerEye() : e.target.f.unit.chest(), d = e.pos.distanceTo(tp); if (e.rpgCd <= 0 && d > (e.state === 'trench' ? 6 : 12) && d < 230) rpgShoot(e, tp); return; }
   const mz = mzEase(), from = e.muzzle(); const tgt = e.target; if (!tgt) return; if (tgt.player) { e.shotT = GAME.t; if (MODE === 'suez') szFireAt(e, from); if (Math.hypot(e.pos.x - P.pos.x, e.pos.z - P.pos.z) < 150) SQF.spots.set(e, GAME.t), SQF.cT = GAME.t; } const W = wpnOf(e);
   const tp = tgt.player ? playerEye() : tgt.f.unit.chest(); const d = from.distanceTo(tp); const rangeF = clamp(1 - d / W.range, 0.25, 1) * (W.range < 200 && d > W.range * 0.6 ? 0.3 : 1);
   fxMuzzle(from, W.snd === 'lmg'); sndShot(W.snd, from);
@@ -618,7 +624,7 @@ function updEnemy(e, dt) {
   // specials
   if (e.kind === 'rpg' && e.target && e.rpgCd <= 0 && (e.state === 'hold' || e.state === 'engage' || e.state === 'move')) {
     const tp = e.target.p; const d = e.pos.distanceTo(tp);
-    if (d > 25 && d < 230) { e.rpgCd = rand(13, 20); const from = e.muzzle(); fireRocket(from, tp.clone().add(V3(rand(-1.5, 1.5), rand(-0.5, 0.8), rand(-1.5, 1.5))), 'e'); fxMuzzle(from, true); sndShot('ak', from); sndBoom(from, 0.25); e.state = 'engage'; e.engageT = 1.5; e.stance = 'crouch'; }
+    if (d > 12 && d < 230) { rpgShoot(e, tp); e.state = 'engage'; e.engageT = 1.5; e.stance = 'crouch'; }
   }
   e.rpgCd -= dt; e.gCd -= dt; e.coverCd = (e.coverCd || 0) - dt;
   if ((e.state === 'inside' || (e.state === 'move' && e.charge)) && e.target && e.coverCd <= 0 && e.kind !== 'flame') {
@@ -724,6 +730,12 @@ function westPlan(e, z, i, r = Math.random) {
     for (const c of COVER) { if (c.by || c.nx < 0.5 || c.x > crestX(c.z) - 1.5 || c.x < tongueWestX(c.z) + 1 || Math.abs(c.z - zm) > 7) continue; const d = Math.hypot(c.x - sx, c.z - zm) + r() * 3; if (d < bd) { bd = d; best = c; } }
     if (best) { best.by = e; plan.push({ t: 'cover', c: best, x: best.x, z: best.z, nx: best.nx, nz: best.nz, h: best.h, dur: RR(1.6, 3) }); }
   }
+  if (i % 3 === 2) {   // this one stays back on the sand and keeps the defenders' heads down while the others go up - a long while, then he follows
+    let best = null, bd = 1e9; const zm = z + RR(-6, 6);
+    for (const c of COVER) { if (c.by || c.nx < 0.5) continue; const dT = crestX(c.z) + 3.5 - c.x; if (dT < 12 || dT > 30 || Math.abs(c.z - zm) > 12) continue; const d = Math.abs(c.z - zm) + r() * 4; if (d < bd) { bd = d; best = c; } }
+    if (best) { best.by = e; plan.unshift({ t: 'cover', c: best, supp: true, x: best.x, z: best.z, nx: best.nx, nz: best.nz, h: best.h, dur: RR(28, 42) }); }
+    else { const sx = crestX(zm) - RR(11, 18); plan.unshift({ t: 'cover', supp: true, x: sx, z: zm, nx: 1, nz: 0, h: 0.8, dur: RR(28, 42) }); }
+  }
   const zc = ez + RR(-1.2, 1.2), cx = crestX(zc);
   plan.push({ t: 'cover', x: cx - 3.3, z: zc, px: cx - 1.4, pz: zc + RR(-0.6, 0.6), nx: 1, nz: 0, h: 1, dur: RR(2.6, 4.4) });
   plan.push({ t: 'run', final: true, x: p[0] + o[0] * PARA_D, z: p[1] + o[1] * PARA_D });
@@ -741,6 +753,10 @@ function wireCross(x0, z0, x1, z1) {
 function sapPlan(e, sap, j) {
   const r = rng(5150 + j * 37), plan = [];
   for (let i = 1; i < sap.length - 1; i++) plan.push({ t: 'run', crun: true, near: 0.8, x: sap[i][0] + (r() - 0.5) * 0.4, z: sap[i][1] + (r() - 0.5) * 0.4 });
+  if (j % 3 === 2) {   // covering fire from the sap: halfway up it, standing to fire over its lip at our parapet, a long while, before he too goes in
+    const m = sap[1], e2 = sap[sap.length - 1], dx = e2[0] - m[0], dz = e2[1] - m[1], l = Math.hypot(dx, dz) || 1;
+    plan.splice(1, 0, { t: 'cover', supp: true, x: m[0] + (r() - 0.5) * 0.6, z: m[1] + (r() - 0.5) * 0.6, nx: dx / l, nz: dz / l, h: 1.6, dur: 24 + r() * 14 });
+  }
   const end = sap[sap.length - 1], k = clamp(trK(end[0], end[1])[0], 1, TR.pts.length - 2), p = TR.pts[k];
   plan.push({ t: 'run', crun: true, x: end[0], z: end[1], near: 0.6 });
   const o = TR.out[k]; plan.push({ t: 'run', final: true, x: p[0] + o[0] * PARA_D, z: p[1] + o[1] * PARA_D });   /* out of the sap and up the slope on foot, right up to the sandbags */
@@ -752,8 +768,9 @@ function northPlan(e, i) { return sapPlan(e, SAPS.n[i % 2], i); }
    'until', firing from it, and only then goes for the rampart */
 function holdPlan(e, until) {
   const s0 = e.plan && e.plan[0], dur = Math.max(1, until - GAME.t);
-  if (s0 && s0.t === 'cover' && s0.c) { s0.dur = dur; return; }
-  e.plan.unshift({ t: 'cover', x: e.pos.x + 1.2, z: e.pos.z + rand(-1, 1), nx: 1, nz: 0, h: 0.7, dur });
+  if (s0 && s0.t === 'cover' && s0.supp) { s0.dur += dur; return; }   // the covering fire is set up already: he starts it now
+  if (s0 && s0.t === 'cover' && s0.c && s0.c.x < tongueWestX(s0.c.z) + 4) { s0.c.by = null; e.plan.shift(); }   /* not the stones at the water's edge, by the boats - up the beach */
+  const z = e.pos.z + rand(-2, 2), x = tongueWestX(z) + rand(6, 10); e.plan.unshift({ t: 'cover', x, z, nx: 1, nz: 0, h: 0.7, dur });
 }
 /* the Egyptians read the player: they duck when a rifle is on them and move when he reloads or looks away */
 const _aimV = V3(), _aimF = V3();
@@ -771,12 +788,12 @@ function lobGrenade(e, tp) {
 }
 function coverCycle(e, dt, c, shoot, aimPitch) {
   e.coverT -= dt; e.cyc -= dt;
-  const aimed = aimedAt(e), pin = pinned(e), covering = !pin && sqCovering(e);
+  const aimed = aimedAt(e), pin = pinned(e), covering = !pin && (c.supp || sqCovering(e));
   if (pin && e.peek) { e.peek = false; e.cyc = Math.max(e.cyc, rand(0.5, 1.0)); }   // pinned: down behind the cover at once
   if (e.peek && aimed) { e.aimT = (e.aimT || 0) + dt; if (e.aimT > 0.35) e.cyc = Math.min(e.cyc, 0); } else e.aimT = 0;
   if (e.cyc <= 0) {
     e.peek = !e.peek; if (e.peek && (pin || (aimed && Math.random() < 0.7))) e.peek = false;
-    e.cyc = e.peek ? rand(0.7, 2.0) + (covering ? 0.8 : 0) : covering ? rand(0.3, 0.7) : rand(0.8, 2.4) + (aimed ? 0.7 : 0);
+    e.cyc = c.supp ? (e.peek ? rand(1.8, 3.4) : rand(0.35, 0.8)) : e.peek ? rand(0.7, 2.0) + (covering ? 0.8 : 0) : covering ? rand(0.3, 0.7) : rand(0.8, 2.4) + (aimed ? 0.7 : 0);   /* covering fire: up and firing most of the time */
     if (e.peek) { e.scanCd = 0; e.burst = 0; e.fireCd = rand(0.25, 0.5); e.peekOff = tacPeekOff(e, c); e.peekN = (e.peekN || 0) + 1; e.peekLow = Math.random() < 0.4;
       if (e.peekN >= 3 + Math.floor(Math.random() * 3)) { e.peekN = 0; e.peek = false; e.cyc = rand(2.0, 3.2); e.reloading = true; } else e.reloading = false; }   // the magazine: changed down behind the cover, and that is the moment to move on him
   }
@@ -784,7 +801,7 @@ function coverCycle(e, dt, c, shoot, aimPitch) {
   if (e.peek) {
     const hasP = c.px !== undefined, tall = (hasP || c.h > 1.5) && !(e.peekLow && !hasP), o = (e.peekOff || 0) * (e.peekLow ? 1.25 : 1); e.stance = tall ? 'stand' : 'crouch';   // on tall cover sometimes from a knee at its corner
     steer(e, hasP ? c.px : c.x - c.nz * o, hasP ? c.pz : c.z + c.nx * o, 3.4, dt); if (tp) e.face(tp.x, tp.z); else if (tacKnows(e)) e.face(e.lkp.x, e.lkp.z); else e.heading = Math.atan2(c.nx, c.nz);
-    if (tp) shoot(); else if (covering && tacKnows(e, 5)) { e.fireCd -= dt; if (e.fireCd <= 0) { e.fireCd = rand(0.25, 0.6); tacFireAt(e, 0.2); } }   // he cannot see the player, but fires at where he was to cover a comrade on the move
+    if (tp) shoot(); else if (covering && (c.supp || tacKnows(e, 5))) { e.fireCd -= dt; if (e.fireCd <= 0) { e.fireCd = c.supp ? rand(0.12, 0.35) : rand(0.25, 0.6); if (!e.lkp && c.supp) e.lkp = V3(P.pos.x, P.pos.y, P.pos.z); tacFireAt(e, 0.2); } }   /* he cannot see him: he keeps the parapet in front of him under fire all the same */   // he cannot see the player, but fires at where he was to cover a comrade on the move
     e.rig.pose(tall ? 'aim' : 'crouch', e.anim, aimPitch());
   } else {
     if (c.door) { e.stance = 'stand'; steer(e, c.x, c.z, 3.4, dt); e.heading = Math.atan2(c.px - c.x, c.pz - c.z); e.rig.pose('idle', e.anim); }   /* flat against the wall beside the doorway, rifle up, waiting */
@@ -809,6 +826,8 @@ function awareReact(e, dt, shoot, aimPitch) {
 }
 function planStep(e, dt, shoot, aimPitch) {
   const s = e.plan[e.ps]; if (!s) { enterTrench(e); return; }
+  if (e.rpgPause > 0) { e.rpgPause -= dt; e.stance = 'crouch'; e.anim += dt; e.rig.pose('crouch', e.anim, aimPitch()); return; }   /* down on a knee as the rocket goes */
+  if (e.kind === 'rpg' && e.target && e.rpgCd <= 0 && s.t !== 'vault' && !s.final) { const tp = e.target.player ? playerEye() : e.target.f.unit.chest(), d = e.pos.distanceTo(tp); if (d > 12 && d < 230) { rpgShoot(e, tp); return; } }
   s.tt = (s.tt || 0) + dt;
   if (s.t === 'run' || (s.t === 'cover' && !s.go)) {
     const dGo = Math.hypot(s.x - e.pos.x, s.z - e.pos.z), last = s.final && dGo < 4.5;   /* the last few metres to the parapet: no ducking, no stopping to fire - straight at it and over */
