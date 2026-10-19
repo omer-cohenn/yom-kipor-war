@@ -574,7 +574,7 @@ function tankMainGun() {
   TANK.gunT = 4.0; TANK.recoil = 1; const from = TANK.gun.localToWorld(V3(0, 0, TANK.gunL ?? 4.8)), d = V3(0, 0, 1).transformDirection(TANK.gun.matrixWorld);
   const o = camera.position.clone(), dir = (MODE === 'armor' && amLockShot()) || aimAssist(o, camForward(V3()), 0.12);   // the tank battle: the shell goes to the tank the sight is locked on
   const hit = castShot(o, dir, MODE === 'armor' ? 1400 : 900, 'f');
-  fxMuzzle(from, true); fxExplosion(from, 0.5); sndBoom(from, 1.3); FX.shake = Math.max(FX.shake, 0.9);
+  fxMuzzle(from, true); fxExplosion(from, 0.5); sndCannon(from, 1.3); FX.shake = Math.max(FX.shake, 0.9);
   for (let i = 0; i < 8; i++) fxDust(V3(TANK.g.position.x + rand(-3, 3), TANK.g.position.y + 0.4, TANK.g.position.z + rand(-3, 3)));
   // a high-explosive shell: it wipes out a whole position (everyone within 8 m, behind cover or not), throws the sandbags and pins down the windows around it
   explode(hit.p, 2.3, 10.5, 0, 'shell'); if (hit.kind === 'enemy') killEnemy(hit.u, false); bagBurst(hit.p, 9); for (let i = 0; i < 6; i++) { const s = FX.smoke.get(); s.life = 4 + Math.random() * 2; s.s.position.copy(hit.p).add(V3(rand(-3, 3), rand(0.5, 2.5), rand(-3, 3))); s.s.material.color.set(0x9a8e78); s.upd = (q, u) => { q.s.scale.setScalar(3 + u * 9); q.s.material.opacity = 0.75 * (1 - u); }; } if (hit.kind === 'veh' && hit.v.alive) vehHit(hit.v, 100, hit.p); else for (const v of VEH) if (v.alive && v.side === 'e' && v.g.position.distanceTo(hit.p) < 4.5) vehHit(v, v.armor > 0 ? 100 : 55, hit.p);
@@ -1314,7 +1314,7 @@ function szWave(n) {
   const W = SZ_WAVES[n], di = szDi(); if (!W) return; SZ.srcOn = W.map((g) => g[0]);
   W.forEach(([src, ns, nc, rpg], gi) => szAttack(src, ns[di], nc[di], rpg, gi * 2.5));
   const names = SZ.srcOn.map((k) => SZ_DEF[k].name).join(' ו');
-  radio('צנחנים', `גל ${n + 1}! הם באים ${names}!`, 3.2); feed(`גל ${n + 1} מתוך ${SZ_WAVES.length} · ${names}`, 'bad');
+  sndShouts(null, 0.3); radio('צנחנים', `גל ${n + 1}! הם באים ${names}!`, 3.2); feed(`גל ${n + 1} מתוך ${SZ_WAVES.length} · ${names}`, 'bad');
 }
 function szDefUpd(dt) {
   if (szAlive((e) => e.sq === 'def') > 0 || DIRQ.some((q) => q.def)) { SZ.waveT = 4; return; }
@@ -1431,7 +1431,7 @@ function suezEnemyStep(e, dt, shoot, aimPitch) {
       e.stance = 'stand';
       if (e.kind === 'rpg') {
         const tp = szRpgTarget(e);
-        const mz = e.muzzle(); if (tp && e.rpgCd <= 0 && losW(mz.x, mz.y, mz.z, tp.x, tp.y, tp.z)) { e.face(tp.x, tp.z); if (e.rpgAim === 0) szRpgCall(e); e.rpgAim += dt; if (e.rpgAim > 2.4) { const from = e.muzzle(); fireRocket(from, tp, 'e'); if (MODE === 'suez' && (P.mode === 'tank' || tp.distanceTo(P.pos) < 8)) szFireAt(e, from); fxMuzzle(from, true); sndShot('ak', from); sndBoom(from, 0.3); e.rpgCd = rand(16, 24); e.cyc = 0.4; } }
+        const mz = e.muzzle(); if (tp && e.rpgCd <= 0 && losW(mz.x, mz.y, mz.z, tp.x, tp.y, tp.z)) { e.face(tp.x, tp.z); if (e.rpgAim === 0) szRpgCall(e); e.rpgAim += dt; if (e.rpgAim > 2.4) { const from = e.muzzle(); fireRocket(from, tp, 'e'); if (MODE === 'suez' && (P.mode === 'tank' || tp.distanceTo(P.pos) < 8)) szFireAt(e, from); fxMuzzle(from, true); sndRocket(from); e.rpgCd = rand(16, 24); e.cyc = 0.4; } }
         else if (e.target) e.face(e.target.p.x, e.target.p.z);
         e.rig.pose('aim', e.anim, aimPitch());
       } else { if (e.target) shoot(); else e.heading = Math.atan2(s.nx, s.nz); e.rig.pose('aim', e.anim, aimPitch()); }
@@ -1459,7 +1459,7 @@ function suezEnemyStep(e, dt, shoot, aimPitch) {
     if (e.pi >= e.path.length && e.toSlot) { if (!e.toSlot.used) { szSeat(e, e.toSlot); e.toSlot = null; return; } e.toSlot = null; }
     if (e.pi < e.path.length) { const w = e.path[e.pi], x0 = e.pos.x, z0 = e.pos.z; e.anim += dt * 9.5; e.stance = 'stand'; if (steer(e, w[0], w[1], 4.6, dt) < 0.9) e.pi++; e.stuckT = Math.hypot(e.pos.x - x0, e.pos.z - z0) < dt * 0.5 ? (e.stuckT || 0) + dt : 0; if (e.stuckT > 2.5) { e.stuckT = 0; e.pi++; } e.rig.pose('run', e.anim); if (seesP && Math.random() < dt * 0.4) { e.face(P.pos.x, P.pos.z); enemyFire(e); } return; }
     if (e.climb) { e.sz = 'climb'; e.raid = SZ.stage >= 5; e.cpath = (e.raidP || SZ_RAID).map(([x, z, f]) => [LX(x), LZ(z), f]); e.ci = 0; return; }
-    if (e.kind === 'rpg' && e.rpgCd <= 0 && e.target) { const tp = szRpgTarget(e), mz = e.muzzle(); if (tp && (e.rpgMiss || losW(mz.x, mz.y, mz.z, tp.x, tp.y, tp.z))) { e.face(tp.x, tp.z); e.peek = true; e.stance = 'stand'; if (e.rpgAim === 0) szRpgCall(e); e.rpgAim += dt; e.rig.pose('aim', e.anim, 0); if (e.rpgAim > (e.wild ? 1.2 : 2.2)) { const from = e.muzzle(); fireRocket(from, tp, 'e'); if (MODE === 'suez' && (P.mode === 'tank' || tp.distanceTo(P.pos) < 8)) szFireAt(e, from); fxMuzzle(from, true); sndShot('ak', from); sndBoom(from, 0.3); e.rpgCd = e.wild ? rand(5, 9) : rand(16, 24); e.rpgAim = 0; e.peek = false; } return; } }
+    if (e.kind === 'rpg' && e.rpgCd <= 0 && e.target) { const tp = szRpgTarget(e), mz = e.muzzle(); if (tp && (e.rpgMiss || losW(mz.x, mz.y, mz.z, tp.x, tp.y, tp.z))) { e.face(tp.x, tp.z); e.peek = true; e.stance = 'stand'; if (e.rpgAim === 0) szRpgCall(e); e.rpgAim += dt; e.rig.pose('aim', e.anim, 0); if (e.rpgAim > (e.wild ? 1.2 : 2.2)) { const from = e.muzzle(); fireRocket(from, tp, 'e'); if (MODE === 'suez' && (P.mode === 'tank' || tp.distanceTo(P.pos) < 8)) szFireAt(e, from); fxMuzzle(from, true); sndRocket(from); e.rpgCd = e.wild ? rand(5, 9) : rand(16, 24); e.rpgAim = 0; e.peek = false; } return; } }
     // men firing wild stand in the open and shoot from the hip: no cover, no crouching
     if (e.wild) { e.stance = 'stand'; if (e.target) shoot(); e.rig.pose('aim', e.anim, aimPitch()); return; }
     // each man fights one of two ways: he storms (cover to cover, always closer, the last metres at a run) or he holds (the best cover in reach, kept while it still covers him)
@@ -1671,7 +1671,7 @@ function szLeadFilm() {
       { d: 2.8, slow: 0.3, cam: camLerp(() => Lp().addScaledVector(r, -13).addScaledVector(f, -3).add(V3(0, 1.4, 0)), () => Lp().addScaledVector(r, -11).addScaledVector(f, -1).add(V3(0, 1.6, 0)), turret, turret, 46) },
       { d: 3.6, cam: (u) => ({ p: tankHeadPos(), l: Lp().add(V3(0, 1.6 + u * 0.4, 0)), fov: 52 }) },
     ],
-    ev: [[3.0, () => { if (g && g.alive) { const from = g.muzzle(); fireRocket(from, turret(), 'e'); fxMuzzle(from, true); sndShot('ak', from); sndBoom(from, 0.35); } }],
+    ev: [[3.0, () => { if (g && g.alive) { const from = g.muzzle(); fireRocket(from, turret(), 'e'); fxMuzzle(from, true); sndRocket(from); } }],
       [3.85, () => { vehDestroy(L); FX.shake = 0.6; }], [9.6, () => { if (g) { g.cyc = 1.5; g.rpgCd = rand(4, 6); } }]],
     caps: [[0.2, '<b>2א:</b> נכנסים לשדרה. שקט מדי.', 2.4], [2.6, '<b>תותחן:</b> בזוקה בחלון!', 1.8], [5.4, '<b>מ״פ:</b> 2א, 2א, ענה!', 2.2], [7.5, '<b>תותחן:</b> אין תשובה. אף אחד לא יוצא מהטנק.', 3.2]],
     end: () => { if (g) { g.cyc = 1.5; g.rpgCd = rand(4, 6); } radio('מ״פ', 'הטנק של 2א נפגע. שמרו על החלונות, הוא עוד שם!', 3.5); },

@@ -292,7 +292,7 @@ function allyFire(v, dt) {
   for (const e of UNITS.enemies) { if (!e.alive || !e.rig.root.visible || e.stance === 'hide' || e.state === 'film' /* men nobody has identified yet (the hill at Purkan) are not shot at */) continue; const c = e.chest(), d = from.distanceTo(c); if (d < bd && losW(from.x, from.y, from.z, c.x, c.y, c.z)) { bd = d; best = { u: e, p: c }; } }
   if (v.kind === 'tank') for (const w of VEH) { if (w.mode !== MODE || !w.alive || w.side !== 'e' || !w.g.visible) continue; const c = w.g.position.clone(); c.y += 1.4; const d = from.distanceTo(c); if (d < 1200 && d < bd * 1.5 && losW(from.x, from.y, from.z, c.x, c.y, c.z)) { bd = d; best = { v: w, p: c }; } }
   if (!best) return;
-  if (best.v) { fxMuzzle(from, true); sndBoom(from, 0.6); fxTracer(from, best.p, false); if (Math.random() < 0.45 * (CH() && CH().allyK || 1)) vehDestroy(best.v); else fxExplosion(best.p.clone().add(V3(rand(-3, 3), -1, rand(-3, 3))), 0.7); v.fireCd = rand(6, 9); return; }
+  if (best.v) { fxMuzzle(from, true); sndCannon(from, 0.8); fxTracer(from, best.p, false); if (Math.random() < 0.45 * (CH() && CH().allyK || 1)) vehDestroy(best.v); else fxExplosion(best.p.clone().add(V3(rand(-3, 3), -1, rand(-3, 3))), 0.7); v.fireCd = rand(6, 9); return; }
   fxMuzzle(from, false); sndShot('fal-npc', from); fxTracer(from, best.p, false); if (Math.random() < (v.kind === 'tank' ? 0.2 : 0.14) * clamp(1 - bd / 600, 0.3, 1) * ((CH() && CH().allyInf && CH().allyInf()) ?? 1)) killEnemy(best.u, false); else { supPin(best.u, 0.3); fxDust(best.p.clone().add(V3(rand(-1, 1), -0.8, rand(-1, 1)))); }
 }
 /* Egyptian tanks and anti-tank guns: they shoot at the player's tank (or at the player on foot) when they see it */
@@ -303,7 +303,7 @@ function enemyVehFire(v, dt) {
   if (other && other.alive && other.g.visible) { const from = v.g.position.clone(); from.y += 2.1; const tp = other.g.position.clone(); tp.y += 1.4; const d = from.distanceTo(tp); if (d > 1600) return;
     if (!losW(from.x, from.y, from.z, tp.x, tp.y, tp.z)) { v.fireCd = rand(1.5, 3); return; }
     const a = Math.atan2(tp.x - from.x, tp.z - from.z); if (v.tur) v.tur.rotation.y = wrapPi(a - v.hdV);
-    const mz = v.g.position.clone().add(V3(Math.sin(a) * 4.5, 2.2, Math.cos(a) * 4.5)); fxMuzzle(mz, true); fxExplosion(mz, 0.35); sndBoom(mz, 0.9); fxTracer(mz, tp, true);
+    const mz = v.g.position.clone().add(V3(Math.sin(a) * 4.5, 2.2, Math.cos(a) * 4.5)); fxMuzzle(mz, true); fxExplosion(mz, 0.35); sndCannon(mz, 1); fxTracer(mz, tp, true);
     if (Math.random() < (other.hitP ?? 0.22)) { vehHit(other, other.shellDmg ?? 34, tp); fxExplosion(tp.clone(), 0.8); sndBoom(tp, 0.8); if (other.onHit) other.onHit(other, 'shell'); }
     else { const m = tp.clone().add(V3(rand(-14, 14), 0, rand(-14, 14))); m.y = groundAt(m.x, m.z); fxExplosion(m, 0.8); sndBoom(m, 0.7); }
     return; }
@@ -311,7 +311,7 @@ function enemyVehFire(v, dt) {
   if (!losW(from.x, from.y, from.z, tp.x, tp.y, tp.z)) { v.fireCd = rand(1.5, 3); return; }
   if (v.tur) v.tur.rotation.y = wrapPi(Math.atan2(tp.x - from.x, tp.z - from.z) - v.hdV);
   const mz = v.g.position.clone().add(V3(Math.sin(Math.atan2(tp.x - from.x, tp.z - from.z)) * 4.5, v.kind === 'atgun' ? 1.0 : 2.2, Math.cos(Math.atan2(tp.x - from.x, tp.z - from.z)) * 4.5));
-  fxMuzzle(mz, true); fxExplosion(mz, 0.35); sndBoom(mz, 0.9); fxTracer(mz, tp, true);
+  fxMuzzle(mz, true); fxExplosion(mz, 0.35); sndCannon(mz, 1); fxTracer(mz, tp, true);
   const pHit = 0.55 * clamp(0.55 - d / 2600, 0.14, 0.5) * (tank ? (P.crouch ? 0.7 : 1) : 0.35) * (CH() && CH().hitK ? CH().hitK() : 1), mk = CH() && CH().missK ? CH().missK() : 1;
   if (Math.random() < pHit) { if (tank) { tankHit(tp.clone().add(V3(rand(-1, 1), -0.6, rand(-1, 1))), false, 22, v.g.position); radio('נהג', pick(['פגיעה מטנק! זה בא מ־' + clockOf(v.g.position) + '!', 'טנק מצרי יורה עלינו!']), 2.4); } else { explode(tp.clone().add(V3(rand(-2, 2), -1.4, rand(-2, 2))), 1.0, 6, 60, 'art'); } }
   else { const ux = (from.x - tp.x) / d, uz = (from.z - tp.z) / d, over = Math.random() < 0.6, along = over ? -rand(9, 20) : rand(-5, 5), side = (over ? rand(-6, 6) : (Math.random() < 0.5 ? -1 : 1) * rand(9, 15)) * Math.max(1, mk); const m = V3(tp.x + ux * along - uz * side, 0, tp.z + uz * along + ux * side); m.y = groundAt(m.x, m.z); fxExplosion(m, 0.8); sndBoom(m, 0.7); }
@@ -531,7 +531,7 @@ function fireAtgm(e, tgt = null) {
   // a bright missile also carries a glow of fixed size on the screen, so the yellow exhaust reads at three hundred metres
   if (bright) { const gl = new THREE.Sprite(new THREE.SpriteMaterial({ map: FXT.glow || FXT.fire, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, depthTest: false, sizeAttenuation: false, fog: false, toneMapped: false, color: new THREE.Color(3.2, 2.6, 0.4) })); gl.scale.setScalar(0.045); gl.position.z = -0.5; gl.renderOrder = 6; m.add(gl); }
   m.position.copy(from); scene.add(m); const tp = tgt ? tgt() : tankTurretWorld(); const dir = tp.clone().sub(from).normalize(); dir.y += 0.12; dir.normalize();
-  const q = { type: 'atgm', m, fl, op: e, dir, speed: (CH() && CH().atgmSpeed) || 48, life: 30, tgt: tgt || (() => tankTurretWorld()), t: 0, bright }; e.guide = q; PROJ.push(q); sndShot('ak', from); sndBoom(from, 0.25);
+  const q = { type: 'atgm', m, fl, op: e, dir, speed: (CH() && CH().atgmSpeed) || 48, life: 30, tgt: tgt || (() => tankTurretWorld()), t: 0, bright }; e.guide = q; PROJ.push(q); sndRocket(from);
   if (bright) return q; szRpgCall(e, 'אר־פי־ג׳י'); hint('sagger', `<b>אר־פי־ג׳י!</b> הטיל מונחה בחוט: הוא פוגע רק אם המפעיל ממשיך לכוון. הרגו את המפעיל (סימון צהוב) לפני שהטיל מגיע, או היכנסו לצריח (${K('C')}).`, 8); return q;
 }
 function updAtgm(q, dt) {

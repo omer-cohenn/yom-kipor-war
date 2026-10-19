@@ -27,7 +27,7 @@ function survCannonShoot() {
   // a diving aircraft in the sights: a generous cone, because the round is slow and the plane is fast - the gunner is given the lead
   let jet = null, jd = 1e9; for (const j of STRAFE) { if (j.t < 0 || j.dead || !j.m.visible) continue; const v = j.m.position.clone().sub(camera.position), L = v.length(); if (L > 1100) continue; v.normalize(); if (v.angleTo(d) < 0.07 && L < jd) { jet = j; jd = L; } }
   const hit = jet ? { p: jet.m.position.clone() } : castShot(camera.position.clone(), d, 900, 'f');
-  fxMuzzle(from, true); fxExplosion(from, 0.55); LIGHTS.muzzle.position.copy(from); LIGHTS.muzzle.intensity = 2600; sndBoom(from, 1.2); FX.shake = Math.max(FX.shake, 0.55);
+  fxMuzzle(from, true); fxExplosion(from, 0.55); LIGHTS.muzzle.position.copy(from); LIGHTS.muzzle.intensity = 2600; sndCannon(from, 1.1); FX.shake = Math.max(FX.shake, 0.55);
   for (let k = 0; k < 6; k++) { const s = FX.smoke.get(); s.life = 2.6; s.s.position.copy(back).add(V3(rand(-0.6, 0.6), rand(0, 0.6), rand(-0.6, 0.6))); s.s.material.color.set(0xb8b0a0); s.upd = (q, u, dt2) => { q.s.position.y += 0.8 * dt2; q.s.scale.setScalar(1.4 + u * 5); q.s.material.opacity = 0.55 * (1 - u); }; }
   fxTracer(from, hit.p, false); P.pitch += 0.03;
   if (jet) { DIRQ.push({ at: GAME.t + Math.min(0.9, jd / 600), fn: () => jetKill(jet, from) }); return; }
@@ -97,7 +97,7 @@ function survWave(n) {
     if (dr !== 'w') { if (n >= 3) survVeh(dr, 'jeep', T + 5); if (n >= 5) survVeh(dr, 't55', T + 10, 7); if (n >= 7) survVeh(dr, 't55', T + 17, 16); }
     if (di > 0) DIRQ.push({ at: GAME.t + T, fn: () => { if (SURV.on && SURV.state === 'wave') { radio('תצפית', `גל נוסף ${SURV_DIRS[dr]}!`, 3); toast(`גל ${n} · גל נוסף`, SURV_DIRS[dr]); } } });
   });
-  radio('תצפית', `גל ${n}! ${SURV_DIRS[dirs[0]]}${dirs.length > 1 ? ' — ואחריו ' + dirs.slice(1).map((d) => SURV_DIRS[d]).join(' וגם ') : ''}!`, 3.6);
+  sndShouts(null, 0.36); radio('תצפית', `גל ${n}! ${SURV_DIRS[dirs[0]]}${dirs.length > 1 ? ' — ואחריו ' + dirs.slice(1).map((d) => SURV_DIRS[d]).join(' וגם ') : ''}!`, 3.6);
   toast(`גל ${n}`, dirs.length > 1 ? `${SURV_DIRS[dirs[0]]} · ואחריו ${dirs.slice(1).map((d) => SURV_DIRS[d]).join(' · ')}` : SURV_DIRS[dirs[0]]);
   SURV.jetT = rand(20, 30); SURV.artT = rand(6, 10);
 }

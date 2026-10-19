@@ -873,6 +873,7 @@ button:focus-visible{outline:2px solid var(--sand);outline-offset:2px}
           <span>הכפתור הירוק מופיע רק כשיש מה לעשות: עזרה ראשונה (להחזיק), להרים פצוע, תחמושת</span><span>ריצה: ג׳ויסטיק עד הקצה</span>
         </div>
         <p class="note">בטנק: <kbd>G</kbd> פגז, לחצן ימני כוונת התותחן. בקרב השריון אתם נוהגים: <kbd>W</kbd> <kbd>S</kbd> נסיעה, <kbd>A</kbd> <kbd>D</kbd> סיבוב.</p>
+        <p class="note">צלילים מוקלטים מ־Freesound, ברישיון CC0 ו־CC BY: juskiddink, Mittelmorder, qubodup, bendodge, Imjeax, CGEffex, toxicwafflezz (CC BY); ninebilly, CraftyIndividual, klangfabrik, GaryQ, JovianSounds (CC0). הרשימה המלאה בקובץ CREDITS-sounds.txt.</p>
       </div>
       <div class="row"><button class="btn" type="button" id="sBack">חזרה</button><button class="ghost fsb" type="button">מסך מלא</button></div>
     </div>
@@ -1029,7 +1030,7 @@ window.LD = (function () {
 <script>
 /* the game's code is one big file: fetched here so the loading screen can show how much of it has arrived, then run as a module */
 (function () {
-  var SRC = 'game.js?v=2a9a5182ee', SIZE = 14360742, mb = function (n) { return (n / 1048576).toFixed(1); };
+  var SRC = 'game.js?v=028a89d75c', SIZE = 14840517, mb = function (n) { return (n / 1048576).toFixed(1); };
   LD.plan([['dl', 'מוריד את המשחק', 5], ['code', 'מכין את המשחק', 4]], { img: 'img/mezach.jpg', clip: 'mezach' }); LD.step('dl'); LD.note('0.0 מתוך ' + mb(SIZE) + ' מ״ב');
   function fail() { LD.error('ההורדה נכשלה. בדקו את החיבור לאינטרנט ורעננו את הדף.'); }
   function start(s) { LD.step('code'); LD.frac(0.15, 2500); s.type = 'module'; document.body.appendChild(s); }

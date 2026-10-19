@@ -33,8 +33,29 @@ function initAudio() {
     const len = ctx.sampleRate * 2, buf = ctx.createBuffer(1, len, ctx.sampleRate), d = buf.getChannelData(0); for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1; AUD.noise = buf;
     const bed = (type, f, q, gain, lfoHz, amt) => { const s = ctx.createBufferSource(); s.buffer = buf; s.loop = true; const fl = ctx.createBiquadFilter(); fl.type = type; fl.frequency.value = f; fl.Q.value = q; const g = ctx.createGain(); g.gain.value = gain; const l = ctx.createOscillator(); l.frequency.value = lfoHz; const lg = ctx.createGain(); lg.gain.value = amt; l.connect(lg); lg.connect(g.gain); s.connect(fl); fl.connect(g); g.connect(AUD.master); s.start(); l.start(); };
     bed('bandpass', 360, 0.6, 0.035, 0.11, 0.02); bed('lowpass', 220, 0.7, 0.03, 0.07, 0.015);
+    sndLoad();
   } catch (e) { AUD.ctx = null; }
 }
+/* recorded clips (4f_data_snd.js), decoded once the audio is unlocked; every sound falls back on the synthesised one until its clip is ready */
+const SNDB = {};
+function sndLoad() {
+  if (SNDB._on || typeof SND_DATA === 'undefined') return; SNDB._on = true;
+  for (const k in SND_DATA) {
+    try {
+      const bin = atob(SND_DATA[k]), u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+      const ok = (b) => { SNDB[k] = b; }, r = AUD.ctx.decodeAudioData(u.buffer, ok, () => {}); if (r && r.catch) r.catch(() => {});
+    } catch (e) {}
+  }
+}
+function clip(k, t, vol, { rate = 1, off = 0, dur = 0, lp = 0 } = {}) {
+  const b = SNDB[k], ctx = AUD.ctx; if (!b || !ctx || vol < 0.003) return null;
+  const s = ctx.createBufferSource(); s.buffer = b; s.playbackRate.value = rate; let n = s;
+  if (lp) { const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = lp; n.connect(f); n = f; }
+  const g = ctx.createGain(); g.gain.value = vol; n.connect(g); g.connect(AUD.master);
+  if (dur) { g.gain.setValueAtTime(vol, t + Math.max(0, dur - 0.06)); g.gain.linearRampToValueAtTime(0.0001, t + dur); s.start(t, off, dur + 0.02); } else s.start(t, off);
+  return s;
+}
+const farLP = (p) => { const d = camera.position.distanceTo(p); return d > 220 ? 1400 : d > 90 ? 3200 : d > 35 ? 7000 : 0; };
 function nz(t, dur, { f = 1000, type = 'bandpass', q = 0.8, vol = 0.5, attack = 0.002, f2 = null } = {}) {
   const ctx = AUD.ctx; const s = ctx.createBufferSource(); s.buffer = AUD.noise; s.loop = true;
   const fl = ctx.createBiquadFilter(); fl.type = type; fl.frequency.setValueAtTime(f, t); if (f2) fl.frequency.exponentialRampToValueAtTime(f2, t + dur); fl.Q.value = q;
@@ -45,25 +66,29 @@ function tone(t, dur, f1, f2, vol, type = 'sine') { const ctx = AUD.ctx; const o
 function distVol(p, ref) { const d = camera.position.distanceTo(p); return [Math.min(1, ref / (d + ref * 0.3)), Math.min(d / 343, 5)]; }
 function sndShot(kind, p) {
   if (!AUD.ctx) return; const t0 = AUD.ctx.currentTime;
+  if ((kind === 'fal' || kind === 'mag') && SNDB.rifle) { clip('rifle', t0, kind === 'mag' ? 0.42 : 0.5, { rate: (kind === 'mag' ? 1.08 : 1) * rand(0.97, 1.03), dur: kind === 'mag' ? 0.42 : 0 }); tone(t0, 0.1, 140, 50, 0.3); return; }
   if (kind === 'fal' || kind === 'mag') { nz(t0, 0.16, { f: 2600, type: 'bandpass', q: 0.5, vol: kind === 'mag' ? 0.4 : 0.5 }); nz(t0, 0.35, { f: 900, type: 'lowpass', vol: 0.45, f2: 200 }); tone(t0, 0.12, 140, 50, 0.45); nz(t0 + 0.05, 0.6, { f: 500, type: 'lowpass', vol: 0.08, attack: 0.05 }); return; }
   const [v, dl] = distVol(p, kind === 'ak' || kind === 'smg' ? 60 : kind === 'svd' ? 120 : 80); if (v < 0.015) return; const t = t0 + dl;
   // a hundred rifles on the water: past some thirty shots a second the far ones add nothing to the roar, and every one costs the sound card
   // and the page a handful of nodes, so the quiet ones are left out
   { const L = (AUD.shL || 0) * Math.exp(-(t0 - (AUD.shT || t0)) * 6); AUD.shT = t0; if ((L > 3 && v < 0.6) || (L > 6 && v < 0.95)) { AUD.shL = L; return; } AUD.shL = L + 1; }
+  { const ck = kind === 'smg' ? 'smg' : kind === 'svd' || kind === 'fal-npc' ? 'rifle' : 'ak';
+    if (SNDB[ck]) { clip(ck, t, (kind === 'svd' ? 0.6 : kind === 'smg' ? 0.42 : 0.5) * v, { rate: (kind === 'lmg' ? 0.9 : kind === 'svd' ? 0.94 : 1) * rand(0.95, 1.05), lp: p ? farLP(p) : 0, dur: kind === 'fal-npc' ? 0.6 : 0 }); return; } }
   if (kind === 'smg') { nz(t, 0.07, { f: 2100, q: 0.8, vol: 0.4 * v }); nz(t, 0.16, { f: 700, type: 'lowpass', vol: 0.18 * v, f2: 200 }); return; }
   if (kind === 'svd') { nz(t, 0.14, { f: 1300, q: 0.6, vol: 0.7 * v }); nz(t, 0.5, { f: 500, type: 'lowpass', vol: 0.35 * v, f2: 120 }); tone(t, 0.1, 120, 50, 0.3 * v); return; }
   nz(t, 0.11, { f: kind === 'ak' ? 1500 : kind === 'lmg' ? 1350 : 1200, q: 0.7, vol: (kind === 'lmg' ? 0.6 : 0.55) * v }); nz(t, 0.3, { f: 600, type: 'lowpass', vol: 0.25 * v, f2: 150 });
 }
 function sndBoom(p, size = 1) {
   if (!AUD.ctx) return; const [v, dl] = distVol(p, 260 * size); if (v < 0.01) return; const t = AUD.ctx.currentTime + dl; const d = camera.position.distanceTo(p);
-  nz(t, 2.4, { f: d < 60 ? 2200 : 800, type: 'lowpass', vol: v, f2: 110, attack: 0.01 }); tone(t, 0.9, 70, 26, v);
+  if (SNDB.boom) { clip('boom', t, Math.min(1, v * 1.15), { rate: (size > 1.6 ? 0.82 : size < 0.6 ? 1.18 : 1) * rand(0.94, 1.06), lp: d > 260 ? 900 : 0 }); if (d < 60) nz(t, 0.35, { f: 2600, type: 'lowpass', vol: v * 0.6, f2: 600, attack: 0.004 }); }
+  else { nz(t, 2.4, { f: d < 60 ? 2200 : 800, type: 'lowpass', vol: v, f2: 110, attack: 0.01 }); tone(t, 0.9, 70, 26, v); }
   if (d < 14) { AUD.ring = 2.2; tone(t, 2.2, 3700, 3500, 0.08 * (1 - d / 14)); }
 }
-function sndWhistle(eta) { if (!AUD.ctx) return; const t = AUD.ctx.currentTime; const o = AUD.ctx.createOscillator(); o.frequency.setValueAtTime(1900, t); o.frequency.exponentialRampToValueAtTime(650, t + eta); const g = AUD.ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.07, t + eta * 0.9); g.gain.exponentialRampToValueAtTime(0.0001, t + eta); o.connect(g); g.connect(AUD.master); o.start(t); o.stop(t + eta + 0.05); }
+function sndWhistle(eta) { if (!AUD.ctx) return; const t = AUD.ctx.currentTime; if (SNDB.whistle) { const L = SNDB.whistle.duration, r = clamp(L / Math.max(eta, 0.3), 0.75, 1.5), off = Math.max(0, L - eta * r); clip('whistle', t, 0.3, { rate: r, off }); return; } const o = AUD.ctx.createOscillator(); o.frequency.setValueAtTime(1900, t); o.frequency.exponentialRampToValueAtTime(650, t + eta); const g = AUD.ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.07, t + eta * 0.9); g.gain.exponentialRampToValueAtTime(0.0001, t + eta); o.connect(g); g.connect(AUD.master); o.start(t); o.stop(t + eta + 0.05); }
 function sndClick(f = 1800, vol = 0.12) { if (!AUD.ctx) return; nz(AUD.ctx.currentTime, 0.04, { f, q: 2, vol }); }
 function sndHurt() { if (!AUD.ctx) return; const t = AUD.ctx.currentTime; tone(t, 0.25, 90, 40, 0.5); nz(t, 0.15, { f: 400, type: 'lowpass', vol: 0.3 }); }
-function sndWhiz(p) { if (!AUD.ctx) return; const t = AUD.ctx.currentTime; nz(t, 0.12, { f: 3500, f2: 1200, q: 3, vol: 0.12 }); }
-function sndRadio() { if (!AUD.ctx) return; const t = AUD.ctx.currentTime; nz(t, 0.08, { f: 2900, q: 1.3, vol: 0.07 }); tone(t + 0.02, 0.06, 1400, 1300, 0.025, 'square'); }
+function sndWhiz(p) { if (!AUD.ctx) return; const t = AUD.ctx.currentTime; if (clip('whiz', t, 0.42, { rate: rand(0.9, 1.15) })) return; nz(t, 0.12, { f: 3500, f2: 1200, q: 3, vol: 0.12 }); }
+function sndRadio() { if (!AUD.ctx) return; const t = AUD.ctx.currentTime; if (clip('static', t, 0.16, { rate: rand(0.95, 1.08) })) { tone(t + 0.02, 0.06, 1400, 1300, 0.02, 'square'); return; } nz(t, 0.08, { f: 2900, q: 1.3, vol: 0.07 }); tone(t + 0.02, 0.06, 1400, 1300, 0.025, 'square'); }
 function sndJet(eta) {
   if (!AUD.ctx) return; const ctx = AUD.ctx, t = ctx.currentTime, T = eta + 7;
   const s = ctx.createBufferSource(); s.buffer = AUD.noise; s.loop = true;
@@ -73,6 +98,38 @@ function sndJet(eta) {
   const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.setValueAtTime(820, t); o.frequency.exponentialRampToValueAtTime(1250, t + eta); o.frequency.exponentialRampToValueAtTime(380, t + eta + 2.2);
   const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 1100; const og = ctx.createGain(); og.gain.setValueAtTime(0.0001, t); og.gain.exponentialRampToValueAtTime(0.035, t + eta); og.gain.exponentialRampToValueAtTime(0.0001, t + eta + 3);
   o.connect(bp); bp.connect(og); og.connect(AUD.master); o.start(t); o.stop(t + eta + 3.1);
+}
+/* a round striking close by */
+function sndImpact(p) { if (!AUD.ctx || !p) return; const d = camera.position.distanceTo(p); if (d > 14) return; clip('impact', AUD.ctx.currentTime, 0.45 * (1 - d / 16), { rate: rand(0.85, 1.2) }); }
+/* a tank's main gun or a recoilless rifle */
+function sndCannon(p, size = 1) {
+  if (!AUD.ctx) return; if (!SNDB.cannon) { sndBoom(p, size); return; }
+  const [v, dl] = distVol(p, 320 * size); if (v < 0.01) return; clip('cannon', AUD.ctx.currentTime + dl, Math.min(1, v * 1.1), { rate: (size < 0.5 ? 1.15 : 1) * rand(0.95, 1.04), lp: farLP(p) });
+}
+/* the RPG: the launch crack and the rocket motor */
+function sndRocket(p) {
+  if (!AUD.ctx) return; if (!SNDB.rpg) { sndShot('ak', p); sndBoom(p, 0.25); return; }
+  const [v, dl] = distVol(p, 110); clip('rpg', AUD.ctx.currentTime + dl, Math.min(1, v * 0.9), { rate: rand(0.95, 1.05), lp: farLP(p) });
+}
+/* a charge: men shouting as they run in, heard over the gunfire */
+function sndShouts(p, vol = 0.32) {
+  if (!AUD.ctx || !SNDB.shouts) return; const d = p ? camera.position.distanceTo(p) : 60; const v = vol * Math.min(1, 50 / (d + 15)); clip('shouts', AUD.ctx.currentTime + Math.min(d / 343, 1), v, { off: rand(0, 3), dur: rand(3.5, 4.8), lp: d > 60 ? 2200 : 0, rate: rand(0.95, 1.03) });
+}
+/* the beds: wind over the sand, the battle all along the line far away, and the engine of the tank you ride */
+const BEDS = {};
+function bedTick(dt) {
+  if (!AUD.ctx) return; const ctx = AUD.ctx, play = GAME.state === 'play';
+  const want = {
+    wind: play ? (MODE === 'hermon' ? 0.16 : 0.11) : 0,
+    battle: play && MODE !== 'range' && !(MODE === 'farm' && typeof FM !== 'undefined' && FM.ph === 'walk') ? (SURV.on ? 0.12 : 0.085) : 0,
+    engine: play && P.mode === 'tank' && TANK.alive ? 0.12 + 0.1 * Math.min(1, Math.abs(TANK.speed || 0) / 5) : 0,
+  };
+  for (const k in want) {
+    let b = BEDS[k];
+    if (!b) { if (!SNDB[k] || want[k] <= 0) continue; const s = ctx.createBufferSource(); s.buffer = SNDB[k]; s.loop = true; s.loopStart = 0.03; s.loopEnd = SNDB[k].duration - 0.03; const g = ctx.createGain(); g.gain.value = 0; s.connect(g); g.connect(AUD.master); s.start(ctx.currentTime, rand(0, 2)); b = BEDS[k] = { s, g, v: 0 }; }
+    b.v += clamp(want[k] - b.v, -dt * 0.35, dt * 0.35); b.g.gain.setTargetAtTime(b.v, ctx.currentTime, 0.1);
+    if (k === 'engine') b.s.playbackRate.setTargetAtTime(0.85 + 0.35 * Math.min(1, Math.abs(TANK.speed || 0) / 5), ctx.currentTime, 0.2);
+  }
 }
 function setMute(m) { AUD.muted = m; if (AUD.master) AUD.master.gain.value = m ? 0 : 0.8; $('#bMute').textContent = m ? 'צליל: כבוי' : 'צליל: פועל'; }
 
@@ -467,7 +524,7 @@ const wpnOf = (e) => WPN[e.kind] || WPN.rifle, wBurst = (e) => { const b = wpnOf
 /* an RPG man fires his launcher, and only that: down on a knee, a rocket, then the long reload (no rifle bursts from a man holding a tube) */
 function rpgShoot(e, tp) {
   const from = e.muzzle(); e.rpgCd = rand(8, 12); e.rpgPause = 1.0; e.face(tp.x, tp.z);
-  fireRocket(from, tp.clone().add(V3(rand(-1.4, 1.4), rand(-0.4, 0.7), rand(-1.4, 1.4))), 'e'); fxMuzzle(from, true); sndShot('ak', from); sndBoom(from, 0.25);
+  fireRocket(from, tp.clone().add(V3(rand(-1.4, 1.4), rand(-0.4, 0.7), rand(-1.4, 1.4))), 'e'); fxMuzzle(from, true); sndRocket(from);
 }
 function enemyFire(e) {
   if (e.kind === 'rpg' && e.target) { const tp = e.target.player ? playerEye() : e.target.f.unit.chest(), d = e.pos.distanceTo(tp); if (e.rpgCd <= 0 && d > (e.state === 'trench' ? 6 : 12) && d < 230) rpgShoot(e, tp); return; }
@@ -475,10 +532,10 @@ function enemyFire(e) {
   const tp = tgt.player ? playerEye() : tgt.f.unit.chest(); const d = from.distanceTo(tp); const rangeF = clamp(1 - d / W.range, 0.25, 1) * (W.range < 200 && d > W.range * 0.6 ? 0.3 : 1);
   fxMuzzle(from, W.snd === 'lmg', tp); sndShot(W.snd, from);
   let hit = false; const eye = e.eye(); const wt = segHitT(eye.x, eye.y, eye.z, tp.x, tp.y, tp.z, FIELDM() ? 0.25 : 0.7);
-  if (wt >= 0) { const wk = SEG_K, wp = V3(lerp(eye.x, tp.x, wt), lerp(eye.y, tp.y, wt), lerp(eye.z, tp.z, wt)); if (Math.random() < 0.5) fxTracer(from, wp, true); fxDust(wp); if (wk && camera.position.distanceTo(wp) < 60) { const dv = V3(tp.x - eye.x, tp.y - eye.y, tp.z - eye.z).normalize(); bulletHole(wp, colNormal(wk, wp, dv)); } e.scanCd = 0; return; }   /* the walls round the player are pocked by their fire too */
+  if (wt >= 0) { const wk = SEG_K, wp = V3(lerp(eye.x, tp.x, wt), lerp(eye.y, tp.y, wt), lerp(eye.z, tp.z, wt)); if (Math.random() < 0.5) fxTracer(from, wp, true); fxDust(wp); if (tgt.player && Math.random() < 0.5) sndImpact(wp); if (wk && camera.position.distanceTo(wp) < 60) { const dv = V3(tp.x - eye.x, tp.y - eye.y, tp.z - eye.z).normalize(); bulletHole(wp, colNormal(wk, wp, dv)); } e.scanCd = 0; return; }   /* the walls round the player are pocked by their fire too */
   if (tgt.player) { let p = W.acc * (FIELDM() ? (CH().hard || 0.7) : 1) * (SURV.on ? SURV.acc : 1) * diff.acc * rangeF * (d < 12 ? 2 : 1) * (P.mode === 'tank' ? 0.45 : 1) * (P.crouch ? 0.55 : 1) * (moving() ? 0.7 : 1) * (P.post ? 0.8 : 1) * (e.stance === 'crouch' ? 1.1 : 1) * (FIELDM() && P.mode === 'rifle' && inConceal(P.pos.x, P.pos.z) ? 0.45 : 1) * (e.wild ? 0.3 : 1) * (mz ? mz.acc * (SCENES[Math.max(0, D.scene)].acc || 1) : 1) * (e.wild ? 1 : tacAcc(e)); hit = Math.random() < p; if (hit && P.mode === 'tank' && P.crouch) { hit = false; fxDust(tp.clone().add(V3(rand(-0.6, 0.6), rand(-0.3, 0.3), rand(-0.6, 0.6)))); } if (hit) hurtPlayer(rand(diff.dmg[0], diff.dmg[1]) * W.dmg, from); else if (d < 60 && Math.random() < 0.35) sndWhiz(); }
   else { sqfSpot(e, tgt.f); hit = Math.random() < diff.accF * (1 - 0.6 * clamp(e.supp || 0, 0, 1)) * rangeF * (FIELDM() ? 0.45 : 1) * (tgt.f.duckT > 0 ? 0.25 : 1) * (tgt.f.unit.stance === 'crouch' ? 0.7 : 1) * (tgt.f.cov ? 0.55 : 1) * (mz ? mz.fHit : 1); if (hit) woundFriend(tgt.f, Math.random() < 0.18); else tgt.f.supp = (tgt.f.supp || 0) + 1; }
-  const end = tp.clone(); if (!hit) end.add(V3(rand(-1.4, 1.4), rand(-0.4, 1.4), rand(-1.4, 1.4)));
+  const end = tp.clone(); if (!hit) end.add(V3(rand(-1.4, 1.4), rand(-0.4, 1.4), rand(-1.4, 1.4))); if (!hit && tgt.player && Math.random() < 0.3) sndImpact(end);
   if (Math.random() < ((CH() && CH().tracers) || W.tracer || 0.5)) fxTracer(from, end, true);
   if (!hit && Math.random() < 0.4) fxDust(V3(end.x, groundAt(end.x, end.z) + 0.2, end.z));
 }
@@ -1263,7 +1320,7 @@ function updDirector(dt) {
   updStrafe(dt); airDirector(dt); rowsUpd(dt);
   if (!CINE.on) D.phaseT += dt; { const [k, d] = trK(P.pos.x, P.pos.z); TR.pK = k; TR.pD = d; }
   for (let i = DIRQ.length - 1; i >= 0; i--) if (DIRQ[i] && GAME.t >= DIRQ[i].at) { const q = DIRQ.splice(i, 1)[0]; q.fn(); }
-  for (const g of GROUPS) if (!g.go && g.goAt && GAME.t >= g.goAt) { g.go = true; if (GAME.t - (D.chargeMsg || -99) > 20) { D.chargeMsg = GAME.t; radio('תצפית', g.side === 'north' ? 'הם מסתערים על השער הצפוני!' : g.side === 'south' ? 'הם מסתערים מדרום!' : 'הם עולים על הסוללה! מסתערים על המוצב!'); } }
+  for (const g of GROUPS) if (!g.go && g.goAt && GAME.t >= g.goAt) { g.go = true; if (GAME.t - (D.chargeMsg || -99) > 20) { D.chargeMsg = GAME.t; sndShouts(null); radio('תצפית', g.side === 'north' ? 'הם מסתערים על השער הצפוני!' : g.side === 'south' ? 'הם מסתערים מדרום!' : 'הם עולים על הסוללה! מסתערים על המוצב!'); } }
   if (D.phase === 'alert') {
     if (!D.jets && D.phaseT > 0.3) { D.jets = true; airStrike(); radio('חמ״ל', 'כוננות ספיגה! מטוסים מצריים מעל התעלה!'); strafeRun(P.pos.x + 2, P.pos.z - 14, 2.2); }
     if (D.phaseT > BARRAGE_AT) { D.phase = 'barrage'; D.phaseT = 0; D.barT = 0.2; radio('חמ״ל', 'הרעשה ארטילרית על כל הקו! כולם במחסה!'); }
@@ -1449,14 +1506,14 @@ function magShoot() {
   const from = m.pivot.localToWorld(V3(0, 0.012, hv ? 1.3 : 0.9));
   const hit = castShot(camera.position.clone(), d, hv ? 1100 : 800, 'f');
   if (m.belt % (hv ? 2 : 3) === 0) fxTracer(from, hit.p, false);
-  fxMuzzle(from, true); LIGHTS.muzzle.position.copy(from); LIGHTS.muzzle.intensity = hv ? 1800 : 900; sndShot('mag'); if (hv) sndBoom(from, 0.14); FX.shake = Math.max(FX.shake, hv ? 0.24 : 0.12);
+  fxMuzzle(from, true); LIGHTS.muzzle.position.copy(from); LIGHTS.muzzle.intensity = hv ? 1800 : 900; if (hv) sndCannon(from, 0.7); else sndShot('mag'); FX.shake = Math.max(FX.shake, hv ? 0.24 : 0.12);
   P.pitch += hv ? 0.01 : 0.0065; P.yaw += rand(-0.005, 0.005) * (hv ? 1.6 : 1);
   applyHit(hit, hv ? 240 : 80);
   // a .50 round goes through the first man and on into the next, and tears up the sand where it lands
   if (hv) { if (hit.kind === 'enemy') { const h2 = castShot(hit.p.clone().addScaledVector(d, 0.7), d, 14, 'f'); if (h2.kind === 'enemy') applyHit(h2, 160); } if (hit.kind === 'ground' || hit.kind === 'enemy' || !hit.kind) { const q = hit.p.clone(); fxDust(q); fxDust(q.clone().add(V3(rand(-0.4, 0.4), 0.3, rand(-0.4, 0.4)))); } }
 }
 const RELOAD_T = 3.45;   // the magazine change, unhurried
-function reload() { if (P.mode !== 'rifle' || P.reloadT > 0 || P.mag >= 20 || P.reserve <= 0) { if (P.mode === 'mag' && P.post.mag.belt < (P.post.mag.cap || 200) && P.post.mag.reload <= 0) P.post.mag.reload = P.post.mag.heavy ? 5.5 : 4.5; return; } P.reloadT = RELOAD_T; sndClick(1200, 0.15); setTimeout(() => sndClick(700, 0.2), 1350); setTimeout(() => sndClick(1500, 0.2), 2700); }
+function reload() { if (P.mode !== 'rifle' || P.reloadT > 0 || P.mag >= 20 || P.reserve <= 0) { if (P.mode === 'mag' && P.post.mag.belt < (P.post.mag.cap || 200) && P.post.mag.reload <= 0) P.post.mag.reload = P.post.mag.heavy ? 5.5 : 4.5; return; } P.reloadT = RELOAD_T; if (AUD.ctx && SNDB.reload) { clip('reload', AUD.ctx.currentTime + 0.25, 0.4); clip('reload', AUD.ctx.currentTime + 2.35, 0.32, { off: 0.62, dur: 0.37 }); } else { sndClick(1200, 0.15); setTimeout(() => sndClick(700, 0.2), 1350); setTimeout(() => sndClick(1500, 0.2), 2700); } }
 function throwPlayerGrenade() {
   if (P.mode === 'tank') return tankMainGun();
   if (P.mode !== 'rifle' || P.gren <= 0 || P.throwT > 0 || P.reloadT > 0) return; P.gren--; P.throwT = 0.7;
@@ -2064,7 +2121,7 @@ function govTick(real) {
 }
 function frameInner() {
   if (LD.busy) { clock.getDelta(); return; }   // a mission is loading: its own pieces of work have the page; nothing is drawn under the loading screen
-  const real = Math.min(clock.getDelta(), 0.05); slowStep(real); govTick(real); const dt = real * SLOW.k, time = clock.elapsedTime;
+  const real = Math.min(clock.getDelta(), 0.05); slowStep(real); govTick(real); bedTick(real); const dt = real * SLOW.k, time = clock.elapsedTime;
   // the title and mission select cover the screen with pictures: no need to draw the 3D world behind them (it saves the phone's battery)
   if (GAME.state === 'menu' && (!$('#mBrief').hidden || !$('#mOps').hidden)) return;
   if (GAME.state === 'play') update(dt, time); else if (GAME.state !== 'pause' && GAME.state !== 'end') { idleCamera(time); updJets(dt); menuFx(dt); }

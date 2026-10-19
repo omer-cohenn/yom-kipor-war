@@ -946,7 +946,7 @@ function crWave(n) {
   fronts.forEach((f, fi) => { for (let j = 0; j < m; j++) DIRQ.push({ at: GAME.t + fi * 1.6 + j * 0.85, spawn: true, fn: () => crStormer(f, fi, j, j === 2 && n % 2 === 1 ? 'rpg' : j % 4 === 3 ? 'smg' : 'rifle') }); });
   if (n === 2) for (const s of CHAP.cross.nests.h) { const e = fSlotSpawn(s.kind, (q) => q === s, 'h'); if (e) { e.crSt = false; e.crFront = 'w'; } }
   const where = fronts.map((f) => CR_FRONT[f].name).join(fronts.length > 2 ? ', ' : ' ו');
-  radio('תצפית', fronts.length > 2 ? `מכל הכיוונים! ${where}!` : `${n ? 'עוד גל' : 'הם באים'} — ${where}!`, 3);
+  sndShouts(null, 0.3); radio('תצפית', fronts.length > 2 ? `מכל הכיוונים! ${where}!` : `${n ? 'עוד גל' : 'הם באים'} — ${where}!`, 3);
   CR.lastFronts = fronts;
 }
 // the last assault, as the tanks come: everything down all three ways at once
@@ -988,7 +988,7 @@ function crTankGun(v, dt) {
   v.mgT -= dt; if (v.mgT <= 0) { v.mgN = (v.mgN ?? 14) - 1; v.mgT = 0.08; if (v.mgN <= 0) { v.mgT = rand(0.35, 0.8); v.mgN = Math.floor(rand(10, 20)); }
     const mz = from.clone().add(V3(0, 0.15, 0)); if (Math.random() < 0.5) fxMuzzle(mz, false); fxTracer(mz, c.clone().add(V3(rand(-1.3, 1.3), rand(-0.7, 0.9), rand(-1.3, 1.3))), false); if (Math.random() < 0.35) sndShot('lmg', mz);
     if (Math.random() < 0.07) killEnemy(e, false); else if (Math.random() < 0.3) fxDust(V3(c.x + rand(-1.5, 1.5), groundAt(c.x, c.z) + 0.1, c.z + rand(-1.5, 1.5))); }
-  v.gunT -= dt; if (v.gunT <= 0) { v.gunT = rand(2.4, 4.0); const p = e.pos.clone(), a = Math.atan2(p.x - from.x, p.z - from.z), mz = v.g.position.clone().add(V3(Math.sin(a) * 4.6, 2.3, Math.cos(a) * 4.6)); fxMuzzle(mz, true); fxExplosion(mz, 0.4); sndBoom(mz, 1.0); fxTracer(mz, c, true); FX.shake = Math.max(FX.shake, clamp(0.5 - camera.position.distanceTo(mz) / 80, 0, 0.4));
+  v.gunT -= dt; if (v.gunT <= 0) { v.gunT = rand(2.4, 4.0); const p = e.pos.clone(), a = Math.atan2(p.x - from.x, p.z - from.z), mz = v.g.position.clone().add(V3(Math.sin(a) * 4.6, 2.3, Math.cos(a) * 4.6)); fxMuzzle(mz, true); fxExplosion(mz, 0.4); sndCannon(mz, 1.0); fxTracer(mz, c, true); FX.shake = Math.max(FX.shake, clamp(0.5 - camera.position.distanceTo(mz) / 80, 0, 0.4));
     DIRQ.push({ at: GAME.t + 0.22, fn: () => { p.y = groundAt(p.x, p.z); fxExplosion(p, 1.3); sndBoom(p, 1.1); for (const o of UNITS.enemies) if (o.alive && o.pos.distanceTo(p) < 5.5) killEnemy(o, false); } }); }
 }
 // the Egyptians break: whoever is left turns and runs back the way he came
