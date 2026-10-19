@@ -9,11 +9,12 @@
 const PR = { step: 0, stepT: 0, msgs: {}, stage: 0, done: [], tg: [], raft: null, pit: null };
 const PR_STAGES = [
   { title: 'תרגיל בלימה', sub: 'שישי, 5 באוקטובר 1973, ערב יום כיפור. המ״פ מריץ תרגיל כוננות לאורך הסוללה המערבית: כל מה שהמעוז צריך כדי להחזיק.', goal: 'תרגילי המ״פ, אחד אחרי השני' },
+  { title: 'סיור ג׳יפ', sub: 'לפני החג: סיור בדרך שבדרום המעוז על ג׳יפ עם מקלע 0.5. לאורך הדרך הוצבו חביות, ותוך כדי נסיעה מתאמנים על ירי מרכב שנוסע.', goal: 'שש חביות מהג׳יפ הנוסע' },
   { title: 'מטווח טנקים', sub: 'לפני השקיעה, בקצה הדרומי של המעוז. מחלקת הטנקים מתרגלת ירי מעמדת צריח על שני טנקים ישנים שנגררו לשם כמטרות.', goal: 'שני פגזים, שתי מטרות' },
   { title: 'לילה', sub: 'קצת לפני חצות. שקט על התעלה, ומחר יום כיפור.', goal: 'שמירה על הסוללה' },
 ];
-const PR_TOD = [16 * 60 + 52, 17 * 60 + 22, 23 * 60 + 48];
-const PR_NIGHT = 2;
+const PR_TOD = [16 * 60 + 52, 17 * 60 + 10, 17 * 60 + 24, 23 * 60 + 48];
+const PR_JEEP = 1, PR_TANKS = 2, PR_NIGHT = 3;
 // the drill's places, along the western trench (x ~ -76.5) from north to south
 const PR_AT = {
   start: [-76.9, -50], walk: [-76.8, -38.5], run: [-76.6, -24], bay: [-78.5, -19.2],
@@ -138,7 +139,7 @@ const PR_STEPS = [
     start: () => prWoundDudu(),
     hint: () => `<b>עזרה ראשונה:</b> עמדו ליד הפצוע (✚) והחזיקו ${prKey(K('F'), 'את הכפתור הירוק שמופיע מימין')} עד שהפס מתמלא.`,
     done: () => prDudu().state === 'stable' },
-  { id: 'carry', title: 'פינוי לתאג״ד', at: () => (P.mode === 'carry' ? [AIDPOST.x, AIDPOST.y ?? groundAt(AIDPOST.x, AIDPOST.z), AIDPOST.z, 'תאג״ד'] : null),
+  { id: 'carry', title: 'פינוי לתאג״ד', at: () => prCarryAt(),
     say: ['עכשיו לתאג״ד. סוחבים אותו בתעלת הקשר, לא מעל הסוללה.'],
     hint: () => `<b>פינוי:</b> ${prKey('הכפתור הירוק', K('E'))} מרים אותו. סחבו אותו לאוהל התאג״ד (◆), ושם ${prKey('הכפתור הירוק', K('E'))} משכיב אותו על האלונקה.`,
     done: () => prDudu().state === 'saved' },
@@ -173,7 +174,42 @@ const PR_TSTEPS = [
     hint: () => `<b>טעינה:</b> אחרי כל פגז הטען טוען 4 שניות (בפינה כתוב "טוען"). כוונו לטנק השמאלי ו${prKey(K('G'), 'הכפתור <kbd>תותח</kbd>')}.`,
     done: () => prFoe(1) && !prFoe(1).alive },
 ];
-const prSteps = () => (PR.stage === 1 ? PR_TSTEPS : PR_STEPS);
+/* ---------- the jeep patrol: up and down the road south of the stronghold on the .50 of a patrol jeep, six drums along the road ---------- */
+const PR_JP = { path: [[9, -100], [9, -248]], v: 3.6, drums: [[-6, -128], [26, -150], [-9, -172], [27, -196], [-5, -218], [24, -238]] };
+const PR_JD = 'אבי · הנהג';
+const prDrumAt = () => { const d = PR.drums && PR.drums.find((q) => !q.down); return d ? [d.x, d.y + 1.6, d.z, 'חבית'] : null; };
+const PR_JSTEPS = [
+  { id: 'jfire', title: 'ירי מג׳יפ נוסע', at: prDrumAt, who: PR_JD,
+    say: ['אתה על ה־0.5? יוצאים. שש חביות לאורך הדרך, אחת אחת, ואני לא עוצר בשבילך.'],
+    hint: () => `<b>מקלע על ג׳יפ:</b> ${prKey(`העכבר מסובב את המקלע, ${K('לחיצה ממושכת')} יורה, ${K('לחצן ימני')} כוונת`, 'גררו באצבע בצד ימין כדי לסובב את המקלע, החזיקו את <kbd>אש</kbd>, <kbd>כוונת</kbd> לזום')}. הג׳יפ זז, אז מתקנים כל הזמן. צרורות קצרים על החבית שמסומנת.`,
+    done: () => PR.drums && PR.drums.every((q) => q.down) },
+];
+function prBuildJeep() {
+  const r = vehModel('jeep', 'f'); r.crew = true; scene.add(SH(onLayer1(r.g))); if (VEH_DATA.m2hi && r.mg) { r.mg.userData.mesh.geometry = vehGeo('m2hi', 0, 'body', 'f'); r.mg.userData.mesh.material = MAT.gunHi; }
+  PR.jeep = { r, g: r.g, mg: r.mg, s: 0, dir: 1, L: pathLen(PR_JP.path), on: false, pv: { g: r.g, half: [1.6, 2, 0.75], fwdX: true, hdV: null } };
+  const dm = new THREE.MeshStandardMaterial({ color: 0xb8541c, roughness: 0.6, metalness: 0.3 }), band = new THREE.MeshStandardMaterial({ color: 0xece6d6, roughness: 0.7 }), geo = new THREE.CylinderGeometry(0.36, 0.36, 1.1, 14).translate(0, 0.55, 0), bg = new THREE.CylinderGeometry(0.365, 0.365, 0.18, 14).translate(0, 0.62, 0);
+  PR.drums = PR_JP.drums.map(([x, z]) => { const g = new THREE.Group(), y = groundAt(x, z); g.add(new THREE.Mesh(geo, dm), new THREE.Mesh(bg, band)); g.position.set(x, y, z); SH(onLayer1(g), true, false); scene.add(g); return { g, x, y, z, down: false, fall: 0, dx: 0, dz: 1 }; });
+}
+function prJeepPose() { const J = PR.jeep, [x, z, hd] = pathAt(PR_JP.path, J.s); vehPose(J.pv, x, z, J.dir > 0 ? hd : hd + Math.PI); }
+function prJeepSetup() {
+  for (const d of PR.drums) { d.down = false; d.fall = 0; d.g.rotation.set(0, 0, 0); d.g.position.y = d.y; }
+  const J = PR.jeep; J.s = 0; J.dir = 1; J.on = false; J.pv.hdV = null; prJeepPose(); J.g.updateMatrixWorld(true);
+  const j = J.g, mg = J.mg, pv = vehPivot('jeep'); P.ride = { pos: () => { const b = mg.rotation.y, D = 1.08, S = 0.24; return j.localToWorld(V3(pv[0] - D * Math.cos(b) - S * Math.sin(b), 0.98, pv[2] + D * Math.sin(b) - S * Math.cos(b))); }, eye: 1.78, mg: true, novm: true, gun: mg, muzzle: () => mg.localToWorld(V3(mg.userData.tip, 0.1, 0)) };
+  P.pos.copy(P.ride.pos()); P.yaw = 0.35; P.pitch = -0.04; vm.visible = false;
+  PR.step = -1; DIRQ.push({ at: GAME.t + 1.4, fn: () => { J.on = true; prStep(0); } });
+}
+function prJeepUpd(dt) {
+  const J = PR.jeep; if (!J) return;
+  if (PR.stage === PR_JEEP && J.on) { J.s += J.dir * PR_JP.v * dt; if (J.s > J.L - 0.5) { J.s = J.L - 0.5; J.dir = -1; } if (J.s < 0.5) { J.s = 0.5; J.dir = 1; } prJeepPose(); }
+  if (P.ride && P.ride.mg && J.mg && PR.stage === PR_JEEP) { J.mg.rotation.y = wrapPi(P.yaw + Math.PI / 2 - J.g.rotation.y); J.mg.rotation.z = clamp(P.pitch, -0.35, 0.6); }
+  for (const d of PR.drums) if (d.down && d.fall < 1) { d.fall = Math.min(1, d.fall + dt * 2.6); const a = (Math.PI / 2) * d.fall * d.fall; d.g.rotation.set(a * d.dz, 0, -a * d.dx); d.g.position.y = d.y + 0.36 * Math.sin(a) * 0.5; }
+}
+function prJeepDone() {
+  radio(PR_JD, 'שש מתוך שש! עם כזה מקלע, שיבואו רק.', 3.4, true);
+  DIRQ.push({ at: GAME.t + 3.8, fn: () => radio(PR_MC, 'יפה. עכשיו לטנקים, הם יורים לפני השקיעה.', 3.2, true) });
+  DIRQ.push({ at: GAME.t + 7.2, fn: () => prCut(() => prSetup(PR_TANKS)) });
+}
+const prSteps = () => (PR.stage === PR_JEEP ? PR_JSTEPS : PR.stage === PR_TANKS ? PR_TSTEPS : PR_STEPS);
 function prBuildRange() {
   // the earth bank the tank goes up behind: a long low mound across its front
   const [bx, bz] = PR_TK.berm, g0 = groundAt(bx, bz), geo = new THREE.CylinderGeometry(1.7, 2.1, 9.5, 18, 1).rotateZ(Math.PI / 2); geo.scale(1, 0.72, 1);
@@ -190,6 +226,15 @@ function prTankDone() {
   radio(PR_TC, 'שתי יריות, שתי פגיעות. אם הם יבואו מחר, זה מה שיקרה להם.', 4.2, true);
   DIRQ.push({ at: GAME.t + 4.6, fn: () => radio('הטען', 'אחרי מה שעשינו להם ב־67? הם לא יעזו לחצות.', 3.6, true) });
   DIRQ.push({ at: GAME.t + 8.6, fn: () => prCut(() => prSetup(PR_NIGHT)) });
+}
+/* the way to the aid tent, one yellow pillar at a time: to the wounded, the steps out of the trench, the top of them, the tent's door, the stretcher */
+function prCarryAt() {
+  if (P.mode !== 'carry') { const u = prDudu().unit; return prDudu().state === 'stable' ? [u.pos.x, u.pos.y + 0.4, u.pos.z, 'דודו'] : null; }
+  const E = PR_EXIT, zc = (E.z0 + E.z1) / 2, d = PR.door;
+  if (P.pos.x < E.x0 - 0.2) return prPt(E.x0 - 0.5, zc, 0.6, 'מדרגות');
+  if (P.pos.x < E.x2) return [E.x2 - 0.3, 8.4 + 0.6, zc, 'מדרגות'];
+  if (d && P.pos.x < d.at.x + 0.6) return [d.at.x - 0.6, d.y + 0.6, d.at.z, 'דלת התאג״ד'];
+  return [AIDPOST.x, groundAt(AIDPOST.x, AIDPOST.z) + 0.6, AIDPOST.z - 0.9, 'אלונקה'];
 }
 const prPt = (x, z, h, label) => [x, groundAt(x, z) + h, z, label];
 const prNear = (at, r) => Math.hypot(at[0] - P.pos.x, at[1] - P.pos.z) < r;
@@ -286,7 +331,7 @@ function prBuildExit() {
 }
 function prBuild() {
   const C = CHAP.prologue; C.slots = []; C.covers = [];
-  prBuildTent(); prBuildExit(); prBuildRange();
+  prBuildTent(); prBuildExit(); prBuildJeep(); prBuildRange();
   PR.tg = PR_TARGETS.map(([x, z, kind, label]) => { const [bx, bz] = PR_AT.bay; return prTarget(kind, x, z, bx - x, bz - z, label); });
   // the grenade pit: a ring of sandbags round a hollow
   { const BAGS = [], sv = BATCH.bag; BATCH.bag = BAGS; const [px, pz] = PR_AT.pit, g0 = groundAt(px, pz), ring = []; for (let a = 0; a <= 360.1; a += 15) { const r = THREE.MathUtils.degToRad(a); ring.push([px + Math.sin(r) * PR_PIT_R, pz + Math.cos(r) * PR_PIT_R]); } bagWall(ring, 1, null, false); BATCH.bag = sv; scene.add(bagMesh(BAGS));
@@ -296,6 +341,7 @@ function prBuild() {
 }
 function prSetup(stage = 0) {
   if (PR.door) { hmDoorSet(PR.door, false, true); PR.door.rate = 7; } PR.bedT = 0;
+  if (PR.jeep) { PR.jeep.on = false; PR.jeep.s = 0.5; PR.jeep.dir = 1; PR.jeep.pv.hdV = null; prJeepPose(); }
   for (const c of PR.exitCols || []) { if (c.top0 === undefined) c.top0 = c.top; c.top = -1e4; } prExitSurf(true);   // the steps over the parapet to the aid tent
   if (!PR.aid0) PR.aid0 = { ...AIDPOST }; Object.assign(AIDPOST, PR.tent); delete AIDPOST.y;   // the wounded go to the aid tent in the yard
   for (const B of BARRS) { B.on = false; B.g.visible = false; B.col.top = -1e4; }   // a drill, not the battle: every trench of the stronghold is open
@@ -308,13 +354,13 @@ function prSetup(stage = 0) {
   if (stage === 0) {
     const [sx, sz] = PR_AT.start; P.pos.set(sx, groundAt(sx, sz), sz); P.yaw = Math.PI; P.pitch = -0.04;
     prStep(0);
-  } else if (stage === 1) prTankSetup(); else prNight();
+  } else if (stage === PR_JEEP) prJeepSetup(); else if (stage === PR_TANKS) prTankSetup(); else prNight();
   fieldStage(C, stage);
 }
 function prStep(i) {
-  PR.step = i; PR.stepT = 0; const S = prSteps()[i]; if (!S) { if (PR.stage === 1) prTankDone(); else prDrillDone(); return; }
+  PR.step = i; PR.stepT = 0; const S = prSteps()[i]; if (!S) { if (PR.stage === PR_JEEP) prJeepDone(); else if (PR.stage === PR_TANKS) prTankDone(); else prDrillDone(); return; }
   if (S.start) S.start();
-  TUT.radioQ = TUT.radioQ.filter((r) => r.who !== PR_MC && r.who !== PR_TC);   // the words of a step already passed are not said any more
+  TUT.radioQ = TUT.radioQ.filter((r) => r.who !== PR_MC && r.who !== PR_TC && r.who !== PR_JD);   // the words of a step already passed are not said any more
   for (const l of S.say) radio(S.who || PR_MC, l, Math.max(3.2, l.length * 0.075), true);
   PR.hintAt = GAME.t + 0.8;   // the hint follows the words a moment later
   prMcTo(i);
@@ -329,7 +375,7 @@ function prMcTo(i) {
 function prDrillDone() {
   PR.msgs.end = GAME.t; radio(PR_MC, 'זהו. אתם מוכנים, ואני מקווה שלא נצטרך. ארוחת חג בשש, ושמירה בלילה.', 4.6, true);
   DIRQ.push({ at: GAME.t + 5.0, fn: () => radio('רפי', 'המפקד, המודיעין אומר "סבירות נמוכה". המצרים עושים תרגיל, כמו כל סתיו.', 4.4, true) });
-  DIRQ.push({ at: GAME.t + 9.6, fn: () => radio(PR_MC, 'שיעשו. אחרי ששת הימים הם יודעים מה מחכה להם. עכשיו לטנקים, הם יורים לפני השקיעה.', 4.6, true) });
+  DIRQ.push({ at: GAME.t + 9.6, fn: () => radio(PR_MC, 'שיעשו. אחרי ששת הימים הם יודעים מה מחכה להם. עכשיו סיור ג׳יפ לפני החג, ואתה על המקלע.', 4.6, true) });
   DIRQ.push({ at: GAME.t + 14.6, fn: () => prCut(() => prSetup(1)) });
 }
 function prNight() {
@@ -375,7 +421,7 @@ function prUpd(dt) {
     if (T.glint) T.glint.visible = T.up > 0.9 && (GAME.t % 1.6) < 0.22; if (T.tag) T.tag.visible = T.up > 0.9 && (GAME.t * 3) % 1 < 0.6;
   }
   for (const T of PR.raft ? PR.raft.figs : []) if (T.hit && T.pivot.rotation.x > -1.4) T.pivot.rotation.x -= dt * 3;
-  prRaftUpd(dt);
+  prRaftUpd(dt); prJeepUpd(dt);
   if (PR.stage === PR_NIGHT) return;
   const S = prSteps()[PR.step]; if (!S) return;
   if (PR.hintAt && GAME.t >= PR.hintAt) { PR.hintAt = 0; TUT.seen['pr-' + S.id] = false; hint('pr-' + S.id, S.hint(), 30); }
@@ -395,10 +441,12 @@ function prUpd(dt) {
 function prRayT(o, d, maxT) {
   let best = null;
   for (const T of PR.tg) { const t = prRayFig(T, o, d, best ? best.t : maxT); if (t !== null) best = { t, kind: 'target', tg: T }; }
+  if (PR.stage === PR_JEEP) for (const q of PR.drums) { if (q.down) continue; const h = rayBox(_prO.copy(o).sub(q.g.position), _prD.copy(d), -0.42, 0.42, 0, 1.15, -0.42, 0.42); if (h !== null && h > 0 && h < (best ? best.t : maxT)) best = { t: h, kind: 'target', drum: q }; }
   const R = PR.raft; if (R && R.on) { R.g.updateMatrixWorld(true); _prI.copy(R.g.matrixWorld).invert(); _prO.copy(o).applyMatrix4(_prI); _prD.copy(d).transformDirection(_prI); const h = rayBox(_prO, _prD, -2.4, 2.4, -0.1, 1.8, -0.95, 0.95); if (h !== null && h > 0 && h < (best ? best.t : maxT)) best = { t: h, kind: 'target', raft: true }; }
   return best;
 }
 function prHitT(hit) {
+  if (hit.drum) { const q = hit.drum; q.down = true; const dx = q.x - P.pos.x, dz = q.z - P.pos.z, l = Math.hypot(dx, dz) || 1; q.dx = dx / l; q.dz = dz / l; fxDust(hit.p.clone(), false); sndImpact(hit.p); sndClick(420, 0.3); hitmark(true); feed(`חבית ${PR.drums.filter((w) => w.down).length}/6`, 'good'); return; }
   if (hit.raft) { PR.raftHits = (PR.raftHits || 0) + 1; fxDust(hit.p.clone(), true); const f = PR.raft.figs[PR.raftHits % 3]; if (PR.raftHits >= 12) for (const T of PR.raft.figs) T.hit = true; return; }
   const T = hit.tg; if (!T || T.hit) return; T.hit = true; fxDust(hit.p.clone(), false); sndImpact(hit.p); hitmark(true);
   const i = PR.tg.indexOf(T); if (PR.stage === 0 && PR_STEPS[PR.step] && PR_STEPS[PR.step].id === 'shoot') DIRQ.push({ at: GAME.t + 0.9, fn: () => prRaise(i + 1) });
@@ -408,7 +456,7 @@ function prTreat(f) { f.state = 'stable'; f.marker.visible = true; f.bleed = 1e9
 function prObj() { const S = prSteps()[PR.step]; if (PR.stage === PR_NIGHT || !S) return null; const a = S.at(); if (!a) return null; if (a.length >= 4) return a; return [a[0], groundAt(a[0], a[1]) + 1.2, a[1], S.label || S.title]; }
 function prItems(items) {
   if (PR.stage === PR_NIGHT) { items.push(['go', PR_STAGES[PR_NIGHT].goal]); return; }
-  items.push(['go', PR.stage === 1 ? 'מטווח טנקים · עמדת צריח' : 'תרגיל כוננות · ערב יום כיפור']);
+  items.push(['go', PR.stage === PR_TANKS ? 'מטווח טנקים · עמדת צריח' : PR.stage === PR_JEEP ? 'סיור ג׳יפ · ירי מרכב נוסע' : 'תרגיל כוננות · ערב יום כיפור']);
   const n = prSteps().length, i = Math.max(0, PR.step), last = PR.done[PR.done.length - 1];
   if (last) items.push(['done', `✓ ${last}`]);
   const S = prSteps()[PR.step]; if (S) items.push(['next', `${S.title} <small>${Math.min(i + 1, n)}/${n}</small>`]);
