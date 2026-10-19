@@ -6665,7 +6665,7 @@ const _pv = V3(), _gF = V3();
 function updObjective() {
   const o = pickObjective(); if (!o) { if (OBJ.on) clearObjective(); return; }
   // just a pillar of yellow light where to go, nothing written beside it; over an enemy no light at all (the enemies have their red marks)
-  let foe = o[4] === 'foe'; if (!foe) { for (const e of UNITS.enemies) if (e.alive && Math.abs(e.pos.x - o[0]) < 2.5 && Math.abs(e.pos.z - o[2]) < 2.5) { foe = true; break; } if (!foe) for (const v of VEH) if (v.side === 'e' && v.alive && v.g.visible && Math.abs(v.g.position.x - o[0]) < 5 && Math.abs(v.g.position.z - o[2]) < 5) { foe = true; break; } } OBJ.on = true; OBJ.p.set(o[0], o[1], o[2]); OBJ.marker.visible = false; OBJ.beam.visible = !CINE.on && !foe; OBJ.beam.position.set(o[0], o[1] - 0.5, o[2]);
+  let foe = o[4] === 'foe'; if (!foe) { for (const e of UNITS.enemies) if (e.alive && Math.abs(e.pos.x - o[0]) < 2.5 && Math.abs(e.pos.z - o[2]) < 2.5) { foe = true; break; } if (!foe) for (const v of VEH) if (v.side === 'e' && v.alive && v.g.visible && Math.abs(v.g.position.x - o[0]) < 5 && Math.abs(v.g.position.z - o[2]) < 5) { foe = true; break; } } OBJ.on = true; OBJ.p.set(o[0], o[1], o[2]); OBJ.marker.visible = false; OBJ.beam.visible = !CINE.on && !foe; OBJ.beam.position.set(o[0], o[1] - 0.5, o[2]); OBJ.beam.scale.set(o[5] || 1, 1, o[5] || 1);
   const d = Math.hypot(OBJ.p.x - P.pos.x, OBJ.p.z - P.pos.z);
   // the guide arrow: the way to the objective measured from where the player is looking - up is straight ahead
   { const g = $('#guide'), show = d > 4 && P.mode !== 'mag' && !CINE.on; g.classList.toggle('on', show);
@@ -15175,13 +15175,14 @@ const PR_TOD = [16 * 60 + 52, 23 * 60 + 48];
 // the drill's places, along the western trench (x ~ -76.5) from north to south
 const PR_AT = {
   start: [-76.9, -50], walk: [-76.8, -38.5], run: [-76.6, -24], bay: [-78.5, -19.2],
-  pit: [-89.5, -21.5], mag: 'W2', roof: [-76.4, -1.4], dudu: [-76.3, 10.5], ammo: 'G2', night: [-78.6, 4.6],
+  pit: [-97, -21.5], mag: 'W2', roof: [-76.4, -1.4], dudu: [-76.3, 10.5], ammo: 'G2', night: [-78.6, 4.6],
 };
 // the plywood targets on the beach in front of the bay (x, z, kind, label); they rise one after another
 const PR_TARGETS = [[-104, -27, 'rifle', 'רובאי'], [-107, -13, 'lmg', 'מקלען'], [-110, -33, 'sniper', 'צלף'], [-105, -6, 'rpg', 'אר־פי־ג׳י']];
 // each board stands on a low mound of sandbags, so that from the bay above it shows over the crest of the rampart
 const PR_MOUND_GEO = new THREE.BoxGeometry(1.25, 1.2, 0.9).translate(0, 0.6, 0.05), PR_MOUND_MAT = new THREE.MeshStandardMaterial({ color: 0xa88f63, roughness: 1 }), PR_LIFT = 1.15;
 const PR_MC = 'המ״פ';
+const PR_PIT_R = 5.5;   // the grenade pit: wide, so a throw that lands near it counts
 
 /* ---------- the plywood figure: an IDF figure target, the enemy's silhouette painted on it with his weapon ---------- */
 const PR_FIG_TEX = {};
@@ -15257,7 +15258,7 @@ const PR_STEPS = [
     start: () => { PR.rl = 0; if (TOUCH) P.mag = 0; },
     hint: () => TOUCH ? '<b>טעינה:</b> בטלפון הטעינה אוטומטית כשהמחסנית נגמרת. חכו שהרובה יטען.' : `<b>טעינה:</b> ${K('R')} מחליף מחסנית.`,
     done: () => { if (P.reloadT > 0) PR.rl = 1; return PR.rl === 1 && P.reloadT <= 0 && P.mag === 20; } },
-  { id: 'gren', title: 'רימון לבור', at: () => prPt(PR_AT.pit[0], PR_AT.pit[1], 0.6, 'הבור'),
+  { id: 'gren', title: 'רימון לבור', at: () => [...prPt(PR_AT.pit[0], PR_AT.pit[1], 0.6, 'הבור'), null, 9],
     say: ['רואה את הבור עם השקים? רימון פנימה. מכוונים גבוה, הוא נופל בקשת.'],
     start: () => { P.gren = Math.max(P.gren, 3); PR.boomHit = false; },
     hint: () => `<b>רימון:</b> ${prKey(K('G'), 'הכפתור <kbd>רימון</kbd>')} זורק לאן שאתם מסתכלים. כוונו קצת מעל הבור.`,
@@ -15345,8 +15346,9 @@ function prBuild() {
   const C = CHAP.prologue; C.slots = []; C.covers = [];
   PR.tg = PR_TARGETS.map(([x, z, kind, label]) => { const [bx, bz] = PR_AT.bay; return prTarget(kind, x, z, bx - x, bz - z, label); });
   // the grenade pit: a ring of sandbags round a hollow
-  { const BAGS = [], sv = BATCH.bag; BATCH.bag = BAGS; const [px, pz] = PR_AT.pit, g0 = groundAt(px, pz), ring = []; for (let a = 0; a <= 360.1; a += 30) { const r = THREE.MathUtils.degToRad(a); ring.push([px + Math.sin(r) * 2.6, pz + Math.cos(r) * 2.6]); } bagWall(ring, 1, g0 - 0.06, false); BATCH.bag = sv; scene.add(bagMesh(BAGS));
-    const hole = new THREE.Mesh(new THREE.CircleGeometry(2.3, 28).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0x5a4c36, roughness: 1 })); hole.position.set(px, g0 + 0.03, pz); scene.add(onLayer1(hole)); }
+  { const BAGS = [], sv = BATCH.bag; BATCH.bag = BAGS; const [px, pz] = PR_AT.pit, g0 = groundAt(px, pz), ring = []; for (let a = 0; a <= 360.1; a += 15) { const r = THREE.MathUtils.degToRad(a); ring.push([px + Math.sin(r) * PR_PIT_R, pz + Math.cos(r) * PR_PIT_R]); } bagWall(ring, 1, null, false); BATCH.bag = sv; scene.add(bagMesh(BAGS));
+    const hg = new THREE.CircleGeometry(PR_PIT_R - 0.3, 40, 0).rotateX(-Math.PI / 2), hp = hg.attributes.position; for (let k = 0; k < hp.count; k++) { const x = px + hp.getX(k), z = pz + hp.getZ(k); hp.setY(k, groundAt(x, z) - g0 + 0.04); } hg.computeVertexNormals();
+    const hole = new THREE.Mesh(hg, new THREE.MeshStandardMaterial({ color: 0x5a4c36, roughness: 1 })); hole.position.set(px, g0, pz); scene.add(onLayer1(hole)); }
   prBuildRaft();
 }
 function prSetup(stage = 0) {
@@ -15407,6 +15409,8 @@ function prUpd(dt) {
   const C = CHAP.prologue; C.t += dt; PR.stepT += dt;
   for (let i = DIRQ.length - 1; i >= 0; i--) if (DIRQ[i] && GAME.t >= DIRQ[i].at) { const q = DIRQ.splice(i, 1)[0]; q.fn(); }
   if (P.hp < 100) P.hp = 100;
+  // the pit catches a grenade that reaches it: on the slope of the rampart it would roll on down to the water
+  for (const q of PROJ) if (q.type === 'gren' && q.owner === 'player' && Math.hypot(q.m.position.x - PR_AT.pit[0], q.m.position.z - PR_AT.pit[1]) < PR_PIT_R && q.m.position.y < groundAt(q.m.position.x, q.m.position.z) + 0.6) { q.v.set(0, Math.min(q.v.y, 0), 0); }
   // the targets rise and fall on their hinges; the sniper's scope glints, the RPG man's tag blinks
   for (const T of PR.tg) {
     const want = T.want && !T.hit ? 1 : 0; T.up += clamp(want - T.up, -dt * 2.2, dt * 1.6); T.pivot.rotation.x = -Math.PI / 2 * (1 - T.up) * (1 - T.up * 0.0);
@@ -15441,9 +15445,9 @@ function prHitT(hit) {
   const T = hit.tg; if (!T || T.hit) return; T.hit = true; fxDust(hit.p.clone(), false); sndImpact(hit.p); hitmark(true);
   const i = PR.tg.indexOf(T); if (PR_STEPS[PR.step] && PR_STEPS[PR.step].id === 'shoot') DIRQ.push({ at: GAME.t + 0.9, fn: () => prRaise(i + 1) });
 }
-function prBoom(p, src) { if (src === 'player' && PR_STEPS[PR.step] && PR_STEPS[PR.step].id === 'gren' && Math.hypot(p.x - PR_AT.pit[0], p.z - PR_AT.pit[1]) < 5) PR.boomHit = true; }
+function prBoom(p, src) { if (src === 'player' && PR_STEPS[PR.step] && PR_STEPS[PR.step].id === 'gren' && Math.hypot(p.x - PR_AT.pit[0], p.z - PR_AT.pit[1]) < PR_PIT_R + 1.5) PR.boomHit = true; }
 function prTreat(f) { f.state = 'stable'; f.marker.visible = true; f.bleed = 1e9; STATS.treated++; feed(`${f.name} חבוש. עכשיו לפנות`, 'good'); radio(f.name, 'איי... חבשת כמו אמא שלי. עכשיו תסחוב אותי.', 3, true); }
-function prObj() { const S = PR_STEPS[PR.step]; if (PR.stage !== 0 || !S) return null; const a = S.at(); if (!a) return null; if (a.length === 4) return a; return [a[0], groundAt(a[0], a[1]) + 1.2, a[1], S.label || S.title]; }
+function prObj() { const S = PR_STEPS[PR.step]; if (PR.stage !== 0 || !S) return null; const a = S.at(); if (!a) return null; if (a.length >= 4) return a; return [a[0], groundAt(a[0], a[1]) + 1.2, a[1], S.label || S.title]; }
 function prItems(items) {
   if (PR.stage === 1) { items.push(['go', PR_STAGES[1].goal]); return; }
   items.push(['go', 'תרגיל כוננות · ערב יום כיפור']);

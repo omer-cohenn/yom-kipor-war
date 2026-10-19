@@ -1731,7 +1731,7 @@ const _pv = V3(), _gF = V3();
 function updObjective() {
   const o = pickObjective(); if (!o) { if (OBJ.on) clearObjective(); return; }
   // just a pillar of yellow light where to go, nothing written beside it; over an enemy no light at all (the enemies have their red marks)
-  let foe = o[4] === 'foe'; if (!foe) { for (const e of UNITS.enemies) if (e.alive && Math.abs(e.pos.x - o[0]) < 2.5 && Math.abs(e.pos.z - o[2]) < 2.5) { foe = true; break; } if (!foe) for (const v of VEH) if (v.side === 'e' && v.alive && v.g.visible && Math.abs(v.g.position.x - o[0]) < 5 && Math.abs(v.g.position.z - o[2]) < 5) { foe = true; break; } } OBJ.on = true; OBJ.p.set(o[0], o[1], o[2]); OBJ.marker.visible = false; OBJ.beam.visible = !CINE.on && !foe; OBJ.beam.position.set(o[0], o[1] - 0.5, o[2]);
+  let foe = o[4] === 'foe'; if (!foe) { for (const e of UNITS.enemies) if (e.alive && Math.abs(e.pos.x - o[0]) < 2.5 && Math.abs(e.pos.z - o[2]) < 2.5) { foe = true; break; } if (!foe) for (const v of VEH) if (v.side === 'e' && v.alive && v.g.visible && Math.abs(v.g.position.x - o[0]) < 5 && Math.abs(v.g.position.z - o[2]) < 5) { foe = true; break; } } OBJ.on = true; OBJ.p.set(o[0], o[1], o[2]); OBJ.marker.visible = false; OBJ.beam.visible = !CINE.on && !foe; OBJ.beam.position.set(o[0], o[1] - 0.5, o[2]); OBJ.beam.scale.set(o[5] || 1, 1, o[5] || 1);
   const d = Math.hypot(OBJ.p.x - P.pos.x, OBJ.p.z - P.pos.z);
   // the guide arrow: the way to the objective measured from where the player is looking - up is straight ahead
   { const g = $('#guide'), show = d > 4 && P.mode !== 'mag' && !CINE.on; g.classList.toggle('on', show);
