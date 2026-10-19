@@ -143,11 +143,6 @@ const PR_STEPS = [
     say: ['עכשיו לתאג״ד. סוחבים אותו בתעלת הקשר, לא מעל הסוללה.'],
     hint: () => `<b>פינוי:</b> ${prKey('הכפתור הירוק', K('E'))} מרים אותו. סחבו אותו לאוהל התאג״ד (◆), ושם ${prKey('הכפתור הירוק', K('E'))} משכיב אותו על האלונקה.`,
     done: () => prDudu().state === 'saved' },
-  { id: 'ammo', title: 'מילוי תחמושת', at: () => { const p = prPost('G2'); return prPt(p.stand[0], p.stand[1], 1.0, 'ארגז תחמושת'); },
-    say: ['ירית כמו בחתונה. בכל עמדה יש ארגז. תמלא.'],
-    start: () => { P.reserve = Math.min(P.reserve, 12); P.ammoCd = 0; },
-    hint: () => `<b>תחמושת:</b> בכל עמדה לאורך התעלה יש ארגז. ${prKey('הכפתור הירוק', K('E'))} ליד הארגז ממלא כדורים ורימונים.`,
-    done: () => P.reserve >= 160 },
 ];
 /* ---------- the tank range: a Magach of the platoon goes up into a hull-down position at the south end of the stronghold and fires two
    shells at two old tanks towed out there as targets ---------- */
