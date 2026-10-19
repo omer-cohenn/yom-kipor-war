@@ -15245,12 +15245,12 @@ const PR_STEPS = [
     done: () => prNear(PR_AT.run, 2.4) },
   { id: 'crouch', title: 'מחסה וכריעה', at: () => PR_AT.bay, label: 'עמדת ירי',
     say: ['לעמדה. ראש למטה, מאחורי השקים. השקים עוצרים כדורים, הראש שלך לא.'],
-    hint: () => TOUCH ? '<b>מחסה:</b> היכנסו לעמדת הירי (◆). שקי החול מגינים עליכם.' : `<b>מחסה:</b> היכנסו לעמדת הירי (◆) וכרעו מאחורי שקי החול: ${K('C')}.`,
+    hint: () => TOUCH ? '<b>מחסה:</b> היכנסו לעמדת הירי (◆). בטלפון כורעים לבד מאחורי שקי החול, והם מגינים עליכם.' : `<b>מחסה:</b> היכנסו לעמדת הירי (◆) וכרעו מאחורי שקי החול: ${K('C')}.`,
     done: () => prNear(PR_AT.bay, 1.7) && (P.crouch || TOUCH) },
   { id: 'shoot', title: 'ירי במטרות', at: () => { const T = PR.tg.find((q) => q.want && !q.hit); return T ? prPt(T.x, T.z, 1.5, `מטרה · ${T.label}`) : null; },
     say: ['ככה הם ייראו מחר, אם יבואו. רובאי, מקלען, צלף, ונושא אר־פי־ג׳י. אחד אחד.'],
     start: () => prRaise(0),
-    hint: () => `<b>ירי:</b> ${prKey('<kbd>אש</kbd> יורה, <kbd>כוונת</kbd> מקרבת', `${K('לחיצה')} יורה, ${K('לחצן ימני')} כוונת`)}. כל מטרה שנופלת מקימה את הבאה.`,
+    hint: () => `<b>ירי:</b> ${prKey(`${K('לחיצה')} יורה, ${K('לחצן ימני')} כוונת`, 'גררו באצבע בצד ימין של המסך כדי לכוון. הכפתור <kbd>אש</kbd> יורה, <kbd>כוונת</kbd> מקרבת')}. כל מטרה שנופלת מקימה את הבאה.`,
     done: () => PR.tg.every((q) => q.hit) },
   { id: 'reload', title: 'החלפת מחסנית', at: () => PR_AT.bay, label: 'עמדת ירי',
     say: ['מחסנית חצי ריקה זו מחסנית ריקה. מחליפים עכשיו, לא באמצע.'],
@@ -15260,12 +15260,12 @@ const PR_STEPS = [
   { id: 'gren', title: 'רימון לבור', at: () => prPt(PR_AT.pit[0], PR_AT.pit[1], 0.6, 'הבור'),
     say: ['רואה את הבור עם השקים? רימון פנימה. מכוונים גבוה, הוא נופל בקשת.'],
     start: () => { P.gren = Math.max(P.gren, 3); PR.boomHit = false; },
-    hint: () => `<b>רימון:</b> ${prKey('<kbd>רימון</kbd>', K('G'))} זורק לאן שאתם מסתכלים. כוונו קצת מעל הבור.`,
+    hint: () => `<b>רימון:</b> ${prKey(K('G'), 'הכפתור <kbd>רימון</kbd>')} זורק לאן שאתם מסתכלים. כוונו קצת מעל הבור.`,
     done: () => PR.boomHit },
   { id: 'gwarn', title: 'רימון אויב', at: () => null,
     say: ['ועכשיו רימון שלהם. של תרגיל, אבל תתנהג כאילו אמיתי. רימון!'],
     start: () => prThrowAtPlayer(),
-    hint: () => '<b>רימון!</b> הסימן ⚠ מראה איפה הוא נפל. התרחקו ממנו לאורך התעלה, מהר.',
+    hint: () => `<b>רימון!</b> הסימן ⚠ מראה איפה הוא נפל. ${prKey('רוצו ממנו לאורך התעלה, מהר', 'דחפו את הג׳ויסטיק עד הקצה ורוצו ממנו לאורך התעלה')}.`,
     done: () => PR.gw === 'ok' },
   { id: 'man', title: 'איוש המא״ג', at: () => { const p = prPost('W2'); return prPt(p.stand[0], p.stand[1], 1.2, 'המא״ג המערבי'); },
     say: ['המא״ג המערבי. מחר זה מה שעומד בינם לבין הסוללה. תאייש אותו.'],
@@ -15274,7 +15274,7 @@ const PR_STEPS = [
   { id: 'raft', title: 'ירי על הסירה', at: () => { const r = PR.raft; return r ? [r.g.position.x, 1.2, r.g.position.z, `סירת מטרה · ${PR.raftHits}/12`] : null; },
     say: ['יוסי גורר סירת גומי על חבל. תחשוב שהיא מלאה בהם. צרורות קצרים.'],
     start: () => { PR.raftHits = 0; PR.raft.on = true; },
-    hint: () => `<b>צרורות:</b> ${prKey('החזיקו <kbd>אש</kbd>, <kbd>כוונת</kbd> לזום', `החזיקו ${K('לחיצה ממושכת')}, ${K('לחצן ימני')} לזום`)}. צרור קצר, תיקון, עוד צרור.`,
+    hint: () => `<b>צרורות:</b> ${prKey(`החזיקו ${K('לחיצה ממושכת')}, ${K('לחצן ימני')} לזום`, 'גררו באצבע בצד ימין כדי לכוון את המקלע, החזיקו את <kbd>אש</kbd>, <kbd>כוונת</kbd> לזום')}. צרור קצר, תיקון, עוד צרור.`,
     done: () => PR.raftHits >= 12 },
   { id: 'belt', title: 'החלפת שרשרת', at: () => null,
     say: ['השרשרת נגמרת תמיד ברגע הכי גרוע. תחליף.'],
@@ -15288,12 +15288,12 @@ const PR_STEPS = [
   { id: 'air', title: 'תרגיל אוויר', at: () => prPt(PR_AT.roof[0], PR_AT.roof[1], 1.4, 'קטע מקורה'),
     say: ['אזעקה! מטוסים! לקטע המקורה, מהר!'],
     start: () => prAirRun(),
-    hint: () => '<b>מטוס בצלילה:</b> רוצו לקטע המקורה בתעלה, שהגג שלו משקי חול (◆). בשטח פתוח התותחים שלו קורעים הכול.',
+    hint: () => (TOUCH ? '<b>מטוס בצלילה:</b> ג׳ויסטיק עד הקצה, ורוצו' : '<b>מטוס בצלילה:</b> רוצו') + ' לקטע המקורה בתעלה, שהגג שלו משקי חול (◆). בשטח פתוח התותחים שלו קורעים הכול.',
     done: () => PR.air === 'ok' },
   { id: 'treat', title: 'עזרה ראשונה', at: () => { const u = prDudu().unit; return [u.pos.x, u.pos.y + 0.4, u.pos.z, 'דודו · "פצוע"']; },
     say: ['דודו "נפגע" בתרגיל. אל תצחקו, תחבשו אותו כמו שצריך.'],
     start: () => prWoundDudu(),
-    hint: () => `<b>עזרה ראשונה:</b> עמדו ליד הפצוע (✚) והחזיקו ${prKey('את הכפתור הירוק', K('F'))} עד שהפס מתמלא.`,
+    hint: () => `<b>עזרה ראשונה:</b> עמדו ליד הפצוע (✚) והחזיקו ${prKey(K('F'), 'את הכפתור הירוק שמופיע מימין')} עד שהפס מתמלא.`,
     done: () => prDudu().state === 'stable' },
   { id: 'carry', title: 'פינוי לתאג״ד', at: () => (P.mode === 'carry' ? [AIDPOST.x, AIDPOST.y ?? groundAt(AIDPOST.x, AIDPOST.z), AIDPOST.z, 'תאג״ד'] : null),
     say: ['עכשיו לתאג״ד. סוחבים אותו בתעלת הקשר, לא מעל הסוללה.'],
@@ -15345,8 +15345,8 @@ function prBuild() {
   const C = CHAP.prologue; C.slots = []; C.covers = [];
   PR.tg = PR_TARGETS.map(([x, z, kind, label]) => { const [bx, bz] = PR_AT.bay; return prTarget(kind, x, z, bx - x, bz - z, label); });
   // the grenade pit: a ring of sandbags round a hollow
-  { const BAGS = [], sv = BATCH.bag; BATCH.bag = BAGS; const [px, pz] = PR_AT.pit, g0 = groundAt(px, pz), ring = []; for (let a = 0; a <= 360.1; a += 30) { const r = THREE.MathUtils.degToRad(a); ring.push([px + Math.sin(r) * 1.35, pz + Math.cos(r) * 1.35]); } bagWall(ring, 2, g0 - 0.06, false); BATCH.bag = sv; scene.add(bagMesh(BAGS));
-    const hole = new THREE.Mesh(new THREE.CircleGeometry(1.05, 20).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0x5a4c36, roughness: 1 })); hole.position.set(px, g0 + 0.03, pz); scene.add(onLayer1(hole)); }
+  { const BAGS = [], sv = BATCH.bag; BATCH.bag = BAGS; const [px, pz] = PR_AT.pit, g0 = groundAt(px, pz), ring = []; for (let a = 0; a <= 360.1; a += 30) { const r = THREE.MathUtils.degToRad(a); ring.push([px + Math.sin(r) * 2.6, pz + Math.cos(r) * 2.6]); } bagWall(ring, 1, g0 - 0.06, false); BATCH.bag = sv; scene.add(bagMesh(BAGS));
+    const hole = new THREE.Mesh(new THREE.CircleGeometry(2.3, 28).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0x5a4c36, roughness: 1 })); hole.position.set(px, g0 + 0.03, pz); scene.add(onLayer1(hole)); }
   prBuildRaft();
 }
 function prSetup(stage = 0) {
@@ -15441,7 +15441,7 @@ function prHitT(hit) {
   const T = hit.tg; if (!T || T.hit) return; T.hit = true; fxDust(hit.p.clone(), false); sndImpact(hit.p); hitmark(true);
   const i = PR.tg.indexOf(T); if (PR_STEPS[PR.step] && PR_STEPS[PR.step].id === 'shoot') DIRQ.push({ at: GAME.t + 0.9, fn: () => prRaise(i + 1) });
 }
-function prBoom(p, src) { if (src === 'player' && PR_STEPS[PR.step] && PR_STEPS[PR.step].id === 'gren' && Math.hypot(p.x - PR_AT.pit[0], p.z - PR_AT.pit[1]) < 3.2) PR.boomHit = true; }
+function prBoom(p, src) { if (src === 'player' && PR_STEPS[PR.step] && PR_STEPS[PR.step].id === 'gren' && Math.hypot(p.x - PR_AT.pit[0], p.z - PR_AT.pit[1]) < 5) PR.boomHit = true; }
 function prTreat(f) { f.state = 'stable'; f.marker.visible = true; f.bleed = 1e9; STATS.treated++; feed(`${f.name} חבוש. עכשיו לפנות`, 'good'); radio(f.name, 'איי... חבשת כמו אמא שלי. עכשיו תסחוב אותי.', 3, true); }
 function prObj() { const S = PR_STEPS[PR.step]; if (PR.stage !== 0 || !S) return null; const a = S.at(); if (!a) return null; if (a.length === 4) return a; return [a[0], groundAt(a[0], a[1]) + 1.2, a[1], S.label || S.title]; }
 function prItems(items) {
