@@ -287,7 +287,7 @@ function sqfSupp(f, dt) {
   if (f.supCd <= 0) {
     if (!(f.supN > 0)) { f.supN = Math.floor(rand(2, 4)); if (Math.random() < 0.12) shout(f, pick(['מרתק אותו!', 'אש על המצרי!', 'תורידו לו את הראש!'])); }
     f.supN--; f.supCd = f.supN > 0 ? 0.3 : rand(1.3, 2.4) * diff.fgun;
-    const from = u.muzzle(); fxMuzzle(from, false); sndShot('fal-npc', from);
+    const from = u.muzzle(); fxMuzzle(from, false, c); sndShot('fal-npc', from);
     const end = c.clone().add(V3(rand(-1.1, 1.1), rand(-0.2, 1.0), rand(-1.1, 1.1))); if (Math.random() < 0.3) fxTracer(from, end, false);
     fxDust(V3(end.x, surfAt(end.x, end.z) + 0.2, end.z), groundAt(end.x, end.z) < 0); supPin(e, 0.3);
     if (Math.random() < 0.015 * diff.fAcc) killEnemy(e, false);   /* a lucky round now and then; the fire is to pin him, not to kill */
@@ -378,7 +378,7 @@ function updFriend(f, dt, time) {
           if (f.magN >= 4) { f.magN = 0; f.peekT = rand(2.2, 3.0); f.peekKind = 'reload'; f.fireCd = Math.max(f.fireCd, f.peekT + 0.15); if (Math.random() < 0.6 && shout(f, pick(['מחליף מחסנית!', 'מחסנית!', 'טוען!']))) sqfLater(sqfMate(f), pick(['מחפה!', 'מחפה עליך!', 'יש לך כיסוי!']), 0.7); }
           else if (r < 0.7) { f.peekT = f.fireCd * rand(0.55, 0.9); f.peekKind = 'move'; f.peekOff = clamp((f.peekOff || 0) + (Math.random() < 0.5 ? -1 : 1) * rand(0.5, 0.9), -0.9, 0.9); }
         }
-        const from = isMag ? p.mag.pivot.localToWorld(V3(0, 0.012, 0.9)) : u.muzzle(); fxMuzzle(from, isMag); sndShot('fal-npc', from);
+        const from = isMag ? p.mag.pivot.localToWorld(V3(0, 0.012, 0.9)) : u.muzzle(); fxMuzzle(from, isMag, tp); sndShot('fal-npc', from);
         const d = from.distanceTo(tp); const rangeF = clamp(1 - d / 420, 0.2, 1);
         let pHit = (isMag ? 0.0018 : FIELDM() ? 0.013 : 0.0045) * rangeF;
         // close in he rarely misses: an Egyptian at the wire or in the trench is shot by the friends round him; a man behind cover is hard to hit
@@ -473,7 +473,7 @@ function enemyFire(e) {
   if (e.kind === 'rpg' && e.target) { const tp = e.target.player ? playerEye() : e.target.f.unit.chest(), d = e.pos.distanceTo(tp); if (e.rpgCd <= 0 && d > (e.state === 'trench' ? 6 : 12) && d < 230) rpgShoot(e, tp); return; }
   const mz = mzEase(), from = e.muzzle(); const tgt = e.target; if (!tgt) return; if (tgt.player) { e.shotT = GAME.t; if (MODE === 'suez') szFireAt(e, from); if (Math.hypot(e.pos.x - P.pos.x, e.pos.z - P.pos.z) < 150) SQF.spots.set(e, GAME.t), SQF.cT = GAME.t; } const W = wpnOf(e);
   const tp = tgt.player ? playerEye() : tgt.f.unit.chest(); const d = from.distanceTo(tp); const rangeF = clamp(1 - d / W.range, 0.25, 1) * (W.range < 200 && d > W.range * 0.6 ? 0.3 : 1);
-  fxMuzzle(from, W.snd === 'lmg'); sndShot(W.snd, from);
+  fxMuzzle(from, W.snd === 'lmg', tp); sndShot(W.snd, from);
   let hit = false; const eye = e.eye(); const wt = segHitT(eye.x, eye.y, eye.z, tp.x, tp.y, tp.z, FIELDM() ? 0.25 : 0.7);
   if (wt >= 0) { const wk = SEG_K, wp = V3(lerp(eye.x, tp.x, wt), lerp(eye.y, tp.y, wt), lerp(eye.z, tp.z, wt)); if (Math.random() < 0.5) fxTracer(from, wp, true); fxDust(wp); if (wk && camera.position.distanceTo(wp) < 60) { const dv = V3(tp.x - eye.x, tp.y - eye.y, tp.z - eye.z).normalize(); bulletHole(wp, colNormal(wk, wp, dv)); } e.scanCd = 0; return; }   /* the walls round the player are pocked by their fire too */
   if (tgt.player) { let p = W.acc * (FIELDM() ? (CH().hard || 0.7) : 1) * (SURV.on ? SURV.acc : 1) * diff.acc * rangeF * (d < 12 ? 2 : 1) * (P.mode === 'tank' ? 0.45 : 1) * (P.crouch ? 0.55 : 1) * (moving() ? 0.7 : 1) * (P.post ? 0.8 : 1) * (e.stance === 'crouch' ? 1.1 : 1) * (FIELDM() && P.mode === 'rifle' && inConceal(P.pos.x, P.pos.z) ? 0.45 : 1) * (e.wild ? 0.3 : 1) * (mz ? mz.acc * (SCENES[Math.max(0, D.scene)].acc || 1) : 1) * (e.wild ? 1 : tacAcc(e)); hit = Math.random() < p; if (hit && P.mode === 'tank' && P.crouch) { hit = false; fxDust(tp.clone().add(V3(rand(-0.6, 0.6), rand(-0.3, 0.3), rand(-0.6, 0.6)))); } if (hit) hurtPlayer(rand(diff.dmg[0], diff.dmg[1]) * W.dmg, from); else if (d < 60 && Math.random() < 0.35) sndWhiz(); }
@@ -1366,7 +1366,7 @@ function playerShoot() {
   let d = camForward(_fw).clone(); if (TOUCH || FIELDM()) d = aimAssist(camera.position, d, TOUCH ? 0.06 : FIELDM() ? 0.05 : 0.015, false); d.x += rand(-spread, spread); d.y += rand(-spread, spread); d.z += rand(-spread, spread); d.normalize();
   const o = camera.position.clone(); const hit = castShot(o, d, 700, 'f');
   P.kick = 1; P.recoil = Math.min(P.recoil + 0.35, 1); P.pitch += 0.016 + rand(0, 0.006); P.yaw += rand(-0.005, 0.005);
-  vmFlash.visible = true; vmFlash.material.rotation = Math.random() * 6; setTimeout(() => (vmFlash.visible = false), 40); vmMuzzle.intensity = 6; LIGHTS.muzzle.position.copy(o).addScaledVector(d, 1.2); LIGHTS.muzzle.intensity = 700;
+  vmFlash.visible = true; vmFlash.material.map = pick(FXT.bursts); vmFlash.scale.setScalar(rand(0.22, 0.34)); vmFlash.material.rotation = Math.random() * 6; setTimeout(() => (vmFlash.visible = false), 40); vmMuzzle.intensity = 6; LIGHTS.muzzle.position.copy(o).addScaledVector(d, 1.2); LIGHTS.muzzle.intensity = 700;
   sndShot('fal');
   applyHit(hit, 105);
 }
@@ -1830,7 +1830,7 @@ function clearBattle() {
   for (const e of UNITS.enemies) { e.alive = false; e.rig.root.visible = false; e.deadAt = undefined; e.tag.visible = false; e.cover = null; e.state = 'dead'; e.sz = null; e.slot = null; e.cov = null; }
   for (const b of [...BOATS]) b.dispose(); BOATS.length = 0; GROUPS.length = 0; DIRQ.length = 0; dropsClear(); flotReset(); ROWS.on = false; LANDCAP.n = 999; LANDCAP.wave = 0;
   for (const q of PROJ) { scene.remove(q.m); if (q.marker) scene.remove(q.marker); } PROJ.length = 0;
-  FX.flashes.clear(); FX.glows.clear(); FX.smoke.clear(); FX.dust.clear(); FX.fire.clear(); FX.trail.clear(); FX.exh.clear(); for (const t of FX.tracers) { t.on = false; t.m.visible = false; }
+  FX.flashes.clear(); FX.glows.clear(); FX.smoke.clear(); FX.dust.clear(); FX.fire.clear(); FX.cones.clear(); FX.sparks.clear(); FX.trail.clear(); FX.exh.clear(); for (const t of FX.tracers) { t.on = false; t.m.visible = false; }
   DRUMFIRE.on = false; LIGHTS.fire.intensity = 0; LIGHTS.boom.intensity = 0; LIGHTS.wreck.intensity = 0; for (const p of POSTS) if (p.occupant === 'player') p.occupant = null;
   Object.assign(D, { capture: 0, capWarn: false, inside: 0, inTrench: 0, chargeMsg: -99, clearT: 0, trenchMsg: -99, tok: { 1: null, '-1': null } }); for (const c of COVER) c.by = null;
 }
@@ -1862,7 +1862,7 @@ function resetGame() {
   for (const j of JETS) scene.remove(j.m); JETS.length = 0;
   for (const c of D.smoke) { for (const p of c.parts) scene.remove(p.sp); if (c.fire) scene.remove(c.fire); FAR_SMOKE.splice(FAR_SMOKE.indexOf(c), 1); }
   for (const m of SCORCH.list) m.visible = false;
-  FX.flashes.clear(); FX.glows.clear(); FX.smoke.clear(); FX.dust.clear(); FX.fire.clear(); FX.trail.clear(); FX.exh.clear(); for (const t of FX.tracers) { t.on = false; t.m.visible = false; }
+  FX.flashes.clear(); FX.glows.clear(); FX.smoke.clear(); FX.dust.clear(); FX.fire.clear(); FX.cones.clear(); FX.sparks.clear(); FX.trail.clear(); FX.exh.clear(); for (const t of FX.tracers) { t.on = false; t.m.visible = false; }
   DRUMFIRE.on = false; LIGHTS.fire.intensity = 0; LIGHTS.boom.intensity = 0; LIGHTS.wreck.intensity = 0;
   for (const j of STRAFE) scene.remove(j.m); STRAFE.length = 0;
   AIR.mirage = false; AIR.ev = null; AIR.next = 30; AIR.magT = 0; for (const b of AIR.bombs) scene.remove(b.m); AIR.bombs.length = 0; if (AIR.models) { AIR.models.m.g.visible = false; AIR.models.m.wingR.visible = false; AIR.models.mig.visible = false; AIR.models.chute.visible = false; }
@@ -2068,7 +2068,7 @@ function frameInner() {
   // the title and mission select cover the screen with pictures: no need to draw the 3D world behind them (it saves the phone's battery)
   if (GAME.state === 'menu' && (!$('#mBrief').hidden || !$('#mOps').hidden)) return;
   if (GAME.state === 'play') update(dt, time); else if (GAME.state !== 'pause' && GAME.state !== 'end') { idleCamera(time); updJets(dt); menuFx(dt); }
-  chipsUpd(dt); FX.flashes.update(dt); FX.glows.update(dt); FX.smoke.update(dt); FX.dust.update(dt); FX.fire.update(dt); FX.trail.update(dt); FX.exh.update(dt); updateTracers(dt); updateFlares(dt); updateDrumFire(dt, time);
+  chipsUpd(dt); FX.flashes.update(dt); FX.glows.update(dt); FX.smoke.update(dt); FX.dust.update(dt); FX.fire.update(dt); FX.cones.update(dt); FX.sparks.update(dt); FX.trail.update(dt); FX.exh.update(dt); updateTracers(dt); updateFlares(dt); updateDrumFire(dt, time);
   FX.boomT = (FX.boomT || 0) + dt; LIGHTS.boom.intensity *= Math.max(0, 1 - dt * 9);
   updFarSmoke(dt, time); wreckUpd(dt); animateWater(dt); waveFlags(time);
   if (HM_PANO) HM_PANO.visible = MODE === 'hermon';   // the view from the Hermon is drawn only there

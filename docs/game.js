@@ -377,13 +377,75 @@ function radialTex(stops, n = 128) {
   const c = canvas(n), g = c.getContext('2d'); const gr = g.createRadialGradient(n / 2, n / 2, 0, n / 2, n / 2, n / 2);
   for (const [o, col] of stops) gr.addColorStop(o, col); g.fillStyle = gr; g.fillRect(0, 0, n, n); return tex(c);
 }
-function flashStarTex() {
-  const n = 128, c = canvas(n), g = c.getContext('2d');
-  const gr = g.createRadialGradient(64, 64, 0, 64, 64, 64); gr.addColorStop(0, 'rgba(255,250,225,1)'); gr.addColorStop(0.25, 'rgba(255,200,110,.9)'); gr.addColorStop(1, 'rgba(255,120,30,0)');
-  g.fillStyle = gr; g.beginPath();
-  for (let k = 0; k < 10; k++) { const a = k / 10 * 6.283, r = k % 2 ? 22 : 62; g.lineTo(64 + Math.cos(a) * r, 64 + Math.sin(a) * r); }
-  g.closePath(); g.fill(); return tex(c);
+/* gun and shell flashes: drawn flame tongues (3-5 uneven prongs, like the gas leaving a flash hider), thin sparks and a turbulent hot core,
+   with ragged edges; several seeded variants so no two shots look alike. A side-view cone for a shot seen across, and a cauliflower fireball */
+function flameTongue(g, h, a, L, w, al, r) {
+  g.save(); g.translate(h, h); g.rotate(a);
+  const bend = (r() - 0.5) * w * 1.6, wob = (r() - 0.5) * w * 0.8, c1 = 0.8 + r() * 0.5, c2 = 0.3 + r() * 0.5, c3 = 0.8 + r() * 0.5, c4 = 0.3 + r() * 0.5;
+  for (const [wk, lk, ak] of [[2.6, 1.08, 0.12], [1.6, 1, 0.32], [0.85, 0.94, 0.85]]) {
+    const W = w * wk, LL = L * lk, gr = g.createLinearGradient(0, 0, LL, 0);
+    gr.addColorStop(0, `rgba(255,248,222,${al * ak})`); gr.addColorStop(0.2, `rgba(255,212,125,${al * ak * 0.9})`); gr.addColorStop(0.55, `rgba(255,132,38,${al * ak * 0.5})`); gr.addColorStop(1, 'rgba(240,60,10,0)');
+    g.fillStyle = gr; g.beginPath(); g.moveTo(0, -W * 0.4);
+    g.bezierCurveTo(LL * 0.28, -W * c1 + wob, LL * 0.62, -W * c2 + bend * 0.6, LL, bend);
+    g.bezierCurveTo(LL * 0.62, W * c4 + bend * 0.6, LL * 0.28, W * c3 + wob, 0, W * 0.4); g.closePath(); g.fill();
+  }
+  g.restore();
 }
+function flashCore(g, h, R, r) {
+  for (let i = 0; i < 7; i++) { const x = h + (r() - 0.5) * R * 1.2, y = h + (r() - 0.5) * R * 1.2, rad = R * (0.4 + r() * 0.5), gr = g.createRadialGradient(x, y, 0, x, y, rad); gr.addColorStop(0, 'rgba(255,236,180,.5)'); gr.addColorStop(0.6, 'rgba(255,160,60,.22)'); gr.addColorStop(1, 'rgba(255,110,30,0)'); g.fillStyle = gr; g.fillRect(0, 0, h * 2, h * 2); }
+  const gr = g.createRadialGradient(h, h, 0, h, h, R); gr.addColorStop(0, 'rgba(255,255,252,1)'); gr.addColorStop(0.45, 'rgba(255,244,200,.85)'); gr.addColorStop(1, 'rgba(255,200,110,0)'); g.fillStyle = gr; g.fillRect(0, 0, h * 2, h * 2);
+}
+function flashSparks(g, h, n, r, d0a, d0b, la, lb, cx = h, cy = h, aim = null) {
+  g.lineCap = 'round';
+  for (let i = 0; i < n; i++) {
+    const a = aim == null ? r() * 6.283 : aim + (r() - 0.5) * 1.1, d0 = h * (d0a + r() * d0b), d1 = d0 + h * (la + r() * lb);
+    const x0 = cx + Math.cos(a) * d0, y0 = cy + Math.sin(a) * d0, x1 = cx + Math.cos(a) * d1, y1 = cy + Math.sin(a) * d1, gr = g.createLinearGradient(x0, y0, x1, y1);
+    gr.addColorStop(0, 'rgba(255,240,190,.9)'); gr.addColorStop(1, 'rgba(255,150,50,0)'); g.strokeStyle = gr; g.lineWidth = 0.8 + r() * 1.6; g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke();
+  }
+}
+function flashRag(g, n, r, k, cx, cy, R0, R1, st = 0.28) {
+  g.globalCompositeOperation = 'destination-out';
+  for (let i = 0; i < k; i++) { const a = r() * 6.283, d = R0 + r() * (R1 - R0), x = cx + Math.cos(a) * d, y = cy + Math.sin(a) * d, rad = n * (0.02 + r() * 0.05), gr = g.createRadialGradient(x, y, 0, x, y, rad); gr.addColorStop(0, `rgba(0,0,0,${st})`); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(x - rad, y - rad, rad * 2, rad * 2); }
+  g.globalCompositeOperation = 'lighter';
+}
+function flashBurstTex(seed = 1) {
+  const n = 256, h = n / 2, c = canvas(n), g = c.getContext('2d'), r = rng(seed); g.globalCompositeOperation = 'lighter';
+  let gr = g.createRadialGradient(h, h, 0, h, h, h * 0.66); gr.addColorStop(0, 'rgba(255,170,70,.32)'); gr.addColorStop(0.5, 'rgba(255,110,30,.1)'); gr.addColorStop(1, 'rgba(255,80,20,0)'); g.fillStyle = gr; g.fillRect(0, 0, n, n);
+  const k = 3 + Math.floor(r() * 3), a0 = r() * 6.283;
+  for (let i = 0; i < k; i++) {
+    const a = a0 + i * 6.283 / k + (r() - 0.5) * 0.6, L = h * (0.5 + r() * 0.46), w = h * (0.08 + r() * 0.07);
+    flameTongue(g, h, a, L, w, 0.9, r);
+    for (let j = 0; j < 2; j++) if (r() < 0.7) flameTongue(g, h, a + (r() - 0.5) * 0.9, L * (0.25 + r() * 0.35), w * (0.5 + r() * 0.4), 0.6, r);
+  }
+  for (let i = 0; i < 5; i++) flameTongue(g, h, r() * 6.283, h * (0.18 + r() * 0.2), h * (0.1 + r() * 0.08), 0.55, r);
+  flashSparks(g, h, 14, r, 0.12, 0.3, 0.1, 0.38);
+  flashRag(g, n, r, 50, h, h, h * 0.25, h * 0.9);
+  flashCore(g, h, h * 0.2, r);
+  return tex(c);
+}
+function flashConeTex(seed = 1) {
+  const n = 256, h = n / 2, c = canvas(n), g = c.getContext('2d'), r = rng(seed); g.globalCompositeOperation = 'lighter';
+  g.save(); g.translate(-h + 14, 0);
+  let gr = g.createRadialGradient(h, h, 0, h, h, h * 0.5); gr.addColorStop(0, 'rgba(255,170,70,.3)'); gr.addColorStop(1, 'rgba(255,90,20,0)'); g.fillStyle = gr; g.fillRect(0, 0, n * 2, n);
+  flameTongue(g, h, (r() - 0.5) * 0.06, n - 26, h * 0.2, 0.7, r);
+  flameTongue(g, h, (r() - 0.5) * 0.12, n * (0.5 + r() * 0.25), h * 0.11, 0.5, r);
+  for (const sd of [-1, 1]) { flameTongue(g, h, sd * (0.5 + r() * 0.35), h * (0.45 + r() * 0.35), h * 0.08, 0.75, r); if (r() < 0.6) flameTongue(g, h, sd * (0.9 + r() * 0.5), h * (0.25 + r() * 0.2), h * 0.06, 0.5, r); }
+  flashSparks(g, h, 10, r, 0.15, 0.4, 0.2, 0.6, h, h, 0);
+  flashRag(g, n, r, 40, h + h * 0.6, h, 0, h * 0.7, 0.2);
+  flashCore(g, h, h * 0.17, r);
+  g.restore(); return tex(c);
+}
+function fireballTex(seed = 1) {
+  const n = 256, h = n / 2, c = canvas(n), g = c.getContext('2d'), r = rng(seed); g.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < 18; i++) {
+    const a = r() * 6.283, d = h * 0.34 * Math.sqrt(r()), x = h + Math.cos(a) * d, y = h + Math.sin(a) * d * 0.9, rad = h * (0.2 + r() * 0.16), gr = g.createRadialGradient(x, y, 0, x, y, rad);
+    gr.addColorStop(0, 'rgba(255,232,165,.5)'); gr.addColorStop(0.45, 'rgba(255,150,50,.38)'); gr.addColorStop(0.8, 'rgba(205,62,12,.14)'); gr.addColorStop(1, 'rgba(160,40,5,0)'); g.fillStyle = gr; g.fillRect(0, 0, n, n);
+  }
+  flashRag(g, n, r, 60, h, h, h * 0.1, h * 0.75, 0.22);
+  const gr = g.createRadialGradient(h, h, 0, h, h, h * 0.3); gr.addColorStop(0, 'rgba(255,250,225,.75)'); gr.addColorStop(1, 'rgba(255,200,100,0)'); g.fillStyle = gr; g.fillRect(0, 0, n, n);
+  return tex(c);
+}
+function flashStarTex() { return flashBurstTex(1); }
 function puffTex() {
   const n = 128, c = canvas(n), g = c.getContext('2d'), r = rng(21);
   for (let i = 0; i < 26; i++) {
@@ -3521,20 +3583,20 @@ function updJets(dt) {
 /* ================= effects ================= */
 const HDC = new THREE.Color(HDRK, HDRK, HDRK);
 const FXT = {
-  flash: flashStarTex(), glow: radialTex([[0, 'rgba(255,248,220,1)'], [0.2, 'rgba(255,200,110,.9)'], [0.6, 'rgba(255,110,30,.35)'], [1, 'rgba(255,80,0,0)']]),
-  fire: radialTex([[0, 'rgba(255,240,190,1)'], [0.3, 'rgba(255,170,60,.9)'], [0.7, 'rgba(230,80,20,.35)'], [1, 'rgba(200,40,0,0)']]),
+  flash: flashBurstTex(1), bursts: [1, 8, 15, 22, 29].map(flashBurstTex), cones: [7, 12, 19].map(flashConeTex), spark: radialTex([[0, 'rgba(255,250,230,1)'], [0.25, 'rgba(255,215,140,.9)'], [0.6, 'rgba(255,140,40,.3)'], [1, 'rgba(255,90,20,0)']], 32), glow: radialTex([[0, 'rgba(255,248,220,1)'], [0.2, 'rgba(255,200,110,.9)'], [0.6, 'rgba(255,110,30,.35)'], [1, 'rgba(255,80,0,0)']]),
+  fire: fireballTex(3), fires: [3, 9, 14].map(fireballTex),
   puff: puffTex(), flare: radialTex([[0, 'rgba(255,255,245,1)'], [0.12, 'rgba(255,250,220,.95)'], [0.4, 'rgba(255,230,170,.25)'], [1, 'rgba(255,220,150,0)']]),
 };
 class SpritePool {
   constructor(n, map, additive, color = 0xffffff, layer1 = false) {
-    this.items = []; for (let i = 0; i < n; i++) { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map, transparent: true, depthWrite: false, blending: additive ? THREE.AdditiveBlending : THREE.NormalBlending, toneMapped: !additive, color, fog: !additive })); s.visible = false; if (layer1) s.layers.set(1); scene.add(s); this.items.push({ s, t: 99, life: 1, upd: null }); }
+    this.col = new THREE.Color(color); this.items = []; for (let i = 0; i < n; i++) { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map, transparent: true, depthWrite: false, blending: additive ? THREE.AdditiveBlending : THREE.NormalBlending, toneMapped: !additive, color, fog: !additive })); s.visible = false; if (layer1) s.layers.set(1); scene.add(s); this.items.push({ s, t: 99, life: 1, upd: null }); }
   }
-  get() { let b = this.items[0]; for (const q of this.items) if (q.t / q.life > b.t / b.life) b = q; b.t = 0; b.s.visible = true; b.s.material.rotation = Math.random() * 6.28; return b; }
+  get() { let b = this.items[0]; for (const q of this.items) if (q.t / q.life > b.t / b.life) b = q; b.t = 0; b.s.visible = true; b.s.material.rotation = Math.random() * 6.28; b.s.material.color.copy(this.col); b.s.material.opacity = 1; return b; }
   update(dt) { for (const q of this.items) { if (!q.s.visible) continue; q.t += dt; if (q.t >= q.life) { q.s.visible = false; continue; } q.upd && q.upd(q, q.t / q.life, dt); } }
   clear() { for (const q of this.items) { q.s.visible = false; q.t = 99; } }
 }
 const FX = {
-  flashes: new SpritePool(28, FXT.flash, true, HDC), glows: new SpritePool(18, FXT.glow, true, HDC), smoke: new SpritePool(LITE ? 70 : 130, FXT.puff, false, 0x5c5a55), dust: new SpritePool(LITE ? 70 : 160, FXT.puff, false, 0xb5a585, true), fire: new SpritePool(26, FXT.fire, true, HDC),
+  flashes: new SpritePool(28, FXT.flash, true, HDC), glows: new SpritePool(18, FXT.glow, true, HDC), smoke: new SpritePool(LITE ? 70 : 130, FXT.puff, false, 0x5c5a55), dust: new SpritePool(LITE ? 70 : 160, FXT.puff, false, 0xb5a585, true), fire: new SpritePool(LITE ? 26 : 40, FXT.fire, true, HDC), cones: new SpritePool(16, FXT.cones[0], true, HDC), sparks: new SpritePool(LITE ? 30 : 60, FXT.spark, true, HDC),
   trail: new SpritePool(LITE ? 120 : 340, FXT.puff, false, 0xb5a585, true), exh: new SpritePool(LITE ? 50 : 130, FXT.puff, false, 0x45433f, true),   // the dust behind moving vehicles and their exhaust
   tracers: [], shake: 0,
 };
@@ -3542,7 +3604,21 @@ const FX = {
   const tg = new THREE.BoxGeometry(0.06, 0.06, 1).translate(0, 0, -0.5);
   for (let i = 0; i < 70; i++) { const m = new THREE.Mesh(tg, new THREE.MeshBasicMaterial({ color: 0xff5a36, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false, fog: false })); m.visible = false; m.frustumCulled = false; scene.add(m); FX.tracers.push({ m, a: V3(), b: V3(), d: 0, t: 0, len: 0, on: false }); }
 }
-function fxMuzzle(p, big = false) { const q = FX.flashes.get(); q.life = 0.06; q.s.position.copy(p); q.s.scale.setScalar(big ? 1.2 : 0.8); q.upd = null; }
+/* a shot's flash: one of several drawn bursts, a new spin and size each time, swelling and dying in ~60 ms. When the target is known, the
+   flame cone thrown forward out of the muzzle is laid along the shot as it is seen on screen (foreshortened; seen end-on only the burst shows) */
+const _mzA = V3(), _mzB = V3();
+function fxMuzzle(p, big = false, to = null) {
+  const q = FX.flashes.get(), s0 = (big ? 1.15 : 0.72) * rand(0.8, 1.2), fl = rand(0.85, 1.15); q.life = rand(0.05, 0.075); q.s.material.map = pick(FXT.bursts); q.s.position.copy(p);
+  q.upd = (o, u) => { o.s.scale.setScalar(s0 * (0.7 + 0.55 * Math.sqrt(u))); o.s.material.opacity = (1 - u * u) * fl; }; q.upd(q, 0);
+  if (!to) return; const d = _mzB.copy(to).sub(p), dl = d.length(); if (dl < 0.5) return; d.multiplyScalar(1 / dl);
+  const len = s0 * (big ? 2.2 : 1.9), a = _mzA.copy(p).project(camera); if (a.z > 1 || a.z < -1) return; const ax = a.x, ay = a.y;
+  const b = _mzA.copy(p).addScaledVector(d, len).project(camera); if (b.z > 1 || b.z < -1) return;
+  const dx = (b.x - ax) * camera.aspect, dy = b.y - ay, sl = Math.hypot(dx, dy), dist = Math.max(0.5, camera.position.distanceTo(p));
+  const f = sl * dist * Math.tan(camera.fov * Math.PI / 360) / len; if (f < 0.3) return;
+  const c = FX.cones.get(); c.life = q.life * 1.1; c.s.material.map = pick(FXT.cones); c.s.material.rotation = Math.atan2(dy, dx);
+  c.s.position.copy(p).addScaledVector(d, len * 0.47); const L = len * Math.min(1, f), W = s0 * 0.62;
+  c.upd = (o, u) => { const k = 0.75 + 0.35 * Math.sqrt(u); o.s.scale.set(L * k, W * k, 1); o.s.material.opacity = (1 - u * u) * fl; }; c.upd(c, 0);
+}
 function fxTracer(a, b, green) {
   let tr = FX.tracers.find((q) => !q.on); if (!tr) return; tr.on = true; tr.a.copy(a); tr.b.copy(b); tr.len = a.distanceTo(b); tr.t = 0;
   tr.m.material.color.set(green ? 0x6dff6a : 0xff5a36).multiplyScalar(HDRK * 1.3); tr.m.visible = true; tr.m.scale.set(1, 1, Math.min(14, tr.len));
@@ -3561,7 +3637,21 @@ function fxDust(p, water = false) {
 function fxExplosion(p, size = 1) {
   const land = groundAt(p.x, p.z) > 0.05;
   const f = FX.glows.get(); f.life = 0.3; f.s.position.set(p.x, p.y + 1.4 * size, p.z); f.upd = (q, u) => { q.s.scale.setScalar((13 - 9 * u) * size); q.s.material.opacity = 1 - u; };
-  const fl = FX.flashes.get(); fl.life = 0.08; fl.s.position.set(p.x, p.y + 0.8 * size, p.z); fl.s.scale.setScalar(7 * size); fl.upd = null;
+  const fl = FX.flashes.get(); fl.life = 0.1; fl.s.material.map = pick(FXT.bursts); fl.s.position.set(p.x, p.y + 0.8 * size, p.z); fl.upd = (q, u) => { q.s.scale.setScalar((5.5 + 3 * u) * size); q.s.material.opacity = 1 - u; }; fl.upd(fl, 0);
+  /* the fireball: a few billowing lobes that swell, climb and cool from white-yellow through orange to a dull red before the smoke takes over */
+  for (let i = 0, n = LITE ? 3 : 5; i < n; i++) {
+    const q = FX.fire.get(); q.life = rand(0.45, 0.75) * (0.8 + size * 0.2); q.s.material.map = pick(FXT.fires); const ox = rand(-0.9, 0.9) * size, oz = rand(-0.9, 0.9) * size, vy = rand(1.5, 4) * size, s1 = rand(2.2, 3.6) * size, sp = rand(-1.5, 1.5);
+    q.s.position.set(p.x + ox * 0.4, p.y + rand(0.4, 1.2) * size, p.z + oz * 0.4);
+    q.upd = (o, u, dt) => { o.s.position.y += vy * dt * (1 - u); o.s.position.x += ox * dt * 1.5; o.s.position.z += oz * dt * 1.5; o.s.material.rotation += sp * dt; o.s.scale.setScalar(s1 * (0.45 + 0.75 * Math.sqrt(u))); const c = 1 - u; o.s.material.color.setRGB(HDRK, HDRK * (0.55 + 0.45 * c), HDRK * (0.2 + 0.8 * c * c)); o.s.material.opacity = Math.pow(c, 1.4); };
+    q.upd(q, 0, 0);
+  }
+  /* glowing fragments flung out, falling and dying */
+  for (let i = 0, n = Math.round((LITE ? 5 : 10) * Math.min(1.6, size)); i < n; i++) {
+    const q = FX.sparks.get(); q.life = rand(0.35, 0.8); const a = rand(0, 6.283), h = rand(4, 11) * Math.sqrt(size), vx = Math.cos(a) * h, vz = Math.sin(a) * h, ss = rand(0.12, 0.26) * Math.sqrt(size); let vy = rand(3, 12) * Math.sqrt(size);
+    q.s.position.set(p.x, p.y + 0.6 * size, p.z);
+    q.upd = (o, u, dt) => { vy -= 18 * dt; o.s.position.x += vx * dt; o.s.position.y += vy * dt; o.s.position.z += vz * dt; o.s.scale.setScalar(ss * (1 - u * 0.5)); o.s.material.opacity = 1 - u; };
+    q.upd(q, 0, 0);
+  }
   for (let i = 0; i < (LITE ? 4 : 8); i++) {
     const d = FX.dust.get(); d.life = 2.4 + Math.random() * 2; const ox = rand(-1.3, 1.3) * size, oz = rand(-1.3, 1.3) * size, vy = rand(5, 12) * size * (land ? 1 : 1.5), sx = rand(-0.9, 0.9);
     d.s.position.set(p.x + ox, p.y + 0.6, p.z + oz); d.s.material.color.set(land ? (i % 2 ? 0x9d8a68 : 0x7d6b51) : 0xe2e8ea);
@@ -5099,7 +5189,7 @@ function sqfSupp(f, dt) {
   if (f.supCd <= 0) {
     if (!(f.supN > 0)) { f.supN = Math.floor(rand(2, 4)); if (Math.random() < 0.12) shout(f, pick(['מרתק אותו!', 'אש על המצרי!', 'תורידו לו את הראש!'])); }
     f.supN--; f.supCd = f.supN > 0 ? 0.3 : rand(1.3, 2.4) * diff.fgun;
-    const from = u.muzzle(); fxMuzzle(from, false); sndShot('fal-npc', from);
+    const from = u.muzzle(); fxMuzzle(from, false, c); sndShot('fal-npc', from);
     const end = c.clone().add(V3(rand(-1.1, 1.1), rand(-0.2, 1.0), rand(-1.1, 1.1))); if (Math.random() < 0.3) fxTracer(from, end, false);
     fxDust(V3(end.x, surfAt(end.x, end.z) + 0.2, end.z), groundAt(end.x, end.z) < 0); supPin(e, 0.3);
     if (Math.random() < 0.015 * diff.fAcc) killEnemy(e, false);   /* a lucky round now and then; the fire is to pin him, not to kill */
@@ -5190,7 +5280,7 @@ function updFriend(f, dt, time) {
           if (f.magN >= 4) { f.magN = 0; f.peekT = rand(2.2, 3.0); f.peekKind = 'reload'; f.fireCd = Math.max(f.fireCd, f.peekT + 0.15); if (Math.random() < 0.6 && shout(f, pick(['מחליף מחסנית!', 'מחסנית!', 'טוען!']))) sqfLater(sqfMate(f), pick(['מחפה!', 'מחפה עליך!', 'יש לך כיסוי!']), 0.7); }
           else if (r < 0.7) { f.peekT = f.fireCd * rand(0.55, 0.9); f.peekKind = 'move'; f.peekOff = clamp((f.peekOff || 0) + (Math.random() < 0.5 ? -1 : 1) * rand(0.5, 0.9), -0.9, 0.9); }
         }
-        const from = isMag ? p.mag.pivot.localToWorld(V3(0, 0.012, 0.9)) : u.muzzle(); fxMuzzle(from, isMag); sndShot('fal-npc', from);
+        const from = isMag ? p.mag.pivot.localToWorld(V3(0, 0.012, 0.9)) : u.muzzle(); fxMuzzle(from, isMag, tp); sndShot('fal-npc', from);
         const d = from.distanceTo(tp); const rangeF = clamp(1 - d / 420, 0.2, 1);
         let pHit = (isMag ? 0.0018 : FIELDM() ? 0.013 : 0.0045) * rangeF;
         // close in he rarely misses: an Egyptian at the wire or in the trench is shot by the friends round him; a man behind cover is hard to hit
@@ -5285,7 +5375,7 @@ function enemyFire(e) {
   if (e.kind === 'rpg' && e.target) { const tp = e.target.player ? playerEye() : e.target.f.unit.chest(), d = e.pos.distanceTo(tp); if (e.rpgCd <= 0 && d > (e.state === 'trench' ? 6 : 12) && d < 230) rpgShoot(e, tp); return; }
   const mz = mzEase(), from = e.muzzle(); const tgt = e.target; if (!tgt) return; if (tgt.player) { e.shotT = GAME.t; if (MODE === 'suez') szFireAt(e, from); if (Math.hypot(e.pos.x - P.pos.x, e.pos.z - P.pos.z) < 150) SQF.spots.set(e, GAME.t), SQF.cT = GAME.t; } const W = wpnOf(e);
   const tp = tgt.player ? playerEye() : tgt.f.unit.chest(); const d = from.distanceTo(tp); const rangeF = clamp(1 - d / W.range, 0.25, 1) * (W.range < 200 && d > W.range * 0.6 ? 0.3 : 1);
-  fxMuzzle(from, W.snd === 'lmg'); sndShot(W.snd, from);
+  fxMuzzle(from, W.snd === 'lmg', tp); sndShot(W.snd, from);
   let hit = false; const eye = e.eye(); const wt = segHitT(eye.x, eye.y, eye.z, tp.x, tp.y, tp.z, FIELDM() ? 0.25 : 0.7);
   if (wt >= 0) { const wk = SEG_K, wp = V3(lerp(eye.x, tp.x, wt), lerp(eye.y, tp.y, wt), lerp(eye.z, tp.z, wt)); if (Math.random() < 0.5) fxTracer(from, wp, true); fxDust(wp); if (wk && camera.position.distanceTo(wp) < 60) { const dv = V3(tp.x - eye.x, tp.y - eye.y, tp.z - eye.z).normalize(); bulletHole(wp, colNormal(wk, wp, dv)); } e.scanCd = 0; return; }   /* the walls round the player are pocked by their fire too */
   if (tgt.player) { let p = W.acc * (FIELDM() ? (CH().hard || 0.7) : 1) * (SURV.on ? SURV.acc : 1) * diff.acc * rangeF * (d < 12 ? 2 : 1) * (P.mode === 'tank' ? 0.45 : 1) * (P.crouch ? 0.55 : 1) * (moving() ? 0.7 : 1) * (P.post ? 0.8 : 1) * (e.stance === 'crouch' ? 1.1 : 1) * (FIELDM() && P.mode === 'rifle' && inConceal(P.pos.x, P.pos.z) ? 0.45 : 1) * (e.wild ? 0.3 : 1) * (mz ? mz.acc * (SCENES[Math.max(0, D.scene)].acc || 1) : 1) * (e.wild ? 1 : tacAcc(e)); hit = Math.random() < p; if (hit && P.mode === 'tank' && P.crouch) { hit = false; fxDust(tp.clone().add(V3(rand(-0.6, 0.6), rand(-0.3, 0.3), rand(-0.6, 0.6)))); } if (hit) hurtPlayer(rand(diff.dmg[0], diff.dmg[1]) * W.dmg, from); else if (d < 60 && Math.random() < 0.35) sndWhiz(); }
@@ -6178,7 +6268,7 @@ function playerShoot() {
   let d = camForward(_fw).clone(); if (TOUCH || FIELDM()) d = aimAssist(camera.position, d, TOUCH ? 0.06 : FIELDM() ? 0.05 : 0.015, false); d.x += rand(-spread, spread); d.y += rand(-spread, spread); d.z += rand(-spread, spread); d.normalize();
   const o = camera.position.clone(); const hit = castShot(o, d, 700, 'f');
   P.kick = 1; P.recoil = Math.min(P.recoil + 0.35, 1); P.pitch += 0.016 + rand(0, 0.006); P.yaw += rand(-0.005, 0.005);
-  vmFlash.visible = true; vmFlash.material.rotation = Math.random() * 6; setTimeout(() => (vmFlash.visible = false), 40); vmMuzzle.intensity = 6; LIGHTS.muzzle.position.copy(o).addScaledVector(d, 1.2); LIGHTS.muzzle.intensity = 700;
+  vmFlash.visible = true; vmFlash.material.map = pick(FXT.bursts); vmFlash.scale.setScalar(rand(0.22, 0.34)); vmFlash.material.rotation = Math.random() * 6; setTimeout(() => (vmFlash.visible = false), 40); vmMuzzle.intensity = 6; LIGHTS.muzzle.position.copy(o).addScaledVector(d, 1.2); LIGHTS.muzzle.intensity = 700;
   sndShot('fal');
   applyHit(hit, 105);
 }
@@ -6642,7 +6732,7 @@ function clearBattle() {
   for (const e of UNITS.enemies) { e.alive = false; e.rig.root.visible = false; e.deadAt = undefined; e.tag.visible = false; e.cover = null; e.state = 'dead'; e.sz = null; e.slot = null; e.cov = null; }
   for (const b of [...BOATS]) b.dispose(); BOATS.length = 0; GROUPS.length = 0; DIRQ.length = 0; dropsClear(); flotReset(); ROWS.on = false; LANDCAP.n = 999; LANDCAP.wave = 0;
   for (const q of PROJ) { scene.remove(q.m); if (q.marker) scene.remove(q.marker); } PROJ.length = 0;
-  FX.flashes.clear(); FX.glows.clear(); FX.smoke.clear(); FX.dust.clear(); FX.fire.clear(); FX.trail.clear(); FX.exh.clear(); for (const t of FX.tracers) { t.on = false; t.m.visible = false; }
+  FX.flashes.clear(); FX.glows.clear(); FX.smoke.clear(); FX.dust.clear(); FX.fire.clear(); FX.cones.clear(); FX.sparks.clear(); FX.trail.clear(); FX.exh.clear(); for (const t of FX.tracers) { t.on = false; t.m.visible = false; }
   DRUMFIRE.on = false; LIGHTS.fire.intensity = 0; LIGHTS.boom.intensity = 0; LIGHTS.wreck.intensity = 0; for (const p of POSTS) if (p.occupant === 'player') p.occupant = null;
   Object.assign(D, { capture: 0, capWarn: false, inside: 0, inTrench: 0, chargeMsg: -99, clearT: 0, trenchMsg: -99, tok: { 1: null, '-1': null } }); for (const c of COVER) c.by = null;
 }
@@ -6674,7 +6764,7 @@ function resetGame() {
   for (const j of JETS) scene.remove(j.m); JETS.length = 0;
   for (const c of D.smoke) { for (const p of c.parts) scene.remove(p.sp); if (c.fire) scene.remove(c.fire); FAR_SMOKE.splice(FAR_SMOKE.indexOf(c), 1); }
   for (const m of SCORCH.list) m.visible = false;
-  FX.flashes.clear(); FX.glows.clear(); FX.smoke.clear(); FX.dust.clear(); FX.fire.clear(); FX.trail.clear(); FX.exh.clear(); for (const t of FX.tracers) { t.on = false; t.m.visible = false; }
+  FX.flashes.clear(); FX.glows.clear(); FX.smoke.clear(); FX.dust.clear(); FX.fire.clear(); FX.cones.clear(); FX.sparks.clear(); FX.trail.clear(); FX.exh.clear(); for (const t of FX.tracers) { t.on = false; t.m.visible = false; }
   DRUMFIRE.on = false; LIGHTS.fire.intensity = 0; LIGHTS.boom.intensity = 0; LIGHTS.wreck.intensity = 0;
   for (const j of STRAFE) scene.remove(j.m); STRAFE.length = 0;
   AIR.mirage = false; AIR.ev = null; AIR.next = 30; AIR.magT = 0; for (const b of AIR.bombs) scene.remove(b.m); AIR.bombs.length = 0; if (AIR.models) { AIR.models.m.g.visible = false; AIR.models.m.wingR.visible = false; AIR.models.mig.visible = false; AIR.models.chute.visible = false; }
@@ -6880,7 +6970,7 @@ function frameInner() {
   // the title and mission select cover the screen with pictures: no need to draw the 3D world behind them (it saves the phone's battery)
   if (GAME.state === 'menu' && (!$('#mBrief').hidden || !$('#mOps').hidden)) return;
   if (GAME.state === 'play') update(dt, time); else if (GAME.state !== 'pause' && GAME.state !== 'end') { idleCamera(time); updJets(dt); menuFx(dt); }
-  chipsUpd(dt); FX.flashes.update(dt); FX.glows.update(dt); FX.smoke.update(dt); FX.dust.update(dt); FX.fire.update(dt); FX.trail.update(dt); FX.exh.update(dt); updateTracers(dt); updateFlares(dt); updateDrumFire(dt, time);
+  chipsUpd(dt); FX.flashes.update(dt); FX.glows.update(dt); FX.smoke.update(dt); FX.dust.update(dt); FX.fire.update(dt); FX.cones.update(dt); FX.sparks.update(dt); FX.trail.update(dt); FX.exh.update(dt); updateTracers(dt); updateFlares(dt); updateDrumFire(dt, time);
   FX.boomT = (FX.boomT || 0) + dt; LIGHTS.boom.intensity *= Math.max(0, 1 - dt * 9);
   updFarSmoke(dt, time); wreckUpd(dt); animateWater(dt); waveFlags(time);
   if (HM_PANO) HM_PANO.visible = MODE === 'hermon';   // the view from the Hermon is drawn only there
@@ -15058,7 +15148,7 @@ function snapRestore(s = SNAP.list[SNAP.list.length - 1]) {
   if (CINE.on) { CINE.on = false; CINE.slow = 1; $('#app').classList.remove('cine'); $('#cine').hidden = true; camera.fov = CINE.fov0 || 72; camera.updateProjectionMatrix(); }
   SLOW.left = 0; SLOW.k = 1; SLOW.look = null;
   for (const q of PROJ) { scene.remove(q.m); if (q.marker) scene.remove(q.marker); } PROJ.length = 0;
-  FX.flashes.clear(); FX.glows.clear(); FX.smoke.clear(); FX.dust.clear(); FX.fire.clear(); FX.trail.clear(); FX.exh.clear(); for (const t of FX.tracers) { t.on = false; t.m.visible = false; }
+  FX.flashes.clear(); FX.glows.clear(); FX.smoke.clear(); FX.dust.clear(); FX.fire.clear(); FX.cones.clear(); FX.sparks.clear(); FX.trail.clear(); FX.exh.clear(); for (const t of FX.tracers) { t.on = false; t.m.visible = false; }
   for (const j of STRAFE) scene.remove(j.m); STRAFE.length = 0; for (const j of JETS) scene.remove(j.m); JETS.length = 0;
   if (AIR.bombs) { for (const b of AIR.bombs) scene.remove(b.m); AIR.bombs.length = 0; } AIR.ev = null; Object.assign(AIR, s.air);
   dropsClear(); LIGHTS.boom.intensity = 0;

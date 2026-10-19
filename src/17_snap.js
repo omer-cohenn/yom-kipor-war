@@ -88,7 +88,7 @@ function snapRestore(s = SNAP.list[SNAP.list.length - 1]) {
   if (CINE.on) { CINE.on = false; CINE.slow = 1; $('#app').classList.remove('cine'); $('#cine').hidden = true; camera.fov = CINE.fov0 || 72; camera.updateProjectionMatrix(); }
   SLOW.left = 0; SLOW.k = 1; SLOW.look = null;
   for (const q of PROJ) { scene.remove(q.m); if (q.marker) scene.remove(q.marker); } PROJ.length = 0;
-  FX.flashes.clear(); FX.glows.clear(); FX.smoke.clear(); FX.dust.clear(); FX.fire.clear(); FX.trail.clear(); FX.exh.clear(); for (const t of FX.tracers) { t.on = false; t.m.visible = false; }
+  FX.flashes.clear(); FX.glows.clear(); FX.smoke.clear(); FX.dust.clear(); FX.fire.clear(); FX.cones.clear(); FX.sparks.clear(); FX.trail.clear(); FX.exh.clear(); for (const t of FX.tracers) { t.on = false; t.m.visible = false; }
   for (const j of STRAFE) scene.remove(j.m); STRAFE.length = 0; for (const j of JETS) scene.remove(j.m); JETS.length = 0;
   if (AIR.bombs) { for (const b of AIR.bombs) scene.remove(b.m); AIR.bombs.length = 0; } AIR.ev = null; Object.assign(AIR, s.air);
   dropsClear(); LIGHTS.boom.intensity = 0;

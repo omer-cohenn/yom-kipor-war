@@ -376,13 +376,75 @@ function radialTex(stops, n = 128) {
   const c = canvas(n), g = c.getContext('2d'); const gr = g.createRadialGradient(n / 2, n / 2, 0, n / 2, n / 2, n / 2);
   for (const [o, col] of stops) gr.addColorStop(o, col); g.fillStyle = gr; g.fillRect(0, 0, n, n); return tex(c);
 }
-function flashStarTex() {
-  const n = 128, c = canvas(n), g = c.getContext('2d');
-  const gr = g.createRadialGradient(64, 64, 0, 64, 64, 64); gr.addColorStop(0, 'rgba(255,250,225,1)'); gr.addColorStop(0.25, 'rgba(255,200,110,.9)'); gr.addColorStop(1, 'rgba(255,120,30,0)');
-  g.fillStyle = gr; g.beginPath();
-  for (let k = 0; k < 10; k++) { const a = k / 10 * 6.283, r = k % 2 ? 22 : 62; g.lineTo(64 + Math.cos(a) * r, 64 + Math.sin(a) * r); }
-  g.closePath(); g.fill(); return tex(c);
+/* gun and shell flashes: drawn flame tongues (3-5 uneven prongs, like the gas leaving a flash hider), thin sparks and a turbulent hot core,
+   with ragged edges; several seeded variants so no two shots look alike. A side-view cone for a shot seen across, and a cauliflower fireball */
+function flameTongue(g, h, a, L, w, al, r) {
+  g.save(); g.translate(h, h); g.rotate(a);
+  const bend = (r() - 0.5) * w * 1.6, wob = (r() - 0.5) * w * 0.8, c1 = 0.8 + r() * 0.5, c2 = 0.3 + r() * 0.5, c3 = 0.8 + r() * 0.5, c4 = 0.3 + r() * 0.5;
+  for (const [wk, lk, ak] of [[2.6, 1.08, 0.12], [1.6, 1, 0.32], [0.85, 0.94, 0.85]]) {
+    const W = w * wk, LL = L * lk, gr = g.createLinearGradient(0, 0, LL, 0);
+    gr.addColorStop(0, `rgba(255,248,222,${al * ak})`); gr.addColorStop(0.2, `rgba(255,212,125,${al * ak * 0.9})`); gr.addColorStop(0.55, `rgba(255,132,38,${al * ak * 0.5})`); gr.addColorStop(1, 'rgba(240,60,10,0)');
+    g.fillStyle = gr; g.beginPath(); g.moveTo(0, -W * 0.4);
+    g.bezierCurveTo(LL * 0.28, -W * c1 + wob, LL * 0.62, -W * c2 + bend * 0.6, LL, bend);
+    g.bezierCurveTo(LL * 0.62, W * c4 + bend * 0.6, LL * 0.28, W * c3 + wob, 0, W * 0.4); g.closePath(); g.fill();
+  }
+  g.restore();
 }
+function flashCore(g, h, R, r) {
+  for (let i = 0; i < 7; i++) { const x = h + (r() - 0.5) * R * 1.2, y = h + (r() - 0.5) * R * 1.2, rad = R * (0.4 + r() * 0.5), gr = g.createRadialGradient(x, y, 0, x, y, rad); gr.addColorStop(0, 'rgba(255,236,180,.5)'); gr.addColorStop(0.6, 'rgba(255,160,60,.22)'); gr.addColorStop(1, 'rgba(255,110,30,0)'); g.fillStyle = gr; g.fillRect(0, 0, h * 2, h * 2); }
+  const gr = g.createRadialGradient(h, h, 0, h, h, R); gr.addColorStop(0, 'rgba(255,255,252,1)'); gr.addColorStop(0.45, 'rgba(255,244,200,.85)'); gr.addColorStop(1, 'rgba(255,200,110,0)'); g.fillStyle = gr; g.fillRect(0, 0, h * 2, h * 2);
+}
+function flashSparks(g, h, n, r, d0a, d0b, la, lb, cx = h, cy = h, aim = null) {
+  g.lineCap = 'round';
+  for (let i = 0; i < n; i++) {
+    const a = aim == null ? r() * 6.283 : aim + (r() - 0.5) * 1.1, d0 = h * (d0a + r() * d0b), d1 = d0 + h * (la + r() * lb);
+    const x0 = cx + Math.cos(a) * d0, y0 = cy + Math.sin(a) * d0, x1 = cx + Math.cos(a) * d1, y1 = cy + Math.sin(a) * d1, gr = g.createLinearGradient(x0, y0, x1, y1);
+    gr.addColorStop(0, 'rgba(255,240,190,.9)'); gr.addColorStop(1, 'rgba(255,150,50,0)'); g.strokeStyle = gr; g.lineWidth = 0.8 + r() * 1.6; g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke();
+  }
+}
+function flashRag(g, n, r, k, cx, cy, R0, R1, st = 0.28) {
+  g.globalCompositeOperation = 'destination-out';
+  for (let i = 0; i < k; i++) { const a = r() * 6.283, d = R0 + r() * (R1 - R0), x = cx + Math.cos(a) * d, y = cy + Math.sin(a) * d, rad = n * (0.02 + r() * 0.05), gr = g.createRadialGradient(x, y, 0, x, y, rad); gr.addColorStop(0, `rgba(0,0,0,${st})`); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(x - rad, y - rad, rad * 2, rad * 2); }
+  g.globalCompositeOperation = 'lighter';
+}
+function flashBurstTex(seed = 1) {
+  const n = 256, h = n / 2, c = canvas(n), g = c.getContext('2d'), r = rng(seed); g.globalCompositeOperation = 'lighter';
+  let gr = g.createRadialGradient(h, h, 0, h, h, h * 0.66); gr.addColorStop(0, 'rgba(255,170,70,.32)'); gr.addColorStop(0.5, 'rgba(255,110,30,.1)'); gr.addColorStop(1, 'rgba(255,80,20,0)'); g.fillStyle = gr; g.fillRect(0, 0, n, n);
+  const k = 3 + Math.floor(r() * 3), a0 = r() * 6.283;
+  for (let i = 0; i < k; i++) {
+    const a = a0 + i * 6.283 / k + (r() - 0.5) * 0.6, L = h * (0.5 + r() * 0.46), w = h * (0.08 + r() * 0.07);
+    flameTongue(g, h, a, L, w, 0.9, r);
+    for (let j = 0; j < 2; j++) if (r() < 0.7) flameTongue(g, h, a + (r() - 0.5) * 0.9, L * (0.25 + r() * 0.35), w * (0.5 + r() * 0.4), 0.6, r);
+  }
+  for (let i = 0; i < 5; i++) flameTongue(g, h, r() * 6.283, h * (0.18 + r() * 0.2), h * (0.1 + r() * 0.08), 0.55, r);
+  flashSparks(g, h, 14, r, 0.12, 0.3, 0.1, 0.38);
+  flashRag(g, n, r, 50, h, h, h * 0.25, h * 0.9);
+  flashCore(g, h, h * 0.2, r);
+  return tex(c);
+}
+function flashConeTex(seed = 1) {
+  const n = 256, h = n / 2, c = canvas(n), g = c.getContext('2d'), r = rng(seed); g.globalCompositeOperation = 'lighter';
+  g.save(); g.translate(-h + 14, 0);
+  let gr = g.createRadialGradient(h, h, 0, h, h, h * 0.5); gr.addColorStop(0, 'rgba(255,170,70,.3)'); gr.addColorStop(1, 'rgba(255,90,20,0)'); g.fillStyle = gr; g.fillRect(0, 0, n * 2, n);
+  flameTongue(g, h, (r() - 0.5) * 0.06, n - 26, h * 0.2, 0.7, r);
+  flameTongue(g, h, (r() - 0.5) * 0.12, n * (0.5 + r() * 0.25), h * 0.11, 0.5, r);
+  for (const sd of [-1, 1]) { flameTongue(g, h, sd * (0.5 + r() * 0.35), h * (0.45 + r() * 0.35), h * 0.08, 0.75, r); if (r() < 0.6) flameTongue(g, h, sd * (0.9 + r() * 0.5), h * (0.25 + r() * 0.2), h * 0.06, 0.5, r); }
+  flashSparks(g, h, 10, r, 0.15, 0.4, 0.2, 0.6, h, h, 0);
+  flashRag(g, n, r, 40, h + h * 0.6, h, 0, h * 0.7, 0.2);
+  flashCore(g, h, h * 0.17, r);
+  g.restore(); return tex(c);
+}
+function fireballTex(seed = 1) {
+  const n = 256, h = n / 2, c = canvas(n), g = c.getContext('2d'), r = rng(seed); g.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < 18; i++) {
+    const a = r() * 6.283, d = h * 0.34 * Math.sqrt(r()), x = h + Math.cos(a) * d, y = h + Math.sin(a) * d * 0.9, rad = h * (0.2 + r() * 0.16), gr = g.createRadialGradient(x, y, 0, x, y, rad);
+    gr.addColorStop(0, 'rgba(255,232,165,.5)'); gr.addColorStop(0.45, 'rgba(255,150,50,.38)'); gr.addColorStop(0.8, 'rgba(205,62,12,.14)'); gr.addColorStop(1, 'rgba(160,40,5,0)'); g.fillStyle = gr; g.fillRect(0, 0, n, n);
+  }
+  flashRag(g, n, r, 60, h, h, h * 0.1, h * 0.75, 0.22);
+  const gr = g.createRadialGradient(h, h, 0, h, h, h * 0.3); gr.addColorStop(0, 'rgba(255,250,225,.75)'); gr.addColorStop(1, 'rgba(255,200,100,0)'); g.fillStyle = gr; g.fillRect(0, 0, n, n);
+  return tex(c);
+}
+function flashStarTex() { return flashBurstTex(1); }
 function puffTex() {
   const n = 128, c = canvas(n), g = c.getContext('2d'), r = rng(21);
   for (let i = 0; i < 26; i++) {

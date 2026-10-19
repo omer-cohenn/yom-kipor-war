@@ -952,20 +952,20 @@ function updJets(dt) {
 /* ================= effects ================= */
 const HDC = new THREE.Color(HDRK, HDRK, HDRK);
 const FXT = {
-  flash: flashStarTex(), glow: radialTex([[0, 'rgba(255,248,220,1)'], [0.2, 'rgba(255,200,110,.9)'], [0.6, 'rgba(255,110,30,.35)'], [1, 'rgba(255,80,0,0)']]),
-  fire: radialTex([[0, 'rgba(255,240,190,1)'], [0.3, 'rgba(255,170,60,.9)'], [0.7, 'rgba(230,80,20,.35)'], [1, 'rgba(200,40,0,0)']]),
+  flash: flashBurstTex(1), bursts: [1, 8, 15, 22, 29].map(flashBurstTex), cones: [7, 12, 19].map(flashConeTex), spark: radialTex([[0, 'rgba(255,250,230,1)'], [0.25, 'rgba(255,215,140,.9)'], [0.6, 'rgba(255,140,40,.3)'], [1, 'rgba(255,90,20,0)']], 32), glow: radialTex([[0, 'rgba(255,248,220,1)'], [0.2, 'rgba(255,200,110,.9)'], [0.6, 'rgba(255,110,30,.35)'], [1, 'rgba(255,80,0,0)']]),
+  fire: fireballTex(3), fires: [3, 9, 14].map(fireballTex),
   puff: puffTex(), flare: radialTex([[0, 'rgba(255,255,245,1)'], [0.12, 'rgba(255,250,220,.95)'], [0.4, 'rgba(255,230,170,.25)'], [1, 'rgba(255,220,150,0)']]),
 };
 class SpritePool {
   constructor(n, map, additive, color = 0xffffff, layer1 = false) {
-    this.items = []; for (let i = 0; i < n; i++) { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map, transparent: true, depthWrite: false, blending: additive ? THREE.AdditiveBlending : THREE.NormalBlending, toneMapped: !additive, color, fog: !additive })); s.visible = false; if (layer1) s.layers.set(1); scene.add(s); this.items.push({ s, t: 99, life: 1, upd: null }); }
+    this.col = new THREE.Color(color); this.items = []; for (let i = 0; i < n; i++) { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map, transparent: true, depthWrite: false, blending: additive ? THREE.AdditiveBlending : THREE.NormalBlending, toneMapped: !additive, color, fog: !additive })); s.visible = false; if (layer1) s.layers.set(1); scene.add(s); this.items.push({ s, t: 99, life: 1, upd: null }); }
   }
-  get() { let b = this.items[0]; for (const q of this.items) if (q.t / q.life > b.t / b.life) b = q; b.t = 0; b.s.visible = true; b.s.material.rotation = Math.random() * 6.28; return b; }
+  get() { let b = this.items[0]; for (const q of this.items) if (q.t / q.life > b.t / b.life) b = q; b.t = 0; b.s.visible = true; b.s.material.rotation = Math.random() * 6.28; b.s.material.color.copy(this.col); b.s.material.opacity = 1; return b; }
   update(dt) { for (const q of this.items) { if (!q.s.visible) continue; q.t += dt; if (q.t >= q.life) { q.s.visible = false; continue; } q.upd && q.upd(q, q.t / q.life, dt); } }
   clear() { for (const q of this.items) { q.s.visible = false; q.t = 99; } }
 }
 const FX = {
-  flashes: new SpritePool(28, FXT.flash, true, HDC), glows: new SpritePool(18, FXT.glow, true, HDC), smoke: new SpritePool(LITE ? 70 : 130, FXT.puff, false, 0x5c5a55), dust: new SpritePool(LITE ? 70 : 160, FXT.puff, false, 0xb5a585, true), fire: new SpritePool(26, FXT.fire, true, HDC),
+  flashes: new SpritePool(28, FXT.flash, true, HDC), glows: new SpritePool(18, FXT.glow, true, HDC), smoke: new SpritePool(LITE ? 70 : 130, FXT.puff, false, 0x5c5a55), dust: new SpritePool(LITE ? 70 : 160, FXT.puff, false, 0xb5a585, true), fire: new SpritePool(LITE ? 26 : 40, FXT.fire, true, HDC), cones: new SpritePool(16, FXT.cones[0], true, HDC), sparks: new SpritePool(LITE ? 30 : 60, FXT.spark, true, HDC),
   trail: new SpritePool(LITE ? 120 : 340, FXT.puff, false, 0xb5a585, true), exh: new SpritePool(LITE ? 50 : 130, FXT.puff, false, 0x45433f, true),   // the dust behind moving vehicles and their exhaust
   tracers: [], shake: 0,
 };
@@ -973,7 +973,21 @@ const FX = {
   const tg = new THREE.BoxGeometry(0.06, 0.06, 1).translate(0, 0, -0.5);
   for (let i = 0; i < 70; i++) { const m = new THREE.Mesh(tg, new THREE.MeshBasicMaterial({ color: 0xff5a36, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false, fog: false })); m.visible = false; m.frustumCulled = false; scene.add(m); FX.tracers.push({ m, a: V3(), b: V3(), d: 0, t: 0, len: 0, on: false }); }
 }
-function fxMuzzle(p, big = false) { const q = FX.flashes.get(); q.life = 0.06; q.s.position.copy(p); q.s.scale.setScalar(big ? 1.2 : 0.8); q.upd = null; }
+/* a shot's flash: one of several drawn bursts, a new spin and size each time, swelling and dying in ~60 ms. When the target is known, the
+   flame cone thrown forward out of the muzzle is laid along the shot as it is seen on screen (foreshortened; seen end-on only the burst shows) */
+const _mzA = V3(), _mzB = V3();
+function fxMuzzle(p, big = false, to = null) {
+  const q = FX.flashes.get(), s0 = (big ? 1.15 : 0.72) * rand(0.8, 1.2), fl = rand(0.85, 1.15); q.life = rand(0.05, 0.075); q.s.material.map = pick(FXT.bursts); q.s.position.copy(p);
+  q.upd = (o, u) => { o.s.scale.setScalar(s0 * (0.7 + 0.55 * Math.sqrt(u))); o.s.material.opacity = (1 - u * u) * fl; }; q.upd(q, 0);
+  if (!to) return; const d = _mzB.copy(to).sub(p), dl = d.length(); if (dl < 0.5) return; d.multiplyScalar(1 / dl);
+  const len = s0 * (big ? 2.2 : 1.9), a = _mzA.copy(p).project(camera); if (a.z > 1 || a.z < -1) return; const ax = a.x, ay = a.y;
+  const b = _mzA.copy(p).addScaledVector(d, len).project(camera); if (b.z > 1 || b.z < -1) return;
+  const dx = (b.x - ax) * camera.aspect, dy = b.y - ay, sl = Math.hypot(dx, dy), dist = Math.max(0.5, camera.position.distanceTo(p));
+  const f = sl * dist * Math.tan(camera.fov * Math.PI / 360) / len; if (f < 0.3) return;
+  const c = FX.cones.get(); c.life = q.life * 1.1; c.s.material.map = pick(FXT.cones); c.s.material.rotation = Math.atan2(dy, dx);
+  c.s.position.copy(p).addScaledVector(d, len * 0.47); const L = len * Math.min(1, f), W = s0 * 0.62;
+  c.upd = (o, u) => { const k = 0.75 + 0.35 * Math.sqrt(u); o.s.scale.set(L * k, W * k, 1); o.s.material.opacity = (1 - u * u) * fl; }; c.upd(c, 0);
+}
 function fxTracer(a, b, green) {
   let tr = FX.tracers.find((q) => !q.on); if (!tr) return; tr.on = true; tr.a.copy(a); tr.b.copy(b); tr.len = a.distanceTo(b); tr.t = 0;
   tr.m.material.color.set(green ? 0x6dff6a : 0xff5a36).multiplyScalar(HDRK * 1.3); tr.m.visible = true; tr.m.scale.set(1, 1, Math.min(14, tr.len));
@@ -992,7 +1006,21 @@ function fxDust(p, water = false) {
 function fxExplosion(p, size = 1) {
   const land = groundAt(p.x, p.z) > 0.05;
   const f = FX.glows.get(); f.life = 0.3; f.s.position.set(p.x, p.y + 1.4 * size, p.z); f.upd = (q, u) => { q.s.scale.setScalar((13 - 9 * u) * size); q.s.material.opacity = 1 - u; };
-  const fl = FX.flashes.get(); fl.life = 0.08; fl.s.position.set(p.x, p.y + 0.8 * size, p.z); fl.s.scale.setScalar(7 * size); fl.upd = null;
+  const fl = FX.flashes.get(); fl.life = 0.1; fl.s.material.map = pick(FXT.bursts); fl.s.position.set(p.x, p.y + 0.8 * size, p.z); fl.upd = (q, u) => { q.s.scale.setScalar((5.5 + 3 * u) * size); q.s.material.opacity = 1 - u; }; fl.upd(fl, 0);
+  /* the fireball: a few billowing lobes that swell, climb and cool from white-yellow through orange to a dull red before the smoke takes over */
+  for (let i = 0, n = LITE ? 3 : 5; i < n; i++) {
+    const q = FX.fire.get(); q.life = rand(0.45, 0.75) * (0.8 + size * 0.2); q.s.material.map = pick(FXT.fires); const ox = rand(-0.9, 0.9) * size, oz = rand(-0.9, 0.9) * size, vy = rand(1.5, 4) * size, s1 = rand(2.2, 3.6) * size, sp = rand(-1.5, 1.5);
+    q.s.position.set(p.x + ox * 0.4, p.y + rand(0.4, 1.2) * size, p.z + oz * 0.4);
+    q.upd = (o, u, dt) => { o.s.position.y += vy * dt * (1 - u); o.s.position.x += ox * dt * 1.5; o.s.position.z += oz * dt * 1.5; o.s.material.rotation += sp * dt; o.s.scale.setScalar(s1 * (0.45 + 0.75 * Math.sqrt(u))); const c = 1 - u; o.s.material.color.setRGB(HDRK, HDRK * (0.55 + 0.45 * c), HDRK * (0.2 + 0.8 * c * c)); o.s.material.opacity = Math.pow(c, 1.4); };
+    q.upd(q, 0, 0);
+  }
+  /* glowing fragments flung out, falling and dying */
+  for (let i = 0, n = Math.round((LITE ? 5 : 10) * Math.min(1.6, size)); i < n; i++) {
+    const q = FX.sparks.get(); q.life = rand(0.35, 0.8); const a = rand(0, 6.283), h = rand(4, 11) * Math.sqrt(size), vx = Math.cos(a) * h, vz = Math.sin(a) * h, ss = rand(0.12, 0.26) * Math.sqrt(size); let vy = rand(3, 12) * Math.sqrt(size);
+    q.s.position.set(p.x, p.y + 0.6 * size, p.z);
+    q.upd = (o, u, dt) => { vy -= 18 * dt; o.s.position.x += vx * dt; o.s.position.y += vy * dt; o.s.position.z += vz * dt; o.s.scale.setScalar(ss * (1 - u * 0.5)); o.s.material.opacity = 1 - u; };
+    q.upd(q, 0, 0);
+  }
   for (let i = 0; i < (LITE ? 4 : 8); i++) {
     const d = FX.dust.get(); d.life = 2.4 + Math.random() * 2; const ox = rand(-1.3, 1.3) * size, oz = rand(-1.3, 1.3) * size, vy = rand(5, 12) * size * (land ? 1 : 1.5), sx = rand(-0.9, 0.9);
     d.s.position.set(p.x + ox, p.y + 0.6, p.z + oz); d.s.material.color.set(land ? (i % 2 ? 0x9d8a68 : 0x7d6b51) : 0xe2e8ea);
