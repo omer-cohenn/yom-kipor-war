@@ -190,6 +190,7 @@ function prBuild() {
   prBuildRaft();
 }
 function prSetup(stage = 0) {
+  for (const B of BARRS) { B.on = false; B.g.visible = false; B.col.top = -1e4; }   // a drill, not the battle: every trench of the stronghold is open
   const C = CHAP.prologue; fieldSetupCommon(C, stage); C.t = 0; PR.stage = stage; PR.msgs = {}; PR.done = []; P.mode = 'rifle'; vm.visible = true; TANK.g && (TANK.g.visible = false);
   for (const T of PR.tg) { T.want = 0; T.up = 0; T.hit = false; T.pivot.rotation.x = -Math.PI / 2; }
   for (const p of POSTS) { p.occupant = null; const m = p.mag; if (!m) continue; m.reload = 0; m.belt = m.cap || 200; m.pitch = 0; m.yaw = m.yaw0 ?? m.yaw; }
