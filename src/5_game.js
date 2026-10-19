@@ -1100,13 +1100,13 @@ function northGroup(n, delay, kinds = [], i0 = 0) {   // i0: the first man's num
   for (let i = 0; i < n; i++) {
     const k = kinds[i] || 'rifle', j = i + i0;
     const r = rng(77 + j * 31), sap = SAPS.n[j % 2], go = () => { const e = spawnEnemy(sap[0][0] + (r() - 0.5) * 0.8, sap[0][1] + (r() - 0.5) * 0.8, varyKind(k, j * 3.7, delay), null, null);   /* at the head of one of their saps, in the scrub */ if (!e) { DIRQ.push({ at: GAME.t + 1, spawn: true, fn: go }); return; } e.plan = northPlan(e, j); e.state = 'plan'; };
-    DIRQ.push({ at: GAME.t + delay + i * 0.9, spawn: true, fn: go });
+    DIRQ.push({ at: GAME.t + delay + i * 1.7, spawn: true, fn: go });   /* out of the scrub one after another, a little apart */
   }
 }
 /* the commando from the north comes in squads, one behind the other down the Lexicon road: far more men to stop than the one small group
    there was (the user: too few there), but never all of them at once, and only a couple of RPGs - more targets, not more fire. Per level:
    the men in each squad; a squad sets off MZ_CMD_GAP seconds after the one before it */
-const MZ_CMD = [[6, 6, 7], [7, 7, 8], [8, 8, 8, 6]], MZ_CMD_GAP = 24;
+const MZ_CMD = [[6, 6, 7], [7, 7, 8], [8, 8, 8, 6]], MZ_CMD_GAP = 32;
 function mzCommando() { let t = 5, i0 = 0; MZ_CMD[Math.max(0, DIFF.indexOf(diff))].forEach((n, k) => { northGroup(n, t, k === 0 ? ['rpg'] : k === 2 ? ['rifle', 'rifle', 'rpg'] : [], i0); i0 += n; t += MZ_CMD_GAP; }); }
 const DIRQ = [];
 const BARRAGE_AT = 4, BARRAGE_LEN = 16;   // twenty seconds in the covered trench, then out to the guns
@@ -1136,7 +1136,7 @@ const SCENES = [
     entries: [-55, -50, -39.5, -27], radio: ['יוסי', 'הם עולים עליי מצפון! תביאו תגבורת לתעלה!'], cap: [1, 1, 2], pre(len) { const nb = [2, 2, 3][Math.max(0, DIFF.indexOf(diff))]; for (let i = 0; i < nb; i++) { const b = launchBoat(lerp(-76, -60, nb > 1 ? i / (nb - 1) : 0.5), 0, 5, i === 0 ? 1 : 0, 0, 5, 30, 3); b.t = (b.len - 1.5 - i * 5) / b.speed; } D.landHold = GAME.t + len + 2; }, start() {} },   // two boats, beached as the stage is called: their men are on the sand under the rampart, some forty metres from the trench, when the player gets there - and wait there a little before they go for it
   { title: 'קומנדו בשער', sub: 'מכביש לכסיקון, מצפון, רץ כוח קומנדו ישר אל השער. הם מכירים את המוצב מתצלומי האוויר, ויודעים שהתעלה הצפונית היא הדרך פנימה.', goal: 'עצרו את הקומנדו בתעלה הצפונית, עד הפינה — והחזיקו אותה', open: [0, 176], spawn: () => TR.pts[100], face: 0, focus: postFocus('N1', 'עמדה צפונית'),
     radio: ['תצפית', 'כוח קומנדו בכביש מצפון! הם רצים לתעלה הצפונית!'], acc: 0.8, start: mzCommando },   // acc: running men firing on the move: more of them, each one less deadly
-  { title: 'חובש!', sub: 'ההרעשה חזרה. פגז נכנס ישר לעמדה הדרומית, ובתעלה שוכבים חברים שצועקים לחובש. התאג״ד חפור בדופן התעלה, ומי שנחבש בזמן חוזר לעמדה.', goal: 'עזרה ראשונה לפצועים (להחזיק F) — ועצרו את הכוח שעולה מהשיחים בדרום', medevac: true, open: [136, 316], spawn: () => trenchAt(-6), face: 180,
+  { title: 'חובש!', sub: 'ההרעשה חזרה. פגז נכנס ישר לעמדה הדרומית, ובתעלה שוכבים חברים שצועקים לחובש. התאג״ד חפור בדופן התעלה, ומי שנחבש בזמן חוזר לעמדה.', goal: 'עזרה ראשונה לפצועים בתעלה הדרומית (להחזיק F) — הם חוזרים להילחם', medevac: true, open: [136, 222], spawn: () => trenchAt(-6), face: 180,
     focus: () => { const w = nearestWounded(); return w ? [w.unit.pos.x, w.unit.pos.y, w.unit.pos.z, `פצוע · ${w.name}`] : null; },
     entries: [12, 24, 35, 46], radio: ['דודו', 'פגיעה ישירה בעמדה! יש פצועים בתעלה הדרומית!'], start: medevacStart },
   { title: 'הגל הגדול', sub: 'לפנות ערב הם זורקים את הכול: סירות לכל אורך הסוללה המערבית, מקצה לקצה, והשמש השוקעת מאחוריהם. המוצב הקטן הזה הוא כל מה שנשאר מהקו.', goal: 'ירו בסירות מהמא״ג המערבי. אל תתנו להן להגיע לחוף', open: [96, 250], spawn: () => trenchAt(-2), face: 338, focus: w2Focus,
@@ -1174,8 +1174,7 @@ function medevacStart() {
     f.unit.place(x, z); const b = V3(x - 1.5, groundAt(x - 1.5, z + 1), z + 1); fxExplosion(b, 1.1); sndBoom(b, 1.1); FX.shake = Math.max(FX.shake, 0.4); woundFriend(f, false, true);
   } }));
   DIRQ.push({ at: GAME.t + 0.3, fn: () => { if (!D.medMsg) { D.medMsg = true; sceneAnnounce(D.scene); } } });   // told even if nobody was left at a post to be hit
-  boatWave(30, 50, 2, 8, 6, diff.seats, 1, 0);
-  { const lv = Math.max(0, DIFF.indexOf(diff)), n = [5, 6, 8][lv]; southGroup(n, 16, ['rpg'], 0); DIRQ.push({ at: GAME.t + 16.5, fn: () => radio('תצפית', 'כוח מצרי עולה מהשיחים בדרום! הם בתעלה שלהם, ממש מתחת לתעלה הדרומית!', 4) }); }   /* while the wounded are seen to, a squad comes up out of the southern scrub */
+  boatWave(30, 50, 3, 8, 6, diff.seats, 1, 0);
   D.artT = 6;
 }
 function pendingSpawns() { let n = 0; for (const q of DIRQ) if (q.spawn) n++; return n; }

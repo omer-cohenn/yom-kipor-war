@@ -53,7 +53,7 @@ function survSideGroup(side, n, delay, kinds = []) {
   const Z = SURV_ZONE[side], north = side === 'n', saps = SAPS[side];
   for (let i = 0; i < n; i++) {
     const k = kinds[i] || 'rifle', r = rng(91 + i * 37 + SURV.wave * 11 + (side === 'n' ? 7 : 0)), j = i + SURV.wave * 7, sap = saps[j % 2], go = () => { const e = spawnEnemy(sap[0][0] + (r() - 0.5) * 0.8, sap[0][1] + (r() - 0.5) * 0.8, varyKind(k, i * 3.7 + SURV.wave, delay), null, null); if (!e) { DIRQ.push({ at: GAME.t + 1, spawn: true, fn: go }); return; } e.plan = sapPlan(e, sap, j + (north ? 0 : 50)); e.state = 'plan'; };
-    DIRQ.push({ at: GAME.t + delay + i * 1.1, spawn: true, fn: go });
+    DIRQ.push({ at: GAME.t + delay + i * 1.9, spawn: true, fn: go });   /* one at a time out of the scrub, not a stream */
   }
 }
 
@@ -83,7 +83,7 @@ function survVehStop() { for (const v of SURV.pool) { v.g.visible = false; v.pat
 /* ---------- the waves ---------- */
 function survKinds(n, count) { const rpg = Math.min(0.34, 0.06 + n * 0.035), flame = n >= 5 ? 0.06 : 0; return Array.from({ length: count }, () => { const q = Math.random(); return q < rpg ? 'rpg' : q < rpg + flame ? 'flame' : 'rifle'; }); }
 /* which side each wave comes from: the first two from the same side, so nobody runs the length of the strongpoint between them; later waves from two sides, then all three */
-function survDirsFor(n) { const order = SURV.order; return n <= 2 ? [order[0]] : n === 3 ? [order[1]] : n === 4 ? [order[1], order[0]] : n === 5 ? [order[2], order[1]] : n === 6 ? [order[0], order[2]] : ['w', 'n', 's']; }
+function survDirsFor(n) { const order = SURV.order; return n <= 2 ? [order[0]] : n === 3 ? [order[1]] : n % 2 ? [order[1], order[0]] : [order[0], order[1]]; }   // only the west and the north (the user: no attack from the south)
 function survWave(n) {
   const dirs = survDirsFor(n);
   const total = Math.round((n <= 8 ? SURV_TOTAL[n - 1] : SURV_TOTAL[7] + (n - 8) * 9) * diff.extra), per = Math.ceil(total / dirs.length);
@@ -144,14 +144,14 @@ function survStart() {
   const moveTo = { W4: 'T38', N3: 'T16', S3: 'T40', W2N: 'T-26', W2S: 'T10', E1: 'T-32', K18: 'T-12', K48: 'T34', 'T-58': 'T-29', 'T-42': 'T-42', W1: 'T-41', W3: 'T31' };   // W1 and W3 carry MAGs in this mode: their men step into the trench beside them, the guns are the player's
   for (const f of FRIENDS) { if (f.post && f.post.occupant === f) f.post.occupant = null; const id = moveTo[f.postId] || f.postId; f.post = postById(id); f.post.occupant = f; const u = f.unit; u.place(f.post.stand[0], f.post.stand[1]); u.sync(); f.state = 'post'; u.stance = 'stand'; f.scanCd = rand(0.2, 1.5); }
   for (const p of POSTS) if (p.mag) { p.mag.belt = 200; p.mag.reload = 0; }
-  const order = ['w', 'n', 's']; for (let i = 2; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; } if (order[0] !== 'w' && Math.random() < 0.6) { const k = order.indexOf('w'); [order[0], order[k]] = [order[k], order[0]]; }
+  const order = Math.random() < 0.6 ? ['w', 'n'] : ['n', 'w'];
   Object.assign(SURV, { wave: 0, state: 'break', t: 0, breakLen: 20, bonus: 0, score: 0, air: 0, airGiven: 0, cleared: 0, dirs: [], acc: 1, order, strike: null, jetT: 30, artT: 10, vehMsg: false, lastKills: 0, lastKillT: 0, planes: 0 }); SURV.nextDirs = survDirsFor(1); if (!SURV.pool) SURV.pool = []; survVehStop();
   TUT.step = 'done'; { const [x, z] = trenchAt(-6); P.pos.set(x, groundAt(x, z), z); P.yaw = -THREE.MathUtils.degToRad(270); P.pitch = 0; }
   $('#clockSub').textContent = 'מעוז המזח · הישרדות'; markLast('mezach');
   GAME.state = 'play'; $('#app').classList.add('play'); $('#app').classList.add('surv'); for (const m of ['#mBrief', '#mPause', '#mEnd', '#mOps', '#mSet']) $(m).hidden = true;
   initAudio(); lockPointer(); toast('הישרדות', 'החזיקו את המעוז כמה שיותר זמן');
-  hint('surv', `<b>כל המעוז פתוח</b>: הסירות נוחתות ממערב, ומצפון ומדרום הם עולים מהשיחים בתעלות שחפרו עד מתחת לתעלה שלנו. בין גל לגל יש זמן לרוץ לצד שממנו יגיע הבא (החץ האדום במפה). כל המא״גים פנויים ואין צורך להחליף שרשרת. שלושה <b>תותחים ללא רתע</b> — עיגול צהוב עם קנה במפה; פגז אחד מחסל כיתה. כל ${SURV_AIR_PTS} נקודות פותחות <b>תקיפה אווירית</b>: הסתכלו על המקום ולחצו ${TOUCH ? 'על כפתור התקיפה' : '<kbd>B</kbd>'}.`, 14);
-  DIRQ.push({ at: GAME.t + 4, fn: () => { if (!SURV.on) return; radio('מפקד המעוז', 'כל המעוז שלנו — מצפון, ממערב ומדרום. כשגל נגמר, רצים לצד הבא! שלושה תול״רים בסוללה, מסומנים במפה: פגז אחד מפרק סירה או כיתה שלמה.', 4.6); feed('המעוז הקטן · תותחים: צפון · מרכז · דרום', 'good'); } });
+  hint('surv', `<b>כל המעוז פתוח</b>: הסירות נוחתות ממערב, ומצפון הם עולים מהשיחים בתעלות שחפרו עד מתחת לתעלה שלנו. בין גל לגל יש זמן לרוץ לצד שממנו יגיע הבא (החץ האדום במפה). כל המא״גים פנויים ואין צורך להחליף שרשרת. שלושה <b>תותחים ללא רתע</b> — עיגול צהוב עם קנה במפה; פגז אחד מחסל כיתה. כל ${SURV_AIR_PTS} נקודות פותחות <b>תקיפה אווירית</b>: הסתכלו על המקום ולחצו ${TOUCH ? 'על כפתור התקיפה' : '<kbd>B</kbd>'}.`, 14);
+  DIRQ.push({ at: GAME.t + 4, fn: () => { if (!SURV.on) return; radio('מפקד המעוז', 'כל המעוז שלנו — מצפון וממערב. כשגל נגמר, רצים לצד הבא! שלושה תול״רים בסוללה, מסומנים במפה: פגז אחד מפרק סירה או כיתה שלמה.', 4.6); feed('המעוז הקטן · תותחים: צפון · מרכז · דרום', 'good'); } });
 }
 function survUpd(dt) {
   updStrafe(dt); airDirector(dt); survAirUpd(dt); updVeh(dt);
