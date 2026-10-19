@@ -584,6 +584,8 @@ class Rig {
     // no running on the spot: a man who is not getting anywhere (blocked, or jostling back and forth) stands - or crouches, if he was running low
     if ((kind === 'run' || kind === 'walk' || kind === 'crun') && this.spd !== undefined) { this.stillT = this.spd < 0.35 ? (this.stillT || 0) + FDT : 0; if (this.stillT > 0.25) kind = kind === 'crun' ? 'crouch' : 'idle'; }
     else this.stillT = 0;
+    // an RPG about to go or just gone: the launcher on the right shoulder, the man standing or on a knee, whatever he was doing
+    if (this.wkind === 'rpg' && this.shoulderT > GAME.t && kind !== 'prone' && kind !== 'vault' && kind !== 'kick' && kind !== 'throw') kind = kind === 'crouch' || kind === 'hide' || kind === 'crun' ? 'crouch' : 'aim';
     const R = this, T = R.T; R.hYaw = 0; T.rootX = 0; T.hipsY = 0.93; T.hipsX = 0; T.hipsZ = 0; T.hipsYaw = 0; T.torsoX = 0; T.torsoY = 0; T.torsoZ = 0; T.arms = null; T.ik = true;
     if (kind === 'run' || kind === 'walk' || kind === 'crun') {
       // the stride: legs swing, the pelvis rolls and yaws with them, the shoulders turn against the hips, the whole body leans into the run;
@@ -600,7 +602,7 @@ class Rig {
       if (kind === 'crouch') { T.hipsY = 0.55; R.legs(-1.35, 1.45, -0.2, 1.95); T.torsoX = 0.12; }
       else R.legs(-0.12, 0.12, 0.16, 0.1);
       T.torsoX += -pitch * 0.7 + Math.sin(t * 0.9) * 0.008 + Math.sin(t * 1.55 + 0.4) * 0.006; T.torsoY = 0.18 + Math.sin(t * 0.37) * 0.025; T.hipsX = Math.sin(t * 0.29 + 1.1) * 0.012; T.torsoZ = Math.sin(t * 0.47) * 0.012;   // never quite still: breath and balance
-      if (R.wkind === 'rpg') R.gunAt(-0.15, 0.53, 0.02, -pitch * 0.3, -0.18, 0);
+      if (R.wkind === 'rpg') { R.gunAt(-0.125, 0.505, 0.05, -pitch * 0.3, -0.18, 0); T.torsoY = 0.18; R.hYaw = -0.12; }   // the tube on the shoulder, the cheek to the sight
       else if (R.nsOn) { const B = NS_AIM[R.wkind === 'rifle' && R.side === 'f' ? 'fal' : R.wkind] || NS_AIM.rifle; T.torsoY = -NS_BLADE; R.gunAt(B[0], B[1] + Math.sin(t * 1.1) * 0.004, B[2], -pitch * 0.3, NS_BLADE, 0); R.hYaw = NS_BLADE; }
       else R.gunAt(-0.1, 0.45 + Math.sin(t * 1.1) * 0.004, 0.4, -pitch * 0.3, -0.2, 0);
     } else if (kind === 'hide') {
@@ -751,6 +753,7 @@ class Unit {
   place(x, z, y) { this.pos.set(x, y === undefined ? groundAt(x, z) : hAt(x, z, y), z); this.snapHd = true; this.rig.snapNext = true; }
   sync() {
     if (this.rpgEmptyT) rpgReloaded(this);
+    if (this.guide && this.guide.life > 0 && this.rig.wkind === 'rpg') this.rig.shoulderT = GAME.t + 0.4;   // guiding the missile: the launcher stays up
     this.rig.root.position.copy(this.pos); if (this.fall >= 0) this.rig.root.position.y += (this.fallDir < 0 ? 0.16 : 0.12) * clamp(this.fall / 0.55, 0, 1);   /* lying, he rests on his back, or on his chest (the deeper side) */
     if (this.snapHd || this.hdV === undefined || REDUCED) { this.hdV = this.heading; this.snapHd = false; } else this.hdV += wrapPi(this.heading - this.hdV) * (1 - Math.exp(-FDT * 12));
     this.rig.root.rotation.y = this.hdV;
@@ -1119,6 +1122,8 @@ function rpgLaunch(e) {
   gunGeo(R.gun, RPG_EMPTY, R.lod); e.rpgEmptyT = GAME.t + 3.4;
   return { p, s: _rs.x };
 }
+/* the launcher comes up to the shoulder before the shot (t seconds); true once it is there */
+function rpgReady(e, t = 0.6) { if (e.rig) e.rig.shoulderT = GAME.t + 1.0; if (!e.rpgUpT || GAME.t - e.rpgUpT > 1.5) e.rpgUpT = GAME.t + t; if (GAME.t < e.rpgUpT) return false; e.rpgUpT = 0; return true; }
 function rpgReloaded(e) { if (e.rpgEmptyT && GAME.t > e.rpgEmptyT) { e.rpgEmptyT = 0; if (e.rig.wkind === 'rpg') gunGeo(e.rig.gun, RPG_W, e.rig.lod); } }
 function fireRocket(from, to, owner, shooter = null) {
   const L = rpgLaunch(shooter); if (L) from = L.p;

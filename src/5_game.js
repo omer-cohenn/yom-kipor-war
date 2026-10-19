@@ -523,8 +523,12 @@ const WPN = { rifle: { burst: [2, 5], gap: 0.12, pause: [1.4, 2.8], acc: 1, dmg:
 const wpnOf = (e) => WPN[e.kind] || WPN.rifle, wBurst = (e) => { const b = wpnOf(e).burst; return Math.floor(rand(b[0], b[1] + 1) * (e.wild ? 1.7 : 1)); }, wGap = (e, k = 1) => wpnOf(e).gap * k, wPause = (e, k = 1) => { const p = wpnOf(e).pause; return rand(p[0], p[1]) * k * (e.wild ? 0.3 : 1); };
 /* an RPG man fires his launcher, and only that: down on a knee, a rocket, then the long reload (no rifle bursts from a man holding a tube) */
 function rpgShoot(e, tp) {
-  const from = e.muzzle(); e.rpgCd = rand(8, 12); e.rpgPause = 1.0; e.face(tp.x, tp.z);
-  const q = fireRocket(from, tp.clone().add(V3(rand(-1.4, 1.4), rand(-0.4, 0.7), rand(-1.4, 1.4))), 'e', e), at = q ? q.m.position : from; fxMuzzle(at, true); sndRocket(at);
+  e.rpgCd = rand(8, 12); e.rpgPause = 1.6; e.face(tp.x, tp.z); e.rig.shoulderT = GAME.t + 1.6;   // up to the shoulder, aim, and the shot 0.6 s later
+  e.rpgTp = tp.clone().add(V3(rand(-1.4, 1.4), rand(-0.4, 0.7), rand(-1.4, 1.4))); e.rpgFireAt = GAME.t + 0.6;
+}
+function rpgFireDue(e) {
+  if (!e.rpgFireAt || GAME.t < e.rpgFireAt) return; e.rpgFireAt = 0; if (!e.alive || !e.rpgTp) return;
+  const from = e.muzzle(), q = fireRocket(from, e.rpgTp, 'e', e), at = q ? q.m.position : from; fxMuzzle(at, true); sndRocket(at);
 }
 function enemyFire(e) {
   if (e.kind === 'rpg' && e.target) { const tp = e.target.player ? playerEye() : e.target.f.unit.chest(), d = e.pos.distanceTo(tp); if (e.rpgCd <= 0 && d > (e.state === 'trench' ? 6 : 12) && d < 230) rpgShoot(e, tp); return; }
@@ -683,7 +687,7 @@ function updEnemy(e, dt) {
     const tp = e.target.p; const d = e.pos.distanceTo(tp);
     if (d > 12 && d < 230) { rpgShoot(e, tp); e.state = 'engage'; e.engageT = 1.5; e.stance = 'crouch'; }
   }
-  e.rpgCd -= dt; e.gCd -= dt; e.coverCd = (e.coverCd || 0) - dt;
+  e.rpgCd -= dt; e.gCd -= dt; e.coverCd = (e.coverCd || 0) - dt; rpgFireDue(e);
   if ((e.state === 'inside' || (e.state === 'move' && e.charge)) && e.target && e.coverCd <= 0 && e.kind !== 'flame') {
     e.coverCd = rand(1.2, 2.4); const tp = e.target.p, dT = Math.hypot(tp.x - e.pos.x, tp.z - e.pos.z);
     if (dT > 9 && dT < 70) { const c = findCover(e, tp, 15); if (c) takeCover(e, c); }

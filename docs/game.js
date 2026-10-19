@@ -3228,6 +3228,8 @@ class Rig {
     // no running on the spot: a man who is not getting anywhere (blocked, or jostling back and forth) stands - or crouches, if he was running low
     if ((kind === 'run' || kind === 'walk' || kind === 'crun') && this.spd !== undefined) { this.stillT = this.spd < 0.35 ? (this.stillT || 0) + FDT : 0; if (this.stillT > 0.25) kind = kind === 'crun' ? 'crouch' : 'idle'; }
     else this.stillT = 0;
+    // an RPG about to go or just gone: the launcher on the right shoulder, the man standing or on a knee, whatever he was doing
+    if (this.wkind === 'rpg' && this.shoulderT > GAME.t && kind !== 'prone' && kind !== 'vault' && kind !== 'kick' && kind !== 'throw') kind = kind === 'crouch' || kind === 'hide' || kind === 'crun' ? 'crouch' : 'aim';
     const R = this, T = R.T; R.hYaw = 0; T.rootX = 0; T.hipsY = 0.93; T.hipsX = 0; T.hipsZ = 0; T.hipsYaw = 0; T.torsoX = 0; T.torsoY = 0; T.torsoZ = 0; T.arms = null; T.ik = true;
     if (kind === 'run' || kind === 'walk' || kind === 'crun') {
       // the stride: legs swing, the pelvis rolls and yaws with them, the shoulders turn against the hips, the whole body leans into the run;
@@ -3244,7 +3246,7 @@ class Rig {
       if (kind === 'crouch') { T.hipsY = 0.55; R.legs(-1.35, 1.45, -0.2, 1.95); T.torsoX = 0.12; }
       else R.legs(-0.12, 0.12, 0.16, 0.1);
       T.torsoX += -pitch * 0.7 + Math.sin(t * 0.9) * 0.008 + Math.sin(t * 1.55 + 0.4) * 0.006; T.torsoY = 0.18 + Math.sin(t * 0.37) * 0.025; T.hipsX = Math.sin(t * 0.29 + 1.1) * 0.012; T.torsoZ = Math.sin(t * 0.47) * 0.012;   // never quite still: breath and balance
-      if (R.wkind === 'rpg') R.gunAt(-0.15, 0.53, 0.02, -pitch * 0.3, -0.18, 0);
+      if (R.wkind === 'rpg') { R.gunAt(-0.125, 0.505, 0.05, -pitch * 0.3, -0.18, 0); T.torsoY = 0.18; R.hYaw = -0.12; }   // the tube on the shoulder, the cheek to the sight
       else if (R.nsOn) { const B = NS_AIM[R.wkind === 'rifle' && R.side === 'f' ? 'fal' : R.wkind] || NS_AIM.rifle; T.torsoY = -NS_BLADE; R.gunAt(B[0], B[1] + Math.sin(t * 1.1) * 0.004, B[2], -pitch * 0.3, NS_BLADE, 0); R.hYaw = NS_BLADE; }
       else R.gunAt(-0.1, 0.45 + Math.sin(t * 1.1) * 0.004, 0.4, -pitch * 0.3, -0.2, 0);
     } else if (kind === 'hide') {
@@ -3395,6 +3397,7 @@ class Unit {
   place(x, z, y) { this.pos.set(x, y === undefined ? groundAt(x, z) : hAt(x, z, y), z); this.snapHd = true; this.rig.snapNext = true; }
   sync() {
     if (this.rpgEmptyT) rpgReloaded(this);
+    if (this.guide && this.guide.life > 0 && this.rig.wkind === 'rpg') this.rig.shoulderT = GAME.t + 0.4;   // guiding the missile: the launcher stays up
     this.rig.root.position.copy(this.pos); if (this.fall >= 0) this.rig.root.position.y += (this.fallDir < 0 ? 0.16 : 0.12) * clamp(this.fall / 0.55, 0, 1);   /* lying, he rests on his back, or on his chest (the deeper side) */
     if (this.snapHd || this.hdV === undefined || REDUCED) { this.hdV = this.heading; this.snapHd = false; } else this.hdV += wrapPi(this.heading - this.hdV) * (1 - Math.exp(-FDT * 12));
     this.rig.root.rotation.y = this.hdV;
@@ -3763,6 +3766,8 @@ function rpgLaunch(e) {
   gunGeo(R.gun, RPG_EMPTY, R.lod); e.rpgEmptyT = GAME.t + 3.4;
   return { p, s: _rs.x };
 }
+/* the launcher comes up to the shoulder before the shot (t seconds); true once it is there */
+function rpgReady(e, t = 0.6) { if (e.rig) e.rig.shoulderT = GAME.t + 1.0; if (!e.rpgUpT || GAME.t - e.rpgUpT > 1.5) e.rpgUpT = GAME.t + t; if (GAME.t < e.rpgUpT) return false; e.rpgUpT = 0; return true; }
 function rpgReloaded(e) { if (e.rpgEmptyT && GAME.t > e.rpgEmptyT) { e.rpgEmptyT = 0; if (e.rig.wkind === 'rpg') gunGeo(e.rig.gun, RPG_W, e.rig.lod); } }
 function fireRocket(from, to, owner, shooter = null) {
   const L = rpgLaunch(shooter); if (L) from = L.p;
@@ -5452,8 +5457,12 @@ const WPN = { rifle: { burst: [2, 5], gap: 0.12, pause: [1.4, 2.8], acc: 1, dmg:
 const wpnOf = (e) => WPN[e.kind] || WPN.rifle, wBurst = (e) => { const b = wpnOf(e).burst; return Math.floor(rand(b[0], b[1] + 1) * (e.wild ? 1.7 : 1)); }, wGap = (e, k = 1) => wpnOf(e).gap * k, wPause = (e, k = 1) => { const p = wpnOf(e).pause; return rand(p[0], p[1]) * k * (e.wild ? 0.3 : 1); };
 /* an RPG man fires his launcher, and only that: down on a knee, a rocket, then the long reload (no rifle bursts from a man holding a tube) */
 function rpgShoot(e, tp) {
-  const from = e.muzzle(); e.rpgCd = rand(8, 12); e.rpgPause = 1.0; e.face(tp.x, tp.z);
-  const q = fireRocket(from, tp.clone().add(V3(rand(-1.4, 1.4), rand(-0.4, 0.7), rand(-1.4, 1.4))), 'e', e), at = q ? q.m.position : from; fxMuzzle(at, true); sndRocket(at);
+  e.rpgCd = rand(8, 12); e.rpgPause = 1.6; e.face(tp.x, tp.z); e.rig.shoulderT = GAME.t + 1.6;   // up to the shoulder, aim, and the shot 0.6 s later
+  e.rpgTp = tp.clone().add(V3(rand(-1.4, 1.4), rand(-0.4, 0.7), rand(-1.4, 1.4))); e.rpgFireAt = GAME.t + 0.6;
+}
+function rpgFireDue(e) {
+  if (!e.rpgFireAt || GAME.t < e.rpgFireAt) return; e.rpgFireAt = 0; if (!e.alive || !e.rpgTp) return;
+  const from = e.muzzle(), q = fireRocket(from, e.rpgTp, 'e', e), at = q ? q.m.position : from; fxMuzzle(at, true); sndRocket(at);
 }
 function enemyFire(e) {
   if (e.kind === 'rpg' && e.target) { const tp = e.target.player ? playerEye() : e.target.f.unit.chest(), d = e.pos.distanceTo(tp); if (e.rpgCd <= 0 && d > (e.state === 'trench' ? 6 : 12) && d < 230) rpgShoot(e, tp); return; }
@@ -5612,7 +5621,7 @@ function updEnemy(e, dt) {
     const tp = e.target.p; const d = e.pos.distanceTo(tp);
     if (d > 12 && d < 230) { rpgShoot(e, tp); e.state = 'engage'; e.engageT = 1.5; e.stance = 'crouch'; }
   }
-  e.rpgCd -= dt; e.gCd -= dt; e.coverCd = (e.coverCd || 0) - dt;
+  e.rpgCd -= dt; e.gCd -= dt; e.coverCd = (e.coverCd || 0) - dt; rpgFireDue(e);
   if ((e.state === 'inside' || (e.state === 'move' && e.charge)) && e.target && e.coverCd <= 0 && e.kind !== 'flame') {
     e.coverCd = rand(1.2, 2.4); const tp = e.target.p, dT = Math.hypot(tp.x - e.pos.x, tp.z - e.pos.z);
     if (dT > 9 && dT < 70) { const c = findCover(e, tp, 15); if (c) takeCover(e, c); }
@@ -8561,8 +8570,8 @@ function suezEnemyStep(e, dt, shoot, aimPitch) {
     e.cyc -= dt; const aimed = aimedAt(e);
     if (e.guide) { e.peek = true; e.stance = 'crouch'; e.pos.x += (s.p[0] - e.pos.x) * 0.2; e.pos.z += (s.p[1] - e.pos.z) * 0.2; e.pos.y = s.y; const tp = e.guide.tgt ? e.guide.tgt() : tankTurretWorld(); e.face(tp.x, tp.z); e.rig.pose('crouch', e.anim, 0.05); return; }
     // a chapter may offer the Sagger crews another target (the rescue: Shaul's loaded tank); the missile then kills or damages that vehicle
-    if (e.atgm && e.peek && e.rpgCd <= 0 && CH() && CH().atgmTarget) { const fn = CH().atgmTarget(e); if (fn) { const tp = fn(), mz = e.muzzle(); if (mz.distanceTo(tp) < 900 && losW(mz.x, mz.y + 0.3, mz.z, tp.x, tp.y, tp.z)) { e.face(tp.x, tp.z); const q = fireAtgm(e, fn); q.vt = true; e.rpgCd = rand(28, 38); return; } } }
-    if (e.atgm && e.peek && e.rpgCd <= 0 && P.mode === 'tank' && TANK.alive) { const tp = tankTurretWorld(), mz = e.muzzle(); if (mz.distanceTo(tp) < (MODE === 'armor' ? 1000 : 330) && losW(mz.x, mz.y + 0.3, mz.z, tp.x, tp.y, tp.z)) { e.face(tp.x, tp.z); fireAtgm(e); e.rpgCd = rand(28, 38); return; } }
+    if (e.atgm && e.peek && e.rpgCd <= 0 && CH() && CH().atgmTarget) { const fn = CH().atgmTarget(e); if (fn) { const tp = fn(), mz = e.muzzle(); if (mz.distanceTo(tp) < 900 && losW(mz.x, mz.y + 0.3, mz.z, tp.x, tp.y, tp.z)) { e.face(tp.x, tp.z); if (!rpgReady(e)) return; const q = fireAtgm(e, fn); q.vt = true; e.rpgCd = rand(28, 38); return; } } }
+    if (e.atgm && e.peek && e.rpgCd <= 0 && P.mode === 'tank' && TANK.alive) { const tp = tankTurretWorld(), mz = e.muzzle(); if (mz.distanceTo(tp) < (MODE === 'armor' ? 1000 : 330) && losW(mz.x, mz.y + 0.3, mz.z, tp.x, tp.y, tp.z)) { e.face(tp.x, tp.z); if (!rpgReady(e)) return; fireAtgm(e); e.rpgCd = rand(28, 38); return; } }
     const pin = pinned(e) && e.kind !== 'rpg' && P.mode !== 'tank'; if (pin && e.peek) { e.peek = false; e.cyc = Math.max(e.cyc, rand(0.5, 1.1)); }
     if (e.peek && aimed) { e.aimT += dt; if (e.aimT > (P.mode === 'tank' ? 1.4 : 0.8) && e.kind !== 'rpg') e.cyc = Math.min(e.cyc, 0); } else e.aimT = 0;
     if (e.cyc <= 0) { e.peek = !e.peek; if (e.peek && (pin || (aimed && Math.random() < 0.6))) e.peek = false; e.cyc = e.peek ? (e.kind === 'rpg' ? 2.6 : rand(1.2, 3.0)) : rand(0.9, 2.8); if (e.peek) { e.scanCd = 0; e.burst = 0; e.fireCd = rand(0.3, 0.6); e.rpgAim = 0; } }
@@ -8572,7 +8581,7 @@ function suezEnemyStep(e, dt, shoot, aimPitch) {
       e.stance = 'stand';
       if (e.kind === 'rpg') {
         const tp = szRpgTarget(e);
-        const mz = e.muzzle(); if (tp && e.rpgCd <= 0 && losW(mz.x, mz.y, mz.z, tp.x, tp.y, tp.z)) { e.face(tp.x, tp.z); if (e.rpgAim === 0) szRpgCall(e); e.rpgAim += dt; if (e.rpgAim > 2.4) { const from = e.muzzle(); fireRocket(from, tp, 'e', e); if (MODE === 'suez' && (P.mode === 'tank' || tp.distanceTo(P.pos) < 8)) szFireAt(e, from); fxMuzzle(from, true); sndRocket(from); e.rpgCd = rand(16, 24); e.cyc = 0.4; } }
+        const mz = e.muzzle(); if (tp && e.rpgCd <= 0 && losW(mz.x, mz.y, mz.z, tp.x, tp.y, tp.z)) { e.face(tp.x, tp.z); if (e.rpgAim === 0) szRpgCall(e); e.rpgAim += dt; e.rig.shoulderT = GAME.t + 0.9; if (e.rpgAim > 2.4) { const from = e.muzzle(); fireRocket(from, tp, 'e', e); if (MODE === 'suez' && (P.mode === 'tank' || tp.distanceTo(P.pos) < 8)) szFireAt(e, from); fxMuzzle(from, true); sndRocket(from); e.rpgCd = rand(16, 24); e.cyc = 0.4; } }
         else if (e.target) e.face(e.target.p.x, e.target.p.z);
         e.rig.pose('aim', e.anim, aimPitch());
       } else { if (e.target) shoot(); else e.heading = Math.atan2(s.nx, s.nz); e.rig.pose('aim', e.anim, aimPitch()); }
@@ -8600,7 +8609,7 @@ function suezEnemyStep(e, dt, shoot, aimPitch) {
     if (e.pi >= e.path.length && e.toSlot) { if (!e.toSlot.used) { szSeat(e, e.toSlot); e.toSlot = null; return; } e.toSlot = null; }
     if (e.pi < e.path.length) { const w = e.path[e.pi], x0 = e.pos.x, z0 = e.pos.z; e.anim += dt * 9.5; e.stance = 'stand'; if (steer(e, w[0], w[1], 4.6, dt) < 0.9) e.pi++; e.stuckT = Math.hypot(e.pos.x - x0, e.pos.z - z0) < dt * 0.5 ? (e.stuckT || 0) + dt : 0; if (e.stuckT > 2.5) { e.stuckT = 0; e.pi++; } e.rig.pose('run', e.anim); if (seesP && Math.random() < dt * 0.4) { e.face(P.pos.x, P.pos.z); enemyFire(e); } return; }
     if (e.climb) { e.sz = 'climb'; e.raid = SZ.stage >= 5; e.cpath = (e.raidP || SZ_RAID).map(([x, z, f]) => [LX(x), LZ(z), f]); e.ci = 0; return; }
-    if (e.kind === 'rpg' && e.rpgCd <= 0 && e.target) { const tp = szRpgTarget(e), mz = e.muzzle(); if (tp && (e.rpgMiss || losW(mz.x, mz.y, mz.z, tp.x, tp.y, tp.z))) { e.face(tp.x, tp.z); e.peek = true; e.stance = 'stand'; if (e.rpgAim === 0) szRpgCall(e); e.rpgAim += dt; e.rig.pose('aim', e.anim, 0); if (e.rpgAim > (e.wild ? 1.2 : 2.2)) { const from = e.muzzle(); fireRocket(from, tp, 'e', e); if (MODE === 'suez' && (P.mode === 'tank' || tp.distanceTo(P.pos) < 8)) szFireAt(e, from); fxMuzzle(from, true); sndRocket(from); e.rpgCd = e.wild ? rand(5, 9) : rand(16, 24); e.rpgAim = 0; e.peek = false; } return; } }
+    if (e.kind === 'rpg' && e.rpgCd <= 0 && e.target) { const tp = szRpgTarget(e), mz = e.muzzle(); if (tp && (e.rpgMiss || losW(mz.x, mz.y, mz.z, tp.x, tp.y, tp.z))) { e.face(tp.x, tp.z); e.peek = true; e.stance = 'stand'; if (e.rpgAim === 0) szRpgCall(e); e.rpgAim += dt; e.rig.shoulderT = GAME.t + 0.9; e.rig.pose('aim', e.anim, 0); if (e.rpgAim > (e.wild ? 1.2 : 2.2)) { const from = e.muzzle(); fireRocket(from, tp, 'e', e); if (MODE === 'suez' && (P.mode === 'tank' || tp.distanceTo(P.pos) < 8)) szFireAt(e, from); fxMuzzle(from, true); sndRocket(from); e.rpgCd = e.wild ? rand(5, 9) : rand(16, 24); e.rpgAim = 0; e.peek = false; } return; } }
     // men firing wild stand in the open and shoot from the hip: no cover, no crouching
     if (e.wild) { e.stance = 'stand'; if (e.target) shoot(); e.rig.pose('aim', e.anim, aimPitch()); return; }
     // each man fights one of two ways: he storms (cover to cover, always closer, the last metres at a run) or he holds (the best cover in reach, kept while it still covers him)
