@@ -15175,7 +15175,7 @@ const PR_TOD = [16 * 60 + 52, 23 * 60 + 48];
 // the drill's places, along the western trench (x ~ -76.5) from north to south
 const PR_AT = {
   start: [-76.9, -50], walk: [-76.8, -38.5], run: [-76.6, -24], bay: [-78.5, -19.2],
-  pit: [-97, -21.5], mag: 'W2', roof: [-76.4, -1.4], dudu: [-76.3, 10.5], ammo: 'G2', night: [-78.6, 4.6],
+  pit: [-101, -20], mag: 'W2', roof: [-76.4, -1.4], dudu: [-76.3, 10.5], ammo: 'G2', night: [-78.6, 4.6],
 };
 // the plywood targets on the beach in front of the bay (x, z, kind, label); they rise one after another
 const PR_TARGETS = [[-104, -27, 'rifle', 'רובאי'], [-107, -13, 'lmg', 'מקלען'], [-110, -33, 'sniper', 'צלף'], [-105, -6, 'rpg', 'אר־פי־ג׳י']];
@@ -15408,7 +15408,7 @@ function prToMission1() {
 function prUpd(dt) {
   const C = CHAP.prologue; C.t += dt; PR.stepT += dt;
   for (let i = DIRQ.length - 1; i >= 0; i--) if (DIRQ[i] && GAME.t >= DIRQ[i].at) { const q = DIRQ.splice(i, 1)[0]; q.fn(); }
-  if (P.hp < 100) P.hp = 100;
+  if (P.hp < 100) P.hp = 100; if (PR.stage === 0 && P.gren < 3) P.gren = 3;   // a drill: grenades without end
   // the pit catches a grenade that reaches it: on the slope of the rampart it would roll on down to the water
   for (const q of PROJ) if (q.type === 'gren' && q.owner === 'player' && Math.hypot(q.m.position.x - PR_AT.pit[0], q.m.position.z - PR_AT.pit[1]) < PR_PIT_R && q.m.position.y < groundAt(q.m.position.x, q.m.position.z) + 0.6) { q.v.set(0, Math.min(q.v.y, 0), 0); }
   // the targets rise and fall on their hinges; the sniper's scope glints, the RPG man's tag blinks
