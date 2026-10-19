@@ -267,9 +267,26 @@ function prBuildTent() {
     addCollider(dx, tz - (0.82 + (D / 2 - 0.82) / 2), 0.08, (D / 2 - 0.82) / 2, 0, g0 + 2, g0 - 0.1); addCollider(dx, tz + (0.82 + (D / 2 - 0.82) / 2), 0.08, (D / 2 - 0.82) / 2, 0, g0 + 2, g0 - 0.1);
     for (const sd of [-1, 1]) addCollider(tx, tz + sd * D / 2, W / 2, 0.08, 0, g0 + 2, g0 - 0.1); addCollider(tx + W / 2, tz, 0.08, D / 2, 0, g0 + 2, g0 - 0.1); }
 }
+/* the way out of the western trench to the aid tent: wooden steps up over the rear parapet and down the back of the rampart into the yard
+   (in the battle that wall is whole; for the drill its two segments there are opened, prSetup) */
+const PR_EXIT = { z0: 9.7, z1: 11.4, x0: -75.55, x1: -74.55, x2: -73.95, x3: -71.2 };
+function prExitSurf(on) { for (const q of PR.exitSurf || []) { if (q.ramp) { q.y0 = on ? q.on.y0 : -100; q.y1 = on ? q.on.y1 : -100; } else q.y = on ? q.on.y : -100; } }   // the steps are walked on only in the drill
+function prBuildExit() {
+  const E = PR_EXIT, zc = (E.z0 + E.z1) / 2, hw = (E.z1 - E.z0) / 2, yF = groundAt(E.x0 - 0.3, zc), yT = 8.4, yG = groundAt(E.x3 + 0.2, zc);
+  PR.exitCols = COLLIDERS.filter((c) => Math.abs(c.x - (-74.85)) < 0.3 && c.z > E.z0 - 0.4 && c.z < E.z1 + 0.4 && c.top > yF);
+  PR.exitSurf = [addRamp(E.x0, E.x1, E.z0, E.z1, 'x', E.x0, E.x1, yF, yT), addFloor(E.x1, E.x2, E.z0, E.z1, yT), addRamp(E.x2, E.x3, E.z0, E.z1, 'x', E.x2, E.x3, yT, yG)];
+  for (const q of PR.exitSurf) q.on = { y: q.y, y0: q.y0, y1: q.y1 }; prExitSurf(false);
+  const wood = new THREE.MeshStandardMaterial({ color: 0x7a6040, roughness: 0.9 }), dark = new THREE.MeshStandardMaterial({ color: 0x4e3c28, roughness: 0.9 }), g = new THREE.Group();
+  const flight = (xa, xb, ya, yb, n) => { for (let i = 0; i < n; i++) { const u = (i + 0.5) / n, x = lerp(xa, xb, u), y = lerp(ya, yb, u); const st = new THREE.Mesh(new THREE.BoxGeometry(Math.abs(xb - xa) / n + 0.04, 0.06, hw * 2), wood); st.position.set(x, y - 0.03, zc); g.add(st); }
+    const L = Math.hypot(xb - xa, yb - ya), a = Math.atan2(yb - ya, xb - xa); for (const sd of [-1, 1]) { const s2 = new THREE.Mesh(new THREE.BoxGeometry(L + 0.2, 0.22, 0.07), dark); s2.position.set((xa + xb) / 2, (ya + yb) / 2 - 0.1, zc + sd * (hw + 0.03)); s2.rotation.z = a; g.add(s2); } };
+  flight(E.x0, E.x1, yF, yT, 6); flight(E.x2, E.x3, yT, yG, 10);
+  { const pl = new THREE.Mesh(new THREE.BoxGeometry(E.x2 - E.x1 + 0.05, 0.08, hw * 2), wood); pl.position.set((E.x1 + E.x2) / 2, yT - 0.04, zc); g.add(pl); }
+  for (const sd of [-1, 1]) for (const x of [E.x1, E.x2]) { const r = new THREE.Mesh(new THREE.BoxGeometry(0.06, 1.0, 0.06), dark); r.position.set(x, yT + 0.5, zc + sd * (hw + 0.03)); g.add(r); }
+  g.traverse((m) => { if (m.isMesh) { m.castShadow = SHADOWS; m.receiveShadow = SHADOWS; } }); scene.add(g);
+}
 function prBuild() {
   const C = CHAP.prologue; C.slots = []; C.covers = [];
-  prBuildTent(); prBuildRange();
+  prBuildTent(); prBuildExit(); prBuildRange();
   PR.tg = PR_TARGETS.map(([x, z, kind, label]) => { const [bx, bz] = PR_AT.bay; return prTarget(kind, x, z, bx - x, bz - z, label); });
   // the grenade pit: a ring of sandbags round a hollow
   { const BAGS = [], sv = BATCH.bag; BATCH.bag = BAGS; const [px, pz] = PR_AT.pit, g0 = groundAt(px, pz), ring = []; for (let a = 0; a <= 360.1; a += 15) { const r = THREE.MathUtils.degToRad(a); ring.push([px + Math.sin(r) * PR_PIT_R, pz + Math.cos(r) * PR_PIT_R]); } bagWall(ring, 1, null, false); BATCH.bag = sv; scene.add(bagMesh(BAGS));
@@ -279,6 +296,7 @@ function prBuild() {
 }
 function prSetup(stage = 0) {
   if (PR.door) { hmDoorSet(PR.door, false, true); PR.door.rate = 7; } PR.bedT = 0;
+  for (const c of PR.exitCols || []) { if (c.top0 === undefined) c.top0 = c.top; c.top = -1e4; } prExitSurf(true);   // the steps over the parapet to the aid tent
   if (!PR.aid0) PR.aid0 = { ...AIDPOST }; Object.assign(AIDPOST, PR.tent); delete AIDPOST.y;   // the wounded go to the aid tent in the yard
   for (const B of BARRS) { B.on = false; B.g.visible = false; B.col.top = -1e4; }   // a drill, not the battle: every trench of the stronghold is open
   const C = CHAP.prologue; fieldSetupCommon(C, stage); C.t = 0; PR.stage = stage; PR.msgs = {}; PR.done = []; P.mode = 'rifle'; vm.visible = true; TANK.g && (TANK.g.visible = false);
@@ -343,8 +361,9 @@ function prUpd(dt) {
   if (PR.medics) for (const u of PR.medics) u.sync();
   // the aid tent's door: carrying the wounded up to it, the player opens it by hand and goes in, and lays him on the stretcher by himself
   { const d = PR.door; if (d) {
-    if (P.mode === 'carry' && !d.open && !PDOOR.on && P.pos.x < d.at.x && Math.hypot(P.pos.x - d.at.x, P.pos.z - d.at.z) < 2.1) { HM_DOOR_WAY.n = 1; pdoorStart(d); PR.bedT = 1; }
+    if ((P.mode === 'carry' || P.mode === 'rifle') && !d.open && !PDOOR.on && P.pos.x < d.at.x && Math.hypot(P.pos.x - d.at.x, P.pos.z - d.at.z) < 2.1) { HM_DOOR_WAY.n = 1; pdoorStart(d); if (P.mode === 'carry') PR.bedT = 1; }
     const tg = d.open ? 1 : 0; if (Math.abs(d.ang - tg) > 1e-3) { d.ang += (tg - d.ang) * Math.min(1, dt * (d.rate || 7)); d.pivot.rotation.y = d.phi + d.sgn * d.ang * 1.66; }
+    if (P.mode === 'carry' && !PR.bedT && d.open && Math.hypot(P.pos.x - AIDPOST.x, P.pos.z - AIDPOST.z) < 3.2) PR.bedT = 1;   // the door already open: in, and down on the stretcher
     if (PR.bedT === 1 && !PDOOR.on && P.mode === 'carry') { PR.bedT = 2; promptState = { act: 'drop-aid' }; doAction(); }
   } }
   if (P.hp < 100) P.hp = 100; if (PR.stage === 0 && P.gren < 3) P.gren = 3;   // a drill: grenades without end
