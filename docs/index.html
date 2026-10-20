@@ -282,6 +282,19 @@ button:focus-visible{outline:2px solid var(--sand);outline-offset:2px}
 #app.nomove #tjoy{display:none}
 #tjoy i{position:absolute;left:50%;top:50%;width:54px;height:54px;margin:-27px 0 0 -27px;border-radius:50%;background:rgba(236,229,212,.5)}
 .tb{border-radius:50%;border:1px solid rgba(236,229,212,.4);background:rgba(10,13,15,.45);color:var(--paper);font-size:12px;font-weight:600;width:58px;height:58px}
+.tb{background:radial-gradient(circle at 50% 32%,rgba(70,76,72,.62),rgba(12,15,16,.62) 70%);box-shadow:inset 0 1px 0 rgba(255,255,255,.18),inset 0 -2px 6px rgba(0,0,0,.45),0 2px 8px rgba(0,0,0,.35);border:1.5px solid rgba(236,229,212,.45)}
+.tb:active{transform:scale(.94)}
+.tb .ico .f{fill:currentColor;fill-opacity:.28;stroke:none}.tb .ico .s,.tchip .ico .s{fill:currentColor;stroke:none}.tchip .ico .f{fill:currentColor;fill-opacity:.28;stroke:none}
+#tfire{width:104px;height:104px;right:20px;bottom:calc(30px + env(safe-area-inset-bottom,0px));border:2px solid rgba(255,214,196,.55);color:#fff4ee;background:radial-gradient(circle at 50% 34%,rgba(232,86,66,.85),rgba(150,26,18,.82) 62%,rgba(70,10,8,.85));box-shadow:inset 0 2px 0 rgba(255,255,255,.25),inset 0 -6px 12px rgba(0,0,0,.45),0 0 0 6px rgba(150,26,18,.22),0 4px 14px rgba(0,0,0,.45)}
+#tfire::before{content:"";position:absolute;inset:9px;border-radius:50%;border:1px dashed rgba(255,230,220,.35);pointer-events:none}
+#tfire .ico{width:60%;height:60%;stroke-width:1.6}
+#taid,#tmag{right:138px;bottom:calc(104px + env(safe-area-inset-bottom,0px));width:64px;height:64px;display:none}
+#app.play.is-touch #taid.on,#app.play.is-touch #tmag.on{display:grid}
+#taid{border-radius:18px;border-color:rgba(255,255,255,.8);color:#e0352b;background:radial-gradient(circle at 50% 30%,rgba(255,255,255,.95),rgba(220,214,204,.9) 70%)}
+#taid .ico .f{fill-opacity:0}#taid .ico{width:64%;height:64%}
+#taid.prog{background:conic-gradient(rgba(226,52,40,.55) var(--p,0deg),rgba(240,236,228,.92) 0)}
+#tmag{border-color:#cdbb7a;color:#f3e8c2;background:radial-gradient(circle at 50% 32%,rgba(110,104,60,.85),rgba(40,38,20,.85) 70%)}
+#tmag .ico{width:70%;height:70%}
 .tb .ico{width:56%;height:56%;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;pointer-events:none;filter:drop-shadow(0 1px 1px rgba(0,0,0,.55))}
 .tb{position:absolute}.tb .tbadge{position:absolute;top:-3px;right:-3px;min-width:17px;height:17px;padding:0 4px;border-radius:9px;background:#efe6cf;color:#14110a;font:800 11px/17px var(--f-ui,sans-serif);text-align:center;pointer-events:none}
 .tb.prog{background:conic-gradient(rgba(126,200,120,.75) var(--p,0deg),rgba(20,40,20,.6) 0)}
@@ -295,20 +308,20 @@ button:focus-visible{outline:2px solid var(--sand);outline-offset:2px}
 #tjoy.tpoint::after{left:auto;right:-26px;border-left:7px solid transparent;border-right:11px solid rgba(232,72,58,.95);animation-name:tpArrowR}
 @keyframes tpArrowR{0%,100%{transform:translateX(0)}50%{transform:translateX(6px)}}
 @media (prefers-reduced-motion:reduce){.tpoint,.tpoint::after{animation:none}}
-#tfire{right:26px;bottom:calc(40px + env(safe-area-inset-bottom,0px));width:84px;height:84px;background:rgba(192,39,31,.45);font-size:14px}
-#tgren{right:126px;bottom:calc(36px + env(safe-area-inset-bottom,0px));width:54px;height:54px}
-#tads{right:30px;bottom:calc(138px + env(safe-area-inset-bottom,0px))}
+
+#tgren{right:136px;bottom:calc(30px + env(safe-area-inset-bottom,0px));width:54px;height:54px}
+#tads{right:42px;bottom:calc(146px + env(safe-area-inset-bottom,0px))}
 #tads.on{border-color:#ffcf73;color:#ffe3ad;background:rgba(40,32,14,.6)}
-#tact{right:122px;bottom:calc(112px + env(safe-area-inset-bottom,0px));width:58px;height:58px;border-radius:50%;padding:0;border-color:var(--ok);color:#d8f2cf;background:rgba(20,40,20,.6)}
+#tact{right:140px;bottom:calc(106px + env(safe-area-inset-bottom,0px));width:58px;height:58px;border-radius:50%;padding:0;border-color:var(--ok);color:#d8f2cf;background:rgba(20,40,20,.6)}
 #app.play.is-touch #tact{display:none}
 #app.play.is-touch #tact.on{display:grid}
-#tpos{position:absolute;z-index:4;place-items:center;touch-action:none;right:122px;bottom:calc(166px + env(safe-area-inset-bottom,0px));width:50px;height:50px;border-radius:50%;padding:0;border-color:#ffcf73;background:rgba(40,32,10,.6);font-size:13px;display:none}
+#tpos{position:absolute;z-index:4;place-items:center;touch-action:none;right:140px;bottom:calc(176px + env(safe-area-inset-bottom,0px));width:50px;height:50px;border-radius:50%;padding:0;border-color:#ffcf73;background:rgba(40,32,10,.6);font-size:13px;display:none}
 #app.play.is-touch.armor #tpos{display:grid}
 #app.cine #tpos{visibility:hidden}
-#tair{right:122px;bottom:calc(166px + env(safe-area-inset-bottom,0px));width:52px;height:52px;border-radius:50%;padding:0;border-color:#ff8a5a;background:rgba(80,30,15,.6);color:#ffd0b8;font-weight:700}
+#tair{right:140px;bottom:calc(176px + env(safe-area-inset-bottom,0px));width:52px;height:52px;border-radius:50%;padding:0;border-color:#ff8a5a;background:rgba(80,30,15,.6);color:#ffd0b8;font-weight:700}
 #app.play.is-touch #tair{display:none}
 #app.play.is-touch.surv #tair.on{display:grid}
-#tsmoke{right:190px;bottom:calc(36px + env(safe-area-inset-bottom,0px));width:50px;height:50px;border-radius:50%;padding:0;border-color:#e8e2d0;background:rgba(60,60,58,.6);color:#f2eee2;font-weight:700}
+#tsmoke{right:200px;bottom:calc(36px + env(safe-area-inset-bottom,0px));width:50px;height:50px;border-radius:50%;padding:0;border-color:#e8e2d0;background:rgba(60,60,58,.6);color:#f2eee2;font-weight:700}
 #app.play.is-touch #tsmoke{display:none}
 #app.play.is-touch #tsmoke.on{display:grid}
 #app.is-touch #feed,#app.is-touch #prompt{display:none!important}
@@ -819,6 +832,8 @@ button:focus-visible{outline:2px solid var(--sand);outline-offset:2px}
   <button class="touch tb" id="tfire" type="button">אש</button>
   <button class="touch tb" id="tact" type="button">פעולה</button><button class="tb" id="tpos" type="button">עמדה חלופית</button>
   <button class="touch tb" id="tgren" type="button">רימון</button>
+  <button class="touch tb" id="taid" type="button"></button>
+  <button class="touch tb" id="tmag" type="button"></button>
   <button class="touch tb" id="tads" type="button">כוונת</button>
   <button class="touch tb" id="tpause" type="button">תפריט</button>
   <button class="touch tb" id="tair" type="button">תקיפה</button>
@@ -1047,7 +1062,7 @@ window.LD = (function () {
 <script>
 /* the game's code is one big file: fetched here so the loading screen can show how much of it has arrived, then run as a module */
 (function () {
-  var SRC = 'game.js?v=80a17dab83', SIZE = 14908481, mb = function (n) { return (n / 1048576).toFixed(1); };
+  var SRC = 'game.js?v=6b013a64d2', SIZE = 14911214, mb = function (n) { return (n / 1048576).toFixed(1); };
   LD.plan([['dl', 'מוריד את המשחק', 5], ['code', 'מכין את המשחק', 4]], { img: 'img/mezach.jpg', clip: 'mezach' }); LD.step('dl'); LD.note('0.0 מתוך ' + mb(SIZE) + ' מ״ב');
   function fail() { LD.error('ההורדה נכשלה. בדקו את החיבור לאינטרנט ורעננו את הדף.'); }
   function start(s) { LD.step('code'); LD.frac(0.15, 2500); s.type = 'module'; document.body.appendChild(s); }

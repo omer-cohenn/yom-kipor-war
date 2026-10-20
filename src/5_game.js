@@ -1815,7 +1815,9 @@ function updHUD(dt) {
     else if (ps) { if (ps.hold) { ic = 'aid'; pct = P.hold > 0 ? P.hold / 3 : null; }
       else ic = { man: 'mg', ammo: 'ammo', lift: 'lift', drop: 'drop', 'drop-aid': 'drop', duck: P.crouch ? 'up' : 'down' }[ps.act] || (ps.fn ? (/לרדת|החוצה/.test(ps.label || ps.text || '') ? 'exit' : /לעלות|לטנק|לג׳יפ/.test(ps.label || ps.text || '') ? 'up' : 'hand') : null); }
     $('#tads').style.visibility = P.mode === 'rifle' || P.mode === 'tank' || P.mode === 'mag' ? '' : 'hidden';
-    ta.classList.toggle('on', !!ic); if (ic) tbIcon(ta, ic, null, pct); TPOINT.act = ic;
+    const isAid = ic === 'aid', isMag = ic === 'mg' || (P.mode === 'mag'); const ai = $('#taid'), mg = $('#tmag');   /* first aid and the MG have buttons of their own */
+    ai.classList.toggle('on', isAid); if (isAid) tbIcon(ai, 'aid', null, pct); mg.classList.toggle('on', isMag); if (isMag) tbIcon(mg, P.mode === 'mag' ? 'exit' : 'mg');
+    ta.classList.toggle('on', !!ic && !isAid && !isMag); if (ic && !isAid && !isMag) tbIcon(ta, ic, null, pct); TPOINT.act = ic; TPOINT.slot = isAid ? 'taid' : isMag ? 'tmag' : ic ? 'tact' : null;
     if (P.mode === 'rifle' && P.mag === 0 && P.reserve > 0 && P.reloadT <= 0) reload();
     tbIcon('#tgren', P.mode === 'tank' ? 'shell' : 'gren');
     { const sm = !!P.smokeMax && P.mode === 'rifle' && (MODE === 'farm' || MODE === 'range'); $('#tsmoke').classList.toggle('on', sm); if (sm) tbIcon('#tsmoke', 'smoke', P.smoke); }
@@ -2017,6 +2019,8 @@ if (TOUCH) { $('#app').classList.add('is-touch'); $('#keysDesk').hidden = true; 
   hold('#tair', () => survAir());
   hold('#tpos', () => { if (CH() && CH().tankAct2) CH().tankAct2(); });
   hold('#tact', () => { if (promptState && promptState.hold) INPUT.tHold = true; else doAction(); }, () => { INPUT.tHold = false; });
+  hold('#taid', () => { if (promptState && promptState.hold) INPUT.tHold = true; }, () => { INPUT.tHold = false; });
+  hold('#tmag', () => doAction());
 }
 function startChapter(m) { survStop(); if (CH_ORDER.includes(m)) markLast(m); for (const v of document.querySelectorAll('.menu video')) { v.pause(); v.removeAttribute('src'); try { v.load(); } catch (e) {} if (v.parentNode) v.parentNode.classList.remove('vid'); v.classList.remove('on'); } /* free the video decoders before the battle loads */ for (const k of ['#mBrief', '#mOps', '#mSet', '#mEnd', '#mPause']) $(k).hidden = true; loadMission(m, m === 'mezach' ? startGame : () => CHAP[m].start()); }
 for (const b of document.querySelectorAll('[data-chap]')) b.addEventListener('click', () => startChapter(b.dataset.chap));

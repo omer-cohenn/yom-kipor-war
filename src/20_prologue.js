@@ -111,7 +111,7 @@ const PR_STEPS = [
     start: () => prThrowAtPlayer(),
     hint: () => `<b>רימון!</b> הסימן ⚠ מראה איפה הוא נפל. ${prKey('רוצו ממנו לאורך התעלה, מהר', 'דחפו את הג׳ויסטיק עד הקצה ורוצו ממנו לאורך התעלה')}.`,
     done: () => PR.gw === 'ok' },
-  { id: 'man', btn: 'tact', title: 'איוש המא״ג', at: () => { const p = prPost('W2'); return prPt(p.stand[0], p.stand[1], 1.2, 'המא״ג המערבי'); },
+  { id: 'man', btn: 'tmag', title: 'איוש המא״ג', at: () => { const p = prPost('W2'); return prPt(p.stand[0], p.stand[1], 1.2, 'המא״ג המערבי'); },
     say: ['המא״ג המערבי. מחר זה מה שעומד בינם לבין הסוללה. תאייש אותו.'],
     hint: () => TOUCH ? '<b>מא״ג:</b> עמדו ליד המקלע (◆) ולחצו על הכפתור הירוק <kbd>לאייש מא״ג</kbd>.' : `<b>מא״ג:</b> עמדו ליד המקלע (◆) ולחצו ${K('E')}.`,
     done: () => P.mode === 'mag' && P.post && P.post.id === 'W2' },
@@ -125,7 +125,7 @@ const PR_STEPS = [
     start: () => { const m = P.post && P.post.mag; if (m) m.belt = Math.min(m.belt, 6); PR.bl = 0; },
     hint: () => TOUCH ? '<b>שרשרת:</b> ירו עד שהשרשרת נגמרת: המא״ג מחליף אותה לבד.' : `<b>שרשרת:</b> ${K('R')} מחליף שרשרת, או שהיא מתחלפת לבד כשהיא נגמרת.`,
     done: () => { const m = P.post && P.post.mag; if (!m) return false; if (m.reload > 0) PR.bl = 1; return PR.bl === 1 && m.reload <= 0; } },
-  { id: 'leave', btn: 'tact', title: 'לרדת מהמא״ג', at: () => null,
+  { id: 'leave', btn: 'tmag', title: 'לרדת מהמא״ג', at: () => null,
     say: ['יופי. רד מהמקלע.'],
     hint: () => TOUCH ? '<b>לרדת:</b> הכפתור הירוק <kbd>לרדת</kbd>.' : `<b>לרדת:</b> ${K('E')} עוזב את המא״ג.`,
     done: () => P.mode === 'rifle' },
@@ -134,7 +134,7 @@ const PR_STEPS = [
     start: () => prAirRun(),
     hint: () => (TOUCH ? '<b>מטוס בצלילה:</b> ג׳ויסטיק עד הקצה, ורוצו' : '<b>מטוס בצלילה:</b> רוצו') + ' לקטע המקורה בתעלה, שהגג שלו משקי חול (◆). בשטח פתוח התותחים שלו קורעים הכול.',
     done: () => PR.air === 'ok' },
-  { id: 'treat', btn: 'tact', title: 'עזרה ראשונה', at: () => { const u = prDudu().unit; return [u.pos.x, u.pos.y + 0.4, u.pos.z, 'דודו · "פצוע"']; },
+  { id: 'treat', btn: 'taid', title: 'עזרה ראשונה', at: () => { const u = prDudu().unit; return [u.pos.x, u.pos.y + 0.4, u.pos.z, 'דודו · "פצוע"']; },
     say: ['דודו "נפגע" בתרגיל. אל תצחקו, תחבשו אותו כמו שצריך.'],
     start: () => prWoundDudu(),
     hint: () => `<b>עזרה ראשונה:</b> עמדו ליד הפצוע (✚) והחזיקו ${prKey(K('F'), 'את הכפתור הירוק שמופיע מימין')} עד שהפס מתמלא.`,
@@ -438,7 +438,7 @@ function prUpd(dt) {
   }
   for (const T of PR.raft ? PR.raft.figs : []) if (T.hit && T.pivot.rotation.x > -1.4) T.pivot.rotation.x -= dt * 3;
   prRaftUpd(dt); prJeepUpd(dt);
-  { const S0 = PR.stage !== PR_NIGHT && prSteps()[PR.step]; let b = TOUCH && S0 && S0.btn && GAME.t > (PR.hintAt || 0) ? S0.btn : null; if (b === 'tact' && !$('#tact').classList.contains('on')) b = null; tutPoint(b); }
+  { const S0 = PR.stage !== PR_NIGHT && prSteps()[PR.step]; let b = TOUCH && S0 && S0.btn && GAME.t > (PR.hintAt || 0) ? S0.btn : null; if (b && /^t(act|aid|mag)$/.test(b) && !$('#' + b).classList.contains('on')) b = null; tutPoint(b); }
   if (PR.stage === PR_NIGHT) return;
   const S = prSteps()[PR.step]; if (!S) return;
   if (PR.hintAt && GAME.t >= PR.hintAt) { PR.hintAt = 0; TUT.seen['pr-' + S.id] = false; hint('pr-' + S.id, S.hint(), 30); }
