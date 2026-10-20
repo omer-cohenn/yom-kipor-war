@@ -152,6 +152,10 @@ function chutePose(c, t) {
   for (const [sh, el, sd, pole] of [[R.sR, R.eR, -1, V3(-1, -0.2, 0.3).normalize()], [R.sL, R.eL, 1, V3(1, -0.2, 0.3).normalize()]]) ikArm(sh, el, _chA.copy(sh.position).add(V3(-sd * 0.02 * 0, 0.52, 0.08)), pole);
   R.root.updateMatrixWorld(true);
 }
+/* the film of the Mirage, two cuts of it (A by default; B one long take); window.YK_MIRAGE or ?mirage= picks one.
+   The order is always the same: the chase, the launch, the missile across the gap, the hit, the wing torn off - and only then the pilot. */
+let MIRAGE_V = (() => { try { const v = window.YK_MIRAGE || new URLSearchParams(location.search).get('mirage'); return v === 'B' ? 'B' : 'A'; } catch (e) { return 'A'; } })();
+const MG_T = { launch: 7.6, hit: 8.6, eject: 9.6, gap: 70 };
 function mirageFilm() {
   if (!AIR.models) { AIR.models = { m: mirageModel(), mig: migModel(), chute: chuteModel() }; }
   const M = AIR.models, H = V3(nearX(-350), 330, 175), d = V3(0.9, 0, -0.45).normalize(), sp = 92;
