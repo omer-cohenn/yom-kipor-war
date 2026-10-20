@@ -12279,8 +12279,16 @@ const jxBurnt = () => JX.burnt || (JX.burnt = new THREE.MeshStandardMaterial({ c
 function mirageModel() {
   const skin = new THREE.MeshStandardMaterial({ map: jxCamoTex(), metalness: 0.15, roughness: 0.58 }), g = new THREE.Group(), add = (geo, mat, x = 0, y = 0, z = 0) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); g.add(m); return m; };
   // the fuselage, tail to radome, and the pitot boom
-  add(jxLathe([[0.5, -7.2], [0.56, -6.9], [0.63, -6.2], [0.67, -4], [0.69, -1], [0.67, 1.5], [0.61, 3], [0.53, 4.2], [0.43, 5.2], [0.31, 6.2], [0.17, 7.0], [0.05, 7.6], [0, 7.7]], 56, 1.06, 0.93), skin);
-  add(new THREE.CylinderGeometry(0.025, 0.035, 1.1, 8).rotateZ(Math.PI / 2), jxDark(), 8.2, 0, 0);
+  // the fuselage to the radome's joint, and the radome: a long tangent ogive, full and round where it meets the body and drawing out to a
+  // fine point - not a cone - in a darker, smoother finish
+  { const body = [[0.5, -7.2], [0.56, -6.9], [0.63, -6.2], [0.67, -4], [0.69, -1], [0.67, 1.5], [0.63, 2.6]];
+    const x0 = 2.6, x1 = 4.9, r0 = 0.63, r1 = 0.5; for (let k = 1; k <= 8; k++) { const u = k / 8; body.push([lerp(r0, r1, u * u * (3 - 2 * u)) , lerp(x0, x1, u)]); }   // the cockpit section easing in
+    add(jxLathe(body, 64, 1.06, 0.93), skin);
+    const L = 3.1, R = r1, rho = (R * R + L * L) / (2 * R), nose = []; for (let k = 0; k <= 28; k++) { const u = k / 28, x = u * L, r = Math.sqrt(Math.max(0, rho * rho - (L - x) * (L - x))) + R - rho; nose.push([Math.max(0, r), x1 + x]); }
+    nose[nose.length - 1][0] = 0; JX.radome = JX.radome || new THREE.MeshStandardMaterial({ color: 0x5d5a44, metalness: 0.1, roughness: 0.4 });
+    add(jxLathe(nose, 64, 1.06, 0.93), JX.radome);
+    const seam = add(new THREE.TorusGeometry(0.5, 0.012, 6, 64), jxDark(), x1, 0, 0); seam.rotation.y = Math.PI / 2; seam.scale.set(1, 1.06, 0.93); }
+  add(new THREE.CylinderGeometry(0.02, 0.03, 1.2, 10).rotateZ(Math.PI / 2), jxDark(), 8.55, 0, 0);
   // the canopy and its frame
   { const c = add(new THREE.SphereGeometry(1, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2), jxGlass(), 4.2, 0.46, 0); c.scale.set(1.35, 0.44, 0.38); const fr = add(new THREE.TorusGeometry(0.36, 0.025, 6, 24, Math.PI), jxDark(), 4.6, 0.46, 0); fr.rotation.y = Math.PI / 2; }
   // the intakes along the sides with their half-cone shock bodies
