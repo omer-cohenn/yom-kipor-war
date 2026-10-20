@@ -279,21 +279,27 @@ button:focus-visible{outline:2px solid var(--sand);outline-offset:2px}
 #app.nomove #tjoy{display:none}
 #tjoy i{position:absolute;left:50%;top:50%;width:54px;height:54px;margin:-27px 0 0 -27px;border-radius:50%;background:rgba(236,229,212,.5)}
 .tb{border-radius:50%;border:1px solid rgba(236,229,212,.4);background:rgba(10,13,15,.45);color:var(--paper);font-size:12px;font-weight:600;width:58px;height:58px}
-.tb{background:rgba(14,16,17,.34);box-shadow:inset 0 1px 0 rgba(255,255,255,.08);border:1px solid rgba(236,229,212,.32);color:rgba(240,234,220,.9);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
-.tb:active{transform:scale(.95);background:rgba(236,229,212,.16)}
-.tb .ico .f{fill:currentColor;fill-opacity:.14;stroke:none}.tb .ico .s,.tchip .ico .s{fill:currentColor;stroke:none}.tchip .ico .f{fill:currentColor;fill-opacity:.14;stroke:none}
-#tfire{width:96px;height:96px;right:22px;bottom:calc(32px + env(safe-area-inset-bottom,0px));border:1.5px solid rgba(240,214,204,.42);color:rgba(255,240,234,.95);background:rgba(60,22,18,.32)}
-#tfire::before{content:"";position:absolute;inset:7px;border-radius:50%;border:1px solid rgba(240,214,204,.16);pointer-events:none}
-#tfire .ico{width:58%;height:58%;stroke-width:1.5}
+/* the controls in the style of the old war games: olive-drab discs in a brass rim, the pictures embossed in khaki */
+.tb{--rim:rgba(196,178,108,.9);background:radial-gradient(circle at 50% 35%,rgba(92,90,52,.78),rgba(44,44,24,.8) 68%,rgba(26,26,14,.84));border:2px solid var(--rim);color:#dccf92;box-shadow:inset 0 2px 2px rgba(255,248,210,.22),inset 0 -4px 7px rgba(0,0,0,.5),0 0 0 1px rgba(20,18,8,.55),0 3px 8px rgba(0,0,0,.4)}
+.tb:active{transform:scale(.95);filter:brightness(1.15)}
+.tb .ico .f{fill:currentColor;fill-opacity:.88;stroke:none}.tb .ico .s,.tchip .ico .s{fill:currentColor;stroke:none}.tchip .ico .f{fill:currentColor;fill-opacity:.6;stroke:none}
+.tb .ico{filter:drop-shadow(0 1px 0 rgba(255,248,210,.25)) drop-shadow(0 -1px 1px rgba(0,0,0,.6))!important}
+#tfire{width:96px;height:96px;right:22px;bottom:calc(32px + env(safe-area-inset-bottom,0px));border-width:2.5px}
+#tfire::before{content:"";position:absolute;inset:6px;border-radius:50%;border:1px solid rgba(196,178,108,.35);pointer-events:none}
+#tfire .ico{width:62%;height:62%;stroke-width:1.2}
 #taid,#tmag{right:138px;bottom:calc(104px + env(safe-area-inset-bottom,0px));width:60px;height:60px;display:none}
 #app.play.is-touch #taid.on,#app.play.is-touch #tmag.on{display:grid}
-#taid{border-radius:16px}
-#taid .ico .s{fill:rgba(226,96,86,.9)}
-#taid.prog{background:conic-gradient(rgba(226,96,86,.35) var(--p,0deg),rgba(14,16,17,.34) 0)}
-#tmag .ico{width:68%;height:68%}
+#app.play.is-touch #taid:not(.on),#app.play.is-touch #tmag:not(.on){display:none}
+#taid .ico .f{fill-opacity:.2}#taid .ico .s{fill:#c8473a}
+#taid.prog,.tb.prog{background:conic-gradient(rgba(196,178,108,.55) var(--p,0deg),rgba(44,44,24,.8) 0)}
+#tmag .ico{width:70%;height:70%}
+#tpause{border-radius:50%!important}
+/* the stick: a heavy olive ball in a dark ring with a brass edge */
+#tjoy{border:2px solid rgba(196,178,108,.6)!important;background:radial-gradient(circle,rgba(20,20,10,.25),rgba(20,20,10,.45))!important;box-shadow:inset 0 0 12px rgba(0,0,0,.5)}
+#tjoy i{background:radial-gradient(circle at 38% 32%,#b4b072,#6c6a3c 45%,#33321a 88%)!important;box-shadow:0 3px 8px rgba(0,0,0,.55),inset 0 -3px 6px rgba(0,0,0,.4)}
 .tb .ico{width:56%;height:56%;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;pointer-events:none;filter:drop-shadow(0 1px 1px rgba(0,0,0,.55))}
 .tb{position:absolute}.tb .tbadge{position:absolute;top:-3px;right:-3px;min-width:17px;height:17px;padding:0 4px;border-radius:9px;background:rgba(239,230,207,.85);color:#14110a;font:800 11px/17px var(--f-ui,sans-serif);text-align:center;pointer-events:none}
-.tb.prog{background:conic-gradient(rgba(200,230,190,.28) var(--p,0deg),rgba(14,16,17,.34) 0)}
+
 .tchip{display:inline-grid;place-items:center;width:1.7em;height:1.7em;margin:0 .15em;vertical-align:-.5em;border-radius:50%;border:1px solid rgba(236,229,212,.55);background:rgba(10,13,15,.55)}
 .tchip .ico{width:68%;height:68%;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
 /* the tutorial's pointer: a soft red ring breathing round the button to press, and a small arrow at its side */
@@ -307,8 +313,8 @@ button:focus-visible{outline:2px solid var(--sand);outline-offset:2px}
 
 #tgren{right:136px;bottom:calc(30px + env(safe-area-inset-bottom,0px));width:54px;height:54px}
 #tads{right:42px;bottom:calc(146px + env(safe-area-inset-bottom,0px))}
-#tads.on{border-color:rgba(255,226,170,.7);color:#fff2d8;background:rgba(236,229,212,.14)}
-#tact{right:140px;bottom:calc(106px + env(safe-area-inset-bottom,0px));width:58px;height:58px;border-radius:50%;padding:0;border-color:rgba(160,210,150,.45)}
+#tads.on{--rim:#f0d98a;color:#fff0b8;filter:brightness(1.2)}
+#tact{right:140px;bottom:calc(106px + env(safe-area-inset-bottom,0px));width:58px;height:58px;border-radius:50%;padding:0}
 #app.play.is-touch #tact{display:none}
 #app.play.is-touch #tact.on{display:grid}
 #tpos{position:absolute;z-index:4;place-items:center;touch-action:none;right:140px;bottom:calc(176px + env(safe-area-inset-bottom,0px));width:50px;height:50px;border-radius:50%;padding:0;font-size:13px;display:none}

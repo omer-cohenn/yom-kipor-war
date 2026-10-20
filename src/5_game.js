@@ -1815,6 +1815,7 @@ function updHUD(dt) {
     else if (ps) { if (ps.hold) { ic = 'aid'; pct = P.hold > 0 ? P.hold / 3 : null; }
       else ic = { man: 'mg', ammo: 'ammo', lift: 'lift', drop: 'drop', 'drop-aid': 'drop', duck: P.crouch ? 'up' : 'down' }[ps.act] || (ps.fn ? (/לרדת|החוצה/.test(ps.label || ps.text || '') ? 'exit' : /לעלות|לטנק|לג׳יפ/.test(ps.label || ps.text || '') ? 'up' : 'hand') : null); }
     $('#tads').style.visibility = P.mode === 'rifle' || P.mode === 'tank' || P.mode === 'mag' ? '' : 'hidden';
+    const magNear = ic === 'mg' && ps && ps.post && (Math.hypot(ps.post.stand[0] - P.pos.x, ps.post.stand[1] - P.pos.z) < 1.4 || (MODE === 'prologue' && PR_STEPS[PR.step] && PR_STEPS[PR.step].id === 'man')); if (ic === 'mg' && !magNear) ic = null;   /* the MG's button only right at the gun */
     const isAid = ic === 'aid', isMag = ic === 'mg' || (P.mode === 'mag'); const ai = $('#taid'), mg = $('#tmag');   /* first aid and the MG have buttons of their own */
     ai.classList.toggle('on', isAid); if (isAid) tbIcon(ai, 'aid', null, pct); mg.classList.toggle('on', isMag); if (isMag) tbIcon(mg, P.mode === 'mag' ? 'exit' : 'mg');
     ta.classList.toggle('on', !!ic && !isAid && !isMag); if (ic && !isAid && !isMag) tbIcon(ta, ic, null, pct); TPOINT.act = ic; TPOINT.slot = isAid ? 'taid' : isMag ? 'tmag' : ic ? 'tact' : null;
