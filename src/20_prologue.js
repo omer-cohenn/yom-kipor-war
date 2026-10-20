@@ -137,7 +137,7 @@ const PR_STEPS = [
   { id: 'treat', btn: 'taid', title: 'עזרה ראשונה', at: () => { const u = prDudu().unit; return [u.pos.x, u.pos.y + 0.4, u.pos.z, 'דודו · "פצוע"']; },
     say: ['דודו "נפגע" בתרגיל. אל תצחקו, תחבשו אותו כמו שצריך.'],
     start: () => prWoundDudu(),
-    hint: () => `<b>עזרה ראשונה:</b> עמדו ליד הפצוע (✚) והחזיקו ${prKey(K('F'), 'את הכפתור הירוק שמופיע מימין')} עד שהפס מתמלא.`,
+    hint: () => `<b>עזרה ראשונה:</b> עמדו ליד הפצוע (מגן דוד אדום) והחזיקו ${prKey(K('F'), 'את הכפתור הירוק שמופיע מימין')} עד שהפס מתמלא.`,
     done: () => prDudu().state === 'stable' },
   { id: 'carry', btn: 'tact', title: 'פינוי לתאג״ד', at: () => prCarryAt(),
     say: ['עכשיו לתאג״ד. סוחבים אותו בתעלת הקשר, לא מעל הסוללה.'],
@@ -292,7 +292,7 @@ function prRaftUpd(dt) {
 function prBuildTent() {
   const [tx, tz] = PR_AT.tent, g0 = groundAt(tx, tz), g = new THREE.Group(); g.position.set(tx, g0, tz);
   const W = 9, D = 7, H = 3.1, E = 1.9, can = new THREE.MeshStandardMaterial({ color: 0x6f6a48, roughness: 0.95, side: THREE.DoubleSide }), pole = new THREE.MeshStandardMaterial({ color: 0x4a3a28, roughness: 0.9 });
-  const crossTex = (() => { const c = canvas(128, 128), q = c.getContext('2d'); q.fillStyle = '#f2efe6'; q.fillRect(0, 0, 128, 128); q.fillStyle = '#c4161c'; q.fillRect(48, 14, 32, 100); q.fillRect(14, 48, 100, 32); return tex(c); })();
+  const crossTex = (() => { const c = canvas(128, 128), q = c.getContext('2d'); q.fillStyle = '#f2efe6'; q.fillRect(0, 0, 128, 128); q.strokeStyle = '#c4161c'; q.lineWidth = 11; q.lineJoin = 'miter'; for (const sg of [1, -1]) { q.beginPath(); q.moveTo(64, 64 - 48 * sg); q.lineTo(64 + 41.6, 64 + 24 * sg); q.lineTo(64 - 41.6, 64 + 24 * sg); q.closePath(); q.stroke(); } return tex(c); })();   // the Magen David Adom on the aid tent
   const crossM = new THREE.MeshStandardMaterial({ map: crossTex, roughness: 0.9, side: THREE.DoubleSide, emissive: 0x220404 });
   // the roof: two slopes from the ridge to the eaves
   const slope = Math.hypot(D / 2, H - E), ang = Math.atan2(H - E, D / 2);

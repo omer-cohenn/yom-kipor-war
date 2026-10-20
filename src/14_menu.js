@@ -141,7 +141,7 @@ const MICRO = {
     <g transform="translate(402 62)">
       <rect class="mm-water" x="0" y="0" width="30" height="294"/><rect class="mm-water" x="216" y="0" width="22" height="294"/>
       <path class="mm-trench" d="M72 40 L130 26 L188 40 L200 110 L188 180 L130 194 L72 180 L60 110 Z"/><path class="mm-trench2" d="M82 50 L130 38 L178 50 L188 110 L178 170 L130 182 L82 170 L72 110 Z"/>
-      <rect class="mm-bldg" x="112" y="76" width="22" height="12"/><rect class="mm-bldg" x="146" y="128" width="20" height="11"/><text class="mm-aid" x="104" y="124" text-anchor="middle">✚</text>
+      <rect class="mm-bldg" x="112" y="76" width="22" height="12"/><rect class="mm-bldg" x="146" y="128" width="20" height="11"/><text class="mm-aid" x="104" y="124" text-anchor="middle">✡</text>
       <rect class="mm-post" x="62" y="86" width="8" height="8"/><rect class="mm-post" x="62" y="124" width="8" height="8"/><rect class="mm-post" x="126" y="30" width="8" height="8"/><rect class="mm-post" x="126" y="186" width="8" height="8"/>
       ${MM.boat(14, 84)}${MM.boat(10, 112)}${MM.boat(16, 140)}
       ${MM.arr('red', 'M30 84 C 44 86, 52 88, 58 90', MMW(80))}${MM.arr('red', 'M26 112 C 40 114, 50 118, 58 124', MMW(80))}${MM.arr('red', 'M32 140 C 44 136, 52 132, 58 130', MMW(80))}
@@ -215,7 +215,7 @@ const MICRO = {
     ${[[26, 70, 92, 46], [26, 128, 92, 38], [26, 180, 92, 54], [26, 246, 92, 62], [134, 70, 64, 46], [134, 128, 64, 38], [134, 246, 64, 62], [214, 70, 62, 46], [214, 128, 62, 38], [374, 70, 70, 46], [374, 128, 70, 38], [460, 70, 76, 46], [460, 128, 76, 38], [460, 180, 76, 54], [460, 246, 76, 62], [552, 70, 72, 46], [552, 128, 72, 38], [552, 180, 72, 54], [552, 246, 72, 62], [374, 246, 70, 62]].map(([x, y, w, h]) => `<rect class="mm-block" x="${x}" y="${y}" width="${w}" height="${h}"/>`).join('')}
     <path class="mm-street" d="M300 0 V 170 M 0 228 H 640 M 0 116 H 640 M 120 50 V 320 M 450 50 V 320"/>
     <rect class="mm-sq" x="214" y="176" width="230" height="46"/>
-    <rect class="mm-bunker" x="214" y="246" width="60" height="62"/><text class="mm-aid" x="244" y="283" text-anchor="middle">✚</text>
+    <rect class="mm-bunker" x="214" y="246" width="60" height="62"/><text class="mm-aid" x="244" y="283" text-anchor="middle">✡</text>
     ${[[214, 182], [214, 216], [444, 182], [444, 216], [250, 176], [400, 176], [300, 222], [380, 222]].map(([x, y]) => `<path class="mm-tri" d="M${x} ${y - 6} L${x + 5} ${y + 4} L${x - 5} ${y + 4} Z"/>`).join('')}
     ${MM.arr('red', 'M250 160 L 262 176', 3)}${MM.arr('red', 'M404 160 L 392 176', 3)}${MM.arr('red', 'M170 200 L 206 200', 3)}${MM.arr('red', 'M484 200 L 452 200', 3)}${MM.arr('red', 'M200 290 L 212 282', 3)}${MM.arr('red', 'M330 270 L 280 268', 3)}
     ${MM.unit(300, 22, 'blue', 'arm', 'X')}${MM.arr('blue', 'M300 40 L 300 172', MMW(1000))}

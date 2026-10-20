@@ -1411,7 +1411,7 @@ function buildDugouts() {
       for (let j = 0; j < 3; j++) { bx(1.55, 2.2, V + 1.45 + j * 0.5, V + 1.9 + j * 0.5, 0, 0.42, 0x4a5236); const [x, z] = d.at(1.86, V + 1.67 + j * 0.5); }
       box(dark, -1.25, -1.21, V + 3.4, V + 3.44, 0, 1.75, 0x9a9a9a); box(dark, -1.33, -1.13, V + 3.39, V + 3.45, 1.45, 1.7, 0xdfe6e6);
       for (let j = 0; j < 4; j++) box(dark, -2.2 + j * 0.3, -1.95 + j * 0.3, V + 1.4, V + 1.65, 0.02, 0.1, 0xe8e2d4);
-      { const [x, z] = d.at(1.86, V + 1.2); sign('✚', 'aid', x, fl + 1.35, z, Math.atan2(d.i[0], d.i[1]), 0.5); }
+      { const [x, z] = d.at(1.86, V + 1.2); sign('תאג״ד', 'aid', x, fl + 1.35, z, Math.atan2(d.i[0], d.i[1]), 0.5); }
       const pts = [[-1.2, V + 4.15, 'prone', Math.atan2(d.t[0], d.t[1])], [-0.9, V + 3.35, 'crouch', Math.atan2(d.i[0], d.i[1])], [1.4, V + 4.15, 'prone', Math.atan2(d.t[0], d.t[1])]];
       for (const [u, v, pose, hd] of pts) { const un = new Unit('f', 'rifle'); scene.remove(un.tag); const [x, z] = d.at(u, v); un.pos.set(x, fl + (pose === 'prone' ? 0.58 : 0), z); un.heading = pose === 'crouch' ? hd + Math.PI : hd; un.alive = true; un.stance = pose === 'crouch' ? 'crouch' : 'down'; un.rig.root.visible = true; if (pose === 'crouch') { un.rig.pose('idle', 0); } else { un.rig.pose(pose, 0, 0.6); un.rig.gun.visible = false; } un.rig.root.position.copy(un.pos); un.rig.root.rotation.y = un.heading; DUG_UNITS.push(un); }
       Object.assign(AIDPOST, { x: d.at(0, V + 2.55)[0], z: d.at(0, V + 2.55)[1], rot: Math.atan2(d.t[0], d.t[1]), y: fl });

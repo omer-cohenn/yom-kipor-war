@@ -475,7 +475,7 @@ function updFriend(f, dt, time) {
     f.el.innerHTML = `<i>${crossSvg(f.state === 'stable' ? '#93d48d' : '#ff5a4a')}</i>${f.name}<small>${f.state === 'stable' ? `מיוצב · ${(CH() && CH().stableTag && CH().stableTag(f)) || 'לתאג״ד'}` : `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`} · ${d} מ׳</small>`;
   }
 }
-function crossSvg(c) { return `<svg viewBox="0 0 18 18" width="18" height="18"><path d="M6 1h6v5h5v6h-5v5H6v-5H1V6h5z" fill="${c}" stroke="#000" stroke-width="1"/></svg>`; }
+function crossSvg(c, w = 18) { return `<svg viewBox="0 0 18 18" width="${w}" height="${w}" style="vertical-align:middle"><g fill="none" stroke-linejoin="round"><path d="M9 1.6L15.6 13H2.4zM9 16.4L2.4 5h13.2z" stroke="#000" stroke-width="3.6" opacity=".55"/><path d="M9 1.6L15.6 13H2.4zM9 16.4L2.4 5h13.2z" stroke="${c}" stroke-width="2"/></g></svg>`; }   // the red Star of David (Magen David Adom), not a cross
 
 /* ================= enemies ================= */
 const GROUPS = [];
@@ -1722,7 +1722,7 @@ function tutorialTriggers() {
   if ((D.scene === 0 || D.scene === 4) && P.mode !== 'mag') { const p = POSTS.find((q) => q.id === 'W2'); if (Math.hypot(p.x - P.pos.x, p.z - P.pos.z) < 7) hint('man', `לחצו ${K('E')} ליד המא״ג כדי לאייש אותו.`, 5); }
   if (P.mode === 'mag') hint('mag', TOUCH ? `ירו בסירות לפני שהן נוחתות: החזיקו <kbd>אש</kbd> לצרור, <kbd>כוונת</kbd> לזום. הכפתור הירוק <kbd>לרדת</kbd> עוזב את המא״ג.` : `ירו בסירות לפני שהן נוחתות. ${K('לחצן ימני')} לזום, ${K('לחיצה ממושכת')} לצרור, ${K('R')} להחלפת שרשרת, ${K('E')} לעזוב את המא״ג.`, 9);
   if (D.inTrench > 0) hint('intrench', P.mode === 'mag' ? `<b>מצרים בתעלה!</b> המא״ג לא מכסה את התעלה. רדו ממנו (${TOUCH ? '<kbd>לרדת</kbd>' : K('E')}) ולחמו בתעלה.` : `<b>מצרים בתעלה!</b> הם רצים אליכם ומסתתרים מאחורי חומות שקי החול שבתעלה. תפסו אותם כשהם מציצים, או זרקו רימון (${K('G')}) מעבר לחומה.`, 9);
-  const w = FRIENDS.find((f) => f.state === 'wounded'); if (w) hint('wounded', `<b>${w.name} נפגע!</b> רוצו אליו (✚ אדום), החזיקו ${K('F')} לעזרה ראשונה. אחרי החבישה הוא חוזר להילחם.`, 10);
+  const w = FRIENDS.find((f) => f.state === 'wounded'); if (w) hint('wounded', `<b>${w.name} נפגע!</b> רוצו אליו (מגן דוד אדום), החזיקו ${K('F')} לעזרה ראשונה. אחרי החבישה הוא חוזר להילחם.`, 10);
   if (P.mode === 'carry') hint('carry', `סחבו אותו בתעלת הקשר לתאג״ד הקדמי (◆) ולחצו ${K('E')} ליד האלונקות.`, 6);
   if (P.mode === 'rifle' && P.reserve < 40) hint('ammo', `<b>תחמושת אוזלת!</b> ארגזי תחמושת בכל עמדה לאורך התעלה - ${K('E')} ליד הארגז.`, 7);
   if (P.hp < 45 && D.phase !== 'alert') hint('hp', `<b>אתם מדממים!</b> מחסה - שקי חול או חומה - וכריעה. כמה שניות בלי פגיעה והכוח חוזר.`, 7);
@@ -1785,9 +1785,9 @@ function updCompass() {
   for (const c of compassEls) { const rel = ((c.b - heading + 540) % 360) - 180; c.el.style.display = Math.abs(rel) < 72 ? '' : 'none'; c.el.style.left = `${w / 2 + rel * ppd}px`; }
   for (const m of compassMarks) m.used = false;
   const place = (m, x, z) => { const b = bearingOf(x - P.pos.x, z - P.pos.z); const rel = ((b - heading + 540) % 360) - 180; m.el.style.display = ''; m.el.style.left = `${w / 2 + clamp(rel, -70, 70) * ppd}px`; };
-  if (MODE === 'mezach') place(compassMark('aid', '<span style="color:#ff7a70">✚</span>'), AIDPOST.x, AIDPOST.z);
-  else if (MODE === 'suez' && SZ.stage >= 5) place(compassMark('aid', '<span style="color:#ff7a70">✚</span>'), LX(SZ_AID.c[0]), LZ(SZ_AID.c[1]));
-  for (const f of FRIENDS) if (f.state === 'wounded' || f.state === 'stable') place(compassMark('f' + f.name, `<span style="color:${f.state === 'wounded' ? '#ff5a4a' : '#93d48d'}">✚</span>`), f.unit.pos.x, f.unit.pos.z);
+  if (MODE === 'mezach') place(compassMark('aid', crossSvg('#ff7a70', 14)), AIDPOST.x, AIDPOST.z);
+  else if (MODE === 'suez' && SZ.stage >= 5) place(compassMark('aid', crossSvg('#ff7a70', 14)), LX(SZ_AID.c[0]), LZ(SZ_AID.c[1]));
+  for (const f of FRIENDS) if (f.state === 'wounded' || f.state === 'stable') place(compassMark('f' + f.name, crossSvg(f.state === 'wounded' ? '#ff5a4a' : '#93d48d', 14)), f.unit.pos.x, f.unit.pos.z);
   if (OBJ.on) place(compassMark('obj', '<span style="color:#ffcf73;font-size:14px">◆</span>'), OBJ.p.x, OBJ.p.z);
   for (const m of compassMarks) if (!m.used) m.el.style.display = 'none';
 }
@@ -1896,7 +1896,7 @@ function drawMinimap() {
     g.save(); g.translate(a, b); g.scale(pulse, pulse); g.lineCap = 'round'; g.strokeStyle = '#1b150b'; g.lineWidth = 7; g.beginPath(); g.moveTo(0, 0); g.lineTo(mx * 15, my * 15); g.stroke();
     g.strokeStyle = p.occupant === 'player' ? '#fff3c4' : '#ffcf73'; g.lineWidth = 3.5; g.beginPath(); g.moveTo(0, 0); g.lineTo(mx * 15, my * 15); g.stroke();
     g.beginPath(); g.arc(0, 0, 7.5, 0, 6.283); g.fillStyle = p.occupant === 'player' ? '#fff3c4' : '#ffcf73'; g.fill(); g.lineWidth = 2; g.strokeStyle = '#1b150b'; g.stroke(); g.restore(); }
-  { const [a, b] = X(AIDPOST.x, AIDPOST.z); g.fillStyle = '#ff6b5c'; g.fillRect(a - 7, b - 2, 14, 4); g.fillRect(a - 2, b - 7, 4, 14); }
+  { const [a, b] = X(AIDPOST.x, AIDPOST.z); g.strokeStyle = '#ff6b5c'; g.lineWidth = 2.2; g.lineJoin = 'round'; for (const sg of [1, -1]) { g.beginPath(); g.moveTo(a, b - 8 * sg); g.lineTo(a + 7, b + 4 * sg); g.lineTo(a - 7, b + 4 * sg); g.closePath(); g.stroke(); } }   // the Magen David Adom
   for (const bt of BOATS) { if (bt.dead || !bt.g.visible) continue; const [a, b] = X(bt.g.position.x, bt.g.position.z); g.fillStyle = '#ff5a4a'; g.fillRect(a - 6, b - 4, 12, 8); }
   if (SURV.on) for (const v of VEH) { if (v.mode !== 'mezach' || !v.g.visible) continue; const [a, b] = X(v.g.position.x, v.g.position.z); g.fillStyle = v.alive ? '#ff5a4a' : 'rgba(40,36,30,.8)'; g.fillRect(a - 6, b - 6, 12, 12); if (v.alive) { g.lineWidth = 2; g.strokeStyle = '#1b150b'; g.strokeRect(a - 6, b - 6, 12, 12); } }
   }

@@ -2241,7 +2241,7 @@ function buildDugouts() {
       for (let j = 0; j < 3; j++) { bx(1.55, 2.2, V + 1.45 + j * 0.5, V + 1.9 + j * 0.5, 0, 0.42, 0x4a5236); const [x, z] = d.at(1.86, V + 1.67 + j * 0.5); }
       box(dark, -1.25, -1.21, V + 3.4, V + 3.44, 0, 1.75, 0x9a9a9a); box(dark, -1.33, -1.13, V + 3.39, V + 3.45, 1.45, 1.7, 0xdfe6e6);
       for (let j = 0; j < 4; j++) box(dark, -2.2 + j * 0.3, -1.95 + j * 0.3, V + 1.4, V + 1.65, 0.02, 0.1, 0xe8e2d4);
-      { const [x, z] = d.at(1.86, V + 1.2); sign('✚', 'aid', x, fl + 1.35, z, Math.atan2(d.i[0], d.i[1]), 0.5); }
+      { const [x, z] = d.at(1.86, V + 1.2); sign('תאג״ד', 'aid', x, fl + 1.35, z, Math.atan2(d.i[0], d.i[1]), 0.5); }
       const pts = [[-1.2, V + 4.15, 'prone', Math.atan2(d.t[0], d.t[1])], [-0.9, V + 3.35, 'crouch', Math.atan2(d.i[0], d.i[1])], [1.4, V + 4.15, 'prone', Math.atan2(d.t[0], d.t[1])]];
       for (const [u, v, pose, hd] of pts) { const un = new Unit('f', 'rifle'); scene.remove(un.tag); const [x, z] = d.at(u, v); un.pos.set(x, fl + (pose === 'prone' ? 0.58 : 0), z); un.heading = pose === 'crouch' ? hd + Math.PI : hd; un.alive = true; un.stance = pose === 'crouch' ? 'crouch' : 'down'; un.rig.root.visible = true; if (pose === 'crouch') { un.rig.pose('idle', 0); } else { un.rig.pose(pose, 0, 0.6); un.rig.gun.visible = false; } un.rig.root.position.copy(un.pos); un.rig.root.rotation.y = un.heading; DUG_UNITS.push(un); }
       Object.assign(AIDPOST, { x: d.at(0, V + 2.55)[0], z: d.at(0, V + 2.55)[1], rot: Math.atan2(d.t[0], d.t[1]), y: fl });
@@ -4941,14 +4941,14 @@ function dunes(x, z, k, out = 0) {
 const TICO = {   /* line drawings with filled parts (class f: a tint of the line colour, class s: solid) - the detail of a game's button art */
   fire: '<path class="f" d="M12 1.6l1.9 5.2 4.6-3-1.5 5.3 5.4.4-4.4 3.2 4.1 3.6-5.5-.2.9 5.5-4.2-3.5-2.1 5.1-1.4-5.4-4.8 2.8 2-5.1-5.5-.6 4.6-3L1.8 6.5l5.4 1.2-.8-5.4 4.1 3.7z"/><path d="M12 1.6l1.9 5.2 4.6-3-1.5 5.3 5.4.4-4.4 3.2 4.1 3.6-5.5-.2.9 5.5-4.2-3.5-2.1 5.1-1.4-5.4-4.8 2.8 2-5.1-5.5-.6 4.6-3L1.8 6.5l5.4 1.2-.8-5.4 4.1 3.7z" stroke-width="1.2"/><path class="s" d="M12 8.2l1.1 2.5 2.7.3-2 1.8.6 2.7-2.4-1.4-2.4 1.4.6-2.7-2-1.8 2.7-.3z" style="fill:rgba(40,36,18,.75)"/>',
   ads: '<circle class="f" cx="12" cy="12" r="7.6"/><circle cx="12" cy="12" r="7.6"/><circle cx="12" cy="12" r="3.6" opacity=".55"/><circle class="s" cx="12" cy="12" r="1"/><path d="M12 2v6.2M12 15.8V22M2 12h6.2M15.8 12H22"/>',
-  gren: '<ellipse class="f" cx="11" cy="15" rx="5.6" ry="6.2"/><ellipse cx="11" cy="15" rx="5.6" ry="6.2"/><path d="M5.6 13.2h10.8M5.6 16.8h10.8M8.6 9.2v11.6M13.4 9.2v11.6" stroke-width="1" opacity=".6"/><path class="s" d="M8.6 7.2h4.8v2.2H8.6z"/><path d="M13.4 7.6h3.4c.8 0 1.3.5 1.4 1.2l.9 4.6"/><circle cx="7.4" cy="5.4" r="1.9"/><path d="M8.8 6.4l.6.9"/>',
+  gren: '<path class="f" d="M12 7.6c3.4 0 5.6 2.9 5.6 6.6 0 4-2.5 7.2-5.6 7.2s-5.6-3.2-5.6-7.2c0-3.7 2.2-6.6 5.6-6.6z"/><path d="M12 7.6c3.4 0 5.6 2.9 5.6 6.6 0 4-2.5 7.2-5.6 7.2s-5.6-3.2-5.6-7.2c0-3.7 2.2-6.6 5.6-6.6z" stroke-width="1.2"/><path d="M8.2 11.8c1.1-1.6 2.4-2.3 3.8-2.4" stroke-width="0.9" opacity=".55" style="stroke:#fff8d8"/><path d="M6.7 15.4h10.6" stroke-width="0.7" opacity=".55" style="stroke:rgba(30,28,14,.8)"/><path class="s" d="M10.2 4.8h3.6v3h-3.6z"/><path d="M13.8 5.2h1.8c.9 0 1.5.6 1.6 1.4l.9 6.8c.1.7-.3 1.2-.9 1.4" stroke-width="1.3"/><circle cx="8.1" cy="4.4" r="1.9" stroke-width="1.1"/><path d="M9.8 5.4l.7.6" stroke-width="1.1"/>',
   shell: '<path class="f" d="M9 9.2c0-2.8 1-5.2 3-7 2 1.8 3 4.2 3 7v4.2H9z"/><path d="M9 9.2c0-2.8 1-5.2 3-7 2 1.8 3 4.2 3 7v4.2H9z"/><path class="s" d="M8.4 13.4h7.2v1.8H8.4z"/><path d="M8.8 15.2h6.4v6.6H8.8z"/><path d="M8.8 18.2h6.4" stroke-width="1" opacity=".6"/>',
   hand: '<path class="f" d="M8 14.6V6.2a1.4 1.4 0 0 1 2.8 0V4.6a1.4 1.4 0 0 1 2.8 0v1.2a1.4 1.4 0 0 1 2.8 0v4a1.4 1.4 0 0 1 2.8 0v4.6c0 4-2.6 7.1-6.6 7.1-2.7 0-4.4-1.2-5.9-3.5L4.4 14.4a1.4 1.4 0 0 1 2.3-1.6z"/><path d="M8 12.5V6.2a1.4 1.4 0 0 1 2.8 0V11"/><path d="M10.8 10.6V4.6a1.4 1.4 0 0 1 2.8 0v6"/><path d="M13.6 10.6V5.8a1.4 1.4 0 0 1 2.8 0v6.6"/><path d="M16.4 9.8a1.4 1.4 0 0 1 2.8 0v4.6c0 4-2.6 7.1-6.6 7.1-2.7 0-4.4-1.2-5.9-3.5L4.4 14.4a1.4 1.4 0 0 1 2.3-1.6L8 14.6"/>',
   mg: { vb: '0 0 48 24', p: '<path class="f" d="M18 8h15.4l.6.4h2.2l10.2 .6v1l-.4 .2v5.4l-.9.2-8.6-2.6H33l-1.6.4-.4 4.6-1.2.6h-1.6l.2-5.2H18z"/><path d="M18 8h15.4l.6.4h2.2l10.2 .6v1l-.4 .2v5.4l-.9.2-8.6-2.6H33l-1.6.4-.4 4.6-1.2.6h-1.6l.2-5.2H18z" stroke-width="0.9"/><path class="s" d="M1 9.1h3.4v1.8H1zM4.4 9.6H18v.9H4.4zM7.6 11h11v1H7.6zM4.6 7.8h.8v1.8h-.8z"/><path d="M2 9.1v1.8M3.2 9.1v1.8" stroke-width="0.5" style="stroke:rgba(30,28,14,.8)"/><path d="M18.6 8c.2-2.2 1.4-3 2.8-3s2.6.8 2.8 3" stroke-width="1.1"/><path class="s" d="M22 6.9h8.4V8H22zM31 6.6h1v1.4h-1z"/><path d="M24.6 12.8c0 1.6.8 2.6 2.6 2.6h1.4" stroke-width="0.9"/><path d="M14.6 12l-3.2 8.2M14.6 12l3 8.2" stroke-width="1.1"/><path d="M10.6 20.2h1.6M16.8 20.2h1.6" stroke-width="1.3"/><path class="s" d="M19.6 12.8h1.4v1.2h-1.4zM19.9 14.3h1.4v1.2h-1.4zM20.4 15.8h1.4V17h-1.4zM21.1 17.3h1.4v1.2h-1.4z"/><path d="M33.6 9.2l12 .8M34 12.4l11.4 3" stroke-width="0.5" style="stroke:rgba(30,28,14,.6)"/>' },
   ammo: '<path class="f" d="M2.8 10.4h15.6v10.4H2.8z"/><path d="M2.8 10.4h15.6v10.4H2.8z" stroke-width="1.3"/><path class="s" d="M2.2 8.8h16.8v1.8H2.2z"/><path d="M7.6 8.8V7.2h6v1.6" stroke-width="1.4"/><path d="M5.2 12.6v6.2M15.8 12.6v6.2" stroke-width="0.8" opacity=".7"/><path class="s" d="M1.4 12.2h1.4v3H1.4z"/><path d="M8 14.4h5.4M8 16.6h5.4" stroke-width="0.9" opacity=".75"/><path class="s" d="M18.6 10.2l1.6-.4 1 1.8-1.6.6zM19.6 12.4l1.6-.2.8 1.9-1.6.4zM20.2 14.8l1.6 0 .5 2-1.7.2z"/><path d="M19.4 9.6c1.6.9 2.6 3.6 2.6 7.6" stroke-width="0.7" opacity=".7"/>',
   lift: '<circle class="s" cx="10" cy="4.4" r="2"/><path d="M10 7.4v6.2M6.4 10.2l3.6-2.6 3.6 2.6M7.6 21l2.4-7.4 2.4 7.4"/><path class="f" d="M15.4 10.6l3.2-3.6 3.2 3.6h-2v6h-2.4v-6z"/><path d="M15.4 10.6l3.2-3.6 3.2 3.6h-2v6h-2.4v-6z"/>',
   drop: '<path class="f" d="M3 16h18v2.2H3z"/><path d="M3 16h18v2.2H3zM5 18.2v3M19 18.2v3"/><path d="M6.6 14.6h10.4"/><circle class="s" cx="6.6" cy="12.8" r="1.6"/><path d="M12 2.4v7.4M9.2 7.2l2.8 2.8 2.8-2.8"/>',
-  aid: '<path d="M8.6 7.4V5.6c0-.9.7-1.6 1.6-1.6h3.6c.9 0 1.6.7 1.6 1.6v1.8" stroke-width="1.6"/><path class="f" d="M3.4 9.2c0-1 .8-1.8 1.8-1.8h13.6c1 0 1.8.8 1.8 1.8v9.6c0 1-.8 1.8-1.8 1.8H5.2c-1 0-1.8-.8-1.8-1.8z"/><path d="M3.4 9.2c0-1 .8-1.8 1.8-1.8h13.6c1 0 1.8.8 1.8 1.8v9.6c0 1-.8 1.8-1.8 1.8H5.2c-1 0-1.8-.8-1.8-1.8z" stroke-width="1.3"/><path d="M3.6 11.4h16.8" stroke-width="0.8" opacity=".7"/><circle cx="12" cy="15.2" r="4.1" style="fill:#efe9d8;stroke:rgba(30,28,14,.6);stroke-width:.6"/><path d="M10.9 12.6h2.2v1.5h1.5v2.2h-1.5v1.5h-2.2v-1.5H9.4v-2.2h1.5z" style="fill:#c8372b;stroke:none"/>',
+  aid: '<path d="M8.6 7.4V5.6c0-.9.7-1.6 1.6-1.6h3.6c.9 0 1.6.7 1.6 1.6v1.8" stroke-width="1.6"/><path class="f" d="M3.4 9.2c0-1 .8-1.8 1.8-1.8h13.6c1 0 1.8.8 1.8 1.8v9.6c0 1-.8 1.8-1.8 1.8H5.2c-1 0-1.8-.8-1.8-1.8z"/><path d="M3.4 9.2c0-1 .8-1.8 1.8-1.8h13.6c1 0 1.8.8 1.8 1.8v9.6c0 1-.8 1.8-1.8 1.8H5.2c-1 0-1.8-.8-1.8-1.8z" stroke-width="1.3"/><path d="M3.6 11.4h16.8" stroke-width="0.8" opacity=".7"/><circle cx="12" cy="15" r="5.3" style="fill:#efe9d8;stroke:rgba(30,28,14,.6);stroke-width:.6"/><path d="M12 10.9l3.6 6.2H8.4zM12 19.1l-3.6-6.2h7.2z" style="fill:none;stroke:#d12a1e;stroke-width:1.5;stroke-linejoin:round"/>',
   down: '<rect class="f" x="4" y="12" width="16" height="9" rx="1.5"/><rect x="4" y="12" width="16" height="9" rx="1.5"/><path d="M12 2.5v8M8.8 7.4L12 10.6l3.2-3.2"/>',
   up: '<rect class="f" x="4" y="12" width="16" height="9" rx="1.5"/><rect x="4" y="12" width="16" height="9" rx="1.5"/><path d="M12 10.6v-8M8.8 5.8L12 2.6l3.2 3.2"/>',
   exit: '<path class="f" d="M5 4h5v16H5z"/><path d="M10 4H5v16h5"/><path d="M9.5 12H21M17 8l4 4-4 4"/>',
@@ -5471,7 +5471,7 @@ function updFriend(f, dt, time) {
     f.el.innerHTML = `<i>${crossSvg(f.state === 'stable' ? '#93d48d' : '#ff5a4a')}</i>${f.name}<small>${f.state === 'stable' ? `מיוצב · ${(CH() && CH().stableTag && CH().stableTag(f)) || 'לתאג״ד'}` : `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`} · ${d} מ׳</small>`;
   }
 }
-function crossSvg(c) { return `<svg viewBox="0 0 18 18" width="18" height="18"><path d="M6 1h6v5h5v6h-5v5H6v-5H1V6h5z" fill="${c}" stroke="#000" stroke-width="1"/></svg>`; }
+function crossSvg(c, w = 18) { return `<svg viewBox="0 0 18 18" width="${w}" height="${w}" style="vertical-align:middle"><g fill="none" stroke-linejoin="round"><path d="M9 1.6L15.6 13H2.4zM9 16.4L2.4 5h13.2z" stroke="#000" stroke-width="3.6" opacity=".55"/><path d="M9 1.6L15.6 13H2.4zM9 16.4L2.4 5h13.2z" stroke="${c}" stroke-width="2"/></g></svg>`; }   // the red Star of David (Magen David Adom), not a cross
 
 /* ================= enemies ================= */
 const GROUPS = [];
@@ -6718,7 +6718,7 @@ function tutorialTriggers() {
   if ((D.scene === 0 || D.scene === 4) && P.mode !== 'mag') { const p = POSTS.find((q) => q.id === 'W2'); if (Math.hypot(p.x - P.pos.x, p.z - P.pos.z) < 7) hint('man', `לחצו ${K('E')} ליד המא״ג כדי לאייש אותו.`, 5); }
   if (P.mode === 'mag') hint('mag', TOUCH ? `ירו בסירות לפני שהן נוחתות: החזיקו <kbd>אש</kbd> לצרור, <kbd>כוונת</kbd> לזום. הכפתור הירוק <kbd>לרדת</kbd> עוזב את המא״ג.` : `ירו בסירות לפני שהן נוחתות. ${K('לחצן ימני')} לזום, ${K('לחיצה ממושכת')} לצרור, ${K('R')} להחלפת שרשרת, ${K('E')} לעזוב את המא״ג.`, 9);
   if (D.inTrench > 0) hint('intrench', P.mode === 'mag' ? `<b>מצרים בתעלה!</b> המא״ג לא מכסה את התעלה. רדו ממנו (${TOUCH ? '<kbd>לרדת</kbd>' : K('E')}) ולחמו בתעלה.` : `<b>מצרים בתעלה!</b> הם רצים אליכם ומסתתרים מאחורי חומות שקי החול שבתעלה. תפסו אותם כשהם מציצים, או זרקו רימון (${K('G')}) מעבר לחומה.`, 9);
-  const w = FRIENDS.find((f) => f.state === 'wounded'); if (w) hint('wounded', `<b>${w.name} נפגע!</b> רוצו אליו (✚ אדום), החזיקו ${K('F')} לעזרה ראשונה. אחרי החבישה הוא חוזר להילחם.`, 10);
+  const w = FRIENDS.find((f) => f.state === 'wounded'); if (w) hint('wounded', `<b>${w.name} נפגע!</b> רוצו אליו (מגן דוד אדום), החזיקו ${K('F')} לעזרה ראשונה. אחרי החבישה הוא חוזר להילחם.`, 10);
   if (P.mode === 'carry') hint('carry', `סחבו אותו בתעלת הקשר לתאג״ד הקדמי (◆) ולחצו ${K('E')} ליד האלונקות.`, 6);
   if (P.mode === 'rifle' && P.reserve < 40) hint('ammo', `<b>תחמושת אוזלת!</b> ארגזי תחמושת בכל עמדה לאורך התעלה - ${K('E')} ליד הארגז.`, 7);
   if (P.hp < 45 && D.phase !== 'alert') hint('hp', `<b>אתם מדממים!</b> מחסה - שקי חול או חומה - וכריעה. כמה שניות בלי פגיעה והכוח חוזר.`, 7);
@@ -6781,9 +6781,9 @@ function updCompass() {
   for (const c of compassEls) { const rel = ((c.b - heading + 540) % 360) - 180; c.el.style.display = Math.abs(rel) < 72 ? '' : 'none'; c.el.style.left = `${w / 2 + rel * ppd}px`; }
   for (const m of compassMarks) m.used = false;
   const place = (m, x, z) => { const b = bearingOf(x - P.pos.x, z - P.pos.z); const rel = ((b - heading + 540) % 360) - 180; m.el.style.display = ''; m.el.style.left = `${w / 2 + clamp(rel, -70, 70) * ppd}px`; };
-  if (MODE === 'mezach') place(compassMark('aid', '<span style="color:#ff7a70">✚</span>'), AIDPOST.x, AIDPOST.z);
-  else if (MODE === 'suez' && SZ.stage >= 5) place(compassMark('aid', '<span style="color:#ff7a70">✚</span>'), LX(SZ_AID.c[0]), LZ(SZ_AID.c[1]));
-  for (const f of FRIENDS) if (f.state === 'wounded' || f.state === 'stable') place(compassMark('f' + f.name, `<span style="color:${f.state === 'wounded' ? '#ff5a4a' : '#93d48d'}">✚</span>`), f.unit.pos.x, f.unit.pos.z);
+  if (MODE === 'mezach') place(compassMark('aid', crossSvg('#ff7a70', 14)), AIDPOST.x, AIDPOST.z);
+  else if (MODE === 'suez' && SZ.stage >= 5) place(compassMark('aid', crossSvg('#ff7a70', 14)), LX(SZ_AID.c[0]), LZ(SZ_AID.c[1]));
+  for (const f of FRIENDS) if (f.state === 'wounded' || f.state === 'stable') place(compassMark('f' + f.name, crossSvg(f.state === 'wounded' ? '#ff5a4a' : '#93d48d', 14)), f.unit.pos.x, f.unit.pos.z);
   if (OBJ.on) place(compassMark('obj', '<span style="color:#ffcf73;font-size:14px">◆</span>'), OBJ.p.x, OBJ.p.z);
   for (const m of compassMarks) if (!m.used) m.el.style.display = 'none';
 }
@@ -6892,7 +6892,7 @@ function drawMinimap() {
     g.save(); g.translate(a, b); g.scale(pulse, pulse); g.lineCap = 'round'; g.strokeStyle = '#1b150b'; g.lineWidth = 7; g.beginPath(); g.moveTo(0, 0); g.lineTo(mx * 15, my * 15); g.stroke();
     g.strokeStyle = p.occupant === 'player' ? '#fff3c4' : '#ffcf73'; g.lineWidth = 3.5; g.beginPath(); g.moveTo(0, 0); g.lineTo(mx * 15, my * 15); g.stroke();
     g.beginPath(); g.arc(0, 0, 7.5, 0, 6.283); g.fillStyle = p.occupant === 'player' ? '#fff3c4' : '#ffcf73'; g.fill(); g.lineWidth = 2; g.strokeStyle = '#1b150b'; g.stroke(); g.restore(); }
-  { const [a, b] = X(AIDPOST.x, AIDPOST.z); g.fillStyle = '#ff6b5c'; g.fillRect(a - 7, b - 2, 14, 4); g.fillRect(a - 2, b - 7, 4, 14); }
+  { const [a, b] = X(AIDPOST.x, AIDPOST.z); g.strokeStyle = '#ff6b5c'; g.lineWidth = 2.2; g.lineJoin = 'round'; for (const sg of [1, -1]) { g.beginPath(); g.moveTo(a, b - 8 * sg); g.lineTo(a + 7, b + 4 * sg); g.lineTo(a - 7, b + 4 * sg); g.closePath(); g.stroke(); } }   // the Magen David Adom
   for (const bt of BOATS) { if (bt.dead || !bt.g.visible) continue; const [a, b] = X(bt.g.position.x, bt.g.position.z); g.fillStyle = '#ff5a4a'; g.fillRect(a - 6, b - 4, 12, 8); }
   if (SURV.on) for (const v of VEH) { if (v.mode !== 'mezach' || !v.g.visible) continue; const [a, b] = X(v.g.position.x, v.g.position.z); g.fillStyle = v.alive ? '#ff5a4a' : 'rgba(40,36,30,.8)'; g.fillRect(a - 6, b - 6, 12, 12); if (v.alive) { g.lineWidth = 2; g.strokeStyle = '#1b150b'; g.strokeRect(a - 6, b - 6, 12, 12); } }
   }
@@ -8848,7 +8848,7 @@ function suezHints() {
   if (SZ.stage === 2) hint('sz-run', `הצנחנים (כחול) הולכים אחריכם בטור. כל מי שיורה עליכם מקבל סימן כתום וקשת כתומה בשולי המסך. העמדות שלהם תמיד לפניכם, לאורך הסמטה: מחסה בירוק, ירו משם, והתקדמו כשהם מתחבאים.`, 8);
   if (SZ.stage === 3) hint('sz-sq3', `צוות התותח בבור השקים בפתח הרחוב, וגבם אליכם: הם מכוונים לשדרה. ירו ראשונים, רימון (${K('G')}) לבור עובד טוב. אחר כך תגיע התקפה מצפון ברחוב, ואז לדלת הצדדית של בניין הפינה.`, 9);
   if (SZ.stage === 4) hint('sz-cqb', `כל הדלתות בבניין סגורות. מנקים חדר, ניגשים לדלת הבאה (◆) והיא נפתחת: רימון פנימה (${K('G')}), חכו לפיצוץ, והיכנסו. הצנחנים אחריכם.`, 9);
-  if (SZ.stage === 5) hint('sz-hold', `מגינים מהקומה הראשונה. העמדה בחלון שפונה אל התוקפים מסומנת בירוק. מי שפורץ לבניין עולה במדרגות ישר אל התאג״ד (✚): שמרו על הדלת שלו, ורימון (${K('G')}) לכל מי שעולה.`, 9);
+  if (SZ.stage === 5) hint('sz-hold', `מגינים מהקומה הראשונה. העמדה בחלון שפונה אל התוקפים מסומנת בירוק. מי שפורץ לבניין עולה במדרגות ישר אל התאג״ד (✡): שמרו על הדלת שלו, ורימון (${K('G')}) לכל מי שעולה.`, 9);
   if (SZ.stage === 6 && !SZ.cv && SZ.t > 2) hint('sz-conv', 'השיירה נכנסת מהרחוב הדרומי (◆). היא תיעצר בכיכר תחת אש בזוקות מהחלונות שבדרום הכיכר: תפסו עמדה בחלון שפונה לכיכר (מסומן בירוק) ותכסו אותה משם.', 9);
 }
 function suezItems(items) {
@@ -15397,7 +15397,7 @@ const PR_STEPS = [
   { id: 'treat', btn: 'taid', title: 'עזרה ראשונה', at: () => { const u = prDudu().unit; return [u.pos.x, u.pos.y + 0.4, u.pos.z, 'דודו · "פצוע"']; },
     say: ['דודו "נפגע" בתרגיל. אל תצחקו, תחבשו אותו כמו שצריך.'],
     start: () => prWoundDudu(),
-    hint: () => `<b>עזרה ראשונה:</b> עמדו ליד הפצוע (✚) והחזיקו ${prKey(K('F'), 'את הכפתור הירוק שמופיע מימין')} עד שהפס מתמלא.`,
+    hint: () => `<b>עזרה ראשונה:</b> עמדו ליד הפצוע (מגן דוד אדום) והחזיקו ${prKey(K('F'), 'את הכפתור הירוק שמופיע מימין')} עד שהפס מתמלא.`,
     done: () => prDudu().state === 'stable' },
   { id: 'carry', btn: 'tact', title: 'פינוי לתאג״ד', at: () => prCarryAt(),
     say: ['עכשיו לתאג״ד. סוחבים אותו בתעלת הקשר, לא מעל הסוללה.'],
@@ -15552,7 +15552,7 @@ function prRaftUpd(dt) {
 function prBuildTent() {
   const [tx, tz] = PR_AT.tent, g0 = groundAt(tx, tz), g = new THREE.Group(); g.position.set(tx, g0, tz);
   const W = 9, D = 7, H = 3.1, E = 1.9, can = new THREE.MeshStandardMaterial({ color: 0x6f6a48, roughness: 0.95, side: THREE.DoubleSide }), pole = new THREE.MeshStandardMaterial({ color: 0x4a3a28, roughness: 0.9 });
-  const crossTex = (() => { const c = canvas(128, 128), q = c.getContext('2d'); q.fillStyle = '#f2efe6'; q.fillRect(0, 0, 128, 128); q.fillStyle = '#c4161c'; q.fillRect(48, 14, 32, 100); q.fillRect(14, 48, 100, 32); return tex(c); })();
+  const crossTex = (() => { const c = canvas(128, 128), q = c.getContext('2d'); q.fillStyle = '#f2efe6'; q.fillRect(0, 0, 128, 128); q.strokeStyle = '#c4161c'; q.lineWidth = 11; q.lineJoin = 'miter'; for (const sg of [1, -1]) { q.beginPath(); q.moveTo(64, 64 - 48 * sg); q.lineTo(64 + 41.6, 64 + 24 * sg); q.lineTo(64 - 41.6, 64 + 24 * sg); q.closePath(); q.stroke(); } return tex(c); })();   // the Magen David Adom on the aid tent
   const crossM = new THREE.MeshStandardMaterial({ map: crossTex, roughness: 0.9, side: THREE.DoubleSide, emissive: 0x220404 });
   // the roof: two slopes from the ridge to the eaves
   const slope = Math.hypot(D / 2, H - E), ang = Math.atan2(H - E, D / 2);
@@ -16037,7 +16037,7 @@ const MICRO = {
     <g transform="translate(402 62)">
       <rect class="mm-water" x="0" y="0" width="30" height="294"/><rect class="mm-water" x="216" y="0" width="22" height="294"/>
       <path class="mm-trench" d="M72 40 L130 26 L188 40 L200 110 L188 180 L130 194 L72 180 L60 110 Z"/><path class="mm-trench2" d="M82 50 L130 38 L178 50 L188 110 L178 170 L130 182 L82 170 L72 110 Z"/>
-      <rect class="mm-bldg" x="112" y="76" width="22" height="12"/><rect class="mm-bldg" x="146" y="128" width="20" height="11"/><text class="mm-aid" x="104" y="124" text-anchor="middle">✚</text>
+      <rect class="mm-bldg" x="112" y="76" width="22" height="12"/><rect class="mm-bldg" x="146" y="128" width="20" height="11"/><text class="mm-aid" x="104" y="124" text-anchor="middle">✡</text>
       <rect class="mm-post" x="62" y="86" width="8" height="8"/><rect class="mm-post" x="62" y="124" width="8" height="8"/><rect class="mm-post" x="126" y="30" width="8" height="8"/><rect class="mm-post" x="126" y="186" width="8" height="8"/>
       ${MM.boat(14, 84)}${MM.boat(10, 112)}${MM.boat(16, 140)}
       ${MM.arr('red', 'M30 84 C 44 86, 52 88, 58 90', MMW(80))}${MM.arr('red', 'M26 112 C 40 114, 50 118, 58 124', MMW(80))}${MM.arr('red', 'M32 140 C 44 136, 52 132, 58 130', MMW(80))}
@@ -16111,7 +16111,7 @@ const MICRO = {
     ${[[26, 70, 92, 46], [26, 128, 92, 38], [26, 180, 92, 54], [26, 246, 92, 62], [134, 70, 64, 46], [134, 128, 64, 38], [134, 246, 64, 62], [214, 70, 62, 46], [214, 128, 62, 38], [374, 70, 70, 46], [374, 128, 70, 38], [460, 70, 76, 46], [460, 128, 76, 38], [460, 180, 76, 54], [460, 246, 76, 62], [552, 70, 72, 46], [552, 128, 72, 38], [552, 180, 72, 54], [552, 246, 72, 62], [374, 246, 70, 62]].map(([x, y, w, h]) => `<rect class="mm-block" x="${x}" y="${y}" width="${w}" height="${h}"/>`).join('')}
     <path class="mm-street" d="M300 0 V 170 M 0 228 H 640 M 0 116 H 640 M 120 50 V 320 M 450 50 V 320"/>
     <rect class="mm-sq" x="214" y="176" width="230" height="46"/>
-    <rect class="mm-bunker" x="214" y="246" width="60" height="62"/><text class="mm-aid" x="244" y="283" text-anchor="middle">✚</text>
+    <rect class="mm-bunker" x="214" y="246" width="60" height="62"/><text class="mm-aid" x="244" y="283" text-anchor="middle">✡</text>
     ${[[214, 182], [214, 216], [444, 182], [444, 216], [250, 176], [400, 176], [300, 222], [380, 222]].map(([x, y]) => `<path class="mm-tri" d="M${x} ${y - 6} L${x + 5} ${y + 4} L${x - 5} ${y + 4} Z"/>`).join('')}
     ${MM.arr('red', 'M250 160 L 262 176', 3)}${MM.arr('red', 'M404 160 L 392 176', 3)}${MM.arr('red', 'M170 200 L 206 200', 3)}${MM.arr('red', 'M484 200 L 452 200', 3)}${MM.arr('red', 'M200 290 L 212 282', 3)}${MM.arr('red', 'M330 270 L 280 268', 3)}
     ${MM.unit(300, 22, 'blue', 'arm', 'X')}${MM.arr('blue', 'M300 40 L 300 172', MMW(1000))}
