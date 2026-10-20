@@ -110,12 +110,21 @@ button:focus-visible{outline:2px solid var(--sand);outline-offset:2px}
 #microMap .mm-gap{font-family:var(--f-ui);font-weight:800;font-size:11px;fill:#2f5f9c}
 
 @keyframes savedIn{0%{opacity:0;transform:translateY(-4px)}12%{opacity:1;transform:none}75%{opacity:1}100%{opacity:0}}
-#ammo{bottom:18px;inset-inline-end:22px;direction:rtl;text-align:end;text-shadow:0 1px 3px #000}
-#ammo .w{font-size:12px;color:var(--muted);letter-spacing:.04em}
-#ammo .n{font-family:var(--f-display);font-size:40px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
-#ammo .n small{font-size:18px;color:var(--muted);font-weight:500}
-#ammo .g{font-size:12.5px;color:var(--paper);margin-top:4px}
-#ammo .low{color:var(--egy)}
+#ammo{bottom:18px;inset-inline-end:22px;direction:ltr;display:flex;align-items:flex-end;gap:8px;text-shadow:0 1px 2px #000}
+.wpan{display:flex;align-items:center;gap:8px;padding:5px 12px 5px 8px;border:2px solid rgba(196,178,108,.85);border-radius:6px;background:linear-gradient(180deg,rgba(84,82,46,.82),rgba(36,36,20,.84));box-shadow:inset 0 1px 0 rgba(255,248,210,.2),inset 0 -3px 6px rgba(0,0,0,.45),0 3px 8px rgba(0,0,0,.4);color:#dccf92}
+#wIco .ico{width:84px;height:42px;fill:none;stroke:currentColor;stroke-width:1;stroke-linecap:round;stroke-linejoin:round;filter:drop-shadow(0 -1px 1px rgba(0,0,0,.6))}
+#wIco .ico:not(.wide){width:42px}
+#wIco .ico .f{fill:currentColor;fill-opacity:.9;stroke:none}#wIco .ico .s,.wg .ico .s{fill:currentColor;stroke:none}.wg .ico .f{fill:currentColor;fill-opacity:.88;stroke:none}
+.wnum{display:flex;flex-direction:column;align-items:flex-start;gap:3px}
+#ammo .n{font-family:var(--f-display);font-size:30px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums;color:#efe3ad}
+#ammo .n small{font-size:14px;color:rgba(220,207,146,.75);font-weight:600;margin-inline-start:3px}
+#ammo .low{color:#ff9a7a}
+#wTicks.ticks{display:flex;gap:1.5px}#wTicks.ticks i{width:3px;height:9px;border-radius:1.5px 1.5px 0 0;background:rgba(220,207,146,.18)}#wTicks.ticks i.on{background:#dccf92}
+#wTicks.bar{width:84px;height:6px;border-radius:3px;background:rgba(220,207,146,.18);overflow:hidden}#wTicks.bar span{display:block;height:100%;background:#dccf92}
+#app.play #ammo{display:flex}
+#wGren{display:flex;flex-direction:column;align-items:flex-start;gap:4px}
+.wg{display:flex;align-items:center;gap:2px;padding:2px 6px 2px 3px;border:1.5px solid rgba(196,178,108,.75);border-radius:14px;background:rgba(40,40,22,.8);color:#dccf92;font:700 13px/1 var(--f-ui,sans-serif)}
+.wg .ico{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.4}
 #hp{bottom:112px;inset-inline-end:22px;width:190px;direction:ltr}
 #hp .bar{height:9px;background:rgba(10,13,15,.65);border:1px solid rgba(236,229,212,.35);border-radius:5px;overflow:hidden}
 #hp .bar i{display:block;height:100%;width:100%;background:#7fcf6a;transition:width .15s,background .3s}
@@ -292,7 +301,9 @@ button:focus-visible{outline:2px solid var(--sand);outline-offset:2px}
 #app.play.is-touch #taid:not(.on),#app.play.is-touch #tmag:not(.on){display:none}
 #taid .ico .f{fill-opacity:.2}#taid .ico .s{fill:#c8473a}
 #taid.prog,.tb.prog{background:conic-gradient(rgba(196,178,108,.55) var(--p,0deg),rgba(44,44,24,.8) 0)}
-#tmag .ico{width:70%;height:70%}
+#tmag{width:76px!important;height:76px!important;right:132px!important}
+#tmag .ico{width:86%;height:86%;stroke-width:1}
+.ico.wide{transform:none}.tchip .ico.wide{width:90%}
 #tpause{border-radius:50%!important}
 /* the stick: a heavy olive ball in a dark ring with a brass edge */
 #tjoy{border:2px solid rgba(196,178,108,.6)!important;background:radial-gradient(circle,rgba(20,20,10,.25),rgba(20,20,10,.45))!important;box-shadow:inset 0 0 12px rgba(0,0,0,.5)}
@@ -331,9 +342,9 @@ button:focus-visible{outline:2px solid var(--sand);outline-offset:2px}
 #tpause .ico{width:62%;height:62%;stroke-width:2.2}
 #app.is-touch #clock{inset-inline-end:calc(62px + env(safe-area-inset-left,0px))}   /* beside the menu button, not under it */
 #app.is-touch #ammo{inset-inline-end:auto;left:50%;transform:translateX(-50%);bottom:calc(8px + env(safe-area-inset-bottom,0px));text-align:center}
-#app.is-touch #ammo .n{font-size:28px}
-#app.is-touch #ammo .w,#app.is-touch #ammo .g{display:none}
-#app.is-touch #hp{inset-inline-end:auto;left:50%;transform:translateX(-50%);bottom:calc(46px + env(safe-area-inset-bottom,0px));width:150px}
+#app.is-touch #ammo .n{font-size:24px} #app.is-touch #wIco .ico{width:66px;height:33px} #app.is-touch #wIco .ico:not(.wide){width:33px}
+#app.is-touch #ammo .w{display:none}
+#app.is-touch #hp{inset-inline-end:auto;left:50%;transform:translateX(-50%);bottom:calc(66px + env(safe-area-inset-bottom,0px));width:150px}
 #app.is-touch #covst{bottom:calc(84px + env(safe-area-inset-bottom,0px));font-size:11.5px;padding:3px 10px 3px 8px}
 #app.is-touch #minimap{top:62px;left:12px;width:104px;height:104px}
 #app.is-touch #feed{bottom:180px}
@@ -817,7 +828,7 @@ button:focus-visible{outline:2px solid var(--sand);outline-offset:2px}
   <div class="hud" id="saved" aria-live="polite">✓ נקודת שמירה</div>
   <div class="hud" id="hp"><span id="hpText">חיים 100</span><div class="bar"><i id="hpFill"></i></div></div>
   <div class="hud" id="minimap"><canvas id="mini" width="300" height="300" aria-label="מפה קטנה: כחול כוחותינו, אדום אויב"></canvas></div>
-  <div class="hud" id="ammo"><div class="w" id="wName">רובה FN</div><div class="n" id="wAmmo">20 <small>/ 160</small></div><div class="g" id="wGren">רימונים: 4</div></div>
+  <div class="hud" id="ammo"><div class="w" id="wName" hidden>רובה FN</div><div class="wpan"><span id="wIco"></span><div class="wnum"><div class="n" id="wAmmo">20<small>/160</small></div><div id="wTicks"></div></div></div><div class="g" id="wGren"></div></div>
   <div class="hud" id="meter"><span id="meterT"></span><div class="bar"><i id="meterF"></i></div><b id="meterP"></b></div>
   <div class="hud" id="treat"><b id="treatPct">0%</b><div class="bar"><i id="treatFill"></i></div><span id="treatName">חובש</span></div>
   <div class="hud" id="prompt"><div id="promptText"></div><div class="bar" id="promptBar" hidden><i id="promptFill"></i></div></div>

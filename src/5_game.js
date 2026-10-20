@@ -1802,10 +1802,13 @@ function updHUD(dt) {
   hudT -= dt; if (hudT > 0) return; hudT = 0.12;
   $('#clockTime').textContent = clockText();
   { const h = Math.max(0, Math.round(P.hp)); $('#hpFill').style.width = `${h}%`; $('#hpFill').style.background = h > 60 ? '#7fcf6a' : h > 30 ? '#e6c14f' : '#e5533f'; $('#hpText').textContent = `חיים ${h}`; }
-  if (P.mode === 'tank') { $('#wName').textContent = 'מגח · מקלע 0.5 ותותח 90'; $('#wAmmo').innerHTML = TANK.gunT > 0 ? `פגז <small>טוען ${Math.ceil(TANK.gunT)}</small>` : 'פגז <small>מוכן</small>'; $('#wAmmo').className = 'n'; }
-  else if (P.mode === 'mag') { const m = P.post.mag; if (m.big) { $('#wName').textContent = 'תותח ללא רתע 106'; $('#wAmmo').innerHTML = m.reload > 0 ? 'טוען…' : 'פגז <small>מוכן</small>'; $('#wAmmo').className = 'n'; } else { $('#wName').textContent = m.heavy ? 'בראונינג 0.5' : 'מא״ג 7.62'; $('#wAmmo').innerHTML = SURV.on ? `∞ <small>${m.heavy ? 'ארגזים בלי סוף' : 'שרשרת ללא הפסקה'}</small>` : m.reload > 0 ? 'מחליף…' : `${m.belt} <small>/ ${m.heavy ? 'ארגז' : 'שרשרת'}</small>`; $('#wAmmo').className = 'n' + (!SURV.on && m.belt < 30 ? ' low' : ''); } }
-  else { $('#wName').textContent = P.mode === 'carry' ? 'נושא פצוע' : 'רובה FN (פאל)'; $('#wAmmo').innerHTML = P.reloadT > 0 ? 'טוען…' : `${P.mag} <small>/ ${P.reserve}</small>`; $('#wAmmo').className = 'n' + (P.mag <= 5 ? ' low' : ''); }
-  $('#wGren').textContent = P.smokeMax ? `רימוני רסס: ${P.gren} · עשן: ${P.smoke}` : `רימוני רסס: ${P.gren}`;
+  { const gr = P.mode === 'rifle' || P.mode === 'carry' ? P.gren : null, sm = P.smokeMax ? P.smoke : 0;
+    if (P.mode === 'tank') { $('#wName').textContent = 'מגח'; wpUpdate('shell', TANK.gunT > 0 ? Math.ceil(TANK.gunT) : '●', '', TANK.gunT > 0 ? 1 - TANK.gunT / 4 : 1, 0, null, 0, false); }
+    else if (P.mode === 'mag') { const m = P.post.mag; if (m.big) { $('#wName').textContent = 'תותח ללא רתע 106'; wpUpdate('shell', m.reload > 0 ? '…' : '●', '', m.reload > 0 ? 0 : 1, 0, null, 0, false); }
+      else { $('#wName').textContent = m.heavy ? 'בראונינג 0.5' : 'מא״ג'; const cap = m.cap || 200; wpUpdate('mg', SURV.on ? '∞' : m.reload > 0 ? '…' : m.belt, SURV.on ? '' : `/${cap}`, SURV.on ? 1 : m.belt / cap, 0, null, 0, !SURV.on && m.belt < 30); } }
+    else if (P.ride && P.ride.mg) { $('#wName').textContent = 'מקלע'; wpUpdate('mg', '∞', '', 1, 0, null, 0, false); }
+    else if (P.mode === 'carry') { $('#wName').textContent = 'נושא פצוע'; wpUpdate('lift', '', '', 0, 0, gr, sm, false); }
+    else { $('#wName').textContent = 'רובה FN'; wpUpdate('fal', P.reloadT > 0 ? '…' : P.mag, `/${P.reserve}`, P.mag / 20, 20, gr, sm, P.mag <= 5); } }
   { const tr = $('#treat'), on = !!(promptState && promptState.hold && P.hold > 0); tr.classList.toggle('on', on); if (on) { const pc = Math.min(100, Math.round(P.hold / 3 * 100)); $('#treatPct').textContent = `${pc}%`; $('#treatFill').style.width = `${pc}%`; $('#treatName').textContent = `חובשים את ${promptState.f ? promptState.f.name : 'הפצוע'}…`; } }
   const pr = $('#prompt'); if (promptState) { pr.classList.add('on'); $('#promptText').innerHTML = TOUCH ? promptState.text.replace(/<kbd>[^<]*<\/kbd>/g, tchip(TPOINT.act || 'hand')) : promptState.text; $('#promptBar').hidden = !promptState.hold; $('#promptFill').style.width = `${P.hold / 3 * 100}%`; } else pr.classList.remove('on');
   $('#carry').classList.toggle('on', P.mode === 'carry');

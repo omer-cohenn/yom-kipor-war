@@ -4943,7 +4943,7 @@ const TICO = {   /* line drawings with filled parts (class f: a tint of the line
   gren: '<ellipse class="f" cx="11" cy="15" rx="5.6" ry="6.2"/><ellipse cx="11" cy="15" rx="5.6" ry="6.2"/><path d="M5.6 13.2h10.8M5.6 16.8h10.8M8.6 9.2v11.6M13.4 9.2v11.6" stroke-width="1" opacity=".6"/><path class="s" d="M8.6 7.2h4.8v2.2H8.6z"/><path d="M13.4 7.6h3.4c.8 0 1.3.5 1.4 1.2l.9 4.6"/><circle cx="7.4" cy="5.4" r="1.9"/><path d="M8.8 6.4l.6.9"/>',
   shell: '<path class="f" d="M9 9.2c0-2.8 1-5.2 3-7 2 1.8 3 4.2 3 7v4.2H9z"/><path d="M9 9.2c0-2.8 1-5.2 3-7 2 1.8 3 4.2 3 7v4.2H9z"/><path class="s" d="M8.4 13.4h7.2v1.8H8.4z"/><path d="M8.8 15.2h6.4v6.6H8.8z"/><path d="M8.8 18.2h6.4" stroke-width="1" opacity=".6"/>',
   hand: '<path class="f" d="M8 14.6V6.2a1.4 1.4 0 0 1 2.8 0V4.6a1.4 1.4 0 0 1 2.8 0v1.2a1.4 1.4 0 0 1 2.8 0v4a1.4 1.4 0 0 1 2.8 0v4.6c0 4-2.6 7.1-6.6 7.1-2.7 0-4.4-1.2-5.9-3.5L4.4 14.4a1.4 1.4 0 0 1 2.3-1.6z"/><path d="M8 12.5V6.2a1.4 1.4 0 0 1 2.8 0V11"/><path d="M10.8 10.6V4.6a1.4 1.4 0 0 1 2.8 0v6"/><path d="M13.6 10.6V5.8a1.4 1.4 0 0 1 2.8 0v6.6"/><path d="M16.4 9.8a1.4 1.4 0 0 1 2.8 0v4.6c0 4-2.6 7.1-6.6 7.1-2.7 0-4.4-1.2-5.9-3.5L4.4 14.4a1.4 1.4 0 0 1 2.3-1.6L8 14.6"/>',
-  mg: '<path class="f" d="M7 8.8h9.2v3.8H7zM16.2 9.2l6 .8v3.4l-6-.8z"/><path d="M7 8.8h9.2v3.8H7zM16.2 9.2l6 .8v3.4l-6-.8z"/><path d="M1.6 10.2H7M2.4 9.4v1.6" stroke-width="1.8"/><path class="s" d="M8.6 12.6h3.4v3H8.6z"/><path d="M14 12.6l.8 3.2h1.6l-.6-3.2"/><path d="M5.2 10.6l-2 6.4M5.2 10.6l2 6.4" stroke-width="1.4"/><path d="M9.4 8.8V7.4h3.6v1.4" stroke-width="1.2"/>',
+  mg: { vb: '0 0 48 24', p: '<path class="f" d="M18 8h15.4l.6.4h2.2l10.2 .6v1l-.4 .2v5.4l-.9.2-8.6-2.6H33l-1.6.4-.4 4.6-1.2.6h-1.6l.2-5.2H18z"/><path d="M18 8h15.4l.6.4h2.2l10.2 .6v1l-.4 .2v5.4l-.9.2-8.6-2.6H33l-1.6.4-.4 4.6-1.2.6h-1.6l.2-5.2H18z" stroke-width="0.9"/><path class="s" d="M1 9.1h3.4v1.8H1zM4.4 9.6H18v.9H4.4zM7.6 11h11v1H7.6zM4.6 7.8h.8v1.8h-.8z"/><path d="M2 9.1v1.8M3.2 9.1v1.8" stroke-width="0.5" style="stroke:rgba(30,28,14,.8)"/><path d="M18.6 8c.2-2.2 1.4-3 2.8-3s2.6.8 2.8 3" stroke-width="1.1"/><path class="s" d="M22 6.9h8.4V8H22zM31 6.6h1v1.4h-1z"/><path d="M24.6 12.8c0 1.6.8 2.6 2.6 2.6h1.4" stroke-width="0.9"/><path d="M14.6 12l-3.2 8.2M14.6 12l3 8.2" stroke-width="1.1"/><path d="M10.6 20.2h1.6M16.8 20.2h1.6" stroke-width="1.3"/><path class="s" d="M19.6 12.8h1.4v1.2h-1.4zM19.9 14.3h1.4v1.2h-1.4zM20.4 15.8h1.4V17h-1.4zM21.1 17.3h1.4v1.2h-1.4z"/><path d="M33.6 9.2l12 .8M34 12.4l11.4 3" stroke-width="0.5" style="stroke:rgba(30,28,14,.6)"/>' },
   ammo: '<rect class="f" x="3" y="10" width="18" height="10.5" rx="1"/><rect x="3" y="10" width="18" height="10.5" rx="1"/><path d="M3 13.6h18"/><path class="s" d="M10.4 16h3.2v2.2h-3.2z"/><path d="M6.6 10V5.6c0-1 .5-1.8 1.2-2.4.7.6 1.2 1.4 1.2 2.4V10M10.8 10V5.6c0-1 .5-1.8 1.2-2.4.7.6 1.2 1.4 1.2 2.4V10M15 10V5.6c0-1 .5-1.8 1.2-2.4.7.6 1.2 1.4 1.2 2.4V10"/>',
   lift: '<circle class="s" cx="10" cy="4.4" r="2"/><path d="M10 7.4v6.2M6.4 10.2l3.6-2.6 3.6 2.6M7.6 21l2.4-7.4 2.4 7.4"/><path class="f" d="M15.4 10.6l3.2-3.6 3.2 3.6h-2v6h-2.4v-6z"/><path d="M15.4 10.6l3.2-3.6 3.2 3.6h-2v6h-2.4v-6z"/>',
   drop: '<path class="f" d="M3 16h18v2.2H3z"/><path d="M3 16h18v2.2H3zM5 18.2v3M19 18.2v3"/><path d="M6.6 14.6h10.4"/><circle class="s" cx="6.6" cy="12.8" r="1.6"/><path d="M12 2.4v7.4M9.2 7.2l2.8 2.8 2.8-2.8"/>',
@@ -4954,9 +4954,10 @@ const TICO = {   /* line drawings with filled parts (class f: a tint of the line
   swap: '<path d="M4 8.5h13.5M14 5l3.5 3.5L14 12"/><path d="M20 15.5H6.5M10 12l-3.5 3.5L10 19"/>',
   jet: '<path class="f" d="M12 2.2l1.6 6.4 7.4 4.6v1.8l-7.2-2.3-.6 5.4 2.6 2v1.5L12 20.4l-3.8 1.2v-1.5l2.6-2-.6-5.4-7.2 2.3v-1.8l7.4-4.6z"/><path d="M12 2.2l1.6 6.4 7.4 4.6v1.8l-7.2-2.3-.6 5.4 2.6 2v1.5L12 20.4l-3.8 1.2v-1.5l2.6-2-.6-5.4-7.2 2.3v-1.8l7.4-4.6z"/>',
   smoke: '<rect class="f" x="8.5" y="11" width="7" height="10" rx="1"/><rect x="8.5" y="11" width="7" height="10" rx="1"/><path d="M8.5 14h7"/><path class="s" d="M10 9.2h4V11h-4z"/><path d="M12 9c-2.6 0-3.6-1.6-3.1-3.2.5-1.6 2.3-1.8 3-1 .4-1.7 3.4-2 4 0 1.8-.3 2.6 1.6 1.6 2.8"/>',
+  fal: { vb: '0 0 48 24', p: '<path class="f" d="M3 9.4h9.6l.6-.6h12.4l1 .6h4l1.6-1h2.6l.4 1 10.4 1.6.2 4.2-1.2.6-9.8-2.4-2.2.2-1.4 4.4-1.4.4-1.8-.2.6-4.4h-3l-1.4 5.6-1 .3-3.6-.1.6-1.2 1.6-4.6h-1.8l-.6 1.6h-1.4l.4-1.8-6.4-.4-.4-.6H3z"/><path d="M3 9.4h9.6l.6-.6h12.4l1 .6h4l1.6-1h2.6l.4 1 10.4 1.6.2 4.2-1.2.6-9.8-2.4-2.2.2-1.4 4.4-1.4.4-1.8-.2.6-4.4h-3l-1.4 5.6-1 .3-3.6-.1.6-1.2 1.6-4.6h-1.8l-.6 1.6h-1.4l.4-1.8-6.4-.4-.4-.6H3z" stroke-width="0.8"/><path class="s" d="M.8 9.6H3v1.4H.8zM4.6 8.2h.7v1.2h-.7zM30.2 7.2h1.6v1.2h-1.6z"/><path d="M13.4 10.6h10.8M24.6 12.6l-1.4 5.6" stroke-width="0.5" style="stroke:rgba(30,28,14,.7)"/>' },
   menu: '<path d="M4 6.5h16M4 12h16M4 17.5h16"/>',
 };
-function tico(n, cls = '') { const p = TICO[n] || TICO.hand; return `<svg class="ico ${cls}" viewBox="0 0 24 24" aria-hidden="true">${p}</svg>`; }
+function tico(n, cls = '') { const t = TICO[n] || TICO.hand, p = t.p || t, vb = t.vb || '0 0 24 24'; return `<svg class="ico ${cls}${t.vb ? ' wide' : ''}" viewBox="${vb}" aria-hidden="true">${p}</svg>`; }
 /* a small inline picture of a button, for the instructions: the same drawing in a little round chip */
 const tchip = (n) => `<span class="tchip">${tico(n)}</span>`;
 /* set a button's picture (and a small number on it), touching the page only when it changes */
@@ -4979,6 +4980,19 @@ const TI_MAP = [[/(?:על )?(?:הכפתור |כפתור )?<kbd>אש<\/kbd>/g, 'f
   [/(?:הכפתור |כפתור )?<kbd>עשן<\/kbd>/g, 'smoke'], [/(?:הכפתור |כפתור )?<kbd>לאייש מא״ג<\/kbd>/g, 'mg'], [/(?:הכפתור |כפתור )?<kbd>לרדת<\/kbd>/g, 'exit'], [/(?:הכפתור |כפתור )?<kbd>פעולה<\/kbd>/g, 'hand'],
   [/(?:על |את )?הכפתור הירוק(?: שמופיע מימין)?/g, 'hand'], [/(?:הכפתור |כפתור )?<kbd>עזרה ראשונה<\/kbd>/g, 'aid']];
 function touchIcons(html) { if (typeof TOUCH === 'undefined' || !TOUCH) return html; for (const [re, n] of TI_MAP) html = html.replace(re, tchip(n)); return html; }
+
+/* the weapon panel: the weapon drawn, the rounds left in big numbers, the magazine as a row of cartridges (or the belt as a bar), the
+   grenades beside it - all in the olive and brass of the buttons */
+const WP = { k: '', t: '', g: '' };
+function wpUpdate(kind, n, of, fill, ticks, gren, smoke, low) {
+  if (WP.k !== kind) { WP.k = kind; $('#wIco').innerHTML = tico(kind); }
+  const t = `${n}${of !== '' ? `<small>${of}</small>` : ''}`; if (WP.t !== t) { WP.t = t; $('#wAmmo').innerHTML = t; } $('#wAmmo').classList.toggle('low', !!low);
+  const tk = $('#wTicks'), key = ticks ? `t${ticks}|${fill}` : `b${Math.round(fill * 40)}`;
+  if (tk.dataset.k !== key) { tk.dataset.k = key;
+    if (ticks) { let h = ''; const on = Math.round(fill * ticks); for (let i = 0; i < ticks; i++) h += `<i class="${i < on ? 'on' : ''}"></i>`; tk.innerHTML = h; tk.className = 'ticks'; }
+    else { tk.innerHTML = `<span style="width:${Math.round(fill * 100)}%"></span>`; tk.className = 'bar'; } }
+  const g = `${gren}|${smoke}`; if (WP.g !== g) { WP.g = g; $('#wGren').innerHTML = (gren !== null ? `<span class="wg">${tico('gren')}<b>${gren}</b></span>` : '') + (smoke ? `<span class="wg">${tico('smoke')}<b>${smoke}</b></span>` : ''); }
+}
 
 /* ================= settings ================= */
 /* three levels, one route and one story: what changes is how forgiving the war is. The higher the level, the more Egyptians, the sooner they
@@ -6783,10 +6797,13 @@ function updHUD(dt) {
   hudT -= dt; if (hudT > 0) return; hudT = 0.12;
   $('#clockTime').textContent = clockText();
   { const h = Math.max(0, Math.round(P.hp)); $('#hpFill').style.width = `${h}%`; $('#hpFill').style.background = h > 60 ? '#7fcf6a' : h > 30 ? '#e6c14f' : '#e5533f'; $('#hpText').textContent = `חיים ${h}`; }
-  if (P.mode === 'tank') { $('#wName').textContent = 'מגח · מקלע 0.5 ותותח 90'; $('#wAmmo').innerHTML = TANK.gunT > 0 ? `פגז <small>טוען ${Math.ceil(TANK.gunT)}</small>` : 'פגז <small>מוכן</small>'; $('#wAmmo').className = 'n'; }
-  else if (P.mode === 'mag') { const m = P.post.mag; if (m.big) { $('#wName').textContent = 'תותח ללא רתע 106'; $('#wAmmo').innerHTML = m.reload > 0 ? 'טוען…' : 'פגז <small>מוכן</small>'; $('#wAmmo').className = 'n'; } else { $('#wName').textContent = m.heavy ? 'בראונינג 0.5' : 'מא״ג 7.62'; $('#wAmmo').innerHTML = SURV.on ? `∞ <small>${m.heavy ? 'ארגזים בלי סוף' : 'שרשרת ללא הפסקה'}</small>` : m.reload > 0 ? 'מחליף…' : `${m.belt} <small>/ ${m.heavy ? 'ארגז' : 'שרשרת'}</small>`; $('#wAmmo').className = 'n' + (!SURV.on && m.belt < 30 ? ' low' : ''); } }
-  else { $('#wName').textContent = P.mode === 'carry' ? 'נושא פצוע' : 'רובה FN (פאל)'; $('#wAmmo').innerHTML = P.reloadT > 0 ? 'טוען…' : `${P.mag} <small>/ ${P.reserve}</small>`; $('#wAmmo').className = 'n' + (P.mag <= 5 ? ' low' : ''); }
-  $('#wGren').textContent = P.smokeMax ? `רימוני רסס: ${P.gren} · עשן: ${P.smoke}` : `רימוני רסס: ${P.gren}`;
+  { const gr = P.mode === 'rifle' || P.mode === 'carry' ? P.gren : null, sm = P.smokeMax ? P.smoke : 0;
+    if (P.mode === 'tank') { $('#wName').textContent = 'מגח'; wpUpdate('shell', TANK.gunT > 0 ? Math.ceil(TANK.gunT) : '●', '', TANK.gunT > 0 ? 1 - TANK.gunT / 4 : 1, 0, null, 0, false); }
+    else if (P.mode === 'mag') { const m = P.post.mag; if (m.big) { $('#wName').textContent = 'תותח ללא רתע 106'; wpUpdate('shell', m.reload > 0 ? '…' : '●', '', m.reload > 0 ? 0 : 1, 0, null, 0, false); }
+      else { $('#wName').textContent = m.heavy ? 'בראונינג 0.5' : 'מא״ג'; const cap = m.cap || 200; wpUpdate('mg', SURV.on ? '∞' : m.reload > 0 ? '…' : m.belt, SURV.on ? '' : `/${cap}`, SURV.on ? 1 : m.belt / cap, 0, null, 0, !SURV.on && m.belt < 30); } }
+    else if (P.ride && P.ride.mg) { $('#wName').textContent = 'מקלע'; wpUpdate('mg', '∞', '', 1, 0, null, 0, false); }
+    else if (P.mode === 'carry') { $('#wName').textContent = 'נושא פצוע'; wpUpdate('lift', '', '', 0, 0, gr, sm, false); }
+    else { $('#wName').textContent = 'רובה FN'; wpUpdate('fal', P.reloadT > 0 ? '…' : P.mag, `/${P.reserve}`, P.mag / 20, 20, gr, sm, P.mag <= 5); } }
   { const tr = $('#treat'), on = !!(promptState && promptState.hold && P.hold > 0); tr.classList.toggle('on', on); if (on) { const pc = Math.min(100, Math.round(P.hold / 3 * 100)); $('#treatPct').textContent = `${pc}%`; $('#treatFill').style.width = `${pc}%`; $('#treatName').textContent = `חובשים את ${promptState.f ? promptState.f.name : 'הפצוע'}…`; } }
   const pr = $('#prompt'); if (promptState) { pr.classList.add('on'); $('#promptText').innerHTML = TOUCH ? promptState.text.replace(/<kbd>[^<]*<\/kbd>/g, tchip(TPOINT.act || 'hand')) : promptState.text; $('#promptBar').hidden = !promptState.hold; $('#promptFill').style.width = `${P.hold / 3 * 100}%`; } else pr.classList.remove('on');
   $('#carry').classList.toggle('on', P.mode === 'carry');
