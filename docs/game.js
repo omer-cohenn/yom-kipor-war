@@ -12284,13 +12284,16 @@ function mirageModel() {
   { const body = [[0.5, -7.2], [0.56, -6.9], [0.63, -6.2], [0.67, -4], [0.69, -1], [0.67, 1.5], [0.63, 2.6]];
     const x0 = 2.6, x1 = 4.9, r0 = 0.63, r1 = 0.5; for (let k = 1; k <= 8; k++) { const u = k / 8; body.push([lerp(r0, r1, u * u * (3 - 2 * u)) , lerp(x0, x1, u)]); }   // the cockpit section easing in
     add(jxLathe(body, 64, 1.06, 0.93), skin);
-    const L = 3.1, R = r1, rho = (R * R + L * L) / (2 * R), nose = []; for (let k = 0; k <= 28; k++) { const u = k / 28, x = u * L, r = Math.sqrt(Math.max(0, rho * rho - (L - x) * (L - x))) + R - rho; nose.push([Math.max(0, r), x1 + x]); }
+    const L = 3.1, R = r1, rho = (R * R + L * L) / (2 * R), nose = []; for (let k = 0; k <= 28; k++) { const u = k / 28, x = u * L, xt = L - x, r = Math.sqrt(Math.max(0, rho * rho - (L - xt) * (L - xt))) + R - rho; nose.push([Math.max(0, r), x1 + x]); }   // x from the joint, xt from the tip: full at the joint, a point at the tip
     nose[nose.length - 1][0] = 0; JX.radome = JX.radome || new THREE.MeshStandardMaterial({ color: 0x5d5a44, metalness: 0.1, roughness: 0.4 });
     add(jxLathe(nose, 64, 1.06, 0.93), JX.radome);
     const seam = add(new THREE.TorusGeometry(0.5, 0.012, 6, 64), jxDark(), x1, 0, 0); seam.rotation.y = Math.PI / 2; seam.scale.set(1, 1.06, 0.93); }
   add(new THREE.CylinderGeometry(0.02, 0.03, 1.2, 10).rotateZ(Math.PI / 2), jxDark(), 8.55, 0, 0);
   // the canopy and its frame
-  { const c = add(new THREE.SphereGeometry(1, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2), jxGlass(), 4.2, 0.46, 0); c.scale.set(1.35, 0.44, 0.38); const fr = add(new THREE.TorusGeometry(0.36, 0.025, 6, 24, Math.PI), jxDark(), 4.6, 0.46, 0); fr.rotation.y = Math.PI / 2; }
+  // the canopy sunk into the top of the fuselage, and the dorsal spine running back from it to the fin
+  { const c = add(new THREE.SphereGeometry(1, 40, 20, 0, Math.PI * 2, 0, Math.PI / 2), jxGlass(), 3.9, 0.3, 0); c.scale.set(1.45, 0.5, 0.42);
+    const fb = add(new THREE.BoxGeometry(0.05, 0.05, 0.84), jxDark(), 4.25, 0.62, 0); fb.rotation.z = -0.35;   // the windscreen's frame bow
+    const sp = add(new THREE.SphereGeometry(1, 40, 16), skin, 0.4, 0.38, 0); sp.scale.set(3.9, 0.36, 0.36); }
   // the intakes along the sides with their half-cone shock bodies
   for (const sd of [-1, 1]) { const duct = add(new THREE.CylinderGeometry(0.34, 0.38, 4.0, 24, 1, false, 0, Math.PI).rotateZ(Math.PI / 2), skin, 1.0, 0.05, sd * 0.6); duct.rotation.x = sd > 0 ? -Math.PI / 2 : Math.PI / 2;
     add(new THREE.ConeGeometry(0.2, 0.75, 20).rotateZ(-Math.PI / 2), jxDark(), 3.25, 0.05, sd * 0.66); }
@@ -12304,10 +12307,11 @@ function mirageModel() {
   const stubPts = [[1.9, 0.55], ...tear, [-6.25, 0.55]], outPts = [tear[0], [-5.0, 4.1], [-5.7, 4.1], ...tear.slice().reverse().slice(0, -1)];
   add(jxPlate(stubPts, 'xz', 0.08, 0.05), skin, 0, -0.22, 0);
   const wingR = new THREE.Mesh(jxPlate(outPts, 'xz', 0.08, 0.05), skin); wingR.position.y = -0.22; g.add(wingR);
+  const tearIn = [];   // the torn insides: shown only once the wing is gone
   { const ins = new THREE.MeshStandardMaterial({ color: 0x3a3630, metalness: 0.6, roughness: 0.6 }), burnt = jxBurnt();
     for (let k = 0; k < tear.length - 1; k++) { const [x0, z0] = tear[k], [x1, z1] = tear[k + 1], L = Math.hypot(x1 - x0, z1 - z0), a = Math.atan2(-(z1 - z0), x1 - x0);
-      for (const [par, dz, mat] of [[g, -0.05, ins], [wingR, 0.05, burnt]]) { const b = new THREE.Mesh(new THREE.BoxGeometry(L, 0.13, 0.07), mat); b.position.set((x0 + x1) / 2, par === g ? -0.22 : 0, (z0 + z1) / 2 + dz); b.rotation.y = a; par.add(b); } }
-    for (const xr of [-1.2, -2.6, -4.0]) { const zt = 1.95 + (LEx(1.95) - xr) / (LEx(1.95) - TEx(2.45)) * 0.5; const rib = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.16, 0.5), ins); rib.position.set(xr, -0.22, zt - 0.2); g.add(rib); } }   // the ribs left standing in the stub
+      for (const [par, dz, mat] of [[g, -0.05, ins], [wingR, 0.05, burnt]]) { const b = new THREE.Mesh(new THREE.BoxGeometry(L, 0.13, 0.07), mat); b.position.set((x0 + x1) / 2, par === g ? -0.22 : 0, (z0 + z1) / 2 + dz); b.rotation.y = a; b.visible = false; par.add(b); tearIn.push(b); } }
+    for (const xr of [-1.2, -2.6, -4.0]) { const zt = 1.95 + (LEx(1.95) - xr) / (LEx(1.95) - TEx(2.45)) * 0.5; const rib = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.16, 0.5), ins); rib.position.set(xr, -0.22, zt - 0.2); rib.visible = false; g.add(rib); tearIn.push(rib); } }   // the ribs left standing in the stub
   // the fin, the nozzle and its burnt-metal ring
   add(jxPlate([[-2.9, 0.4], [-6.0, 3.5], [-6.85, 3.5], [-7.05, 0.4]], 'xy', 0.07, 0.07), skin);
   add(new THREE.CylinderGeometry(0.47, 0.52, 0.8, 32, 1, true).rotateZ(Math.PI / 2), jxBurnt(), -7.5, 0, 0); add(new THREE.CircleGeometry(0.44, 24).rotateY(-Math.PI / 2), jxDark(), -7.3, 0, 0);
@@ -12319,7 +12323,7 @@ function mirageModel() {
   wingR.add(jxDecal(rt, 1.6, 1.6, -4.3, 0.1, 3.0, -Math.PI / 2), jxDecal(rt, 1.6, 1.6, -4.3, -0.1, 3.0, Math.PI / 2)); g.add(jxDecal(tt, 1.0, 0.9, -1.9, -0.12, 1.4, -Math.PI / 2, 0, Math.PI / 2));
   g.add(jxDecal(tt, 1.1, 1.0, -1.6, -0.12, -1.9, -Math.PI / 2, 0, Math.PI / 2));
   g.add(jxDecal(rt, 0.9, 0.9, 0.3, 0.1, 0.99, 0), jxDecal(rt, 0.9, 0.9, 0.3, 0.1, -0.99, 0, Math.PI));
-  g.traverse((m) => { if (m.isMesh) { m.castShadow = SHADOWS; onLayer1(m); } }); g.visible = false; scene.add(g); return { g, wingR, stub: V3(-2.6, -0.22, 2.1), skin };
+  g.traverse((m) => { if (m.isMesh) { m.castShadow = SHADOWS; onLayer1(m); } }); g.visible = false; scene.add(g); return { g, wingR, stub: V3(-2.6, -0.22, 2.1), skin, tearIn };
 }
 function migModel() {
   const skin = new THREE.MeshStandardMaterial({ map: jxMetalTex(), metalness: 0.72, roughness: 0.34 }), g = new THREE.Group(), add = (geo, mat, x = 0, y = 0, z = 0) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); g.add(m); return m; };
@@ -12379,7 +12383,7 @@ function mirageFilm() {
   if (!AIR.models) { AIR.models = { m: mirageModel(), mig: migModel(), chute: chuteModel() }; }
   const M = AIR.models, H = V3(nearX(-350), 330, 175), d = V3(0.9, 0, -0.45).normalize(), sp = 92;
   M.m.g.visible = true; M.m.wingR.visible = true; M.mig.visible = true; for (const r of M.mig.userData.rail || []) r.visible = true; M.chute.visible = false; if (M.m.wingR.parent !== M.m.g) { M.m.g.attach(M.m.wingR); } M.m.wingR.position.set(0, -0.22, 0); M.m.wingR.rotation.set(0, 0, 0);
-  for (const s2 of (AIR.ev && AIR.ev.shards) || []) scene.remove(s2.m);
+  for (const s2 of (AIR.ev && AIR.ev.shards) || []) scene.remove(s2.m); if (AIR.models) for (const b of AIR.models.m.tearIn || []) b.visible = false;
   const ev = AIR.ev = { t: 5.4, H, d, sp, hit: false, vy: 0, roll: 0, crashed: false, missile: null, wingV: V3(), smokeT: 0, chuteOn: false, ejected: false };
   updMirage(0);
   const side = V3(-d.z, 0, d.x), sunSd = side.x * SUN.dir.x + side.z * SUN.dir.z > 0 ? 1 : -1, UP = V3(0, 1, 0);
@@ -12432,7 +12436,7 @@ function updMirage(dt) {
     ms.last = p.clone(); }
   if (!ev.hit && t >= T_HIT) {
     ev.hit = true; ev.migAt = mig.position.clone().addScaledVector(d, MG_T.gap * 0); if (ev.missile) { scene.remove(ev.missile.m); ev.missile = null; } const p = M.m.wingR.localToWorld(V3(-2.4, 0, 2.3)); fxExplosion(p, 2.6); sndBoom(p, 1.8); FX.shake = Math.max(FX.shake, 0.3);
-    scene.attach(M.m.wingR); ev.wingV.copy(d).multiplyScalar(ev.sp * 0.55).add(V3(0, 9, 0)).addScaledVector(V3(-d.z, 0, d.x), 14);
+    for (const b of M.m.tearIn || []) b.visible = true; scene.attach(M.m.wingR); ev.wingV.copy(d).multiplyScalar(ev.sp * 0.55).add(V3(0, 9, 0)).addScaledVector(V3(-d.z, 0, d.x), 14);
     ev.shards = []; for (let k = 0; k < 14; k++) { const sh = new THREE.Shape(); const n = 4 + (k % 3), r0 = 0.25 + Math.random() * 0.55; for (let q = 0; q < n; q++) { const a = q / n * 6.283 + Math.random() * 0.6, rr = r0 * (0.4 + Math.random() * 0.8); q ? sh.lineTo(Math.cos(a) * rr, Math.sin(a) * rr) : sh.moveTo(Math.cos(a) * rr, Math.sin(a) * rr); }
       const m = new THREE.Mesh(new THREE.ExtrudeGeometry(sh, { depth: 0.03, bevelEnabled: false }), k % 4 === 0 ? jxBurnt() : M.m.skin); m.position.copy(p); onLayer1(m); scene.add(m);
       ev.shards.push({ m, v: d.clone().multiplyScalar(ev.sp * (0.5 + Math.random() * 0.4)).add(V3((Math.random() - 0.5) * 30, Math.random() * 18 - 4, (Math.random() - 0.5) * 30)), w: V3(Math.random() * 12, Math.random() * 12, Math.random() * 12), life: 3 + Math.random() * 2 }); } ev.v = d.clone().multiplyScalar(ev.sp * 0.92).add(V3(0, -16, 0)); radio('תצפית', 'מיראז׳ נפגע!', 2);
