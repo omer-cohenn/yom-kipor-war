@@ -73,7 +73,7 @@ function migModel() {
    B - one long take, no cut: the camera rides with the MiG, swings out to its side for the launch, slides along to the Mirage for the hit,
        drops back with the falling jet and comes round to the parachute, pulling away until the canal is far below.
    The order is always the same: the chase, the launch, the missile across the gap, the hit, the wing torn off - and only then the pilot. */
-const MIRAGE_V = (() => { try { const v = new URLSearchParams(location.search).get('mirage'); return v === 'B' ? 'B' : 'A'; } catch (e) { return 'A'; } })();
+let MIRAGE_V = (() => { try { const v = window.YK_MIRAGE || new URLSearchParams(location.search).get('mirage'); return v === 'B' ? 'B' : 'A'; } catch (e) { return 'A'; } })();
 const MG_T = { launch: 7.6, hit: 8.6, eject: 9.6, gap: 70 };
 function mirageFilm() {
   if (!AIR.models) { AIR.models = { m: mirageModel(), mig: migModel(), chute: chuteModel() }; }
