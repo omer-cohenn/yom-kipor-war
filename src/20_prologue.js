@@ -170,13 +170,18 @@ const PR_TSTEPS = [
     done: () => prFoe(1) && !prFoe(1).alive },
 ];
 /* ---------- the jeep patrol: up and down the road south of the stronghold on the .50 of a patrol jeep, six drums along the road ---------- */
-const PR_JP = { path: [[9, -100], [9, -248]], v: 3.6, drums: [[-6, -128], [26, -150], [-9, -172], [27, -196], [-5, -218], [24, -238]] };
+const PR_JP = { path: [[-17, -102], [-17, -246]], v: 1.9, drums: [[-31, -126], [-3, -133], [-27, -150], [-33, -184], [-2, -206], [-31, -232]] };
 const PR_JD = 'אבי · הנהג';
-const prDrumAt = () => { const d = PR.drums && PR.drums.find((q) => !q.down); return d ? [d.x, d.y + 1.6, d.z, 'חבית'] : null; };
+const prDrumAt = (a = 0, b = 6) => { const d = PR.drums && PR.drums.slice(a, b).find((q) => !q.down); return d ? [d.x, d.y + 1.6, d.z, 'חבית'] : null; };
 const PR_JSTEPS = [
-  { id: 'jfire', title: 'ירי מג׳יפ נוסע', at: prDrumAt, who: PR_JD,
-    say: ['אתה על ה־0.5? יוצאים. שש חביות לאורך הדרך, אחת אחת, ואני לא עוצר בשבילך.'],
-    hint: () => `<b>מקלע על ג׳יפ:</b> ${prKey(`העכבר מסובב את המקלע, ${K('לחיצה ממושכת')} יורה, ${K('לחצן ימני')} כוונת`, 'גררו באצבע בצד ימין כדי לסובב את המקלע, החזיקו את <kbd>אש</kbd>, <kbd>כוונת</kbd> לזום')}. הג׳יפ זז, אז מתקנים כל הזמן. צרורות קצרים על החבית שמסומנת.`,
+  { id: 'jstill', title: 'ירי מג׳יפ עומד', at: () => prDrumAt(0, 3), who: PR_JD,
+    say: ['אתה על ה־0.5? קודם מהמקום. שלוש חביות לפנינו, אחת אחת.'],
+    hint: () => `<b>מקלע על ג׳יפ:</b> ${prKey(`העכבר מסובב את המקלע, ${K('לחיצה ממושכת')} יורה, ${K('לחצן ימני')} כוונת`, 'גררו באצבע בצד ימין כדי לסובב את המקלע, החזיקו את <kbd>אש</kbd>, <kbd>כוונת</kbd> לזום')}. צרורות קצרים על החבית שמסומנת.`,
+    done: () => PR.drums && PR.drums.slice(0, 3).every((q) => q.down) },
+  { id: 'jmove', title: 'ירי מג׳יפ נוסע', at: () => prDrumAt(3, 6), who: PR_JD,
+    say: ['יפה. עכשיו בתנועה: אני נוסע לאט, ואתה מפיל את שלוש הבאות.'],
+    start: () => { PR.jeep.on = true; },
+    hint: () => '<b>בתנועה:</b> הג׳יפ זז, והמטרה זזה בכוונת. עקבו אחריה כל הזמן, וירו צרורות קצרים.',
     done: () => PR.drums && PR.drums.every((q) => q.down) },
 ];
 function prBuildJeep() {
@@ -191,7 +196,7 @@ function prJeepSetup() {
   const J = PR.jeep; J.s = 0; J.dir = 1; J.on = false; J.pv.hdV = null; prJeepPose(); J.g.updateMatrixWorld(true);
   const j = J.g, mg = J.mg, pv = vehPivot('jeep'); P.ride = { pos: () => { const b = mg.rotation.y, D = 1.08, S = 0.24; return j.localToWorld(V3(pv[0] - D * Math.cos(b) - S * Math.sin(b), 0.98, pv[2] + D * Math.sin(b) - S * Math.cos(b))); }, eye: 1.78, mg: true, novm: true, gun: mg, muzzle: () => mg.localToWorld(V3(mg.userData.tip, 0.1, 0)) };
   P.pos.copy(P.ride.pos()); P.yaw = 0.35; P.pitch = -0.04; vm.visible = false;
-  PR.step = -1; DIRQ.push({ at: GAME.t + 1.4, fn: () => { J.on = true; prStep(0); } });
+  PR.step = -1; DIRQ.push({ at: GAME.t + 1.4, fn: () => prStep(0) });
 }
 function prJeepUpd(dt) {
   const J = PR.jeep; if (!J) return;
@@ -206,9 +211,24 @@ function prJeepDone() {
 }
 const prSteps = () => (PR.stage === PR_JEEP ? PR_JSTEPS : PR.stage === PR_TANKS ? PR_TSTEPS : PR_STEPS);
 function prBuildRange() {
-  // the earth bank the tank goes up behind: a long low mound across its front
-  const [bx, bz] = PR_TK.berm, g0 = groundAt(bx, bz), geo = new THREE.CylinderGeometry(1.7, 2.1, 9.5, 18, 1).rotateZ(Math.PI / 2); geo.scale(1, 0.72, 1);
-  const m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: 0xb59c6c, roughness: 1 })); m.position.set(bx, g0 - 0.12, bz); m.receiveShadow = SHADOWS; m.castShadow = SHADOWS; scene.add(m);
+  // the tank's firing position: a bank of bulldozed earth, horseshoe-shaped round the hull - a long gentle face towards the targets, a short
+  // steep one where the tank noses up to it, the wings curving back along its sides - in fresh, darker sand, sandbags on the wing tips
+  { const [bx, bz] = PR_TK.berm, NU = 40, NV = 24, U = 9, VF = 5.5, VB = 2.6, H = 1.4, pos = [], col = [], idx = [], r = rng(306);
+    const crest = (u) => 0.05 * u * u, taper = (u) => smooth(U, U - 2.8, Math.abs(u));
+    for (let j = 0; j <= NV; j++) for (let i = 0; i <= NU; i++) {
+      const u = -U + (2 * U * i) / NU, t = j / NV, v = -VF + (VF + VB) * t, z0 = bz + crest(u), z = z0 + v, x = bx + u;
+      const prof = v < 0 ? smooth(-VF, -0.25, v) : smooth(VB, 0.3, v), n = 0.08 * (noise(x * 0.9, z * 0.9) - 0.5) + 0.04 * (noise(x * 3.1, z * 3.1) - 0.5);
+      const h = (H * prof + (prof > 0.05 ? n : 0)) * taper(u); pos.push(x, groundAt(x, z) - 0.06 + h, z);
+      const k = 0.85 + 0.25 * noise(x * 0.7 + 9, z * 0.7) + 0.08 * prof; col.push(lin(0.66) * k, lin(0.55) * k, lin(0.39) * k);
+    }
+    for (let j = 0; j < NV; j++) for (let i = 0; i < NU; i++) { const a = j * (NU + 1) + i, b = a + 1, c = a + NU + 1, d2 = c + 1; idx.push(a, c, b, b, c, d2); }
+    const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); geo.setIndex(idx); geo.computeVertexNormals();
+    const uv = []; for (let k = 0; k < pos.length / 3; k++) uv.push(pos[k * 3] / 3.3, pos[k * 3 + 2] / 3.3); geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+    const m = new THREE.Mesh(geo, terrainMat()); m.receiveShadow = SHADOWS; m.castShadow = SHADOWS; scene.add(m);
+    // sandbags on the wing tips, and the firing point's number on a stake
+    const BAGS = [], sv = BATCH.bag; BATCH.bag = BAGS; for (const sd of [-1, 1]) { const pts = []; for (let u = 5.2; u <= 7.6; u += 0.6) pts.push([bx + sd * u, bz + crest(u) + 0.2]); bagWall(pts, 2, null, false); } BATCH.bag = sv; scene.add(bagMesh(BAGS));
+    { const sx = bx + 6.2, sz = bz + 3.2, g0 = groundAt(sx, sz); sign('עמדה 3', 'plain', sx, g0 + 1.1, sz, 0, 0.9); const st = new THREE.Mesh(new THREE.BoxGeometry(0.07, 1.1, 0.07), new THREE.MeshStandardMaterial({ color: 0x6b5236 })); st.position.set(sx, g0 + 0.5, sz + 0.03); scene.add(st); }
+    void r; }
   // the targets: two old T-55s, white crosses painted on them, standing in the sand far out to the south
   PR.foes = PR_TK.foes.map(([x, z, h]) => { const v = addVeh({ mode: 'prologue', side: 'e', kind: 't55', geo: T55_HULL, turGeo: T55_TUR, turAt: [0.3, 1.42, 0], half: [3.2, 2.3, 1.75], armor: 0, hp: 100, vmax: 0, shoots: false, fireCd: 1e9 }); v.at = [x, z, Math.PI + h]; if (v.g.userData.vl) v.g.userData.vl.crew = false; return v; });   // nobody in them
 }
@@ -336,6 +356,7 @@ function prBuild() {
 }
 function prSetup(stage = 0) {
   if (PR.door) { hmDoorSet(PR.door, false, true); PR.door.rate = 7; } PR.bedT = 0;
+  PR.wOff = PR.wOff || []; for (const w of WRECKS) if (w.on && _shown(w.obj)) { w.on = false; PR.wOff.push(w); }   // old hulks from before: no fire on them on the eve of the war
   if (PR.jeep) { PR.jeep.on = false; PR.jeep.s = 0.5; PR.jeep.dir = 1; PR.jeep.pv.hdV = null; prJeepPose(); }
   for (const c of PR.exitCols || []) { if (c.top0 === undefined) c.top0 = c.top; c.top = -1e4; } prExitSurf(true);   // the steps over the parapet to the aid tent
   if (!PR.aid0) PR.aid0 = { ...AIDPOST }; Object.assign(AIDPOST, PR.tent); delete AIDPOST.y;   // the wounded go to the aid tent in the yard

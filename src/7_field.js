@@ -71,7 +71,7 @@ function showWorld(mode) {
   const lists = { mezach: SZ.mezObjs, suez: SZ.objs }; for (const k in CHAP) if (k !== 'mezach' && k !== 'suez') lists[k] = CHAP[k].objs || [];
   for (const v of VEH) if (v.tag) v.tag.visible = false;
   if (mode !== 'prologue' && typeof PR !== 'undefined' && PR.aid0) { Object.assign(AIDPOST, PR.aid0); PR.aid0 = null; }
-  if (mode !== 'prologue' && typeof PR !== 'undefined') { for (const c of PR.exitCols || []) if (c.top0 !== undefined) c.top = c.top0; prExitSurf(false); }   // the trench wall whole again   // mission 0 moved the aid post to its tent
+  if (mode !== 'prologue' && typeof PR !== 'undefined') { for (const c of PR.exitCols || []) if (c.top0 !== undefined) c.top = c.top0; prExitSurf(false); if (PR.wOff) { for (const w of PR.wOff) w.on = true; PR.wOff = []; } }   // the trench wall whole again   // mission 0 moved the aid post to its tent
   const mw = !!(CHAP[mode] && CHAP[mode].mezWorld);   // a chapter played on the stronghold's own ground (mission 0)
   for (const k in lists) if (k !== mode && !(mw && k === 'mezach')) for (const o of lists[k]) o.visible = false;
   for (const o of [...(lists[mode] || []), ...(mw ? lists.mezach || [] : [])]) if (o !== SZ.ht && o !== TANK.g && !o.userData.dyn) o.visible = true;
