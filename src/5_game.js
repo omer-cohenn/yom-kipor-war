@@ -1679,7 +1679,7 @@ function updPlayer(dt) {
 const TKEY = { T: 'עשן', E: 'הכפתור הירוק', F: 'פעולה (להחזיק)', G: 'רימון', R: 'טעינה', Shift: 'ג׳ויסטיק עד הקצה', C: 'כריעה', 'לחיצה ממושכת': 'אש (להחזיק)' };
 const K = (k) => `<kbd>${TOUCH && TKEY[k] ? TKEY[k] : k}</kbd>`;
 const TUT = { seen: {}, queue: [], cur: null, curT: 0, shown: 0, radioQ: [], radioT: 0, step: 'shelter' };
-function hint(key, html, dur = 7) { if (TUT.seen[key]) return; TUT.seen[key] = true; TUT.queue.push({ html, dur }); }
+function hint(key, html, dur = 7) { if (TUT.seen[key]) return; TUT.seen[key] = true; TUT.queue.push({ html: touchIcons(html), dur }); }
 function radio(who, text, dur = 4.2, quiet = false) { TUT.radioQ.push({ who, text, dur, quiet }); }   // quiet: said by a man beside the player, not over the radio
 function resetTutorial() { Object.assign(TUT, { seen: {}, queue: [], cur: null, curT: 0, shown: 0, radioQ: [], radioT: 0, step: 'shelter' }); $('#hint').classList.remove('on'); $('#radio').classList.remove('on'); clearObjective(); }
 function updTutorial(dt) {
@@ -1807,14 +1807,18 @@ function updHUD(dt) {
   else { $('#wName').textContent = P.mode === 'carry' ? 'נושא פצוע' : 'רובה FN (פאל)'; $('#wAmmo').innerHTML = P.reloadT > 0 ? 'טוען…' : `${P.mag} <small>/ ${P.reserve}</small>`; $('#wAmmo').className = 'n' + (P.mag <= 5 ? ' low' : ''); }
   $('#wGren').textContent = P.smokeMax ? `רימוני רסס: ${P.gren} · עשן: ${P.smoke}` : `רימוני רסס: ${P.gren}`;
   { const tr = $('#treat'), on = !!(promptState && promptState.hold && P.hold > 0); tr.classList.toggle('on', on); if (on) { const pc = Math.min(100, Math.round(P.hold / 3 * 100)); $('#treatPct').textContent = `${pc}%`; $('#treatFill').style.width = `${pc}%`; $('#treatName').textContent = `חובשים את ${promptState.f ? promptState.f.name : 'הפצוע'}…`; } }
-  const pr = $('#prompt'); if (promptState) { pr.classList.add('on'); $('#promptText').innerHTML = TOUCH ? promptState.text.replace(/<kbd>[^<]*<\/kbd>/g, '<kbd>פעולה</kbd>') : promptState.text; $('#promptBar').hidden = !promptState.hold; $('#promptFill').style.width = `${P.hold / 3 * 100}%`; } else pr.classList.remove('on');
+  const pr = $('#prompt'); if (promptState) { pr.classList.add('on'); $('#promptText').innerHTML = TOUCH ? promptState.text.replace(/<kbd>[^<]*<\/kbd>/g, tchip(TPOINT.act || 'hand')) : promptState.text; $('#promptBar').hidden = !promptState.hold; $('#promptFill').style.width = `${P.hold / 3 * 100}%`; } else pr.classList.remove('on');
   $('#carry').classList.toggle('on', P.mode === 'carry');
   if (TOUCH) {
-    const ta = $('#tact'); const sh = P.mode === 'mag' ? 'לרדת' : promptState ? (promptState.hold ? 'עזרה ראשונה' : promptState.label || { man: 'לאייש מא״ג', ammo: 'תחמושת', lift: 'להרים', drop: 'להוריד', 'drop-aid': 'להשכיב', duck: P.crouch ? 'החוצה' : 'לצריח' }[promptState.act] || (promptState.fn ? promptLabel(promptState.text) : null)) : null; $('#tads').style.visibility = P.mode === 'rifle' || P.mode === 'tank' || P.mode === 'mag' ? '' : 'hidden';
-    ta.classList.toggle('on', !!sh); if (sh) ta.textContent = promptState.hold && P.hold > 0 ? `${Math.round(P.hold / 3 * 100)}%` : sh;
+    const ta = $('#tact'), ps = promptState; let ic = null, pct = null;
+    if (P.mode === 'mag') ic = 'exit';
+    else if (ps) { if (ps.hold) { ic = 'aid'; pct = P.hold > 0 ? P.hold / 3 : null; }
+      else ic = { man: 'mg', ammo: 'ammo', lift: 'lift', drop: 'drop', 'drop-aid': 'drop', duck: P.crouch ? 'up' : 'down' }[ps.act] || (ps.fn ? (/לרדת|החוצה/.test(ps.label || ps.text || '') ? 'exit' : /לעלות|לטנק|לג׳יפ/.test(ps.label || ps.text || '') ? 'up' : 'hand') : null); }
+    $('#tads').style.visibility = P.mode === 'rifle' || P.mode === 'tank' || P.mode === 'mag' ? '' : 'hidden';
+    ta.classList.toggle('on', !!ic); if (ic) tbIcon(ta, ic, null, pct); TPOINT.act = ic;
     if (P.mode === 'rifle' && P.mag === 0 && P.reserve > 0 && P.reloadT <= 0) reload();
-    const gl = P.mode === 'tank' ? 'תותח' : 'רימון'; if ($('#tgren').textContent !== gl) $('#tgren').textContent = gl;
-    { const sm = !!P.smokeMax && P.mode === 'rifle' && (MODE === 'farm' || MODE === 'range'); $('#tsmoke').classList.toggle('on', sm); if (sm) $('#tsmoke').textContent = `עשן ${P.smoke}`; }
+    tbIcon('#tgren', P.mode === 'tank' ? 'shell' : 'gren');
+    { const sm = !!P.smokeMax && P.mode === 'rifle' && (MODE === 'farm' || MODE === 'range'); $('#tsmoke').classList.toggle('on', sm); if (sm) tbIcon('#tsmoke', 'smoke', P.smoke); }
   }
   if (FIELDM()) { const C = CH(), st = C.st(); $('#waveTitle').textContent = `שלב ${st + 1}/${C.stages.length} · ${C.stages[st].title}`; const items = []; C.items(items); if (P.mode === 'rifle' && inConceal(P.pos.x, P.pos.z)) items.push(['done', P.crouch ? 'מוסתרים בצמחייה' : 'בתוך הצמחייה · כרעו כדי להיעלם']); if (P.reserve < 40 && P.mode === 'rifle') items.push(['', 'תחמושת נמוכה']); const html = items.map(([c, t]) => `<li class="${c}">${t}</li>`).join(''); if ($('#objList').innerHTML !== html) $('#objList').innerHTML = html; $('#cap').classList.remove('on'); for (const f of FEED) { if (GAME.t - f.t > 5) f.el.style.opacity = '0'; } return; }
   if (SURV.on) { survHUD(); return; }

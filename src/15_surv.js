@@ -181,7 +181,7 @@ function survUpd(dt) {
   if (D.capture >= 100) { endGame(false, 'breach'); return; }
   SURV.score = STATS.kills * 100 + STATS.heads * 50 + SURV.bonus;
   const due = Math.floor(SURV.score / SURV_AIR_PTS); while (SURV.airGiven < due) { SURV.airGiven++; if (SURV.air < 3) { SURV.air++; feed(`תקיפה אווירית זמינה ×${SURV.air} · ${TOUCH ? 'כפתור תקיפה' : 'B'}`, 'good'); radio('חמ״ל', SURV.air >= 2 ? 'רביעיית סקייהוקים זמינה! תקיפה כבדה — שמרו אותה לגל צפוף.' : 'יש לכם זוג סקייהוקים. סמנו מטרה, או חכו לזוג שני לתקיפה כבדה.', 2.8); } }
-  $('#tair').classList.toggle('on', SURV.air > 0); if (SURV.air > 0 && $('#tair').textContent !== `תקיפה ×${SURV.air}`) $('#tair').textContent = `תקיפה ×${SURV.air}`;
+  $('#tair').classList.toggle('on', SURV.air > 0); if (SURV.air > 0) tbIcon('#tair', 'jet', SURV.air);
 }
 function survHUD() {
   const brk = SURV.state === 'break', left = Math.max(0, Math.ceil(SURV.breakLen - SURV.t));

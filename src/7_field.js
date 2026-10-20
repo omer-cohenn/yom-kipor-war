@@ -66,6 +66,7 @@ function makeGround(d) {
   return G;
 }
 function showWorld(mode) {
+  tutPoint(null);   // no button stays ringed from another chapter
   PROPS.cur = mode; if (mode !== 'suez') szClarityOff();
   TOWN_FOG.value = mode === 'mezach' ? 3.8 : 1; TOWN_SMOKEK.value = mode === 'mezach' ? 1 : 0; if (TOWN_HAZE) TOWN_HAZE.visible = mode === 'mezach';   /* the haze of the first day over the town across the canal */
   const lists = { mezach: SZ.mezObjs, suez: SZ.objs }; for (const k in CHAP) if (k !== 'mezach' && k !== 'suez') lists[k] = CHAP[k].objs || [];

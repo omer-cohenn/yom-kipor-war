@@ -1,4 +1,4 @@
-LD.mod(0, 292, 2000);
+LD.mod(0, 291, 2000);
 import * as THREE from 'three';
 import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
 import { Water } from 'three/addons/objects/Water.js';
@@ -747,7 +747,7 @@ function followSun(x, z) { const sx = Math.round(x / 3) * 3, sz = Math.round(z /
 const _q = new THREE.Quaternion();
 function updateVmLight() { _q.copy(camera.quaternion).invert(); vmKey.position.copy(SUN.dir).applyQuaternion(_q).multiplyScalar(5); vmKey.target.position.set(0, 0, 0); }
 setTimeOfDay(0);
-await LD.mod(292, 320, 2000);
+await LD.mod(291, 319, 2000);
 
 /* ================= models from the asset pipeline =================
    Downloaded models, cut down and packed by tools/assets/pack.py into the 4f_data_*.js files. Each model has up to three levels of detail,
@@ -2568,7 +2568,7 @@ function propWall(mode, kind, x, y, z, ry, seed = 1, side = 'e') {
   else { const w = kind === 'map' ? 1.3 : kind === 'portrait' ? 0.5 : 0.32, h = kind === 'map' ? 0.95 : kind === 'portrait' ? 0.66 : 0.46; m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshStandardMaterial({ map: wallTexOf(kind, seed, side), roughness: 0.75 })); if (kind !== 'calendar') { const fr = new THREE.Mesh(new THREE.BoxGeometry(w + 0.06, h + 0.06, 0.03), new THREE.MeshStandardMaterial({ color: kind === 'map' ? 0x5a4a3a : 0x3a2a1a, roughness: 0.7 })); fr.position.z = -0.02; m.add(fr); } }
   m.position.set(x, y, z); m.rotation.y = ry; scene.add(onLayer1(m)); if (PROPS.reg[mode]) PROPS.reg[mode](m); return m;
 }
-await LD.mod(612, 739, 2000);
+await LD.mod(610, 738, 2000);
 
 /* ================= soldier kit: models from the asset pipeline =================
    The helmets, the back bag and the boots come from a modelled kit, reshaped for 1973 and cut down to three levels of detail each
@@ -3776,7 +3776,7 @@ function fireRocket(from, to, owner, shooter = null) {
   const fl = new THREE.Sprite(ROCKET_FLAME); fl.position.set(0, 0, L ? -0.08 : -0.45); fl.scale.setScalar(0.5); m.add(fl); onLayer1(m); scene.add(m);
   const q = { type: 'rocket', m, fl, v: dir.multiplyScalar(ROCKET_SPEED), owner, age: 0, life: Math.min(6, p0.distanceTo(to) / ROCKET_SPEED + 1.2), target: to.clone() }; PROJ.push(q); return q;
 }
-await LD.mod(1351, 347, 2000);
+await LD.mod(1348, 351, 2000);
 
 /* ================= viewmodel: the FN FAL in the player's hands =================
    Built from a modeller's reference sheet of the 1973 Israeli-issue rifle. The side profiles are traced from the drawing (its pixels -> metres
@@ -4932,6 +4932,53 @@ function dunes(x, z, k, out = 0) {
   return amp * p;
 }
 { const prev = scene.onBeforeRender; scene.onBeforeRender = function (...a) { prev.apply(this, a); mapGrassTick(); grassTick(); SAND.uT.value = (performance.now() / 1000) % 3000; }; }
+
+/* ================= the touch controls drawn, not written =================
+   Every on-screen button carries a picture of what it does - a round for fire, a scope for the sight, a grenade, a tank shell, a hand
+   for "do it", a stretcher, a box of rounds - the way phone shooters label their controls, so nothing on the screen needs reading.
+   The tutorial points at the button to press: a soft red ring round it and a small arrow beside it, breathing. */
+const TICO = {
+  fire: '<path d="M12 2.5c1.9 1.6 2.8 3.7 2.8 6.2V18H9.2V8.7c0-2.5.9-4.6 2.8-6.2z"/><path d="M8.4 18h7.2v3.2H8.4z"/><path d="M9.2 11h5.6"/>',
+  ads: '<circle cx="12" cy="12" r="7.6"/><circle cx="12" cy="12" r="1.1" fill="currentColor"/><path d="M12 1.8v5M12 17.2v5M1.8 12h5M17.2 12h5"/>',
+  gren: '<ellipse cx="11" cy="14.6" rx="5.6" ry="6.4"/><path d="M8.4 8.6V6.4h5.2v2.2"/><path d="M13.6 6.4h3.6l1.6 6"/><circle cx="7.6" cy="5" r="1.9"/><path d="M6.2 14.2h9.6M11 8.4v12.4"/>',
+  shell: '<path d="M12 2c2 1.8 3 4.2 3 7v4.6H9V9c0-2.8 1-5.2 3-7z"/><path d="M8 13.6h8v3.2H8zM8.6 16.8h6.8V22H8.6z"/>',
+  hand: '<path d="M8 12.5V6.2a1.4 1.4 0 0 1 2.8 0V11"/><path d="M10.8 10.6V4.6a1.4 1.4 0 0 1 2.8 0v6"/><path d="M13.6 10.6V5.8a1.4 1.4 0 0 1 2.8 0v6.6"/><path d="M16.4 9.8a1.4 1.4 0 0 1 2.8 0v4.6c0 4-2.6 7.1-6.6 7.1-2.7 0-4.4-1.2-5.9-3.5L4.4 14.4a1.4 1.4 0 0 1 2.3-1.6L8 14.6"/>',
+  mg: '<path d="M2.5 10.5h13.5l2.5-1.5h3v3h-3l-1 1H9.5l-1.5 3h-3l1-3H2.5z"/><path d="M11 13l1.5 4.5M14.5 13l-1.5 4.5"/>',
+  ammo: '<rect x="3" y="10" width="18" height="10" rx="1"/><path d="M3 13.5h18"/><path d="M7 10V5.5c0-1 .5-1.8 1.2-2.4.7.6 1.2 1.4 1.2 2.4V10M11 10V5.5c0-1 .5-1.8 1.2-2.4.7.6 1.2 1.4 1.2 2.4V10M15 10V5.5c0-1 .5-1.8 1.2-2.4.7.6 1.2 1.4 1.2 2.4V10"/>',
+  lift: '<circle cx="12" cy="4.6" r="2"/><path d="M12 7.6v6.4M8.2 10.4l3.8-2.8 3.8 2.8M9.4 21l2.6-7 2.6 7"/><path d="M18.5 15.5V9.5M16.6 11.4l1.9-1.9 1.9 1.9"/>',
+  drop: '<path d="M3 17.5h18M5 17.5v3M19 17.5v3"/><path d="M6.5 14.5h11"/><circle cx="7.2" cy="12.6" r="1.6"/><path d="M12 2.5v7M9.4 7l2.6 2.6L14.6 7"/>',
+  aid: '<rect x="3.2" y="3.2" width="17.6" height="17.6" rx="3"/><path d="M12 7.2v9.6M7.2 12h9.6" stroke-width="3"/>',
+  down: '<rect x="4" y="12" width="16" height="9" rx="1.5"/><path d="M12 2.5v8M8.8 7.4L12 10.6l3.2-3.2"/>',
+  up: '<rect x="4" y="12" width="16" height="9" rx="1.5"/><path d="M12 10.6v-8M8.8 5.8L12 2.6l3.2 3.2"/>',
+  exit: '<path d="M10 4H5v16h5"/><path d="M9.5 12H21M17 8l4 4-4 4"/>',
+  swap: '<path d="M4 8.5h13.5M14 5l3.5 3.5L14 12"/><path d="M20 15.5H6.5M10 12l-3.5 3.5L10 19"/>',
+  jet: '<path d="M12 2.2l1.6 6.4 7.4 4.6v1.8l-7.2-2.3-.6 5.4 2.6 2v1.5L12 20.4l-3.8 1.2v-1.5l2.6-2-.6-5.4-7.2 2.3v-1.8l7.4-4.6z"/>',
+  smoke: '<rect x="8.5" y="11" width="7" height="10" rx="1"/><path d="M8.5 14h7"/><path d="M10 11V9.2h4V11"/><path d="M12 9c-2.6 0-3.6-1.6-3.1-3.2.5-1.6 2.3-1.8 3-1 .4-1.7 3.4-2 4 0 1.8-.3 2.6 1.6 1.6 2.8"/>',
+  menu: '<path d="M4 6.5h16M4 12h16M4 17.5h16"/>',
+};
+function tico(n, cls = '') { const p = TICO[n] || TICO.hand; return `<svg class="ico ${cls}" viewBox="0 0 24 24" aria-hidden="true">${p}</svg>`; }
+/* a small inline picture of a button, for the instructions: the same drawing in a little round chip */
+const tchip = (n) => `<span class="tchip">${tico(n)}</span>`;
+/* set a button's picture (and a small number on it), touching the page only when it changes */
+function tbIcon(el, n, badge = null, pct = null) {
+  if (typeof el === 'string') el = $(el); if (!el) return;
+  const key = n + '|' + (badge ?? '') ; if (el.dataset.ic !== key) { el.dataset.ic = key; el.innerHTML = tico(n) + (badge !== null && badge !== '' ? `<b class="tbadge">${badge}</b>` : ''); }
+  if (pct !== null) { el.style.setProperty('--p', `${Math.round(pct * 360)}deg`); el.classList.add('prog'); } else if (el.classList.contains('prog')) el.classList.remove('prog');
+}
+const TB_LABEL = { tfire: 'אש', tads: 'כוונת', tgren: 'רימון', tact: 'פעולה', tpos: 'עמדה חלופית', tpause: 'תפריט', tair: 'תקיפה אווירית', tsmoke: 'רימון עשן' };
+const TB_ICON = { tfire: 'fire', tads: 'ads', tgren: 'gren', tact: 'hand', tpos: 'swap', tpause: 'menu', tair: 'jet', tsmoke: 'smoke' };
+for (const id in TB_ICON) { const el = document.getElementById(id); if (el) { el.setAttribute('aria-label', TB_LABEL[id]); el.title = TB_LABEL[id]; tbIcon(el, TB_ICON[id]); } }
+/* the tutorial's pointer: one button at a time, ringed in soft red with a small arrow at its side */
+const TPOINT = { id: null };
+function tutPoint(id) {
+  if (TPOINT.id === id) return; if (TPOINT.id) { const o = document.getElementById(TPOINT.id); if (o) o.classList.remove('tpoint'); }
+  TPOINT.id = id; if (id) { const el = document.getElementById(id); if (el) el.classList.add('tpoint'); }
+}
+/* the instructions on a phone: the buttons' names become their pictures */
+const TI_MAP = [[/(?:על )?(?:הכפתור |כפתור )?<kbd>אש<\/kbd>/g, 'fire'], [/(?:הכפתור |כפתור )?<kbd>כוונת<\/kbd>/g, 'ads'], [/(?:הכפתור |כפתור )?<kbd>רימון<\/kbd>/g, 'gren'], [/(?:הכפתור |כפתור )?<kbd>תותח<\/kbd>/g, 'shell'],
+  [/(?:הכפתור |כפתור )?<kbd>עשן<\/kbd>/g, 'smoke'], [/(?:הכפתור |כפתור )?<kbd>לאייש מא״ג<\/kbd>/g, 'mg'], [/(?:הכפתור |כפתור )?<kbd>לרדת<\/kbd>/g, 'exit'], [/(?:הכפתור |כפתור )?<kbd>פעולה<\/kbd>/g, 'hand'],
+  [/(?:על |את )?הכפתור הירוק(?: שמופיע מימין)?/g, 'hand']];
+function touchIcons(html) { if (typeof TOUCH === 'undefined' || !TOUCH) return html; for (const [re, n] of TI_MAP) html = html.replace(re, tchip(n)); return html; }
 
 /* ================= settings ================= */
 /* three levels, one route and one story: what changes is how forgiving the war is. The higher the level, the more Egyptians, the sooner they
@@ -6613,7 +6660,7 @@ function updPlayer(dt) {
 const TKEY = { T: 'עשן', E: 'הכפתור הירוק', F: 'פעולה (להחזיק)', G: 'רימון', R: 'טעינה', Shift: 'ג׳ויסטיק עד הקצה', C: 'כריעה', 'לחיצה ממושכת': 'אש (להחזיק)' };
 const K = (k) => `<kbd>${TOUCH && TKEY[k] ? TKEY[k] : k}</kbd>`;
 const TUT = { seen: {}, queue: [], cur: null, curT: 0, shown: 0, radioQ: [], radioT: 0, step: 'shelter' };
-function hint(key, html, dur = 7) { if (TUT.seen[key]) return; TUT.seen[key] = true; TUT.queue.push({ html, dur }); }
+function hint(key, html, dur = 7) { if (TUT.seen[key]) return; TUT.seen[key] = true; TUT.queue.push({ html: touchIcons(html), dur }); }
 function radio(who, text, dur = 4.2, quiet = false) { TUT.radioQ.push({ who, text, dur, quiet }); }   // quiet: said by a man beside the player, not over the radio
 function resetTutorial() { Object.assign(TUT, { seen: {}, queue: [], cur: null, curT: 0, shown: 0, radioQ: [], radioT: 0, step: 'shelter' }); $('#hint').classList.remove('on'); $('#radio').classList.remove('on'); clearObjective(); }
 function updTutorial(dt) {
@@ -6741,14 +6788,18 @@ function updHUD(dt) {
   else { $('#wName').textContent = P.mode === 'carry' ? 'נושא פצוע' : 'רובה FN (פאל)'; $('#wAmmo').innerHTML = P.reloadT > 0 ? 'טוען…' : `${P.mag} <small>/ ${P.reserve}</small>`; $('#wAmmo').className = 'n' + (P.mag <= 5 ? ' low' : ''); }
   $('#wGren').textContent = P.smokeMax ? `רימוני רסס: ${P.gren} · עשן: ${P.smoke}` : `רימוני רסס: ${P.gren}`;
   { const tr = $('#treat'), on = !!(promptState && promptState.hold && P.hold > 0); tr.classList.toggle('on', on); if (on) { const pc = Math.min(100, Math.round(P.hold / 3 * 100)); $('#treatPct').textContent = `${pc}%`; $('#treatFill').style.width = `${pc}%`; $('#treatName').textContent = `חובשים את ${promptState.f ? promptState.f.name : 'הפצוע'}…`; } }
-  const pr = $('#prompt'); if (promptState) { pr.classList.add('on'); $('#promptText').innerHTML = TOUCH ? promptState.text.replace(/<kbd>[^<]*<\/kbd>/g, '<kbd>פעולה</kbd>') : promptState.text; $('#promptBar').hidden = !promptState.hold; $('#promptFill').style.width = `${P.hold / 3 * 100}%`; } else pr.classList.remove('on');
+  const pr = $('#prompt'); if (promptState) { pr.classList.add('on'); $('#promptText').innerHTML = TOUCH ? promptState.text.replace(/<kbd>[^<]*<\/kbd>/g, tchip(TPOINT.act || 'hand')) : promptState.text; $('#promptBar').hidden = !promptState.hold; $('#promptFill').style.width = `${P.hold / 3 * 100}%`; } else pr.classList.remove('on');
   $('#carry').classList.toggle('on', P.mode === 'carry');
   if (TOUCH) {
-    const ta = $('#tact'); const sh = P.mode === 'mag' ? 'לרדת' : promptState ? (promptState.hold ? 'עזרה ראשונה' : promptState.label || { man: 'לאייש מא״ג', ammo: 'תחמושת', lift: 'להרים', drop: 'להוריד', 'drop-aid': 'להשכיב', duck: P.crouch ? 'החוצה' : 'לצריח' }[promptState.act] || (promptState.fn ? promptLabel(promptState.text) : null)) : null; $('#tads').style.visibility = P.mode === 'rifle' || P.mode === 'tank' || P.mode === 'mag' ? '' : 'hidden';
-    ta.classList.toggle('on', !!sh); if (sh) ta.textContent = promptState.hold && P.hold > 0 ? `${Math.round(P.hold / 3 * 100)}%` : sh;
+    const ta = $('#tact'), ps = promptState; let ic = null, pct = null;
+    if (P.mode === 'mag') ic = 'exit';
+    else if (ps) { if (ps.hold) { ic = 'aid'; pct = P.hold > 0 ? P.hold / 3 : null; }
+      else ic = { man: 'mg', ammo: 'ammo', lift: 'lift', drop: 'drop', 'drop-aid': 'drop', duck: P.crouch ? 'up' : 'down' }[ps.act] || (ps.fn ? (/לרדת|החוצה/.test(ps.label || ps.text || '') ? 'exit' : /לעלות|לטנק|לג׳יפ/.test(ps.label || ps.text || '') ? 'up' : 'hand') : null); }
+    $('#tads').style.visibility = P.mode === 'rifle' || P.mode === 'tank' || P.mode === 'mag' ? '' : 'hidden';
+    ta.classList.toggle('on', !!ic); if (ic) tbIcon(ta, ic, null, pct); TPOINT.act = ic;
     if (P.mode === 'rifle' && P.mag === 0 && P.reserve > 0 && P.reloadT <= 0) reload();
-    const gl = P.mode === 'tank' ? 'תותח' : 'רימון'; if ($('#tgren').textContent !== gl) $('#tgren').textContent = gl;
-    { const sm = !!P.smokeMax && P.mode === 'rifle' && (MODE === 'farm' || MODE === 'range'); $('#tsmoke').classList.toggle('on', sm); if (sm) $('#tsmoke').textContent = `עשן ${P.smoke}`; }
+    tbIcon('#tgren', P.mode === 'tank' ? 'shell' : 'gren');
+    { const sm = !!P.smokeMax && P.mode === 'rifle' && (MODE === 'farm' || MODE === 'range'); $('#tsmoke').classList.toggle('on', sm); if (sm) tbIcon('#tsmoke', 'smoke', P.smoke); }
   }
   if (FIELDM()) { const C = CH(), st = C.st(); $('#waveTitle').textContent = `שלב ${st + 1}/${C.stages.length} · ${C.stages[st].title}`; const items = []; C.items(items); if (P.mode === 'rifle' && inConceal(P.pos.x, P.pos.z)) items.push(['done', P.crouch ? 'מוסתרים בצמחייה' : 'בתוך הצמחייה · כרעו כדי להיעלם']); if (P.reserve < 40 && P.mode === 'rifle') items.push(['', 'תחמושת נמוכה']); const html = items.map(([c, t]) => `<li class="${c}">${t}</li>`).join(''); if ($('#objList').innerHTML !== html) $('#objList').innerHTML = html; $('#cap').classList.remove('on'); for (const f of FEED) { if (GAME.t - f.t > 5) f.el.style.opacity = '0'; } return; }
   if (SURV.on) { survHUD(); return; }
@@ -8936,6 +8987,7 @@ function makeGround(d) {
   return G;
 }
 function showWorld(mode) {
+  tutPoint(null);   // no button stays ringed from another chapter
   PROPS.cur = mode; if (mode !== 'suez') szClarityOff();
   TOWN_FOG.value = mode === 'mezach' ? 3.8 : 1; TOWN_SMOKEK.value = mode === 'mezach' ? 1 : 0; if (TOWN_HAZE) TOWN_HAZE.visible = mode === 'mezach';   /* the haze of the first day over the town across the canal */
   const lists = { mezach: SZ.mezObjs, suez: SZ.objs }; for (const k in CHAP) if (k !== 'mezach' && k !== 'suez') lists[k] = CHAP[k].objs || [];
@@ -10149,7 +10201,7 @@ function inConceal(x, z) { const C = CHAP[MODE]; if (!C || !C.conceal) return fa
 /* patches placed along a route and over an area */
 function patchesNear(pts, n, dmin, dmax, seed, ok, rmin = 4, rmax = 10) { return scatterNear(pts, n, dmin, dmax, seed, ok, (x, z, r) => [x, z, rmin + r() * (rmax - rmin)]); }
 function patchesIn(n, x0, x1, z0, z1, seed, ok, rmin = 4, rmax = 11) { return scatterIn(n, x0, x1, z0, z1, seed, ok, (x, z, r) => [x, z, rmin + r() * (rmax - rmin)]); }
-await LD.mod(1698, 242, 2000);
+await LD.mod(1699, 241, 2000);
 
 /* ================= chapter 2: the rescue of the Purkan garrison, the night of 8-9 October 1973 =================
    After the account of the brigade commander, Amnon Reshef. The 33 men of the strongpoint walked out at night, after moonset,
@@ -13752,7 +13804,7 @@ function survUpd(dt) {
   if (D.capture >= 100) { endGame(false, 'breach'); return; }
   SURV.score = STATS.kills * 100 + STATS.heads * 50 + SURV.bonus;
   const due = Math.floor(SURV.score / SURV_AIR_PTS); while (SURV.airGiven < due) { SURV.airGiven++; if (SURV.air < 3) { SURV.air++; feed(`תקיפה אווירית זמינה ×${SURV.air} · ${TOUCH ? 'כפתור תקיפה' : 'B'}`, 'good'); radio('חמ״ל', SURV.air >= 2 ? 'רביעיית סקייהוקים זמינה! תקיפה כבדה — שמרו אותה לגל צפוף.' : 'יש לכם זוג סקייהוקים. סמנו מטרה, או חכו לזוג שני לתקיפה כבדה.', 2.8); } }
-  $('#tair').classList.toggle('on', SURV.air > 0); if (SURV.air > 0 && $('#tair').textContent !== `תקיפה ×${SURV.air}`) $('#tair').textContent = `תקיפה ×${SURV.air}`;
+  $('#tair').classList.toggle('on', SURV.air > 0); if (SURV.air > 0) tbIcon('#tair', 'jet', SURV.air);
 }
 function survHUD() {
   const brk = SURV.state === 'break', left = Math.max(0, Math.ceil(SURV.breakLen - SURV.t));
@@ -15241,11 +15293,11 @@ const prPost = (id) => POSTS.find((p) => p.id === id);
 const prDudu = () => FRIENDS[3];
 const prKey = (desk, touch) => (TOUCH ? touch : desk);
 const PR_STEPS = [
-  { id: 'walk', title: 'גשו לעמדה', at: () => PR_AT.walk, label: 'המ״פ',
+  { id: 'walk', btn: 'tjoy', title: 'גשו לעמדה', at: () => PR_AT.walk, label: 'המ״פ',
     say: ['ערב חג, ועדיין מתרגלים. תתקדם אליי בתעלה.'],
     hint: () => `<b>תנועה:</b> ${prKey(`${K('W')}${K('A')}${K('S')}${K('D')} הולכים, העכבר מסובב את המבט`, 'הג׳ויסטיק משמאל מזיז אתכם, גרירה מימין מסובבת את המבט')}. לכו אל ה־◆ הצהוב.`,
     done: () => prNear(PR_AT.walk, 2.2) },
-  { id: 'run', title: 'ריצה', at: () => PR_AT.run, label: 'רוצו לכאן',
+  { id: 'run', btn: 'tjoy', title: 'ריצה', at: () => PR_AT.run, label: 'רוצו לכאן',
     say: ['ככה הולכים בחופש. במלחמה רצים. עד העמדה הבאה, בריצה!'],
     hint: () => `<b>ריצה:</b> ${prKey(`החזיקו ${K('Shift')} תוך כדי הליכה`, 'דחפו את הג׳ויסטיק עד הקצה')}. רוצו אל ה־◆.`,
     done: () => prNear(PR_AT.run, 2.4) },
@@ -15253,7 +15305,7 @@ const PR_STEPS = [
     say: ['לעמדה. ראש למטה, מאחורי השקים. השקים עוצרים כדורים, הראש שלך לא.'],
     hint: () => TOUCH ? '<b>מחסה:</b> היכנסו לעמדת הירי (◆). בטלפון כורעים לבד מאחורי שקי החול, והם מגינים עליכם.' : `<b>מחסה:</b> היכנסו לעמדת הירי (◆) וכרעו מאחורי שקי החול: ${K('C')}.`,
     done: () => prNear(PR_AT.bay, 1.7) && (P.crouch || TOUCH) },
-  { id: 'shoot', title: 'ירי במטרות', at: () => { const T = PR.tg.find((q) => q.want && !q.hit); return T ? prPt(T.x, T.z, 1.5, `מטרה · ${T.label}`) : null; },
+  { id: 'shoot', btn: 'tfire', title: 'ירי במטרות', at: () => { const T = PR.tg.find((q) => q.want && !q.hit); return T ? prPt(T.x, T.z, 1.5, `מטרה · ${T.label}`) : null; },
     say: ['ככה הם ייראו מחר, אם יבואו. רובאי, מקלען, צלף, ונושא אר־פי־ג׳י. אחד אחד.'],
     start: () => prRaise(0),
     hint: () => `<b>ירי:</b> ${prKey(`${K('לחיצה')} יורה, ${K('לחצן ימני')} כוונת`, 'גררו באצבע בצד ימין של המסך כדי לכוון. הכפתור <kbd>אש</kbd> יורה, <kbd>כוונת</kbd> מקרבת')}. כל מטרה שנופלת מקימה את הבאה.`,
@@ -15263,45 +15315,45 @@ const PR_STEPS = [
     start: () => { PR.rl = 0; if (TOUCH) P.mag = 0; },
     hint: () => TOUCH ? '<b>טעינה:</b> בטלפון הטעינה אוטומטית כשהמחסנית נגמרת. חכו שהרובה יטען.' : `<b>טעינה:</b> ${K('R')} מחליף מחסנית.`,
     done: () => { if (P.reloadT > 0) PR.rl = 1; return PR.rl === 1 && P.reloadT <= 0 && P.mag === 20; } },
-  { id: 'gren', title: 'רימון לבור', at: () => [...prPt(PR_AT.pit[0], PR_AT.pit[1], 0.6, 'הבור'), null, 9],
+  { id: 'gren', btn: 'tgren', title: 'רימון לבור', at: () => [...prPt(PR_AT.pit[0], PR_AT.pit[1], 0.6, 'הבור'), null, 9],
     say: ['רואה את הבור עם השקים? רימון פנימה. מכוונים גבוה, הוא נופל בקשת.'],
     start: () => { P.gren = Math.max(P.gren, 3); PR.boomHit = false; },
     hint: () => `<b>רימון:</b> ${prKey(K('G'), 'הכפתור <kbd>רימון</kbd>')} זורק לאן שאתם מסתכלים. כוונו קצת מעל הבור.`,
     done: () => PR.boomHit },
-  { id: 'gwarn', title: 'רימון אויב', at: () => null,
+  { id: 'gwarn', btn: 'tjoy', title: 'רימון אויב', at: () => null,
     say: ['ועכשיו רימון שלהם. של תרגיל, אבל תתנהג כאילו אמיתי. רימון!'],
     start: () => prThrowAtPlayer(),
     hint: () => `<b>רימון!</b> הסימן ⚠ מראה איפה הוא נפל. ${prKey('רוצו ממנו לאורך התעלה, מהר', 'דחפו את הג׳ויסטיק עד הקצה ורוצו ממנו לאורך התעלה')}.`,
     done: () => PR.gw === 'ok' },
-  { id: 'man', title: 'איוש המא״ג', at: () => { const p = prPost('W2'); return prPt(p.stand[0], p.stand[1], 1.2, 'המא״ג המערבי'); },
+  { id: 'man', btn: 'tact', title: 'איוש המא״ג', at: () => { const p = prPost('W2'); return prPt(p.stand[0], p.stand[1], 1.2, 'המא״ג המערבי'); },
     say: ['המא״ג המערבי. מחר זה מה שעומד בינם לבין הסוללה. תאייש אותו.'],
     hint: () => TOUCH ? '<b>מא״ג:</b> עמדו ליד המקלע (◆) ולחצו על הכפתור הירוק <kbd>לאייש מא״ג</kbd>.' : `<b>מא״ג:</b> עמדו ליד המקלע (◆) ולחצו ${K('E')}.`,
     done: () => P.mode === 'mag' && P.post && P.post.id === 'W2' },
-  { id: 'raft', title: 'ירי על הסירה', at: () => { const r = PR.raft; return r ? [r.g.position.x, 1.2, r.g.position.z, `סירת מטרה · ${PR.raftHits}/12`] : null; },
+  { id: 'raft', btn: 'tfire', title: 'ירי על הסירה', at: () => { const r = PR.raft; return r ? [r.g.position.x, 1.2, r.g.position.z, `סירת מטרה · ${PR.raftHits}/12`] : null; },
     say: ['יוסי גורר סירת גומי על חבל. תחשוב שהיא מלאה בהם. צרורות קצרים.'],
     start: () => { PR.raftHits = 0; PR.raft.on = true; },
     hint: () => `<b>צרורות:</b> ${prKey(`החזיקו ${K('לחיצה ממושכת')}, ${K('לחצן ימני')} לזום`, 'גררו באצבע בצד ימין כדי לכוון את המקלע, החזיקו את <kbd>אש</kbd>, <kbd>כוונת</kbd> לזום')}. צרור קצר, תיקון, עוד צרור.`,
     done: () => PR.raftHits >= 12 },
-  { id: 'belt', title: 'החלפת שרשרת', at: () => null,
+  { id: 'belt', btn: 'tfire', title: 'החלפת שרשרת', at: () => null,
     say: ['השרשרת נגמרת תמיד ברגע הכי גרוע. תחליף.'],
     start: () => { const m = P.post && P.post.mag; if (m) m.belt = Math.min(m.belt, 6); PR.bl = 0; },
     hint: () => TOUCH ? '<b>שרשרת:</b> ירו עד שהשרשרת נגמרת: המא״ג מחליף אותה לבד.' : `<b>שרשרת:</b> ${K('R')} מחליף שרשרת, או שהיא מתחלפת לבד כשהיא נגמרת.`,
     done: () => { const m = P.post && P.post.mag; if (!m) return false; if (m.reload > 0) PR.bl = 1; return PR.bl === 1 && m.reload <= 0; } },
-  { id: 'leave', title: 'לרדת מהמא״ג', at: () => null,
+  { id: 'leave', btn: 'tact', title: 'לרדת מהמא״ג', at: () => null,
     say: ['יופי. רד מהמקלע.'],
     hint: () => TOUCH ? '<b>לרדת:</b> הכפתור הירוק <kbd>לרדת</kbd>.' : `<b>לרדת:</b> ${K('E')} עוזב את המא״ג.`,
     done: () => P.mode === 'rifle' },
-  { id: 'air', title: 'תרגיל אוויר', at: () => prPt(PR_AT.roof[0], PR_AT.roof[1], 1.4, 'קטע מקורה'),
+  { id: 'air', btn: 'tjoy', title: 'תרגיל אוויר', at: () => prPt(PR_AT.roof[0], PR_AT.roof[1], 1.4, 'קטע מקורה'),
     say: ['אזעקה! מטוסים! לקטע המקורה, מהר!'],
     start: () => prAirRun(),
     hint: () => (TOUCH ? '<b>מטוס בצלילה:</b> ג׳ויסטיק עד הקצה, ורוצו' : '<b>מטוס בצלילה:</b> רוצו') + ' לקטע המקורה בתעלה, שהגג שלו משקי חול (◆). בשטח פתוח התותחים שלו קורעים הכול.',
     done: () => PR.air === 'ok' },
-  { id: 'treat', title: 'עזרה ראשונה', at: () => { const u = prDudu().unit; return [u.pos.x, u.pos.y + 0.4, u.pos.z, 'דודו · "פצוע"']; },
+  { id: 'treat', btn: 'tact', title: 'עזרה ראשונה', at: () => { const u = prDudu().unit; return [u.pos.x, u.pos.y + 0.4, u.pos.z, 'דודו · "פצוע"']; },
     say: ['דודו "נפגע" בתרגיל. אל תצחקו, תחבשו אותו כמו שצריך.'],
     start: () => prWoundDudu(),
     hint: () => `<b>עזרה ראשונה:</b> עמדו ליד הפצוע (✚) והחזיקו ${prKey(K('F'), 'את הכפתור הירוק שמופיע מימין')} עד שהפס מתמלא.`,
     done: () => prDudu().state === 'stable' },
-  { id: 'carry', title: 'פינוי לתאג״ד', at: () => prCarryAt(),
+  { id: 'carry', btn: 'tact', title: 'פינוי לתאג״ד', at: () => prCarryAt(),
     say: ['עכשיו לתאג״ד. סוחבים אותו בתעלת הקשר, לא מעל הסוללה.'],
     hint: () => `<b>פינוי:</b> ${prKey('הכפתור הירוק', K('E'))} מרים אותו. סחבו אותו לאוהל התאג״ד (◆), ושם ${prKey('הכפתור הירוק', K('E'))} משכיב אותו על האלונקה.`,
     done: () => prDudu().state === 'saved' },
@@ -15318,15 +15370,15 @@ const PR_TSTEPS = [
     start: () => { TANK.goal = pathLen(PR_TK.path) - 0.05; },
     hint: () => '<b>עמדת צריח:</b> הטנק עולה לבד אל מאחורי סוללת העפר. רק הצריח והתותח מציצים מעליה, והגוף מוגן.',
     done: () => TANK.goal !== null && Math.abs(TANK.s - TANK.goal) < 0.08 && Math.abs(TANK.speed) < 0.05 },
-  { id: 'tsight', title: 'כוונת התותחן', at: () => prFoeAt(0), who: PR_TC,
+  { id: 'tsight', btn: 'tads', title: 'כוונת התותחן', at: () => prFoeAt(0), who: PR_TC,
     say: ['תיכנס לכוונת. שני טנקים ישנים, גררו אותם לשם בשבילנו.'],
     hint: () => `<b>כוונת:</b> ${prKey(`${K('לחצן ימני')} נכנסים לכוונת התותחן, והעכבר מזיז את הצריח`, 'הכפתור <kbd>כוונת</kbd> מכניס לכוונת התותחן. גוררים באצבע בצד ימין כדי לסובב את הצריח')}.`,
     done: () => P.ads > 0.5 },
-  { id: 'tfire1', title: 'פגז ראשון', at: () => prFoeAt(0), who: PR_TC,
+  { id: 'tfire1', btn: 'tgren', title: 'פגז ראשון', at: () => prFoeAt(0), who: PR_TC,
     say: ['טנק, ימני, אלף שמונה מאות. תותחן, אש!'],
     hint: () => `<b>פגז:</b> שימו את הצלב על הטנק הימני ו${prKey(`לחצו ${K('G')}`, 'לחצו על הכפתור <kbd>תותח</kbd>')}. הכוונת עוזרת לכם להינעל על המטרה.`,
     done: () => prFoe(0) && !prFoe(0).alive },
-  { id: 'tfire2', title: 'פגז שני', at: () => prFoeAt(1), who: PR_TC,
+  { id: 'tfire2', btn: 'tgren', title: 'פגז שני', at: () => prFoeAt(1), who: PR_TC,
     say: ['פגיעה! טען... מוכן. טנק שמאלי, רחוק יותר. אש!'],
     hint: () => `<b>טעינה:</b> אחרי כל פגז הטען טוען 4 שניות (בפינה כתוב "טוען"). כוונו לטנק השמאלי ו${prKey(K('G'), 'הכפתור <kbd>תותח</kbd>')}.`,
     done: () => prFoe(1) && !prFoe(1).alive },
@@ -15336,11 +15388,11 @@ const PR_JP = { path: [[-17, -102], [-17, -246]], v: 1.9, drums: [[-31, -126], [
 const PR_JD = 'אבי · הנהג';
 const prDrumAt = (a = 0, b = 6) => { const d = PR.drums && PR.drums.slice(a, b).find((q) => !q.down); return d ? [d.x, d.y + 1.6, d.z, 'חבית'] : null; };
 const PR_JSTEPS = [
-  { id: 'jstill', title: 'ירי מג׳יפ עומד', at: () => prDrumAt(0, 3), who: PR_JD,
+  { id: 'jstill', btn: 'tfire', title: 'ירי מג׳יפ עומד', at: () => prDrumAt(0, 3), who: PR_JD,
     say: ['אתה על ה־0.5? קודם מהמקום. שלוש חביות לפנינו, אחת אחת.'],
     hint: () => `<b>מקלע על ג׳יפ:</b> ${prKey(`העכבר מסובב את המקלע, ${K('לחיצה ממושכת')} יורה, ${K('לחצן ימני')} כוונת`, 'גררו באצבע בצד ימין כדי לסובב את המקלע, החזיקו את <kbd>אש</kbd>, <kbd>כוונת</kbd> לזום')}. צרורות קצרים על החבית שמסומנת.`,
     done: () => PR.drums && PR.drums.slice(0, 3).every((q) => q.down) },
-  { id: 'jmove', title: 'ירי מג׳יפ נוסע', at: () => prDrumAt(3, 6), who: PR_JD,
+  { id: 'jmove', btn: 'tfire', title: 'ירי מג׳יפ נוסע', at: () => prDrumAt(3, 6), who: PR_JD,
     say: ['יפה. עכשיו בתנועה: אני נוסע לאט, ואתה מפיל את שלוש הבאות.'],
     start: () => { PR.jeep.on = true; },
     hint: () => '<b>בתנועה:</b> הג׳יפ זז, והמטרה זזה בכוונת. עקבו אחריה כל הזמן, וירו צרורות קצרים.',
@@ -15600,6 +15652,7 @@ function prUpd(dt) {
   }
   for (const T of PR.raft ? PR.raft.figs : []) if (T.hit && T.pivot.rotation.x > -1.4) T.pivot.rotation.x -= dt * 3;
   prRaftUpd(dt); prJeepUpd(dt);
+  { const S0 = PR.stage !== PR_NIGHT && prSteps()[PR.step]; let b = TOUCH && S0 && S0.btn && GAME.t > (PR.hintAt || 0) ? S0.btn : null; if (b === 'tact' && !$('#tact').classList.contains('on')) b = null; tutPoint(b); }
   if (PR.stage === PR_NIGHT) return;
   const S = prSteps()[PR.step]; if (!S) return;
   if (PR.hintAt && GAME.t >= PR.hintAt) { PR.hintAt = 0; TUT.seen['pr-' + S.id] = false; hint('pr-' + S.id, S.hint(), 30); }
