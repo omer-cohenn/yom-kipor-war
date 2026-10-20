@@ -944,12 +944,13 @@ function spawnJets(delay = 0) {
     JETS.push({ m, from, to, t: -delay - i * 0.35, dur: from.distanceTo(to) / 150, i, heard: false });
   }
 }
+const _jv = V3(), _jw = V3();
 function updJets(dt) {
   for (const j of [...JETS]) {
     j.t += dt * 0.6; if (j.t < 0) continue; const u = j.t / j.dur; j.m.visible = true;
     if (u >= 1) { scene.remove(j.m); JETS.splice(JETS.indexOf(j), 1); continue; }
     j.m.position.lerpVectors(j.from, j.to, u);
-    if (!j.heard && j.i === 0) { j.heard = true; const cx = (0 - j.from.x) / (j.to.x - j.from.x); sndJet(Math.max(0.5, cx * j.dur - j.t)); }
+    if (!j.heard && j.i === 0) { j.heard = true; const L = _jv.subVectors(j.to, j.from), u = clamp(_jw.subVectors(camera.position, j.from).dot(L) / L.lengthSq(), 0, 1); sndJet(Math.max(0.4, (u * j.dur - j.t) / 0.6)); }   // the roar peaks as the pair passes the camera (their clock runs at 0.6)
   }
 }
 

@@ -3588,12 +3588,13 @@ function spawnJets(delay = 0) {
     JETS.push({ m, from, to, t: -delay - i * 0.35, dur: from.distanceTo(to) / 150, i, heard: false });
   }
 }
+const _jv = V3(), _jw = V3();
 function updJets(dt) {
   for (const j of [...JETS]) {
     j.t += dt * 0.6; if (j.t < 0) continue; const u = j.t / j.dur; j.m.visible = true;
     if (u >= 1) { scene.remove(j.m); JETS.splice(JETS.indexOf(j), 1); continue; }
     j.m.position.lerpVectors(j.from, j.to, u);
-    if (!j.heard && j.i === 0) { j.heard = true; const cx = (0 - j.from.x) / (j.to.x - j.from.x); sndJet(Math.max(0.5, cx * j.dur - j.t)); }
+    if (!j.heard && j.i === 0) { j.heard = true; const L = _jv.subVectors(j.to, j.from), u = clamp(_jw.subVectors(camera.position, j.from).dot(L) / L.lengthSq(), 0, 1); sndJet(Math.max(0.4, (u * j.dur - j.t) / 0.6)); }   // the roar peaks as the pair passes the camera (their clock runs at 0.6)
   }
 }
 
@@ -4944,10 +4945,10 @@ const TICO = {   /* line drawings with filled parts (class f: a tint of the line
   shell: '<path class="f" d="M9 9.2c0-2.8 1-5.2 3-7 2 1.8 3 4.2 3 7v4.2H9z"/><path d="M9 9.2c0-2.8 1-5.2 3-7 2 1.8 3 4.2 3 7v4.2H9z"/><path class="s" d="M8.4 13.4h7.2v1.8H8.4z"/><path d="M8.8 15.2h6.4v6.6H8.8z"/><path d="M8.8 18.2h6.4" stroke-width="1" opacity=".6"/>',
   hand: '<path class="f" d="M8 14.6V6.2a1.4 1.4 0 0 1 2.8 0V4.6a1.4 1.4 0 0 1 2.8 0v1.2a1.4 1.4 0 0 1 2.8 0v4a1.4 1.4 0 0 1 2.8 0v4.6c0 4-2.6 7.1-6.6 7.1-2.7 0-4.4-1.2-5.9-3.5L4.4 14.4a1.4 1.4 0 0 1 2.3-1.6z"/><path d="M8 12.5V6.2a1.4 1.4 0 0 1 2.8 0V11"/><path d="M10.8 10.6V4.6a1.4 1.4 0 0 1 2.8 0v6"/><path d="M13.6 10.6V5.8a1.4 1.4 0 0 1 2.8 0v6.6"/><path d="M16.4 9.8a1.4 1.4 0 0 1 2.8 0v4.6c0 4-2.6 7.1-6.6 7.1-2.7 0-4.4-1.2-5.9-3.5L4.4 14.4a1.4 1.4 0 0 1 2.3-1.6L8 14.6"/>',
   mg: { vb: '0 0 48 24', p: '<path class="f" d="M18 8h15.4l.6.4h2.2l10.2 .6v1l-.4 .2v5.4l-.9.2-8.6-2.6H33l-1.6.4-.4 4.6-1.2.6h-1.6l.2-5.2H18z"/><path d="M18 8h15.4l.6.4h2.2l10.2 .6v1l-.4 .2v5.4l-.9.2-8.6-2.6H33l-1.6.4-.4 4.6-1.2.6h-1.6l.2-5.2H18z" stroke-width="0.9"/><path class="s" d="M1 9.1h3.4v1.8H1zM4.4 9.6H18v.9H4.4zM7.6 11h11v1H7.6zM4.6 7.8h.8v1.8h-.8z"/><path d="M2 9.1v1.8M3.2 9.1v1.8" stroke-width="0.5" style="stroke:rgba(30,28,14,.8)"/><path d="M18.6 8c.2-2.2 1.4-3 2.8-3s2.6.8 2.8 3" stroke-width="1.1"/><path class="s" d="M22 6.9h8.4V8H22zM31 6.6h1v1.4h-1z"/><path d="M24.6 12.8c0 1.6.8 2.6 2.6 2.6h1.4" stroke-width="0.9"/><path d="M14.6 12l-3.2 8.2M14.6 12l3 8.2" stroke-width="1.1"/><path d="M10.6 20.2h1.6M16.8 20.2h1.6" stroke-width="1.3"/><path class="s" d="M19.6 12.8h1.4v1.2h-1.4zM19.9 14.3h1.4v1.2h-1.4zM20.4 15.8h1.4V17h-1.4zM21.1 17.3h1.4v1.2h-1.4z"/><path d="M33.6 9.2l12 .8M34 12.4l11.4 3" stroke-width="0.5" style="stroke:rgba(30,28,14,.6)"/>' },
-  ammo: '<rect class="f" x="3" y="10" width="18" height="10.5" rx="1"/><rect x="3" y="10" width="18" height="10.5" rx="1"/><path d="M3 13.6h18"/><path class="s" d="M10.4 16h3.2v2.2h-3.2z"/><path d="M6.6 10V5.6c0-1 .5-1.8 1.2-2.4.7.6 1.2 1.4 1.2 2.4V10M10.8 10V5.6c0-1 .5-1.8 1.2-2.4.7.6 1.2 1.4 1.2 2.4V10M15 10V5.6c0-1 .5-1.8 1.2-2.4.7.6 1.2 1.4 1.2 2.4V10"/>',
+  ammo: '<path class="f" d="M2.8 10.4h15.6v10.4H2.8z"/><path d="M2.8 10.4h15.6v10.4H2.8z" stroke-width="1.3"/><path class="s" d="M2.2 8.8h16.8v1.8H2.2z"/><path d="M7.6 8.8V7.2h6v1.6" stroke-width="1.4"/><path d="M5.2 12.6v6.2M15.8 12.6v6.2" stroke-width="0.8" opacity=".7"/><path class="s" d="M1.4 12.2h1.4v3H1.4z"/><path d="M8 14.4h5.4M8 16.6h5.4" stroke-width="0.9" opacity=".75"/><path class="s" d="M18.6 10.2l1.6-.4 1 1.8-1.6.6zM19.6 12.4l1.6-.2.8 1.9-1.6.4zM20.2 14.8l1.6 0 .5 2-1.7.2z"/><path d="M19.4 9.6c1.6.9 2.6 3.6 2.6 7.6" stroke-width="0.7" opacity=".7"/>',
   lift: '<circle class="s" cx="10" cy="4.4" r="2"/><path d="M10 7.4v6.2M6.4 10.2l3.6-2.6 3.6 2.6M7.6 21l2.4-7.4 2.4 7.4"/><path class="f" d="M15.4 10.6l3.2-3.6 3.2 3.6h-2v6h-2.4v-6z"/><path d="M15.4 10.6l3.2-3.6 3.2 3.6h-2v6h-2.4v-6z"/>',
   drop: '<path class="f" d="M3 16h18v2.2H3z"/><path d="M3 16h18v2.2H3zM5 18.2v3M19 18.2v3"/><path d="M6.6 14.6h10.4"/><circle class="s" cx="6.6" cy="12.8" r="1.6"/><path d="M12 2.4v7.4M9.2 7.2l2.8 2.8 2.8-2.8"/>',
-  aid: '<rect class="f" x="3" y="3" width="18" height="18" rx="3.2"/><rect x="3" y="3" width="18" height="18" rx="3.2"/><path class="s" d="M10 6.6h4v3.4h3.4v4H14v3.4h-4V14H6.6v-4H10z"/>',
+  aid: '<path d="M8.6 7.4V5.6c0-.9.7-1.6 1.6-1.6h3.6c.9 0 1.6.7 1.6 1.6v1.8" stroke-width="1.6"/><path class="f" d="M3.4 9.2c0-1 .8-1.8 1.8-1.8h13.6c1 0 1.8.8 1.8 1.8v9.6c0 1-.8 1.8-1.8 1.8H5.2c-1 0-1.8-.8-1.8-1.8z"/><path d="M3.4 9.2c0-1 .8-1.8 1.8-1.8h13.6c1 0 1.8.8 1.8 1.8v9.6c0 1-.8 1.8-1.8 1.8H5.2c-1 0-1.8-.8-1.8-1.8z" stroke-width="1.3"/><path d="M3.6 11.4h16.8" stroke-width="0.8" opacity=".7"/><circle cx="12" cy="15.2" r="4.1" style="fill:#efe9d8;stroke:rgba(30,28,14,.6);stroke-width:.6"/><path d="M10.9 12.6h2.2v1.5h1.5v2.2h-1.5v1.5h-2.2v-1.5H9.4v-2.2h1.5z" style="fill:#c8372b;stroke:none"/>',
   down: '<rect class="f" x="4" y="12" width="16" height="9" rx="1.5"/><rect x="4" y="12" width="16" height="9" rx="1.5"/><path d="M12 2.5v8M8.8 7.4L12 10.6l3.2-3.2"/>',
   up: '<rect class="f" x="4" y="12" width="16" height="9" rx="1.5"/><rect x="4" y="12" width="16" height="9" rx="1.5"/><path d="M12 10.6v-8M8.8 5.8L12 2.6l3.2 3.2"/>',
   exit: '<path class="f" d="M5 4h5v16H5z"/><path d="M10 4H5v16h5"/><path d="M9.5 12H21M17 8l4 4-4 4"/>',
@@ -5077,6 +5078,14 @@ function sndBoom(p, size = 1) {
   if (!AUD.ctx) return; const [v, dl] = distVol(p, 260 * size); if (v < 0.01) return; const t = AUD.ctx.currentTime + dl; const d = camera.position.distanceTo(p);
   if (SNDB.boom) { clip('boom', t, Math.min(1, v * 1.15), { rate: (size > 1.6 ? 0.82 : size < 0.6 ? 1.18 : 1) * rand(0.94, 1.06), lp: d > 260 ? 900 : 0 }); if (d < 60) nz(t, 0.35, { f: 2600, type: 'lowpass', vol: v * 0.6, f2: 600, attack: 0.004 }); }
   else { nz(t, 2.4, { f: d < 60 ? 2200 : 800, type: 'lowpass', vol: v, f2: 110, attack: 0.01 }); tone(t, 0.9, 70, 26, v); }
+  if (size >= 1.4) {   // a heavy charge - a tank shell, a bomb: the ground itself thumps, the blast rolls on, and earth comes down after it
+    const k = Math.min(1, v * 1.3) * Math.min(1.3, size / 2);
+    tone(t, 1.6, 58, 21, 0.95 * k); tone(t + 0.02, 0.5, 120, 40, 0.5 * k, 'triangle');
+    if (SNDB.boom) clip('boom', t + 0.05, Math.min(1, 0.85 * k), { rate: 0.6 * rand(0.95, 1.05), lp: d > 200 ? 700 : 2400 });
+    if (SNDB.cannon && d < 400) clip('cannon', t, Math.min(1, 0.7 * k), { rate: 0.72, lp: farLP(p) });
+    nz(t + 0.15, 3.2, { f: 420, type: 'lowpass', vol: 0.45 * k, f2: 60, attack: 0.08 });
+    if (d < 120) for (let i = 0; i < 6; i++) nz(t + 0.5 + i * rand(0.12, 0.3), 0.18, { f: rand(900, 2400), q: 1.2, vol: 0.08 * k });   // the debris falling
+  }
   if (d < 14) { AUD.ring = 2.2; tone(t, 2.2, 3700, 3500, 0.08 * (1 - d / 14)); }
 }
 function sndWhistle(eta) { if (!AUD.ctx) return; const t = AUD.ctx.currentTime; if (SNDB.whistle) { const L = SNDB.whistle.duration, r = clamp(L / Math.max(eta, 0.3), 0.75, 1.5), off = Math.max(0, L - eta * r); clip('whistle', t, 0.3, { rate: r, off }); return; } const o = AUD.ctx.createOscillator(); o.frequency.setValueAtTime(1900, t); o.frequency.exponentialRampToValueAtTime(650, t + eta); const g = AUD.ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.07, t + eta * 0.9); g.gain.exponentialRampToValueAtTime(0.0001, t + eta); o.connect(g); g.connect(AUD.master); o.start(t); o.stop(t + eta + 0.05); }
@@ -5093,6 +5102,8 @@ function sndJet(eta) {
   const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.setValueAtTime(820, t); o.frequency.exponentialRampToValueAtTime(1250, t + eta); o.frequency.exponentialRampToValueAtTime(380, t + eta + 2.2);
   const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 1100; const og = ctx.createGain(); og.gain.setValueAtTime(0.0001, t); og.gain.exponentialRampToValueAtTime(0.035, t + eta); og.gain.exponentialRampToValueAtTime(0.0001, t + eta + 3);
   o.connect(bp); bp.connect(og); og.connect(AUD.master); o.start(t); o.stop(t + eta + 3.1);
+  // the passing itself: a hard tearing roar right at the moment, and the low rumble that trails it
+  nz(t + Math.max(0, eta - 0.5), 2.6, { f: 1800, type: 'bandpass', q: 0.4, vol: 0.55, f2: 260, attack: 0.45 }); tone(t + Math.max(0, eta - 0.3), 3.2, 70, 34, 0.35);
 }
 /* a round striking close by */
 function sndImpact(p) { if (!AUD.ctx || !p) return; const d = camera.position.distanceTo(p); if (d > 14) return; clip('impact', AUD.ctx.currentTime, 0.45 * (1 - d / 16), { rate: rand(0.85, 1.2) }); }
@@ -6062,7 +6073,20 @@ const LANDCAP = { n: 999, wave: 0, open: -1 };
 /* the great wave comes in waves: a wave lands together, and only once the beach has thinned to LANDCAP.wave men; until then it waits on the
    water twenty-five metres out, and the waves behind it wait in line behind it, thirty metres apart (LANDCAP.open: the last wave let in) */
 const aboard = (bt) => { let n = 0; for (const s of bt.seats) if (s.alive && !s.gone) n++; return n; };
+/* the paddles: each crossing boat near enough is heard - the blades going in together, the stroke's wash and the drip as they come out */
+function sndRowing(dt) {
+  if (!AUD.ctx) return; AUD.rowT = (AUD.rowT || 0) - dt; if (AUD.rowT > 0) return; AUD.rowT = 0.3;
+  const near = []; for (const bt of BOATS) { if (bt.dead || bt.state !== 'cross' || bt.holding) continue; const d = camera.position.distanceTo(bt.g.position); if (d < 170) near.push([d, bt]); }
+  near.sort((a, b) => a[0] - b[0]); const t = AUD.ctx.currentTime;
+  for (const [d, bt] of near.slice(0, 3)) { bt.rowT = (bt.rowT ?? Math.random() * 1.2) - 0.3; if (bt.rowT > 0) continue; bt.rowT = rand(1.15, 1.45);
+    const v = Math.min(1, 26 / (d + 8)), lp = d > 90 ? 900 : 2600, dl = d / 343;
+    nz(t + dl, 0.16, { f: 700, type: 'bandpass', q: 0.9, vol: 0.32 * v, attack: 0.01 }); nz(t + dl + 0.03, 0.12, { f: 1500, type: 'bandpass', q: 1.2, vol: 0.18 * v });   // the blades in
+    nz(t + dl + 0.12, 0.7, { f: lp, type: 'lowpass', vol: 0.2 * v, f2: 300, attack: 0.15 });   // the pull: water rushing past
+    for (let k = 0; k < 3; k++) nz(t + dl + 0.85 + k * rand(0.06, 0.12), 0.05, { f: rand(2200, 3600), q: 4, vol: 0.06 * v });   // drips off the blades
+  }
+}
 function updBoats(dt) {
+  sndRowing(dt);
   // counted before any boat moves this frame (a boat coming to the line must not count itself)
   let men = 0; if ((LANDCAP.n < 999 || LANDCAP.wave) && !CINE.on) { for (const e of UNITS.enemies) if (e.alive) men++; for (const bt of BOATS) if (!bt.dead && (bt.state === 'landed' || (bt.state === 'cross' && bt.t * bt.speed > bt.len - 25 + 0.01))) men += aboard(bt); }
   const load = 8 + (LITE ? 4 : 6), room = (LANDCAP.n + 0.3) * load;

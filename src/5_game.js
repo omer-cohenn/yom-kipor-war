@@ -82,6 +82,14 @@ function sndBoom(p, size = 1) {
   if (!AUD.ctx) return; const [v, dl] = distVol(p, 260 * size); if (v < 0.01) return; const t = AUD.ctx.currentTime + dl; const d = camera.position.distanceTo(p);
   if (SNDB.boom) { clip('boom', t, Math.min(1, v * 1.15), { rate: (size > 1.6 ? 0.82 : size < 0.6 ? 1.18 : 1) * rand(0.94, 1.06), lp: d > 260 ? 900 : 0 }); if (d < 60) nz(t, 0.35, { f: 2600, type: 'lowpass', vol: v * 0.6, f2: 600, attack: 0.004 }); }
   else { nz(t, 2.4, { f: d < 60 ? 2200 : 800, type: 'lowpass', vol: v, f2: 110, attack: 0.01 }); tone(t, 0.9, 70, 26, v); }
+  if (size >= 1.4) {   // a heavy charge - a tank shell, a bomb: the ground itself thumps, the blast rolls on, and earth comes down after it
+    const k = Math.min(1, v * 1.3) * Math.min(1.3, size / 2);
+    tone(t, 1.6, 58, 21, 0.95 * k); tone(t + 0.02, 0.5, 120, 40, 0.5 * k, 'triangle');
+    if (SNDB.boom) clip('boom', t + 0.05, Math.min(1, 0.85 * k), { rate: 0.6 * rand(0.95, 1.05), lp: d > 200 ? 700 : 2400 });
+    if (SNDB.cannon && d < 400) clip('cannon', t, Math.min(1, 0.7 * k), { rate: 0.72, lp: farLP(p) });
+    nz(t + 0.15, 3.2, { f: 420, type: 'lowpass', vol: 0.45 * k, f2: 60, attack: 0.08 });
+    if (d < 120) for (let i = 0; i < 6; i++) nz(t + 0.5 + i * rand(0.12, 0.3), 0.18, { f: rand(900, 2400), q: 1.2, vol: 0.08 * k });   // the debris falling
+  }
   if (d < 14) { AUD.ring = 2.2; tone(t, 2.2, 3700, 3500, 0.08 * (1 - d / 14)); }
 }
 function sndWhistle(eta) { if (!AUD.ctx) return; const t = AUD.ctx.currentTime; if (SNDB.whistle) { const L = SNDB.whistle.duration, r = clamp(L / Math.max(eta, 0.3), 0.75, 1.5), off = Math.max(0, L - eta * r); clip('whistle', t, 0.3, { rate: r, off }); return; } const o = AUD.ctx.createOscillator(); o.frequency.setValueAtTime(1900, t); o.frequency.exponentialRampToValueAtTime(650, t + eta); const g = AUD.ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.07, t + eta * 0.9); g.gain.exponentialRampToValueAtTime(0.0001, t + eta); o.connect(g); g.connect(AUD.master); o.start(t); o.stop(t + eta + 0.05); }
@@ -98,6 +106,8 @@ function sndJet(eta) {
   const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.setValueAtTime(820, t); o.frequency.exponentialRampToValueAtTime(1250, t + eta); o.frequency.exponentialRampToValueAtTime(380, t + eta + 2.2);
   const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 1100; const og = ctx.createGain(); og.gain.setValueAtTime(0.0001, t); og.gain.exponentialRampToValueAtTime(0.035, t + eta); og.gain.exponentialRampToValueAtTime(0.0001, t + eta + 3);
   o.connect(bp); bp.connect(og); og.connect(AUD.master); o.start(t); o.stop(t + eta + 3.1);
+  // the passing itself: a hard tearing roar right at the moment, and the low rumble that trails it
+  nz(t + Math.max(0, eta - 0.5), 2.6, { f: 1800, type: 'bandpass', q: 0.4, vol: 0.55, f2: 260, attack: 0.45 }); tone(t + Math.max(0, eta - 0.3), 3.2, 70, 34, 0.35);
 }
 /* a round striking close by */
 function sndImpact(p) { if (!AUD.ctx || !p) return; const d = camera.position.distanceTo(p); if (d > 14) return; clip('impact', AUD.ctx.currentTime, 0.45 * (1 - d / 16), { rate: rand(0.85, 1.2) }); }
@@ -1067,7 +1077,20 @@ const LANDCAP = { n: 999, wave: 0, open: -1 };
 /* the great wave comes in waves: a wave lands together, and only once the beach has thinned to LANDCAP.wave men; until then it waits on the
    water twenty-five metres out, and the waves behind it wait in line behind it, thirty metres apart (LANDCAP.open: the last wave let in) */
 const aboard = (bt) => { let n = 0; for (const s of bt.seats) if (s.alive && !s.gone) n++; return n; };
+/* the paddles: each crossing boat near enough is heard - the blades going in together, the stroke's wash and the drip as they come out */
+function sndRowing(dt) {
+  if (!AUD.ctx) return; AUD.rowT = (AUD.rowT || 0) - dt; if (AUD.rowT > 0) return; AUD.rowT = 0.3;
+  const near = []; for (const bt of BOATS) { if (bt.dead || bt.state !== 'cross' || bt.holding) continue; const d = camera.position.distanceTo(bt.g.position); if (d < 170) near.push([d, bt]); }
+  near.sort((a, b) => a[0] - b[0]); const t = AUD.ctx.currentTime;
+  for (const [d, bt] of near.slice(0, 3)) { bt.rowT = (bt.rowT ?? Math.random() * 1.2) - 0.3; if (bt.rowT > 0) continue; bt.rowT = rand(1.15, 1.45);
+    const v = Math.min(1, 26 / (d + 8)), lp = d > 90 ? 900 : 2600, dl = d / 343;
+    nz(t + dl, 0.16, { f: 700, type: 'bandpass', q: 0.9, vol: 0.32 * v, attack: 0.01 }); nz(t + dl + 0.03, 0.12, { f: 1500, type: 'bandpass', q: 1.2, vol: 0.18 * v });   // the blades in
+    nz(t + dl + 0.12, 0.7, { f: lp, type: 'lowpass', vol: 0.2 * v, f2: 300, attack: 0.15 });   // the pull: water rushing past
+    for (let k = 0; k < 3; k++) nz(t + dl + 0.85 + k * rand(0.06, 0.12), 0.05, { f: rand(2200, 3600), q: 4, vol: 0.06 * v });   // drips off the blades
+  }
+}
 function updBoats(dt) {
+  sndRowing(dt);
   // counted before any boat moves this frame (a boat coming to the line must not count itself)
   let men = 0; if ((LANDCAP.n < 999 || LANDCAP.wave) && !CINE.on) { for (const e of UNITS.enemies) if (e.alive) men++; for (const bt of BOATS) if (!bt.dead && (bt.state === 'landed' || (bt.state === 'cross' && bt.t * bt.speed > bt.len - 25 + 0.01))) men += aboard(bt); }
   const load = 8 + (LITE ? 4 : 6), room = (LANDCAP.n + 0.3) * load;
