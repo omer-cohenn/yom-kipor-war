@@ -25,7 +25,7 @@ const PHONE = LITE0;   // a phone or tablet: the soldiers in full, the map and i
 // phone at high too: there the soldiers stay in full detail (they follow QUAL, not LITE), the ground keeps its textures and the sun its shadows
 const LITE = QUAL !== 'high' || PHONE;
 const SHADOWS = QUAL !== 'low' && !QS.has('noshadow');   // the sun's shadows on medium too (a smaller map): a phone draws them well enough, and the frame governor in 5_game.js takes the resolution down first if not
-const QLOD = { high: [16, 48], med: [9, 30], low: [0, 15] }[QUAL];
+const QLOD = { high: [48, 144], med: [27, 90], low: [0, 45] }[QUAL];
 const FAR = LITE ? 11000 : 30000;
 const HDRK = LITE ? 1 : 2.4;
 const $C = new Map(), $ = (s) => { let e = $C.get(s); if (!e || !e.isConnected) { e = document.querySelector(s); if (e) $C.set(s, e); } return e; };   /* the page's elements, looked up once (the HUD asks for them every frame) */

@@ -849,7 +849,7 @@ function hmSetup(stage) {
   const fw = [-Math.sin(P.yaw), -Math.cos(P.yaw)], spot = (i) => { const b = 2.2 + i * 1.3, sd = i % 2 ? 0.8 : -0.8, cand = [[b, sd], [b, 0], [b * 0.6, sd], [b * 0.4, 0], [1.2, sd * 0.5]];
     for (const [bb, s] of cand) { const px = P.pos.x - fw[0] * bb + s * fw[1], pz = P.pos.z - fw[1] * bb - s * fw[0], y = stage >= 3 ? hAt(px, pz, P.pos.y + 0.3) : groundAt(px, pz); if (stage < 3 || (!blocked(px, pz, 0.35, y) && Math.abs(y - P.pos.y) < 1.2)) return [px, pz, stage >= 3 ? y : undefined]; }
     return [P.pos.x + (i % 3 - 1) * 0.4, P.pos.z + 0.3, stage >= 3 ? P.pos.y : undefined]; };
-  fieldFriends(HM_NAMES.map((name, i) => { if (i >= 8) return null; const [px, pz, py] = spot(i); return { name, x: px, z: pz, y: py, state: 'follow', fi: i }; }));
+  fieldFriends(HM_NAMES.map((name, i) => { if (i >= 3) return null; const [px, pz, py] = spot(i); return { name, x: px, z: pz, y: py, state: 'follow', fi: i }; }));
   hmStage(stage, g0);
 }
 function hmStage(i, g0 = 0) {

@@ -258,6 +258,17 @@ function resetFriends() {
   for (const p of POSTS) if (p.mag) { p.mag.belt = p.mag.cap || 200; p.mag.reload = 0; p.mag.yaw = p.mag.yaw0; p.mag.pitch = 0; p.mag.pivot.rotation.set(0, p.mag.yaw0, 0); }
 }
 function friendsToPosts() { for (const f of FRIENDS) if (f.state === 'duck') { f.state = 'post'; f.unit.stance = 'stand'; f.scanCd = rand(0.2, 1.5); } }
+// the men are solid: the player cannot walk through a standing soldier, friend or foe - he is eased out to the edge of the man's body,
+// and slides along it (a step that would land in free ground nearby stays; one into a wall is undone)
+const MAN_R = 0.58;
+function pushFromMen() {
+  const px0 = P.pos.x, pz0 = P.pos.z; let x = px0, z = pz0;
+  const one = (u) => { if (!u || !u.alive || u.fall >= 0 || !u.rig.root.visible || Math.abs(u.pos.y - P.pos.y) > 1.3) return; const dx = x - u.pos.x, dz = z - u.pos.z, d2 = dx * dx + dz * dz; if (d2 >= MAN_R * MAN_R) return; const d = Math.sqrt(d2);
+    if (d < 1e-3) { x = u.pos.x + MAN_R; return; } const k = (MAN_R - d) / d; x += dx * k; z += dz * k; };
+  for (const f of FRIENDS) if (f.state !== 'carried' && f.state !== 'ride' && f.state !== 'board') one(f.unit);
+  for (const e of UNITS.enemies) one(e);
+  if ((x !== px0 || z !== pz0) && !blocked(x, z, 0.3, P.pos.y) && groundAt(x, z) > -0.3) { P.pos.x = x; P.pos.z = z; }
+}
 function steer(u, tx, tz, speed, dt) {
   const dx = tx - u.pos.x, dz = tz - u.pos.z, d = Math.hypot(dx, dz); if (d < 0.05) return d;
   const base = Math.atan2(dx, dz), st = Math.min(d, speed * dt);
@@ -1677,7 +1688,7 @@ function updPlayer(dt) {
     const nSub = Math.max(1, Math.ceil(Math.hypot(dx, dz) / 0.12)), sdx = dx / nSub, sdz = dz / nSub;
     for (let si = 0; si < nSub; si++) { if (ok(P.pos.x + sdx, P.pos.z)) P.pos.x += sdx; else { P.vx *= 0.2; break; } } for (let si = 0; si < nSub; si++) { if (ok(P.pos.x, P.pos.z + sdz)) P.pos.z += sdz; else { P.vz *= 0.2; break; } }
     { const want = Math.hypot(dx, dz), got = Math.hypot(P.pos.x - x0, P.pos.z - z0); if (want > 1e-4 && got < want * 0.35) { const px = -dz / want, pz = dx / want; for (const sg of [1, -1]) { const sx = P.pos.x + px * sg * want * 0.9, sz = P.pos.z + pz * sg * want * 0.9; if (ok(sx, sz) && ok(sx + dx, sz + dz)) { P.pos.x = sx; P.pos.z = sz; break; } } } }
-    if (PDOOR.on) pdoorMove(dt);
+    if (PDOOR.on) pdoorMove(dt); else pushFromMen();
     // caught inside a wall or a sandbag heap (a slope that led into it, a step down off it): ease out to the nearest free ground instead of freezing
     if (blocked(P.pos.x, P.pos.z, 0.3, P.pos.y)) { P.stuckT = (P.stuckT || 0) + dt; let best = null, bd = 1e9; for (let rr = 0.25; rr <= 2.6 && !best; rr += 0.25) for (let k = 0; k < 16; k++) { const a = k / 16 * Math.PI * 2, x = P.pos.x + Math.cos(a) * rr, z = P.pos.z + Math.sin(a) * rr; if (groundAt(x, z) > -0.3 && !blocked(x, z, 0.32, P.pos.y) && !blocked(x, z, 0.32, hAt(x, z, P.pos.y))) { const d = Math.abs(hAt(x, z, P.pos.y) - P.pos.y) * 2 + rr; if (d < bd) { bd = d; best = [x, z]; } } }
       if (best) { const k = Math.min(1, dt * 8 + (P.stuckT > 0.45 ? 1 : 0)); P.pos.x += (best[0] - P.pos.x) * k; P.pos.z += (best[1] - P.pos.z) * k; } } else P.stuckT = 0;
@@ -2102,7 +2113,7 @@ for (const id of ['#diff', '#diffP']) { const el = $(id); if (el) el.addEventLis
 function setQual(q, live) {
   for (const x of document.querySelectorAll('#qual button')) x.setAttribute('aria-pressed', String(x.dataset.q === q)); if (!live) return;
   try { localStorage.setItem('yk73.q2', q); } catch (e) {}
-  const L = { high: [16, 48], med: [9, 30], low: [0, 15] }[q]; QLOD[0] = L[0]; QLOD[1] = L[1];
+  const L = { high: [48, 144], med: [27, 90], low: [0, 45] }[q]; QLOD[0] = L[0]; QLOD[1] = L[1];
   const dpr = window.devicePixelRatio || 1; renderer.setPixelRatio(q === 'low' ? 1 : Math.min(dpr, q === 'high' ? (PHONE ? 2 : 3) : 2)); GOV.cap = renderer.getPixelRatio(); window.dispatchEvent(new Event('resize'));
   const n = $('#qualNote'); if (n) n.hidden = q === QUAL;
 }

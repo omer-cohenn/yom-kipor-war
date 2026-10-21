@@ -632,7 +632,7 @@ function fmPitsBuild(parts) {
 const fmV = (lx, lz, dy = 0, y) => { const [x, z] = FW(lx, lz); return V3(x, (y ?? hAt(x, z, FY + 0.6)) + dy, z); };
 const fmDef = (name, lx, lz, face = [0, -1], state = 'post') => { const [x, z] = FW(lx, lz); return { name, x, z, fx: face[0], fz: face[1], state, y: FY + 0.6 }; };
 // a file behind the player: a pace and a half apart, alternating sides; back is the unit vector behind him
-function fmSquad(names, at, back, state = 'follow') { const [x0, z0] = FW(at[0], at[1]), [bx, bz] = back; return names.map((name, i) => { const sd = i % 2 ? 0.9 : -0.9; return { name, x: x0 + bx * (2.4 + i * 1.6) + sd * bz, z: z0 + bz * (2.4 + i * 1.6) - sd * bx, state, fi: i, fx: -bx, fz: -bz, y: FY + 0.6 }; }); }
+function fmSquad(names, at, back, state = 'follow') { const [x0, z0] = FW(at[0], at[1]), [bx, bz] = back; return (state === 'follow' ? names.slice(0, 3) : names).map((name, i) => { const sd = i % 2 ? 0.9 : -0.9; return { name, x: x0 + bx * (2.4 + i * 1.6) + sd * bz, z: z0 + bz * (2.4 + i * 1.6) - sd * bx, state, fi: i, fx: -bx, fz: -bz, y: FY + 0.6 }; }); }
 function fmCut(fn) { const f = $('#fade'); f.style.transition = 'opacity .5s'; f.style.opacity = '1'; DIRQ.push({ at: GAME.t + 0.55, fn: () => { fn(); f.style.transition = 'opacity 1.2s'; f.style.opacity = '0'; } }); }
 // a vehicle driven along a path of local points, slowing to a halt at its end
 function fmDrive(v, pts, vmax, onEnd = null) { v.path = pts.map(([x, z]) => FW(x, z)); v.s = 0; v.vmax = vmax; v.speed = 0; v.stop = pathLen(v.path); v.ended = false; v.onEnd = onEnd; v.hdV = null; const [x, z, hd] = pathAt(v.path, 0); vehPose(v, x, z, hd); v.g.visible = true; v.shown = true; }
