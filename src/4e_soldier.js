@@ -405,8 +405,9 @@ const NSB = { t: -1, allow: new Set(), cand: [] };
 function nsCine() { try { return CINE.on; } catch (e) { return false; } }   // (CINE is defined further on; men are set up before it)
 function nsDecide(u) {
   const R = u.rig; if (!R) return; const far = camera.position.distanceTo(u.pos), eff = far * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2) / 0.7265 / (u.vs || 1);
-  if (NSB.t !== GAME.t) {   // a new frame: last frame's near men ranked, those wearing it already a little ahead (no flicker), the dead behind the living
-    NSB.cand.sort((a, b) => a.nsRank - b.nsRank); NSB.allow = new Set(NSB.cand.slice(0, nsCine() ? NS_MAXC : NS_MAX)); NSB.cand.length = 0; NSB.t = GAME.t;
+  const fk = nsCine() ? -1e6 - CINE.t : GAME.t;   /* in a film the game's clock may stand still (the battle waits it out): the film's clock marks the frames */
+  if (NSB.t !== fk) {   // a new frame: last frame's near men ranked, those wearing it already a little ahead (no flicker), the dead behind the living
+    NSB.cand.sort((a, b) => a.nsRank - b.nsRank); NSB.allow = new Set(NSB.cand.slice(0, nsCine() ? NS_MAXC : NS_MAX)); NSB.cand.length = 0; NSB.t = fk;
   }
   const nd = nsCine() ? NS_DC : NS_D, near = NEWSOL.on && MODE !== 'farm' && eff < (R.nsOn ? nd * 1.12 : nd);
   if (near) { u.nsRank = eff * (R.nsOn ? 0.85 : 1) * (u.alive ? 1 : 1.6); NSB.cand.push(u); }
