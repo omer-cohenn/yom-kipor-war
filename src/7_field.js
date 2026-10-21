@@ -809,6 +809,7 @@ function mzBoatsFilm() {
   const lead = (rowA.length ? rowA : W).slice().sort(byZ)[0], mid = (rowB.length ? rowB : W.filter((b) => b !== lead)).slice().sort(byZ)[0] || lead;   /* no mines any more: the lead boat rows on with the others and lands after the film */
   if (!rowA.length) W.forEach((b, i) => { const u = b === lead ? 1 - (T_LAND * b.speed) / b.len : b === mid ? 0.55 : 0.34 + 0.28 * ((i * 0.618034) % 1); b.t = (u * b.len) / b.speed; });
   for (const b of W) filmRow(b, true);   // the oars shipped for the film, as in the drone's (up close the rowing does not look right)
+  const CR = bcrewMake(W);   // real soldiers in every boat the camera comes near
   const zl = lead.zLand, bx = () => lead.g.position.clone(), cx = crestX(zc), cy = groundAt(cx, zc), fwd = (b) => V3(Math.sin(b.heading), 0, Math.cos(b.heading)), rgt = (b) => V3(Math.cos(b.heading), 0, -Math.sin(b.heading));
   const mp = () => mid.g.position.clone(), beachX = tongueWestX(zl), pe = playerEye();
   // the stronghold's guns on the water: spouts round the boats, tracers from the rampart; and the boats' own rifles at the sand wall
@@ -826,17 +827,17 @@ function mzBoatsFilm() {
       { d: 5.4, slow: 0.55, cam: (u) => ({ p: V3(beachX + 10 - u * 1.5, groundAt(beachX + 10, zl + 11) + 2.3, zl + 11), l: V3(beachX - 5.5 - u * 1.5, 1.0 + u * 2.2, zl), fov: 44 }) },   /* from the beach: the lead boat coming in */
       { d: 3.4, cam: (u) => { const x = crestX(zl) - 1 - u * 1.5; return { p: V3(x, groundAt(x, zl + 9) + 2.4, zl + 9), l: V3(beachX + 3 - u * 2, 1.0, zl - 3), fov: 50 }; } },
     ],
-    ev,
+    ev, tick: (dt) => CR.step(dt),
     caps: [[0.3, '<b>לפנות ערב.</b> הם זורקים את הכול: סירות לכל אורך הסוללה המערבית, מקצה לקצה.', 4.8], [5.8, 'בכל סירה חיילים צפופים. החותרים לא עוצרים, גם כשהמים מסביבם רותחים מאש.', 4.2],
       [10.4, '<b>תצפית:</b> הראשונים כבר ליד החוף! עוד רגע הם על הסוללה!', 3.6], [15.6, '<b>תצפית:</b> הסירה הראשונה כמעט על החוף. הם יעלו על הסוללה!', 4.0], [19.8, '<b>מ״פ:</b> עוד עשרות סירות בדרך. אש על הסירות, עכשיו!', 3.0]],
-    boatFilm: true, boatRate: 0.4, end: () => { for (const b of BOATS) if (b.filmHide) filmRow(b, false); },   /* the rest row on at less than half pace in it: none of them lands */
+    boatFilm: true, boatRate: 0.4, end: () => { CR.off(); for (const b of BOATS) if (b.filmHide) filmRow(b, false); },   /* the rest row on at less than half pace in it: none of them lands */
   });
 }
 /* ---------- film, chapter 1, the boats up close: the moment the player takes a gun on the western rampart, a drone's pass along the line of
    boats rowing at it - ten metres in front of them, a metre and a half over their gunwales - near enough to see the faces of the men firing
    over the bows, and the stronghold's rounds slapping the water among them. Then it climbs, and the whole line is seen at once ---------- */
 const BCREW = [];   // the men in the bows of the boats nearest the camera: real soldiers (faces, helmets, rifles); the other boats keep their seated figures
-const BCREW_AT = [[2.05, -0.22, 'crouch'], [1.98, 0.27, 'aim'], [0.98, -0.34, 'crouch'], [0.93, 0.33, 'crouch'], [-0.15, -0.31, 'crouch'], [-0.25, 0.3, 'crouch']];   // in the boat (its own units, bow +x): x, z, and how he holds himself
+const BCREW_AT = [[2.05, -0.22, 'crouch'], [1.98, 0.27, 'aim'], [0.98, -0.34, 'crouch'], [0.93, 0.33, 'crouch'], [-0.15, -0.31, 'crouch'], [-0.25, 0.3, 'crouch'], [-1.25, -0.3, 'crouch'], [-1.3, 0.29, 'crouch'], [-2.2, 0, 'crouch']];   // the whole boat: no seated figure is left in a boat the camera can make out   // in the boat (its own units, bow +x): x, z, and how he holds himself
 function bcrewUnit(i) {
   while (BCREW.length <= i) { const u = new Unit('e', BCREW.length % 5 === 3 ? 'lmg' : 'rifle'); scene.remove(u.tag); u.noTag = true; u.alive = true; u.rig.root.visible = false; BCREW.push(u); }
   return BCREW[i];
@@ -846,6 +847,31 @@ function filmRow(b, on) {
   for (const s of b.seats) if (s.rower) { s.m.visible = !on && s.alive && !s.gone; s.oar.visible = !on && !s.gone; }
   if (on && !b.filmExtra) { b.filmExtra = []; const have = b.seats.filter((s) => !s.rower).length; for (let i = have; i < 8; i++) { const m = new THREE.Mesh(SEATED, MAT.clothE); m.position.set(SEATS[i][0], 0.02, SEATS[i][1]); m.rotation.y = Math.PI / 2; m.scale.setScalar(US / BOAT_S); b.g.add(m); b.filmExtra.push(m); } }
   if (!on && b.filmExtra) { for (const m of b.filmExtra) b.g.remove(m); b.filmExtra = null; }
+}
+/* the real soldiers in the boats near the camera, for the films of the boats: every boat within some seventy metres of it (the twelve nearest)
+   is filled with them, bow to stern, firing at the rampart; a boat that goes off gives its men back to the pool and gets its seated figures back */
+function bcrewMake(W) {
+  const F = { used: new Map(), free: [], n: 0 };
+  // a boat comes near the camera: four men in its bow; it goes off, they go back to the pool and its own figures come back
+  const crewOn = (b) => { const us = []; for (let k = 0; k < BCREW_AT.length; k++) { const u = bcrewUnit(F.free.length ? F.free.pop() : F.n++); u.rig.root.visible = true; u.alive = true; u.dieT = -1; u.cf = rand(0.2, 2.2); u.cb = 0; u.snapHd = true; u.rig.snapNext = true; us.push(u); } for (const s of b.seats) if (!s.rower) s.m.visible = false; for (const m of b.filmExtra || []) m.visible = false; F.used.set(b, us); };
+  const crewOff = (b) => { const us = F.used.get(b); if (!us) return; for (const u of us) { u.rig.root.visible = false; F.free.push(BCREW.indexOf(u)); } for (const s of b.seats) if (!s.rower && s.alive && !s.gone) s.m.visible = true; for (const m of b.filmExtra || []) m.visible = true; F.used.delete(b); };
+  const _lp = V3();
+  F.step = (dt) => {
+    const cam = camera.position;
+    // the seven boats nearest the camera have their men (the front line passes right by it; the lines behind are far enough for the figures)
+    const near = new Set(W.filter((b) => !b.dead && b.state === 'cross' && b.g.position.distanceTo(cam) < 70).sort((a, b) => a.g.position.distanceTo(cam) - b.g.position.distanceTo(cam)).slice(0, 12));
+    for (const b of W) { if (near.has(b) && !F.used.has(b)) crewOn(b); else if (!near.has(b) && F.used.has(b)) crewOff(b); }
+    for (const [b, us] of F.used) us.forEach((u, k) => {
+      const [x, z, pose] = BCREW_AT[k]; u.pos.copy(b.g.localToWorld(_lp.set(x, 0.05, z))); u.heading = b.heading; u.stance = pose === 'aim' ? 'stand' : 'crouch'; u.anim = (u.anim || 0) + dt;
+      if (u.dieT >= 0) { u.dieT += dt; u.rig.fallPose(Math.min(u.dieT, 1.4), 1, 'crumple'); u.sync(); return; }
+      u.rig.pose(pose, u.anim, 0.06); u.sync();
+      // his rifle at the rampart: short bursts, the green tracers going past the camera
+      u.cf -= dt; if (u.cf <= 0) { if (u.cb <= 0) u.cb = Math.floor(rand(2, 5)); u.cb--; u.cf = u.cb > 0 ? rand(0.1, 0.17) : rand(1.1, 2.8);
+        const m = u.muzzle(), zt = u.pos.z + rand(-10, 10), xt = crestX(zt) - 1; fxMuzzle(m); fxTracer(m, V3(xt, groundAt(xt, zt) + rand(0.4, 2.4), zt), true); if (m.distanceTo(cam) < 20 && u.cb % 2 === 0) sndShot(u.kind === 'lmg' ? 'lmg' : 'ak', m); }
+    });
+  };
+  F.off = () => { for (const b of [...F.used.keys()]) crewOff(b); };
+  return F;
 }
 function mzDroneFilm() {
   if (D.droneFilm || CINE.on) return;
@@ -869,25 +895,10 @@ function mzDroneFilm() {
   updBoats(0);
   const front = W.slice(0, per), vx = front.reduce((a, b) => a + b.speed * Math.sin(b.heading), 0) / front.length, zs = front.map((b) => b.g.position.z).sort((a, b) => a - b);
   let zA = zs[Math.min(1, zs.length - 1)] - 3, zB = zs[Math.max(0, zs.length - 2)] + 3; if (zB - zA > 33) { const m = (zA + zB) / 2; zA = m - 16.5; zB = m + 16.5; }   // a slow pass: some 33 m in 20 s
-  const zM = (zA + zB) / 2, F = { t: 0, it: 0.3, used: new Map(), free: [], n: 0 }, XL = () => X0 + vx * F.t;
+  const zM = (zA + zB) / 2, F = Object.assign(bcrewMake(W), { t: 0, it: 0.3 }), XL = () => X0 + vx * F.t;
   const live = () => W.filter((b) => !b.dead && b.state === 'cross');
-  // a boat comes near the camera: four men in its bow; it goes off, they go back to the pool and its own figures come back
-  const crewOn = (b) => { const us = []; for (let k = 0; k < BCREW_AT.length; k++) { const u = bcrewUnit(F.free.length ? F.free.pop() : F.n++); u.rig.root.visible = true; u.alive = true; u.dieT = -1; u.cf = rand(0.2, 2.2); u.cb = 0; u.snapHd = true; u.rig.snapNext = true; us.push(u); } for (const s of b.seats) if (!s.rower && s.sp[0] > -1) s.m.visible = false; for (const m of b.filmExtra || []) if (m.position.x > -1) m.visible = false; F.used.set(b, us); };
-  const crewOff = (b) => { const us = F.used.get(b); if (!us) return; for (const u of us) { u.rig.root.visible = false; F.free.push(BCREW.indexOf(u)); } for (const s of b.seats) if (!s.rower && s.alive && !s.gone) s.m.visible = true; for (const m of b.filmExtra || []) m.visible = true; F.used.delete(b); };
-  const _lp = V3();
   const tick = (dt) => {
-    F.t += dt; const cam = camera.position;
-    // the seven boats nearest the camera have their men (the front line passes right by it; the lines behind are far enough for the figures)
-    const near = new Set(W.filter((b) => !b.dead && b.state === 'cross' && Math.abs(b.g.position.z - cam.z) < 16 && Math.abs(b.g.position.x - cam.x) < 30).sort((a, b) => a.g.position.distanceTo(cam) - b.g.position.distanceTo(cam)).slice(0, 7));
-    for (const b of W) { if (near.has(b) && !F.used.has(b)) crewOn(b); else if (!near.has(b) && F.used.has(b)) crewOff(b); }
-    for (const [b, us] of F.used) us.forEach((u, k) => {
-      const [x, z, pose] = BCREW_AT[k]; u.pos.copy(b.g.localToWorld(_lp.set(x, 0.05, z))); u.heading = b.heading; u.stance = pose === 'aim' ? 'stand' : 'crouch'; u.anim = (u.anim || 0) + dt;
-      if (u.dieT >= 0) { u.dieT += dt; u.rig.fallPose(Math.min(u.dieT, 1.4), 1, 'crumple'); u.sync(); return; }
-      u.rig.pose(pose, u.anim, 0.06); u.sync();
-      // his rifle at the rampart: short bursts, the green tracers going past the camera
-      u.cf -= dt; if (u.cf <= 0) { if (u.cb <= 0) u.cb = Math.floor(rand(2, 5)); u.cb--; u.cf = u.cb > 0 ? rand(0.1, 0.17) : rand(1.1, 2.8);
-        const m = u.muzzle(), zt = u.pos.z + rand(-10, 10), xt = crestX(zt) - 1; fxMuzzle(m); fxTracer(m, V3(xt, groundAt(xt, zt) + rand(0.4, 2.4), zt), true); if (m.distanceTo(cam) < 20 && u.cb % 2 === 0) sndShot(u.kind === 'lmg' ? 'lmg' : 'ak', m); }
-    });
+    F.t += dt; F.step(dt); const cam = camera.position;
     // the stronghold answers: bursts from the rampart into the water round the boats, now and then into a boat
     F.it -= dt; if (F.it <= 0) { F.it = rand(0.12, 0.32); const near = live().filter((b) => Math.abs(b.g.position.z - cam.z) < 26); const b = near.length ? pick(near) : pick(live()); if (b) {
       const zf = b.g.position.z + rand(-30, 30), xf = crestX(zf) - 0.5, from = V3(xf, groundAt(xf, zf) + 1.1, zf), to = b.g.position.clone().add(V3(rand(-5, 3), 0.1, rand(-5, 5)));
@@ -905,7 +916,7 @@ function mzDroneFilm() {
     ],
     tick,
     caps: [[0.4, '<b>תצפית:</b> הם כבר באמצע התעלה! עשרות סירות, שורה אחרי שורה!', 4.6], [8.0, 'בכל סירה חיילים צפופים. הם יורים עלינו תוך כדי חתירה.', 5.0], [19.6, '<b>מ״פ:</b> אש על הסירות! לא נותנים להם להגיע לחוף!', 4.6]],
-    boatFilm: true, end: () => { for (const b of [...F.used.keys()]) crewOff(b); for (const b of BOATS) if (b.filmHide) filmRow(b, false); },
+    boatFilm: true, end: () => { F.off(); for (const b of BOATS) if (b.filmHide) filmRow(b, false); },
   });
 }
 
