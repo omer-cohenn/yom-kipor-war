@@ -402,6 +402,7 @@ const NS_DC = NS_D * 1.6, NS_MAXC = { high: PHONE ? 60 : 90, med: 45, low: 24 }[
 // the figure's level of detail by that same distance: whole near, a third of its triangles past NS_L[0], an eighth past NS_L[1]
 const NS_L = { high: PHONE ? [14, 34] : [22, 50], med: [16, 34], low: [10, 24] }[QUAL];   // whole near - every crease, as the showroom shows them - lighter where the detail is too small to see
 const NSB = { t: -1, allow: new Set(), cand: [] };
+const _nsF = V3();
 function nsCine() { try { return CINE.on; } catch (e) { return false; } }   // (CINE is defined further on; men are set up before it)
 function nsDecide(u) {
   const R = u.rig; if (!R) return; const far = camera.position.distanceTo(u.pos), eff = far * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2) / 0.7265 / (u.vs || 1);
@@ -409,8 +410,11 @@ function nsDecide(u) {
   if (NSB.t !== fk) {   // a new frame: last frame's near men ranked, those wearing it already a little ahead (no flicker), the dead behind the living
     NSB.cand.sort((a, b) => a.nsRank - b.nsRank); NSB.allow = new Set(NSB.cand.slice(0, nsCine() ? NS_MAXC : NS_MAX)); NSB.cand.length = 0; NSB.t = fk;
   }
-  const nd = nsCine() ? NS_DC : NS_D, near = NEWSOL.on && MODE !== 'farm' && eff < (R.nsOn ? nd * 1.12 : nd);
-  if (near) { u.nsRank = eff * (R.nsOn ? 0.85 : 1) * (u.alive ? 1 : 1.6); NSB.cand.push(u); }
+  const nd = nsCine() ? NS_DC : NS_D; let near = NEWSOL.on && MODE !== 'farm' && eff < (R.nsOn ? nd * 1.12 : nd);
+  if (near && !R.root.visible) near = false;   /* a man not drawn takes no one's place */
+  if (near) { camera.getWorldDirection(_nsF); const bx = u.pos.x - camera.position.x, by = u.pos.y + 1 - camera.position.y, bz = u.pos.z - camera.position.z, ahead = (bx * _nsF.x + by * _nsF.y + bz * _nsF.z) / Math.max(0.1, far);
+    // the men in front of the camera first: one behind it, or far off to the side, only fills a place nobody in view needs
+    u.nsRank = eff * (R.nsOn ? 0.85 : 1) * (u.alive ? 1 : 1.6) * (ahead > 0.55 || far < 4 ? 1 : 6); NSB.cand.push(u); }
   const w = near && NSB.allow.has(u); if (w !== !!R.nsOn) nsShow(R, w);
   if (w && R.ns && NEWSOL.geos && NEWSOL.geos.length > 1) {
     const cur = R.nsLod ?? 0, h = cur === 0 ? 1.1 : 0.92, l = eff < NS_L[0] * (cur === 0 ? h : 1) ? 0 : eff < NS_L[1] * (cur <= 1 ? 1.08 : 0.94) ? 1 : 2;   /* a little hysteresis: no flicker on the line */
