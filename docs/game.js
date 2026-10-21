@@ -163,8 +163,9 @@ const SAP_LIST = [...SAPS.n, ...SAPS.s];
 /* the way to each northern sap's head across the open ground (the scrub begins some forty metres out from our trench): where its men wait in the
    bushes, and two lines of cover between (rocks and short sandbag walls) they bound from one to the next */
 const SAP_APPR = [
-  { sap: SAPS.n[0], spawn: [-23, -137], st: [[[-27, -126], [-21, -125.5], [-31.5, -127]], [[-25, -119.5], [-29.5, -120], [-20.5, -119]]] },
-  { sap: SAPS.n[1], spawn: [-53, -133], st: [[[-49, -122], [-55, -121.5], [-44.5, -122.5]], [[-51, -115.5], [-46.5, -116], [-55.5, -115]]] },
+  // the scrub comes right up to the saps' heads now (the user: the field they come out of too far): out of the brush and straight down into the sap
+  { sap: SAPS.n[0], spawn: [-24.5, -120.5], st: [] },
+  { sap: SAPS.n[1], spawn: [-51, -115.5], st: [] },
 ];
 function sapCut(x, z) {
   if (x < -59 || x > -16 || Math.abs(z) < 82 || Math.abs(z) > 120) return 0;
@@ -1502,7 +1503,7 @@ function concertina() {
 function egyScrub() {
   const ring = outwardRing(MAOZ, 14), loop = [...ring, ring[0]], step = LITE ? 0.72 : 0.5, tufts = [], bush = [], r = rng(813);
   for (const sd of [-1, 1]) {
-    const road = sd < 0 ? ROAD_ACCESS : ROAD_SOUTH, ok = (x, z) => { const dl = distPolyline(x, z, loop); return sd * z > 92 && !inPoly(x, z, ring) && dl > 22 && dl < 56 && distPolyline(x, z, road) > 5 && SAP_LIST.every((sp) => distPolyline(x, z, sp) > 1.25) && groundAt(x, z) > 0.3; };   /* from some forty metres out from our trench: open ground nearer in */
+    const road = sd < 0 ? ROAD_ACCESS : ROAD_SOUTH, ok = (x, z) => { const dl = distPolyline(x, z, loop); return sd * z > 92 && !inPoly(x, z, ring) && dl > (sd < 0 ? 10 : 22) && dl < 56 && distPolyline(x, z, road) > 5 && SAP_LIST.every((sp) => distPolyline(x, z, sp) > 1.25) && groundAt(x, z) > 0.3; };   /* from some forty metres out from our trench: open ground nearer in */
     const z0 = sd < 0 ? -168 : 90, z1 = sd < 0 ? -90 : 168;
     for (let z = z0; z < z1; z += step) for (let x = -68; x < 30; x += step) { const px = x + (r() - 0.5) * step * 0.9, pz = z + (r() - 0.5) * step * 0.9; if (!ok(px, pz)) continue;
       tufts.push([px, pz, 0.8 + r() * 0.4, r() * 6, dryBush(r), -0.04, 0.85 + r() * 0.35]);
@@ -4572,17 +4573,25 @@ function nsShow(R, on) {
 }
 /* who wears it: a man nearer than NS_D (by what the eye sees: closer through a sight, and the far enemies drawn larger count as far),
    its own distance - not the old figure's levels of detail, which on medium and low quality never reach the finest */
-const NS_D = { high: PHONE ? 28 : 36, med: 22, low: 12 }[QUAL], NS_MAX = { high: PHONE ? 10 : 16, med: 9, low: 6 }[QUAL];   // and never more than NS_MAX at once: the nearest (a crowded rampart is many men)
+const NS_D = { high: PHONE ? 70 : 100, med: 55, low: 32 }[QUAL], NS_MAX = { high: PHONE ? 22 : 36, med: 18, low: 10 }[QUAL];
+// in a film every man the camera can make out wears it (the user: no old figures in the films): further, and many more at once
+const NS_DC = NS_D * 1.6, NS_MAXC = { high: PHONE ? 60 : 90, med: 45, low: 24 }[QUAL];   // and never more than NS_MAX at once: the nearest (a crowded rampart is many men)
 // the figure's level of detail by that same distance: whole near, a third of its triangles past NS_L[0], an eighth past NS_L[1]
-const NS_L = { high: PHONE ? [12, 28] : [20, 42], med: [14, 30], low: [10, 24] }[QUAL];   // whole near - every crease, as the showroom shows them - lighter where the detail is too small to see
+const NS_L = { high: PHONE ? [14, 34] : [22, 50], med: [16, 34], low: [10, 24] }[QUAL];   // whole near - every crease, as the showroom shows them - lighter where the detail is too small to see
 const NSB = { t: -1, allow: new Set(), cand: [] };
+const _nsF = V3();
+function nsCine() { try { return CINE.on; } catch (e) { return false; } }   // (CINE is defined further on; men are set up before it)
 function nsDecide(u) {
   const R = u.rig; if (!R) return; const far = camera.position.distanceTo(u.pos), eff = far * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2) / 0.7265 / (u.vs || 1);
-  if (NSB.t !== GAME.t) {   // a new frame: last frame's near men ranked, those wearing it already a little ahead (no flicker), the dead behind the living
-    NSB.cand.sort((a, b) => a.nsRank - b.nsRank); NSB.allow = new Set(NSB.cand.slice(0, NS_MAX)); NSB.cand.length = 0; NSB.t = GAME.t;
+  const fk = nsCine() ? -1e6 - CINE.t : GAME.t;   /* in a film the game's clock may stand still (the battle waits it out): the film's clock marks the frames */
+  if (NSB.t !== fk) {   // a new frame: last frame's near men ranked, those wearing it already a little ahead (no flicker), the dead behind the living
+    NSB.cand.sort((a, b) => a.nsRank - b.nsRank); NSB.allow = new Set(NSB.cand.slice(0, nsCine() ? NS_MAXC : NS_MAX)); NSB.cand.length = 0; NSB.t = fk;
   }
-  const near = NEWSOL.on && MODE !== 'farm' && eff < (R.nsOn ? NS_D * 1.12 : NS_D);
-  if (near) { u.nsRank = eff * (R.nsOn ? 0.85 : 1) * (u.alive ? 1 : 1.6); NSB.cand.push(u); }
+  const nd = nsCine() ? NS_DC : NS_D; let near = NEWSOL.on && MODE !== 'farm' && eff < (R.nsOn ? nd * 1.12 : nd);
+  if (near && !R.root.visible) near = false;   /* a man not drawn takes no one's place */
+  if (near) { camera.getWorldDirection(_nsF); const bx = u.pos.x - camera.position.x, by = u.pos.y + 1 - camera.position.y, bz = u.pos.z - camera.position.z, ahead = (bx * _nsF.x + by * _nsF.y + bz * _nsF.z) / Math.max(0.1, far);
+    // the men in front of the camera first: one behind it, or far off to the side, only fills a place nobody in view needs
+    u.nsRank = eff * (R.nsOn ? 0.85 : 1) * (u.alive ? 1 : 1.6) * (ahead > 0.55 || far < 4 ? 1 : 6); NSB.cand.push(u); }
   const w = near && NSB.allow.has(u); if (w !== !!R.nsOn) nsShow(R, w);
   if (w && R.ns && NEWSOL.geos && NEWSOL.geos.length > 1) {
     const cur = R.nsLod ?? 0, h = cur === 0 ? 1.1 : 0.92, l = eff < NS_L[0] * (cur === 0 ? h : 1) ? 0 : eff < NS_L[1] * (cur <= 1 ? 1.08 : 0.94) ? 1 : 2;   /* a little hysteresis: no flicker on the line */
@@ -5868,7 +5877,7 @@ function sapPlan(e, sap, j) {
 function sapSpawn(sap, r) { const A = SAP_APPR.find((q) => q.sap === sap), p = A ? A.spawn : sap[0], w = A ? 4 : 0.8; return [p[0] + (r() - 0.5) * w, p[1] + (r() - 0.5) * (A ? 3 : 0.8)]; }
 function northPlan(e, i) { return sapPlan(e, SAPS.n[i % 2], i); }
 /* a commando man: quicker on his feet, short stops only (no one stays behind for long), his rocket ready early and again soon after */
-function cmdTune(e) { e.cmd = true; e.speed = Math.max(e.speed || 5, 5.6) * 1.12; for (const s of e.plan || []) if (s.t === 'cover') { s.supp = false; s.dur = rand(0.6, 1.3); } if (e.kind === 'rpg') { e.rpgCd = rand(1.2, 2.6); e.cmdRpg = true; } }
+function cmdTune(e) { e.cmd = true; e.speed = Math.max(e.speed || 5, 5.6) * 1.2; for (const s of e.plan || []) if (s.t === 'cover') { s.supp = false; s.dur = rand(0.6, 1.3); } if (e.kind === 'rpg') { e.rpgCd = rand(1.2, 2.6); e.cmdRpg = true; } }
 /* men already ashore before the player gets there: each waits in his place on the sand (the cover he ran to, or where he jumped down) until
    'until', firing from it, and only then goes for the rampart */
 function holdPlan(e, until) {
@@ -5995,7 +6004,8 @@ function trenchStep(e, dt, shoot, aimPitch) {
   for (const f of FRIENDS) if (f.state === 'post' && f.unit.pos.distanceTo(e.pos) < 2.2 && Math.random() < dt * 0.5) woundFriend(f, Math.random() < 0.4);
   e.meleeCd -= dt; e.patience += dt;
   const busy = playerBusy(), aimed = aimedAt(e), between = TR.travK.some((kc) => (kc - e.k) * dir > 0 && (TR.pK - kc) * dir > 0); e.moving = false;
-  if (!e.rush && !between && dP < 10 && ((e.patience > 10 && !aimed) || (busy && dP < 13))) e.rush = true;
+  if (!e.rush && !between && dP < (e.cmd ? 16 : 10) && ((e.patience > (e.cmd ? 2.5 : 10) && !aimed) || (busy && dP < 13))) e.rush = true;
+  if (!e.rush && e.cmd && dP < 7 && e.patience > 4) e.rush = true;   /* the commando does not wait behind a traverse: a few seconds and he goes over it at you */
   if (e.tcov && e.tcov.dir !== dir) releaseCov(e);
   // point blank, or the player is reloading next to us, or he left the trench: go for the kill
   if (P.alive && (dP < 3.5 || e.rush || (busy && dP < 11 && !between) || (TR.pD > 2.2 && dP < 12))) {
@@ -6011,7 +6021,7 @@ function trenchStep(e, dt, shoot, aimPitch) {
     if (aimed) e.aimT = (e.aimT || 0) + dt; else e.aimT = Math.max(0, (e.aimT || 0) - dt);
     if (e.aimT > 0.7) { let back = null, bd = 99; for (const c of TRAV) { if (c.dir !== dir || (c.by && c.by !== e)) continue; const a = (c.k - e.k) * dir; if (a > 0 || a < -7) continue; if (-a < bd) { bd = -a; back = c; } } if (back) { releaseCov(e); back.by = e; e.tcov = back; e.inCov = false; e.aimT = 0; e.patience = 0; } }
     if (!e.tcov || e.inCov) {
-      if (e.inCov && e.tcov && !(e.patience > 9 || busy)) { coverCycle(e, dt, e.tcov, shoot, aimPitch); return; }
+      if (e.inCov && e.tcov && !(e.patience > (e.cmd ? 3 : 9) || busy)) { coverCycle(e, dt, e.tcov, shoot, aimPitch); return; }
       releaseCov(e); e.anim += dt * 6; sideStep(e, dt, 1.8); e.face(P.pos.x, P.pos.z); e.stance = 'crouch';
       e.fireCd -= dt; if (seesP && e.fireCd <= 0) { if (e.burst <= 0) e.burst = wBurst(e); e.burst--; e.fireCd = e.burst > 0 ? wGap(e) : wPause(e, 0.45); enemyFire(e); }
       if (e.gCd <= 0 && GAME.gCd <= 0 && dP > 5) lobGrenade(e, P.pos);
@@ -6226,8 +6236,8 @@ function northGroup(n, delay, kinds = [], i0 = 0, cmd = false) {   // i0: the fi
 /* the commando from the north comes in squads, one behind the other down the Lexicon road: far more men to stop than the one small group
    there was (the user: too few there), but never all of them at once, and only a couple of RPGs - more targets, not more fire. Per level:
    the men in each squad; a squad sets off MZ_CMD_GAP seconds after the one before it */
-const MZ_CMD = [5, 6, 8], MZ_CMD_GAP = 9;   // squads of four - two from each sap - one every few seconds, each with its RPG (two in every other)
-function mzCommando() { let t = 4, i0 = 0; for (let k = 0; k < MZ_CMD[Math.max(0, DIFF.indexOf(diff))]; k++) { northGroup(4, t, k % 2 ? ['rifle', 'rpg', 'rifle', 'rpg'] : ['rpg', 'rifle', 'rifle', 'rifle'], i0, true); i0 += 4; t += MZ_CMD_GAP; } }
+const MZ_CMD = [6, 8, 10], MZ_CMD_GAP = 6.5;   // squads of four - two from each sap - one every few seconds, each with its RPG (two in every other)
+function mzCommando() { let t = 4, i0 = 0; for (let k = 0; k < MZ_CMD[Math.max(0, DIFF.indexOf(diff))]; k++) { northGroup(6, t, k % 2 ? ['rifle', 'rpg', 'rifle', 'rifle', 'rpg', 'rifle'] : ['rpg', 'rifle', 'rifle', 'rifle', 'rifle', 'rifle'], i0, true); i0 += 6; t += MZ_CMD_GAP; } }
 const DIRQ = [];
 const BARRAGE_AT = 4, BARRAGE_LEN = 16;   // twenty seconds in the covered trench, then out to the guns
 const D = { scene: -1, phase: 'alert', phaseT: 0, introLen: 0, artT: 12, inside: 0, barT: 0, launched: false, r2: false, jets: false, smoke: [], capture: 0, capWarn: false, chargeMsg: -99, objDone: false, trenchMsg: -99, inTrench: 0, tok: { 1: null, '-1': null } };
@@ -6255,7 +6265,7 @@ const SCENES = [
   { title: 'הפרצה בצפון', sub: 'המחסום הצפוני נפתח, ובקצה הסוללה, ליד עמדה 1, כבר מטפסים הראשונים שצלחו. בתעלה הצרה פוגשים אותם פנים אל פנים, שק חול אחרי שק חול.', goal: 'התקדמו צפונה בתעלה ונקו אותה מהצולחים', open: [96, 176], spawn: () => TR.pts[140], face: 0, focus: trFocus(-38, 'עמדה מערבית 1'),
     entries: [-55, -50, -39.5, -27], radio: ['יוסי', 'הם עולים עליי מצפון! תביאו תגבורת לתעלה!'], cap: [1, 1, 2], pre(len) { const nb = [2, 2, 3][Math.max(0, DIFF.indexOf(diff))]; for (let i = 0; i < nb; i++) { const b = launchBoat(lerp(-76, -60, nb > 1 ? i / (nb - 1) : 0.5), 0, 5, i === 0 ? 1 : 0, 0, 5, 30, 3); b.t = (b.len - 1.5 - i * 5) / b.speed; } D.landHold = GAME.t + len + 2; }, start() {} },   // two boats, beached as the stage is called: their men are on the sand under the rampart, some forty metres from the trench, when the player gets there - and wait there a little before they go for it
   { title: 'קומנדו בשער', sub: 'מכביש לכסיקון, מצפון, רץ כוח קומנדו ישר אל השער. הם מכירים את המוצב מתצלומי האוויר, ויודעים שהתעלה הצפונית היא הדרך פנימה.', goal: 'עצרו את הקומנדו בתעלה הצפונית, עד הפינה — והחזיקו אותה', open: [0, 176], spawn: () => TR.pts[100], face: 0, focus: postFocus('N1', 'עמדה צפונית'),
-    radio: ['תצפית', 'כוח קומנדו בכביש מצפון! הם רצים לתעלה הצפונית!'], acc: 0.8, start: mzCommando },   // acc: running men firing on the move: more of them, each one less deadly
+    radio: ['תצפית', 'כוח קומנדו בכביש מצפון! הם רצים לתעלה הצפונית!'], acc: 1.0, start: mzCommando },   // acc: running men firing on the move: more of them, each one less deadly
   { title: 'חובש!', sub: 'ההרעשה חזרה. פגז נכנס ישר לעמדה הדרומית, ובתעלה שוכבים חברים שצועקים לחובש. התאג״ד חפור בדופן התעלה, ומי שנחבש בזמן חוזר לעמדה.', goal: 'עזרה ראשונה לפצועים בתעלה הדרומית (להחזיק F) — הם חוזרים להילחם', medevac: true, open: [136, 222], spawn: () => trenchAt(-6), face: 180,
     focus: () => { const w = nearestWounded(); return w ? [w.unit.pos.x, w.unit.pos.y, w.unit.pos.z, `פצוע · ${w.name}`] : null; },
     entries: [12, 24, 35, 46], radio: ['דודו', 'פגיעה ישירה בעמדה! יש פצועים בתעלה הדרומית!'], start: medevacStart },
@@ -9861,7 +9871,7 @@ function bcrewMake(W) {
   F.step = (dt) => {
     const cam = camera.position;
     // the seven boats nearest the camera have their men (the front line passes right by it; the lines behind are far enough for the figures)
-    const near = new Set(W.filter((b) => !b.dead && b.state === 'cross' && b.g.position.distanceTo(cam) < 70).sort((a, b) => a.g.position.distanceTo(cam) - b.g.position.distanceTo(cam)).slice(0, 12));
+    const near = new Set(W.filter((b) => !b.dead && b.state === 'cross' && b.g.position.distanceTo(cam) < 70).sort((a, b) => a.g.position.distanceTo(cam) - b.g.position.distanceTo(cam)).slice(0, PHONE ? 6 : 9));
     for (const b of W) { if (near.has(b) && !F.used.has(b)) crewOn(b); else if (!near.has(b) && F.used.has(b)) crewOff(b); }
     for (const [b, us] of F.used) us.forEach((u, k) => {
       const [x, z, pose] = BCREW_AT[k]; u.pos.copy(b.g.localToWorld(_lp.set(x, 0.05, z))); u.heading = b.heading; u.stance = pose === 'aim' ? 'stand' : 'crouch'; u.anim = (u.anim || 0) + dt;
