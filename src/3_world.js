@@ -672,7 +672,7 @@ function concertina() {
 function egyScrub() {
   const ring = outwardRing(MAOZ, 14), loop = [...ring, ring[0]], step = LITE ? 0.72 : 0.5, tufts = [], bush = [], r = rng(813);
   for (const sd of [-1, 1]) {
-    const road = sd < 0 ? ROAD_ACCESS : ROAD_SOUTH, ok = (x, z) => { const dl = distPolyline(x, z, loop); return sd * z > 92 && !inPoly(x, z, ring) && dl > 22 && dl < 56 && distPolyline(x, z, road) > 5 && SAP_LIST.every((sp) => distPolyline(x, z, sp) > 1.25) && groundAt(x, z) > 0.3; };   /* from some forty metres out from our trench: open ground nearer in */
+    const road = sd < 0 ? ROAD_ACCESS : ROAD_SOUTH, ok = (x, z) => { const dl = distPolyline(x, z, loop); return sd * z > 92 && !inPoly(x, z, ring) && dl > (sd < 0 ? 10 : 22) && dl < 56 && distPolyline(x, z, road) > 5 && SAP_LIST.every((sp) => distPolyline(x, z, sp) > 1.25) && groundAt(x, z) > 0.3; };   /* from some forty metres out from our trench: open ground nearer in */
     const z0 = sd < 0 ? -168 : 90, z1 = sd < 0 ? -90 : 168;
     for (let z = z0; z < z1; z += step) for (let x = -68; x < 30; x += step) { const px = x + (r() - 0.5) * step * 0.9, pz = z + (r() - 0.5) * step * 0.9; if (!ok(px, pz)) continue;
       tufts.push([px, pz, 0.8 + r() * 0.4, r() * 6, dryBush(r), -0.04, 0.85 + r() * 0.35]);

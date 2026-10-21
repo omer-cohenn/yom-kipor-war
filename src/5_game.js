@@ -872,7 +872,7 @@ function sapPlan(e, sap, j) {
 function sapSpawn(sap, r) { const A = SAP_APPR.find((q) => q.sap === sap), p = A ? A.spawn : sap[0], w = A ? 4 : 0.8; return [p[0] + (r() - 0.5) * w, p[1] + (r() - 0.5) * (A ? 3 : 0.8)]; }
 function northPlan(e, i) { return sapPlan(e, SAPS.n[i % 2], i); }
 /* a commando man: quicker on his feet, short stops only (no one stays behind for long), his rocket ready early and again soon after */
-function cmdTune(e) { e.cmd = true; e.speed = Math.max(e.speed || 5, 5.6) * 1.12; for (const s of e.plan || []) if (s.t === 'cover') { s.supp = false; s.dur = rand(0.6, 1.3); } if (e.kind === 'rpg') { e.rpgCd = rand(1.2, 2.6); e.cmdRpg = true; } }
+function cmdTune(e) { e.cmd = true; e.speed = Math.max(e.speed || 5, 5.6) * 1.2; for (const s of e.plan || []) if (s.t === 'cover') { s.supp = false; s.dur = rand(0.6, 1.3); } if (e.kind === 'rpg') { e.rpgCd = rand(1.2, 2.6); e.cmdRpg = true; } }
 /* men already ashore before the player gets there: each waits in his place on the sand (the cover he ran to, or where he jumped down) until
    'until', firing from it, and only then goes for the rampart */
 function holdPlan(e, until) {
@@ -999,7 +999,8 @@ function trenchStep(e, dt, shoot, aimPitch) {
   for (const f of FRIENDS) if (f.state === 'post' && f.unit.pos.distanceTo(e.pos) < 2.2 && Math.random() < dt * 0.5) woundFriend(f, Math.random() < 0.4);
   e.meleeCd -= dt; e.patience += dt;
   const busy = playerBusy(), aimed = aimedAt(e), between = TR.travK.some((kc) => (kc - e.k) * dir > 0 && (TR.pK - kc) * dir > 0); e.moving = false;
-  if (!e.rush && !between && dP < 10 && ((e.patience > 10 && !aimed) || (busy && dP < 13))) e.rush = true;
+  if (!e.rush && !between && dP < (e.cmd ? 16 : 10) && ((e.patience > (e.cmd ? 2.5 : 10) && !aimed) || (busy && dP < 13))) e.rush = true;
+  if (!e.rush && e.cmd && dP < 7 && e.patience > 4) e.rush = true;   /* the commando does not wait behind a traverse: a few seconds and he goes over it at you */
   if (e.tcov && e.tcov.dir !== dir) releaseCov(e);
   // point blank, or the player is reloading next to us, or he left the trench: go for the kill
   if (P.alive && (dP < 3.5 || e.rush || (busy && dP < 11 && !between) || (TR.pD > 2.2 && dP < 12))) {
@@ -1015,7 +1016,7 @@ function trenchStep(e, dt, shoot, aimPitch) {
     if (aimed) e.aimT = (e.aimT || 0) + dt; else e.aimT = Math.max(0, (e.aimT || 0) - dt);
     if (e.aimT > 0.7) { let back = null, bd = 99; for (const c of TRAV) { if (c.dir !== dir || (c.by && c.by !== e)) continue; const a = (c.k - e.k) * dir; if (a > 0 || a < -7) continue; if (-a < bd) { bd = -a; back = c; } } if (back) { releaseCov(e); back.by = e; e.tcov = back; e.inCov = false; e.aimT = 0; e.patience = 0; } }
     if (!e.tcov || e.inCov) {
-      if (e.inCov && e.tcov && !(e.patience > 9 || busy)) { coverCycle(e, dt, e.tcov, shoot, aimPitch); return; }
+      if (e.inCov && e.tcov && !(e.patience > (e.cmd ? 3 : 9) || busy)) { coverCycle(e, dt, e.tcov, shoot, aimPitch); return; }
       releaseCov(e); e.anim += dt * 6; sideStep(e, dt, 1.8); e.face(P.pos.x, P.pos.z); e.stance = 'crouch';
       e.fireCd -= dt; if (seesP && e.fireCd <= 0) { if (e.burst <= 0) e.burst = wBurst(e); e.burst--; e.fireCd = e.burst > 0 ? wGap(e) : wPause(e, 0.45); enemyFire(e); }
       if (e.gCd <= 0 && GAME.gCd <= 0 && dP > 5) lobGrenade(e, P.pos);
@@ -1230,8 +1231,8 @@ function northGroup(n, delay, kinds = [], i0 = 0, cmd = false) {   // i0: the fi
 /* the commando from the north comes in squads, one behind the other down the Lexicon road: far more men to stop than the one small group
    there was (the user: too few there), but never all of them at once, and only a couple of RPGs - more targets, not more fire. Per level:
    the men in each squad; a squad sets off MZ_CMD_GAP seconds after the one before it */
-const MZ_CMD = [5, 6, 8], MZ_CMD_GAP = 9;   // squads of four - two from each sap - one every few seconds, each with its RPG (two in every other)
-function mzCommando() { let t = 4, i0 = 0; for (let k = 0; k < MZ_CMD[Math.max(0, DIFF.indexOf(diff))]; k++) { northGroup(4, t, k % 2 ? ['rifle', 'rpg', 'rifle', 'rpg'] : ['rpg', 'rifle', 'rifle', 'rifle'], i0, true); i0 += 4; t += MZ_CMD_GAP; } }
+const MZ_CMD = [6, 8, 10], MZ_CMD_GAP = 6.5;   // squads of four - two from each sap - one every few seconds, each with its RPG (two in every other)
+function mzCommando() { let t = 4, i0 = 0; for (let k = 0; k < MZ_CMD[Math.max(0, DIFF.indexOf(diff))]; k++) { northGroup(6, t, k % 2 ? ['rifle', 'rpg', 'rifle', 'rifle', 'rpg', 'rifle'] : ['rpg', 'rifle', 'rifle', 'rifle', 'rifle', 'rifle'], i0, true); i0 += 6; t += MZ_CMD_GAP; } }
 const DIRQ = [];
 const BARRAGE_AT = 4, BARRAGE_LEN = 16;   // twenty seconds in the covered trench, then out to the guns
 const D = { scene: -1, phase: 'alert', phaseT: 0, introLen: 0, artT: 12, inside: 0, barT: 0, launched: false, r2: false, jets: false, smoke: [], capture: 0, capWarn: false, chargeMsg: -99, objDone: false, trenchMsg: -99, inTrench: 0, tok: { 1: null, '-1': null } };
@@ -1259,7 +1260,7 @@ const SCENES = [
   { title: 'הפרצה בצפון', sub: 'המחסום הצפוני נפתח, ובקצה הסוללה, ליד עמדה 1, כבר מטפסים הראשונים שצלחו. בתעלה הצרה פוגשים אותם פנים אל פנים, שק חול אחרי שק חול.', goal: 'התקדמו צפונה בתעלה ונקו אותה מהצולחים', open: [96, 176], spawn: () => TR.pts[140], face: 0, focus: trFocus(-38, 'עמדה מערבית 1'),
     entries: [-55, -50, -39.5, -27], radio: ['יוסי', 'הם עולים עליי מצפון! תביאו תגבורת לתעלה!'], cap: [1, 1, 2], pre(len) { const nb = [2, 2, 3][Math.max(0, DIFF.indexOf(diff))]; for (let i = 0; i < nb; i++) { const b = launchBoat(lerp(-76, -60, nb > 1 ? i / (nb - 1) : 0.5), 0, 5, i === 0 ? 1 : 0, 0, 5, 30, 3); b.t = (b.len - 1.5 - i * 5) / b.speed; } D.landHold = GAME.t + len + 2; }, start() {} },   // two boats, beached as the stage is called: their men are on the sand under the rampart, some forty metres from the trench, when the player gets there - and wait there a little before they go for it
   { title: 'קומנדו בשער', sub: 'מכביש לכסיקון, מצפון, רץ כוח קומנדו ישר אל השער. הם מכירים את המוצב מתצלומי האוויר, ויודעים שהתעלה הצפונית היא הדרך פנימה.', goal: 'עצרו את הקומנדו בתעלה הצפונית, עד הפינה — והחזיקו אותה', open: [0, 176], spawn: () => TR.pts[100], face: 0, focus: postFocus('N1', 'עמדה צפונית'),
-    radio: ['תצפית', 'כוח קומנדו בכביש מצפון! הם רצים לתעלה הצפונית!'], acc: 0.8, start: mzCommando },   // acc: running men firing on the move: more of them, each one less deadly
+    radio: ['תצפית', 'כוח קומנדו בכביש מצפון! הם רצים לתעלה הצפונית!'], acc: 1.0, start: mzCommando },   // acc: running men firing on the move: more of them, each one less deadly
   { title: 'חובש!', sub: 'ההרעשה חזרה. פגז נכנס ישר לעמדה הדרומית, ובתעלה שוכבים חברים שצועקים לחובש. התאג״ד חפור בדופן התעלה, ומי שנחבש בזמן חוזר לעמדה.', goal: 'עזרה ראשונה לפצועים בתעלה הדרומית (להחזיק F) — הם חוזרים להילחם', medevac: true, open: [136, 222], spawn: () => trenchAt(-6), face: 180,
     focus: () => { const w = nearestWounded(); return w ? [w.unit.pos.x, w.unit.pos.y, w.unit.pos.z, `פצוע · ${w.name}`] : null; },
     entries: [12, 24, 35, 46], radio: ['דודו', 'פגיעה ישירה בעמדה! יש פצועים בתעלה הדרומית!'], start: medevacStart },

@@ -396,16 +396,19 @@ function nsShow(R, on) {
 }
 /* who wears it: a man nearer than NS_D (by what the eye sees: closer through a sight, and the far enemies drawn larger count as far),
    its own distance - not the old figure's levels of detail, which on medium and low quality never reach the finest */
-const NS_D = { high: PHONE ? 28 : 36, med: 22, low: 12 }[QUAL], NS_MAX = { high: PHONE ? 10 : 16, med: 9, low: 6 }[QUAL];   // and never more than NS_MAX at once: the nearest (a crowded rampart is many men)
+const NS_D = { high: PHONE ? 70 : 100, med: 55, low: 32 }[QUAL], NS_MAX = { high: PHONE ? 22 : 36, med: 18, low: 10 }[QUAL];
+// in a film every man the camera can make out wears it (the user: no old figures in the films): further, and many more at once
+const NS_DC = NS_D * 1.6, NS_MAXC = { high: PHONE ? 60 : 90, med: 45, low: 24 }[QUAL];   // and never more than NS_MAX at once: the nearest (a crowded rampart is many men)
 // the figure's level of detail by that same distance: whole near, a third of its triangles past NS_L[0], an eighth past NS_L[1]
-const NS_L = { high: PHONE ? [12, 28] : [20, 42], med: [14, 30], low: [10, 24] }[QUAL];   // whole near - every crease, as the showroom shows them - lighter where the detail is too small to see
+const NS_L = { high: PHONE ? [14, 34] : [22, 50], med: [16, 34], low: [10, 24] }[QUAL];   // whole near - every crease, as the showroom shows them - lighter where the detail is too small to see
 const NSB = { t: -1, allow: new Set(), cand: [] };
+function nsCine() { try { return CINE.on; } catch (e) { return false; } }   // (CINE is defined further on; men are set up before it)
 function nsDecide(u) {
   const R = u.rig; if (!R) return; const far = camera.position.distanceTo(u.pos), eff = far * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2) / 0.7265 / (u.vs || 1);
   if (NSB.t !== GAME.t) {   // a new frame: last frame's near men ranked, those wearing it already a little ahead (no flicker), the dead behind the living
-    NSB.cand.sort((a, b) => a.nsRank - b.nsRank); NSB.allow = new Set(NSB.cand.slice(0, NS_MAX)); NSB.cand.length = 0; NSB.t = GAME.t;
+    NSB.cand.sort((a, b) => a.nsRank - b.nsRank); NSB.allow = new Set(NSB.cand.slice(0, nsCine() ? NS_MAXC : NS_MAX)); NSB.cand.length = 0; NSB.t = GAME.t;
   }
-  const near = NEWSOL.on && MODE !== 'farm' && eff < (R.nsOn ? NS_D * 1.12 : NS_D);
+  const nd = nsCine() ? NS_DC : NS_D, near = NEWSOL.on && MODE !== 'farm' && eff < (R.nsOn ? nd * 1.12 : nd);
   if (near) { u.nsRank = eff * (R.nsOn ? 0.85 : 1) * (u.alive ? 1 : 1.6); NSB.cand.push(u); }
   const w = near && NSB.allow.has(u); if (w !== !!R.nsOn) nsShow(R, w);
   if (w && R.ns && NEWSOL.geos && NEWSOL.geos.length > 1) {

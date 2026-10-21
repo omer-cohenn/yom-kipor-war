@@ -859,7 +859,7 @@ function bcrewMake(W) {
   F.step = (dt) => {
     const cam = camera.position;
     // the seven boats nearest the camera have their men (the front line passes right by it; the lines behind are far enough for the figures)
-    const near = new Set(W.filter((b) => !b.dead && b.state === 'cross' && b.g.position.distanceTo(cam) < 70).sort((a, b) => a.g.position.distanceTo(cam) - b.g.position.distanceTo(cam)).slice(0, 12));
+    const near = new Set(W.filter((b) => !b.dead && b.state === 'cross' && b.g.position.distanceTo(cam) < 70).sort((a, b) => a.g.position.distanceTo(cam) - b.g.position.distanceTo(cam)).slice(0, PHONE ? 6 : 9));
     for (const b of W) { if (near.has(b) && !F.used.has(b)) crewOn(b); else if (!near.has(b) && F.used.has(b)) crewOff(b); }
     for (const [b, us] of F.used) us.forEach((u, k) => {
       const [x, z, pose] = BCREW_AT[k]; u.pos.copy(b.g.localToWorld(_lp.set(x, 0.05, z))); u.heading = b.heading; u.stance = pose === 'aim' ? 'stand' : 'crouch'; u.anim = (u.anim || 0) + dt;
