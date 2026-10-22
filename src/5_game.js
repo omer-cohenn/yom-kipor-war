@@ -290,6 +290,7 @@ function woundFriend(f, killed = false, force = false) {
   if (GOD()) return; if (f.state !== 'post' && f.state !== 'follow') return; if (!force && MODE === 'mezach' && !inStage(f.unit.pos.x, f.unit.pos.z)) return;
   f.prevState = f.state; if (f.post && f.post.occupant === f) f.post.occupant = null;
   const u = f.unit; u.fall = 0; u.fallDir = 1; u.stance = 'down';
+  fxBlood(u.chest(), 6); DIRQ.push({ at: GAME.t + 1.0, fn: () => { if (f.state === 'wounded' || f.state === 'kia') bloodPool(u, u.chest(), killed ? 0.6 : 0.42, f); } });
   if (killed) { f.state = 'kia'; feed(`${f.name} נהרג`, 'bad'); STATS.kia++; }
   else { f.state = 'wounded'; f.bleed = diff.bleed; feed(`${f.name} נפגע! ״חובש!״`, 'bad'); f.marker.visible = true; radio(f.name, 'נפגעתי! חובש!', 3); }
 }
@@ -308,7 +309,7 @@ function shout(f, text, dur = 1.9, force = false) {
   if (camera.position.distanceTo(f.unit.pos) > 60) return false;
   SQF.callT = GAME.t; f.shoutCd = GAME.t + 3.2;
   if (!f.say) { const el = document.createElement('div'); el.className = 'say'; f.say = new CSS2DObject(el); f.say.center.set(0.5, 1); scene.add(f.say); f.sayEl = el; }
-  f.sayEl.textContent = `${f.name}: ${text}`; f.say.visible = true; f.sayT = dur; return true;
+  f.sayEl.textContent = `${f.name}: ${text}`; f.say.visible = true; f.sayT = dur; nsTalk(f.unit, Math.min(dur, 0.4 + text.length * 0.06), 'shout'); return true;
 }
 function sqfLater(f, text, delay) { if (f) SQF.later.push({ f, text, at: GAME.t + delay }); }
 function sqfMate(f, R = 16) { let b = null, bd = R; for (const o of FRIENDS) { if (o === f || !o.unit.alive || (o.state !== 'follow' && o.state !== 'post')) continue; const d = o.unit.pos.distanceTo(f.unit.pos); if (d < bd) { bd = d; b = o; } } return b; }
@@ -516,12 +517,41 @@ function findCover(e, tp, R) {
   }
   return best;
 }
+/* ---------- blood (the user: a little blood) ----------
+   A hit: a spurt of dark red droplets out of the wound and a fine mist that hangs a moment. A man down: a pool that spreads under him over
+   a few seconds - matte where it soaks into the sand, a little gloss where it stands - and goes when he does */
+const BLOOD = { pools: [], max: LITE ? 14 : 26, geo: null, mat: null };
+function bloodTex() {
+  const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d'), r = rng(4417);
+  g.fillStyle = 'rgba(0,0,0,0)'; g.fillRect(0, 0, 128, 128);
+  for (let i = 0; i < 18; i++) { const a = r() * 6.283, d = i ? 14 + r() * 30 : 0, x = 64 + Math.cos(a) * d, y = 64 + Math.sin(a) * d, rr = i ? 8 + r() * 16 : 34;
+    const gr = g.createRadialGradient(x, y, 0, x, y, rr); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.7, 'rgba(255,255,255,0.9)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.beginPath(); g.arc(x, y, rr, 0, 6.283); g.fill(); }
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+function bloodPool(u, at, maxR = 0.6, f = null) {
+  if (!BLOOD.geo) { BLOOD.geo = new THREE.PlaneGeometry(2, 2).rotateX(-Math.PI / 2); BLOOD.mat = new THREE.MeshStandardMaterial({ map: bloodTex(), color: 0x5a0c08, roughness: 0.35, metalness: 0, transparent: true, opacity: 0.92, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }); }
+  const y = hAt(at.x, at.z, at.y + 0.4); if (groundAt(at.x, at.z) < -0.2 && y < 0.05) return;   // in the water: none
+  let P = BLOOD.pools.find((q) => !q.m.visible); if (!P) { if (BLOOD.pools.length < BLOOD.max) { P = { m: new THREE.Mesh(BLOOD.geo, BLOOD.mat) }; P.m.renderOrder = 1; scene.add(P.m); BLOOD.pools.push(P); } else P = BLOOD.pools.reduce((a, b) => (a.t0 < b.t0 ? a : b)); }
+  P.u = u; P.f = f; P.t0 = GAME.t; P.r = maxR * rand(0.8, 1.2); P.m.position.set(at.x, y + 0.012, at.z); P.m.rotation.y = rand(0, 6.283); P.m.scale.setScalar(0.05); P.m.visible = true;
+}
+function updBlood() {
+  for (const P of BLOOD.pools) { if (!P.m.visible) continue; const u = P.u;
+    if (!u || !u.rig.root.visible || (P.f ? P.f.state !== 'wounded' && P.f.state !== 'kia' : u.alive)) { P.m.visible = false; continue; }   // he got up, or is gone
+    const k = clamp((GAME.t - P.t0) / 6, 0, 1); P.m.scale.setScalar(Math.max(0.05, P.r * Math.sqrt(k))); }
+}
+function fxBlood(p, n = 5) {
+  const mist = FX.dust.get(); mist.life = 0.45; mist.s.position.copy(p); mist.s.material.color.set(0x7a1410);
+  mist.upd = (q, u) => { q.s.scale.setScalar(0.18 + u * 0.55); q.s.material.opacity = 0.55 * (1 - u); };
+  for (let i = 0; i < n; i++) { const d = FX.dust.get(); d.life = rand(0.35, 0.6); d.s.position.copy(p); d.s.material.color.set(0x5a0a08); let vx = rand(-1.6, 1.6), vy = rand(0.6, 2.4), vz = rand(-1.6, 1.6); const s0 = rand(0.04, 0.08);
+    d.upd = (q, u, dt) => { dt = dt || 1 / 60; vy -= 9.8 * dt; q.s.position.x += vx * dt; q.s.position.y += vy * dt; q.s.position.z += vz * dt; q.s.scale.setScalar(s0); q.s.material.opacity = 0.95 * (1 - u * u); }; }
+}
 function killEnemy(e, headshot) {
   if (!e.alive) return; leaveCover(e); if (e.plan) for (const s of e.plan) if (s.c && s.c.by === e) s.c.by = null; if (e.tcov && e.tcov.by === e) e.tcov.by = null; e.tcov = null; if (D.tok[1] === e) D.tok[1] = null; if (D.tok[-1] === e) D.tok[-1] = null; e.alive = false; e.state = 'dying'; e.fall = 0; e.stance = 'down'; e.deadAt = GAME.t; STATS.kills++; if (headshot) STATS.heads++;
   // how he goes down: a head shot drops him like a sack, a running man staggers on and pitches forward, the rest fold, spin or are thrown back
   const run = e.rig.kind === 'run' || e.rig.kind === 'walk', r = Math.random();
   e.fallKind = headshot && r < 0.75 ? 'head' : run && r < 0.5 ? 'stumble' : pick(['knees', 'knees', 'back', 'spin', 'crumple', 'knees', 'back']);
   e.fallDir = e.fallKind === 'back' || e.fallKind === 'spin' ? 1 : e.fallKind === 'stumble' ? -1 : Math.random() < 0.5 ? 1 : -1; e.spinDir = Math.random() < 0.5 ? 1 : -1; e.dropped = false; corpseCap();
+  DIRQ.push({ at: GAME.t + 1.1, fn: () => { if (!e.alive && e.rig.root.visible) bloodPool(e, e.chest(), headshot ? 0.5 : 0.65); } });
 }
 /* the dead stay where they fell for half a minute (updEnemy), and only so many of them: past that the oldest goes (a great wave leaves hundreds, and each one is drawn) */
 function corpseCap() {
@@ -529,7 +559,7 @@ function corpseCap() {
   for (const e of UNITS.enemies) if (!e.alive && e.rig.root.visible && e.deadAt !== undefined) { n++; if (e.state === 'dead' && (!old || e.deadAt < old.deadAt)) old = e; }
   if (n > max && old) { old.rig.root.visible = false; if (old.tag) old.tag.visible = false; }
 }
-function killSeat(bt, i) { const s = bt.seats[i]; if (!s.alive) return; bt.intact = false; bt.setLod(false); s.alive = false; s.m.visible = false; STATS.kills++; fxDust(bt.seatWorld(i).add(V3(0, 0.3, 0)), true); }
+function killSeat(bt, i) { const s = bt.seats[i]; if (!s.alive) return; bt.intact = false; bt.setLod(false); s.alive = false; s.m.visible = false; STATS.kills++; fxDust(bt.seatWorld(i).add(V3(0, 0.3, 0)), true); fxBlood(bt.seatWorld(i).add(V3(0, 0.6, 0)), 4); }
 const seeW = (ax, ay, az, bx, by, bz) => (FIELDM() ? los(ax, ay, az, bx, by, bz) && segHitT(ax, ay, az, bx, by, bz, 0.25) < 0 : losW(ax, ay, az, bx, by, bz)) && !smokeBlocks(ax, ay, az, bx, by, bz);
 function targetsFor(e) {
   // a man firing wild (the hill at Purkan) knows exactly where the tank is and empties his magazine at it whatever the sightline
@@ -1551,7 +1581,7 @@ function colNormal(k, p, dir) {
 function propsNear(p, R, dir) { if (typeof PROPS === 'undefined') return; for (const it of PROPS.items) { if (it.mode !== PROPS.cur) continue; const d = Math.hypot(it.x - p.x, it.y + it.L.h * 0.5 - p.y, it.z - p.z); if (d < R) propKick(it, dir, 1.6 * (1 - d / R) + 0.5); } }
 function applyHit(hit, dmg) {
   if (hit.o) suppressAlong(hit.o, hit.p, dmg > 120 ? 1.5 : 1);   // every round of ours pins the men it cracks past
-  if (hit.kind === 'enemy') { const e = hit.u; const dd = hit.head ? dmg * 2.5 : dmg; e.hp -= dd; const kill = e.hp <= 0; if (kill) killEnemy(e, hit.head); hitmark(kill); fxDust(hit.p.clone(), false); if (e.dormant || kill) wakeNear(e.pos, 9); }
+  if (hit.kind === 'enemy') { const e = hit.u; const dd = hit.head ? dmg * 2.5 : dmg; e.hp -= dd; const kill = e.hp <= 0; if (kill) killEnemy(e, hit.head); hitmark(kill); fxDust(hit.p.clone(), false); fxBlood(hit.p.clone(), hit.head ? 7 : 5); if (e.dormant || kill) wakeNear(e.pos, 9); }
   else if (hit.kind === 'seat') { killSeat(hit.boat, hit.seat); hitmark(true); }
   else if (hit.kind === 'boat') { hit.boat.hp -= dmg * 0.2; fxDust(hit.p.clone(), true); hitmark(false); }
   else if (hit.kind === 'friend') { toast('זהירות', 'אש על כוחותינו'); }
@@ -1746,7 +1776,7 @@ function updTutorial(dt) {
   if (TUT.cur) { TUT.curT -= dt; TUT.shown += dt; if (TUT.queue.length && TUT.shown > 4) TUT.curT = Math.min(TUT.curT, 0.4); if (TUT.curT <= 0) { TUT.cur = null; $('#hint').classList.remove('on'); } }
   if (!TUT.cur && TUT.queue.length) { TUT.cur = TUT.queue.shift(); TUT.curT = TUT.cur.dur; TUT.shown = 0; $('#hintText').innerHTML = TUT.cur.html; $('#hint').classList.add('on'); }
   TUT.radioT -= dt;
-  if (TUT.radioT <= 0) { if (TUT.radioQ.length) { const r = TUT.radioQ.shift(); $('#radioWho').textContent = r.who; $('#radioText').textContent = r.text; $('#radio').classList.add('on'); $('#radio').classList.toggle('near', !!r.quiet); TUT.radioT = r.dur; if (!r.quiet) sndRadio(); } else $('#radio').classList.remove('on'); }
+  if (TUT.radioT <= 0) { if (TUT.radioQ.length) { const r = TUT.radioQ.shift(); $('#radioWho').textContent = r.who; $('#radioText').textContent = r.text; $('#radio').classList.add('on'); $('#radio').classList.toggle('near', !!r.quiet); TUT.radioT = r.dur; { const sp = FRIENDS.find((f) => f.name === r.who && f.unit.alive && f.unit.rig.root.visible); if (sp) nsTalk(sp.unit, Math.min(r.dur * 0.85, 0.6 + r.text.length * 0.065), /!$/.test(r.text) && r.text.length < 30 ? 'shout' : 'speak'); } if (!r.quiet) sndRadio(); } else $('#radio').classList.remove('on'); }
   updObjective();
 }
 function tutorialTriggers() {
@@ -2203,7 +2233,7 @@ function frameInner() {
   // the title and mission select cover the screen with pictures: no need to draw the 3D world behind them (it saves the phone's battery)
   if (GAME.state === 'menu' && (!$('#mBrief').hidden || !$('#mOps').hidden)) return;
   if (GAME.state === 'play') update(dt, time); else if (GAME.state !== 'pause' && GAME.state !== 'end') { idleCamera(time); updJets(dt); menuFx(dt); }
-  chipsUpd(dt); FX.flashes.update(dt); FX.glows.update(dt); FX.smoke.update(dt); FX.dust.update(dt); FX.fire.update(dt); FX.cones.update(dt); FX.sparks.update(dt); FX.trail.update(dt); FX.exh.update(dt); updateTracers(dt); updateFlares(dt); updateDrumFire(dt, time);
+  chipsUpd(dt); FX.flashes.update(dt); FX.glows.update(dt); FX.smoke.update(dt); FX.dust.update(dt); updBlood(); FX.fire.update(dt); FX.cones.update(dt); FX.sparks.update(dt); FX.trail.update(dt); FX.exh.update(dt); updateTracers(dt); updateFlares(dt); updateDrumFire(dt, time);
   FX.boomT = (FX.boomT || 0) + dt; LIGHTS.boom.intensity *= Math.max(0, 1 - dt * 9);
   updFarSmoke(dt, time); wreckUpd(dt); for (const u of DUG_UNITS) if (_shown(u.rig.root)) nsDecide(u); animateWater(dt); waveFlags(time);
   if (HM_PANO) HM_PANO.visible = MODE === 'hermon';   // the view from the Hermon is drawn only there

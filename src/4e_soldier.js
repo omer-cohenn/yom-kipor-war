@@ -269,8 +269,12 @@ function nsWebTex() {
    nose, a wider jaw, a longer chin, fuller cheeks - in the head's own (bind) frame, before the skin follows the bones. Read in that frame:
    the chin at y .565, the lips .607-.627, the nose's tip .65 (z .153), the eyes .67-.70, the brows .705-.72, the front +z */
 const NS_MORPH_FN = `uniform vec4 uMorph, uMorph2;   /* nose, jaw, chin, cheeks | face width, brow ridge, lips, face length */
+uniform float uTalk;   /* the jaw: 0 shut, 1 open in a shout */
 vec3 nsMorph(vec3 p) {
-  vec3 d = vec3(0.0); float fr = smoothstep(-0.02, 0.06, p.z);
+  vec3 d = vec3(0.0);
+  { float wjw = (1.0 - smoothstep(0.6115, 0.6185, p.y)) * smoothstep(0.53, 0.568, p.y) * smoothstep(-0.01, 0.06, p.z) * (1.0 - smoothstep(0.042, 0.078, abs(p.x)));
+    float cf = mix(1.0, 1.0 - smoothstep(0.004, 0.027, abs(p.x)) * 0.8, smoothstep(0.592, 0.608, p.y));   /* the corners of the lips stay joined: an oval, not a slot */
+    d += vec3(0.0, -0.0115, -0.0035) * uTalk * wjw * cf; }   /* the lower lip and the chin drop as the jaw opens; the upper lip stays */ float fr = smoothstep(-0.02, 0.06, p.z);
   vec3 nt = p - vec3(0.0, 0.655, 0.128); float wn = exp(-dot(nt * vec3(26.0, 24.0, 22.0), nt * vec3(26.0, 24.0, 22.0))) * step(0.1, p.z);
   d += vec3(nt.x * 0.9, -0.004, max(nt.z, 0.0) * 1.3 + 0.004) * wn * uMorph.x;
   float wj = (1.0 - smoothstep(0.6, 0.655, p.y)) * smoothstep(0.53, 0.565, p.y) * fr; d.x += p.x * 0.3 * uMorph.y * wj;
@@ -321,14 +325,19 @@ const NS_FACES = {   /* [skin, [moustache, beard, stubble, brows], hair colour, 
       [[0.8, 0.71, 0.64], [1.0, 0.9, 0, 1.0], [0.12, 0.115, 0.11], [0.6, 0.7, 0, 0.8], 1.0, [0.7, 0.7, 0.2, 0]]],
 };
 const NS_FACE_K = 0.2;   /* the features are moved only a fifth of the way: men who differ, not caricatures */
+/* the open mouth: the skin between the lips that the jaw stretches is the inside of the mouth - dark, the upper teeth a pale line under the lip */
+const NS_MOUTH = `
+  float mo = uTalk * (1.0 - smoothstep(0.017, 0.025, ax)) * smoothstep(0.6122, 0.6138, b.y) * (1.0 - smoothstep(0.6166, 0.618, b.y)) * smoothstep(0.08, 0.11, b.z);
+  float teeth = smoothstep(0.3, 0.7, uTalk) * (1.0 - smoothstep(0.009, 0.015, ax)) * smoothstep(0.6163, 0.6167, b.y) * (1.0 - smoothstep(0.6172, 0.6176, b.y)) * smoothstep(0.08, 0.11, b.z);
+  diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.03, 0.008, 0.006), clamp(mo * 2.4, 0.0, 0.97)); diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.42, 0.39, 0.33), teeth * 0.6); nsAO = max(nsAO, clamp(mo * 2.4 - teeth * 0.5, 0.0, 0.97)); }`;
 function nsFaceMat(m, V) {   // m: a skin material over the head's photograph
-  nsBindPaint(m, NS_FACE, 'face'); const prev = m.onBeforeCompile, key = m.customProgramCacheKey();
-  const U = { uSkin: { value: new THREE.Vector3(...V[0]) }, uHair: { value: new THREE.Vector4(...V[1]) }, uHairC: { value: new THREE.Vector3(...V[2]) }, uMorph: { value: new THREE.Vector4(...V[3]).multiplyScalar(NS_FACE_K) }, uAge: { value: V[4] * 0.5 }, uMorph2: { value: new THREE.Vector4(...V[5]).multiplyScalar(NS_FACE_K) } };
+  nsBindPaint(m, NS_FACE.replace(/\}\s*$/, '') + NS_MOUTH, 'face'); const prev = m.onBeforeCompile, key = m.customProgramCacheKey();
+  const U = { uTalk: { value: 0 }, uSkin: { value: new THREE.Vector3(...V[0]) }, uHair: { value: new THREE.Vector4(...V[1]) }, uHairC: { value: new THREE.Vector3(...V[2]) }, uMorph: { value: new THREE.Vector4(...V[3]).multiplyScalar(NS_FACE_K) }, uAge: { value: V[4] * 0.5 }, uMorph2: { value: new THREE.Vector4(...V[5]).multiplyScalar(NS_FACE_K) } };
   m.onBeforeCompile = (sh, r) => { prev.call(m, sh, r); Object.assign(sh.uniforms, U);
     sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\n' + NS_MORPH_FN).replace('#include <begin_vertex>', '#include <begin_vertex>\ntransformed += nsMorph(position);');
-    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform vec3 uSkin; uniform vec4 uHair; uniform vec3 uHairC; uniform float uAge; float nsHairK = 0.0, nsAO = 0.0;')
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform vec3 uSkin; uniform vec4 uHair; uniform vec3 uHairC; uniform float uAge, uTalk; float nsHairK = 0.0, nsAO = 0.0;')
       .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\ntotalEmissiveRadiance *= uSkin * (1.0 - 0.9 * nsHairK) * (1.0 - nsAO);'); };
-  m.customProgramCacheKey = () => key + '|fv'; return m;
+  m.customProgramCacheKey = () => key + '|fv'; m.userData.talkU = U.uTalk; return m;
 }
 function nsMaterials() {
   if (NEWSOL.mats) return NEWSOL.mats;
@@ -351,6 +360,8 @@ function nsMaterials() {
   const tintOf = (hex, V) => (V ? new THREE.Color(hex).multiply(new THREE.Color(V[0][0], V[0][1], V[0][2])) : new THREE.Color(hex));
   const faces = (base, side, hmap) => NS_FACES[side].map((V, i) => { const a = i ? base.slice() : base, t0 = side === 'e' ? 0xf0d5ba : 0xffffff;
     a[3] = nsFaceMat(skin(hmap, tintOf(t0, V)), V); a[4] = skin(hands, tintOf(t0, V)); a[3].userData.face = V; a[4].userData.face = V; return a; });
+  // a face of his own for each man (the same program): his jaw moves alone
+  NEWSOL.face = (side, i, base) => { const V = NS_FACES[side][i], m = nsFaceMat(skin(side === 'e' ? headAr : head, base.color.clone()), V); m.userData.face = V; return m; };
   const fv = faces(f, 'f', head), ev = faces(e, 'e', headAr), e2v = ev.map((a) => { const b = a.slice(); b[8] = NEWSOL.helm.net; return b; });
   NEWSOL.mats = { f, e, e2, fv, ev, e2v }; nsUniformFor(MODE); return NEWSOL.mats;
 }
@@ -363,6 +374,7 @@ function nsUniformFor(mode) {
   for (const [list, net] of [[M.ev, false], [M.e2v, true]]) for (const a of list) {   /* every face: the Syrians a shade fairer; their helmets painted */
     const V = a[3].userData.face; a[3].color.set(sy ? 0xf2dac2 : 0xf0d5ba); if (V) a[3].color.multiply(new THREE.Color(V[0][0], V[0][1], V[0][2])); a[4].color.copy(a[3].color); a[8] = sy ? Hm.sy : net ? Hm.net : Hm.cover; }
   for (const m of [E[0], E[1]]) m.needsUpdate = true;
+  for (const [own, base] of NEWSOL.own || []) { for (let k = 0; k < base.length; k++) if (k !== 3) own[k] = base[k]; own[3].color.copy(base[3].color); }   /* each man's own copy: all but his face follow the set */
 }
 { const _uf = uniformFor; uniformFor = function (mode) { _uf(mode); nsUniformFor(mode); nsRefresh(); }; }   /* reassigns the declaration in 4_actors.js (one module) */
 /* the joints where this figure's are: its shoulders, hips, knees and head pivot (the old figure's are kept, and come back with it) */
@@ -382,7 +394,8 @@ function nsAttach(R) {
   R.root.updateMatrixWorld(true);
   const bones = J.map((o) => { const b = new THREE.Bone(); o.add(b); return b; });
   NEWSOL.n = (NEWSOL.n || 0) + 1; const M = nsMaterials(), fi = (NEWSOL.n * 3 + (NEWSOL.n >> 2)) % 5;   /* his face, and (theirs) one in three bare-helmeted */
-  const m = new THREE.SkinnedMesh(nsGeometry(), R.side === 'e' ? (NEWSOL.n % 3 === 0 ? M.e2v : M.ev)[fi] : M.fv[fi]); R.hips.add(m); m.boundingSphere = new THREE.Sphere(V3(0, -0.15, 0), 1.5);
+  const base = R.side === 'e' ? (NEWSOL.n % 3 === 0 ? M.e2v : M.ev)[fi] : M.fv[fi], own = base.slice(); own[3] = NEWSOL.face(R.side, fi, base[3]); (NEWSOL.own || (NEWSOL.own = [])).push([own, base]); R.talkU = own[3].userData.talkU;
+  const m = new THREE.SkinnedMesh(nsGeometry(), own); R.hips.add(m); m.boundingSphere = new THREE.Sphere(V3(0, -0.15, 0), 1.5);
   R.root.updateMatrixWorld(true); m.bind(new THREE.Skeleton(bones)); SH(m, true, false); onLayer1(m);
   J.forEach((o, i) => { o.quaternion.copy(save[i][0]); o.scale.copy(save[i][1]); }); R.root.updateMatrixWorld(true);
   R.ns = m;
@@ -416,10 +429,37 @@ function nsDecide(u) {
     // the men in front of the camera first: one behind it, or far off to the side, only fills a place nobody in view needs
     u.nsRank = eff * (R.nsOn ? 0.85 : 1) * (u.alive ? 1 : 1.6) * (ahead > 0.55 || far < 4 ? 1 : 6); NSB.cand.push(u); }
   const w = near && NSB.allow.has(u); if (w !== !!R.nsOn) nsShow(R, w);
+  if (w && R.talkU) nsJaw(u, R);
   if (w && R.ns && NEWSOL.geos && NEWSOL.geos.length > 1) {
     const cur = R.nsLod ?? 0, h = cur === 0 ? 1.1 : 0.92, l = eff < NS_L[0] * (cur === 0 ? h : 1) ? 0 : eff < NS_L[1] * (cur <= 1 ? 1.08 : 0.94) ? 1 : 2;   /* a little hysteresis: no flicker on the line */
     if (l !== cur) { R.nsLod = l; R.ns.geometry = NEWSOL.geos[Math.min(l, NEWSOL.geos.length - 1)]; R.ns.castShadow = SHADOWS && l < (PHONE ? 1 : 2); }   /* the farthest cast no shadow */
   }
+}
+/* ---------- the mouth: the men talk ----------
+   nsTalk(u, seconds, kind): 'speak' - syllables, short and long, with a pause between words, the jaw half open at most; 'shout' - wide open
+   in a short burst. Said lines (radio, the squad's calls) start it; besides that the men talk on their own: in a fight they shout, the
+   Egyptians most of all as they charge; beside the player the men at rest say a word now and then; in a film the men by the camera do.
+   The dead lie with the jaw a little slack, a wounded man groans */
+function nsTalk(u, dur, kind = 'speak') { if (!u) return; const now = performance.now() / 1000; u.talkT0 = now; u.talkEnd = now + dur; u.talkKind = kind; u.talkPh = u.talkPh ?? Math.random() * 6.28; }
+function nsJaw(u, R) {
+  const now = performance.now() / 1000, rdt = Math.min(0.1, now - (R.jawT || now)); R.jawT = now; const ph = u.talkPh ?? (u.talkPh = Math.random() * 6.28);
+  if (u.alive && !(u.talkEnd > now) && rdt > 0) {   // on his own
+    const k = R.kind, cam = camera.position.distanceTo(u.pos), fight = k === 'aim' || k === 'run' || u.rush;
+    let rate = 0, shout = true;
+    if (nsCine()) { rate = 0.22; shout = Math.random() < 0.55; }
+    else if (u.side === 'e') rate = u.rush || u.cmd && k === 'run' ? 0.22 : k === 'run' ? 0.1 : k === 'aim' ? 0.05 : 0;
+    else if (fight) rate = 0.05;
+    else if (cam < 10 && (u.rig.spd ?? 0) < 0.4) { rate = 0.035; shout = false; }
+    if (rate && Math.random() < rate * rdt) nsTalk(u, shout ? rand(0.45, 1.0) : rand(1.2, 2.8), shout ? 'shout' : 'speak');
+  }
+  let j = 0;
+  if (!u.alive) j = u.fall >= 0 ? 0.3 * clamp(u.fall / 0.6, 0, 1) : 0.3;
+  else if (u.talkEnd > now) { const t = now - u.talkT0, left = u.talkEnd - now, env = Math.min(1, t * 10, left * 8);
+    if (u.talkKind === 'shout') j = (0.78 + 0.16 * Math.sin(t * 9 + ph)) * env;
+    else { const syl = Math.max(0, Math.sin(t * 12.5 + ph) * 0.55 + Math.sin(t * 5.1 + ph * 1.7) * 0.3 + 0.12), word = Math.sin(t * 2.3 + ph * 0.6) > -0.55 ? 1 : 0.08; j = clamp(syl, 0, 0.62) * word * env; } }
+  else if (u.fall >= 0) j = 0.18 + 0.22 * Math.max(0, Math.sin(now * 1.4 + ph));   // down and hurt: a groan
+  R.jaw = (R.jaw || 0) + (j - (R.jaw || 0)) * (1 - Math.exp(-rdt * 28));
+  R.talkU.value = R.jaw;
 }
 { const _sync = Unit.prototype.sync; Unit.prototype.sync = function () { _sync.call(this); nsDecide(this); }; }
 /* the setting changed (or the chapter): every soldier dresses again at once */
