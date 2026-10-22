@@ -687,7 +687,7 @@ function wakeNear(p, r) { for (const o of UNITS.enemies) if (o.alive && o.dorman
 /* the nearest gate segment to a point: segment i runs from pts[i] to pts[i+1] - used to hand each pre-placed man to the bound that passes him */
 function gateSegOf(pts, x, z) { let best = 0, bd = 1e9; for (let i = 0; i < pts.length - 1; i++) { const [ax, az] = pts[i], [bx, bz] = pts[i + 1], dx = bx - ax, dz = bz - az, t = clamp(((x - ax) * dx + (z - az) * dz) / (dx * dx + dz * dz || 1), 0, 1), d = Math.hypot(x - ax - dx * t, z - az - dz * t); if (d < bd) { bd = d; best = i; } } return best; }
 function fieldFriends(defs) {
-  FRIENDS.forEach((f, i) => { const u = f.unit, d = defs[i]; f.marker.visible = false; f.target = null; f.bleed = 0; f.burst = 0;
+  FRIENDS.forEach((f, i) => { const u = f.unit, d = defs[i]; woundsOff(u); f.marker.visible = false; f.target = null; f.bleed = 0; f.burst = 0;
     if (!d) { f.state = 'bunker'; u.rig.root.visible = false; u.tag.visible = false; return; }
     f.name = d.name; f.fi = d.fi ?? i; f.ti = 0; f.stuck = 0; f.goalY = undefined; u.alive = true; u.fall = -1; u.stance = 'stand'; u.rig.root.visible = true; u.rig.gun.visible = true;
     const x = d.x ?? 0, z = d.z ?? 0; u.place(x, z, d.y); u.heading = Math.atan2(d.fx ?? 0, d.fz ?? 1);

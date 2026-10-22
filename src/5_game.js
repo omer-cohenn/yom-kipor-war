@@ -251,6 +251,7 @@ const FRIENDS = FRIEND_DEF.map(([name, postId]) => {
 });
 function resetFriends() {
   for (const f of FRIENDS) {
+    woundsOff(f.unit);
     f.name = FRIEND_DEF[FRIENDS.indexOf(f)][0]; f.aid = false; f.bed = null; f.unit.rig.gun.visible = true; f.post = postById(f.postId); f.post.occupant = f; f.state = 'duck'; f.bleed = 0; f.target = null; f.burst = 0; f.marker.visible = false;
     const u = f.unit; u.alive = true; u.fall = -1; u.stance = 'hide'; u.place(f.post.stand[0], f.post.stand[1]); u.heading = Math.atan2(f.post.fx, f.post.fz); u.rig.root.visible = true; u.rig.pose('hide', 0); u.sync();
   }
@@ -290,7 +291,8 @@ function woundFriend(f, killed = false, force = false) {
   if (GOD()) return; if (f.state !== 'post' && f.state !== 'follow') return; if (!force && MODE === 'mezach' && !inStage(f.unit.pos.x, f.unit.pos.z)) return;
   f.prevState = f.state; if (f.post && f.post.occupant === f) f.post.occupant = null;
   const u = f.unit; u.fall = 0; u.fallDir = 1; u.stance = 'down';
-  fxBlood(u.chest(), 6); DIRQ.push({ at: GAME.t + 1.0, fn: () => { if (f.state === 'wounded' || f.state === 'kia') bloodPool(u, u.chest(), killed ? 0.6 : 0.42, f); } });
+  { const c = u.chest(), o = V3(Math.sin(u.heading), 0, Math.cos(u.heading)); fxBlood(c, 12); bodyWound(u, c.clone().addScaledVector(o, 0.2).add(V3(rand(-0.08, 0.08), rand(-0.12, 0.06), 0))); }
+  DIRQ.push({ at: GAME.t + 0.8, fn: () => { if (f.state === 'wounded' || f.state === 'kia') bloodPool(u, u.chest(), killed ? rand(0.95, 1.2) : rand(0.6, 0.8), f); } });
   if (killed) { f.state = 'kia'; feed(`${f.name} נהרג`, 'bad'); STATS.kia++; }
   else { f.state = 'wounded'; f.bleed = diff.bleed; feed(`${f.name} נפגע! ״חובש!״`, 'bad'); f.marker.visible = true; radio(f.name, 'נפגעתי! חובש!', 3); }
 }
@@ -497,7 +499,7 @@ function getUnit() {
   if (oldest) { oldest.rig.root.visible = false; return oldest; } return null;
 }
 function spawnEnemy(x, z, kind, group, path, opts = {}) {
-  const e = getUnit(); if (!e) return null;
+  const e = getUnit(); if (!e) return null; woundsOff(e);
   e.thrT = -99; e.arcT = -9; e.shotT = -9;   /* nothing he did in an earlier life counts as fire at the player */
   if (e.mmHide || e.pitHid) fmDisguise(e, false); e.mmHide = false; e.pitHid = false;   /* a man last used as a disguised figure in a crater gets his own colours back */
   e.side = 'e'; e.setKind(kind); e.alive = true; e.hp = 100; e.fall = -1; e.stance = 'stand'; e.place(x, z); e.rig.root.visible = true; e.rig.gun.visible = true; e.deadAt = undefined; e.rig.shut = false; e.rig.head.material = MAT.faces[e.side][e.rig.faceV]; e.rig.deadOpen = Math.random() < 0.35; e.rig.blinkT = rand(1, 4);
@@ -528,22 +530,42 @@ function bloodTex() {
     const gr = g.createRadialGradient(x, y, 0, x, y, rr); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.7, 'rgba(255,255,255,0.9)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.beginPath(); g.arc(x, y, rr, 0, 6.283); g.fill(); }
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
 }
-function bloodPool(u, at, maxR = 0.6, f = null) {
-  if (!BLOOD.geo) { BLOOD.geo = new THREE.PlaneGeometry(2, 2).rotateX(-Math.PI / 2); BLOOD.mat = new THREE.MeshStandardMaterial({ map: bloodTex(), color: 0x5a0c08, roughness: 0.35, metalness: 0, transparent: true, opacity: 0.92, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }); }
-  const y = hAt(at.x, at.z, at.y + 0.4); if (groundAt(at.x, at.z) < -0.2 && y < 0.05) return;   // in the water: none
+function bloodPool(u, at, maxR = 1.0, f = null) {
+  if (!BLOOD.geo) { BLOOD.geo = new THREE.PlaneGeometry(2, 2).rotateX(-Math.PI / 2); BLOOD.mat = new THREE.MeshStandardMaterial({ map: bloodTex(), color: 0x4a0604, roughness: 0.3, metalness: 0, transparent: true, opacity: 0.96, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }); }
+  if (!at) return; const y = hAt(at.x, at.z, at.y + 0.4); if (groundAt(at.x, at.z) < -0.2 && y < 0.05) return;   // in the water: none
   let P = BLOOD.pools.find((q) => !q.m.visible); if (!P) { if (BLOOD.pools.length < BLOOD.max) { P = { m: new THREE.Mesh(BLOOD.geo, BLOOD.mat) }; P.m.renderOrder = 1; scene.add(P.m); BLOOD.pools.push(P); } else P = BLOOD.pools.reduce((a, b) => (a.t0 < b.t0 ? a : b)); }
-  P.u = u; P.f = f; P.t0 = GAME.t; P.r = maxR * rand(0.8, 1.2); P.m.position.set(at.x, y + 0.012, at.z); P.m.rotation.y = rand(0, 6.283); P.m.scale.setScalar(0.05); P.m.visible = true;
+  P.u = u; P.f = f; P.t0 = GAME.t; P.r = maxR * rand(0.8, 1.2); P.m.position.set(at.x, y + 0.07, at.z);   /* over the trench's floor slats, not under them */ P.m.rotation.y = rand(0, 6.283); P.m.scale.setScalar(0.05); P.m.visible = true;
 }
 function updBlood() {
   for (const P of BLOOD.pools) { if (!P.m.visible) continue; const u = P.u;
     if (!u || !u.rig.root.visible || (P.f ? P.f.state !== 'wounded' && P.f.state !== 'kia' : u.alive)) { P.m.visible = false; continue; }   // he got up, or is gone
-    const k = clamp((GAME.t - P.t0) / 6, 0, 1); P.m.scale.setScalar(Math.max(0.05, P.r * Math.sqrt(k))); }
+    const k = clamp((GAME.t - P.t0) / 4.5, 0, 1); P.m.scale.setScalar(Math.max(0.05, P.r * Math.sqrt(k))); }
+  for (let i = WOUNDS.length - 1; i >= 0; i--) { const w = WOUNDS[i]; if (!w.u.rig.root.visible) { w.m.parent && w.m.parent.remove(w.m); WOUNDS.splice(i, 1); continue; } w.m.scale.setScalar(w.r * (0.45 + 0.55 * Math.sqrt(clamp((GAME.t - w.t0) / 3, 0, 1)))); }
 }
-function fxBlood(p, n = 5) {
-  const mist = FX.dust.get(); mist.life = 0.45; mist.s.position.copy(p); mist.s.material.color.set(0x7a1410);
-  mist.upd = (q, u) => { q.s.scale.setScalar(0.18 + u * 0.55); q.s.material.opacity = 0.55 * (1 - u); };
-  for (let i = 0; i < n; i++) { const d = FX.dust.get(); d.life = rand(0.35, 0.6); d.s.position.copy(p); d.s.material.color.set(0x5a0a08); let vx = rand(-1.6, 1.6), vy = rand(0.6, 2.4), vz = rand(-1.6, 1.6); const s0 = rand(0.04, 0.08);
-    d.upd = (q, u, dt) => { dt = dt || 1 / 60; vy -= 9.8 * dt; q.s.position.x += vx * dt; q.s.position.y += vy * dt; q.s.position.z += vz * dt; q.s.scale.setScalar(s0); q.s.material.opacity = 0.95 * (1 - u * u); }; }
+function woundsOff(u) { for (let i = WOUNDS.length - 1; i >= 0; i--) if (WOUNDS[i].u === u) { const w = WOUNDS[i]; w.m.parent && w.m.parent.remove(w.m); WOUNDS.splice(i, 1); } }
+function fxBlood(p, n = 10, dir = null) {
+  // a burst of red mist where the round went in, and a spurt of heavy droplets flung out the far side and dropping to the ground
+  for (let k = 0; k < 2; k++) { const mist = FX.dust.get(); mist.life = rand(0.6, 0.9); mist.s.position.copy(p); if (dir) mist.s.position.addScaledVector(dir, 0.15 + k * 0.2); mist.s.material.color.set(k ? 0x6e100c : 0x8a1610); const s1 = rand(0.9, 1.3);
+    mist.upd = (q, u) => { q.s.scale.setScalar(0.14 + u * s1 * 0.45); q.s.position.y -= 0.003; q.s.material.opacity = 0.75 * (1 - u) * (1 - u); }; }
+  for (let i = 0; i < n; i++) { const d = FX.dust.get(); d.life = rand(0.5, 0.85); d.s.position.copy(p); d.s.material.color.set(i % 3 ? 0x5a0806 : 0x7a0e0a);
+    let vx = rand(-1.8, 1.8), vy = rand(0.4, 2.6), vz = rand(-1.8, 1.8); if (dir) { vx += dir.x * rand(2, 4.5); vz += dir.z * rand(2, 4.5); vy += dir.y * 2; } const s0 = rand(0.07, 0.15);
+    d.upd = (q, u, dt) => { dt = dt || 1 / 60; vy -= 9.8 * dt; q.s.position.x += vx * dt; q.s.position.y += vy * dt; q.s.position.z += vz * dt; q.s.scale.set(s0, s0 * (1 + Math.min(1.5, Math.abs(vy) * 0.25)), 1); q.s.material.opacity = 1 - u * u; }; }
+}
+/* the wound on the man himself: a dark stain that soaks out across his uniform where he was hit, riding on his chest as he moves and falls
+   (on the old figure and the new alike: it sits on the torso's joint) */
+const WOUNDS = [];
+function bodyWound(u, p) {
+  const R = u.rig, T = R && R.torso; if (!T || !R.root.visible) return; if (!BLOOD.geo) bloodPool(null, null);
+  if (!BLOOD.wmat) BLOOD.wmat = new THREE.MeshStandardMaterial({ map: BLOOD.mat.map, color: 0x3c0604, roughness: 0.75, transparent: true, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 });
+  const mine = WOUNDS.filter((w) => w.u === u); if (mine.length >= 3) { const o = mine[0]; o.m.parent && o.m.parent.remove(o.m); WOUNDS.splice(WOUNDS.indexOf(o), 1); }
+  if (WOUNDS.length > (LITE ? 30 : 60)) { const o = WOUNDS.shift(); o.m.parent && o.m.parent.remove(o.m); }
+  R.root.updateMatrixWorld(true);
+  // on the surface of his chest, in the world: out from the line of his spine at the height of the hit, then into the torso's own frame
+  const tw = new THREE.Vector3(); T.getWorldPosition(tw); const out = V3(p.x - u.pos.x, 0, p.z - u.pos.z); if (out.lengthSq() < 1e-4) out.set(Math.sin(u.heading), 0, Math.cos(u.heading)); out.normalize();
+  const wp = V3(u.pos.x, clamp(p.y, tw.y - 0.15, tw.y + 0.45), u.pos.z).addScaledVector(out, 0.15), m = new THREE.Mesh(new THREE.CircleGeometry(1, 14), BLOOD.wmat);
+  const q = new THREE.Quaternion().setFromUnitVectors(V3(0, 0, 1), out), tq = new THREE.Quaternion(); T.getWorldQuaternion(tq);
+  m.position.copy(T.worldToLocal(wp)); m.quaternion.copy(tq.invert().multiply(q)); m.renderOrder = 2;
+  T.add(m); onLayer1(m); WOUNDS.push({ u, m, t0: GAME.t, r: rand(0.1, 0.15) }); m.scale.setScalar(0.02);
 }
 function killEnemy(e, headshot) {
   if (!e.alive) return; leaveCover(e); if (e.plan) for (const s of e.plan) if (s.c && s.c.by === e) s.c.by = null; if (e.tcov && e.tcov.by === e) e.tcov.by = null; e.tcov = null; if (D.tok[1] === e) D.tok[1] = null; if (D.tok[-1] === e) D.tok[-1] = null; e.alive = false; e.state = 'dying'; e.fall = 0; e.stance = 'down'; e.deadAt = GAME.t; STATS.kills++; if (headshot) STATS.heads++;
@@ -551,7 +573,8 @@ function killEnemy(e, headshot) {
   const run = e.rig.kind === 'run' || e.rig.kind === 'walk', r = Math.random();
   e.fallKind = headshot && r < 0.75 ? 'head' : run && r < 0.5 ? 'stumble' : pick(['knees', 'knees', 'back', 'spin', 'crumple', 'knees', 'back']);
   e.fallDir = e.fallKind === 'back' || e.fallKind === 'spin' ? 1 : e.fallKind === 'stumble' ? -1 : Math.random() < 0.5 ? 1 : -1; e.spinDir = Math.random() < 0.5 ? 1 : -1; e.dropped = false; corpseCap();
-  DIRQ.push({ at: GAME.t + 1.1, fn: () => { if (!e.alive && e.rig.root.visible) bloodPool(e, e.chest(), headshot ? 0.5 : 0.65); } });
+  if (!WOUNDS.some((w) => w.u === e)) { const c = e.chest(), o = V3(Math.sin(e.heading), 0, Math.cos(e.heading)); bodyWound(e, c.clone().addScaledVector(o, 0.2).add(V3(rand(-0.08, 0.08), rand(-0.1, 0.08), 0))); fxBlood(c, 10); }
+  DIRQ.push({ at: GAME.t + 0.8, fn: () => { if (!e.alive && e.rig.root.visible) bloodPool(e, e.chest(), headshot ? 0.85 : rand(0.95, 1.25)); } });
 }
 /* the dead stay where they fell for half a minute (updEnemy), and only so many of them: past that the oldest goes (a great wave leaves hundreds, and each one is drawn) */
 function corpseCap() {
@@ -1581,7 +1604,7 @@ function colNormal(k, p, dir) {
 function propsNear(p, R, dir) { if (typeof PROPS === 'undefined') return; for (const it of PROPS.items) { if (it.mode !== PROPS.cur) continue; const d = Math.hypot(it.x - p.x, it.y + it.L.h * 0.5 - p.y, it.z - p.z); if (d < R) propKick(it, dir, 1.6 * (1 - d / R) + 0.5); } }
 function applyHit(hit, dmg) {
   if (hit.o) suppressAlong(hit.o, hit.p, dmg > 120 ? 1.5 : 1);   // every round of ours pins the men it cracks past
-  if (hit.kind === 'enemy') { const e = hit.u; const dd = hit.head ? dmg * 2.5 : dmg; e.hp -= dd; const kill = e.hp <= 0; if (kill) killEnemy(e, hit.head); hitmark(kill); fxDust(hit.p.clone(), false); fxBlood(hit.p.clone(), hit.head ? 7 : 5); if (e.dormant || kill) wakeNear(e.pos, 9); }
+  if (hit.kind === 'enemy') { const e = hit.u; const dd = hit.head ? dmg * 2.5 : dmg; e.hp -= dd; const kill = e.hp <= 0; { const dr = hit.o ? hit.p.clone().sub(hit.o).normalize() : null; fxBlood(hit.p.clone(), hit.head ? 14 : 10, dr); if (!hit.head) bodyWound(e, hit.p.clone()); if (dr) { const g = hit.p.clone().addScaledVector(dr, rand(0.8, 1.6)); bloodPool({ rig: e.rig, alive: false }, g, rand(0.25, 0.4)); } } if (kill) killEnemy(e, hit.head); hitmark(kill); fxDust(hit.p.clone(), false); if (e.dormant || kill) wakeNear(e.pos, 9); }
   else if (hit.kind === 'seat') { killSeat(hit.boat, hit.seat); hitmark(true); }
   else if (hit.kind === 'boat') { hit.boat.hp -= dmg * 0.2; fxDust(hit.p.clone(), true); hitmark(false); }
   else if (hit.kind === 'friend') { toast('זהירות', 'אש על כוחותינו'); }
