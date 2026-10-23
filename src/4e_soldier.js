@@ -6,7 +6,7 @@
    The Israelis in olive with the M1, the Egyptians in khaki camouflage and the Syrians in forest camouflage under a Soviet-pattern helmet,
    moustached and dark-haired. Off in the Chinese Farm (its men in pits wear our uniforms - the old figure does that) and by the setting. */
 const NEWSOL = {
-  on: (() => { let v = null; try { v = localStorage.getItem('yk73.sol'); } catch (e) {} return v !== 'old'; })(),   /* on unless the player chose the old ones */
+  on: true,   /* always (the user: every soldier in the good figure, in every situation; the old one is gone as a choice) */
   geo: null, mats: null, camo: {},
 };
 const NS_BONES = ['hips', 'torso', 'sR', 'eR', 'sL', 'eL', 'hR', 'kR', 'hL', 'kL', 'headP'];
@@ -423,12 +423,14 @@ function nsDecide(u) {
   if (NSB.t !== fk) {   // a new frame: last frame's near men ranked, those wearing it already a little ahead (no flicker), the dead behind the living
     NSB.cand.sort((a, b) => a.nsRank - b.nsRank); NSB.allow = new Set(NSB.cand.slice(0, nsCine() ? NS_MAXC : NS_MAX)); NSB.cand.length = 0; NSB.t = fk;
   }
-  const nd = nsCine() ? NS_DC : NS_D; let near = NEWSOL.on && MODE !== 'farm' && eff < (R.nsOn ? nd * 1.12 : nd);
+  /* every man drawn wears it, at any distance (the detail steps down with the distance below); only the Chinese Farm's men disguised in our
+     uniforms in their pits keep the old figure, which is what wears the disguise */
+  let near = NEWSOL.on && !(u.mmHide || u.pitHid);
   if (near && !R.root.visible) near = false;   /* a man not drawn takes no one's place */
   if (near) { camera.getWorldDirection(_nsF); const bx = u.pos.x - camera.position.x, by = u.pos.y + 1 - camera.position.y, bz = u.pos.z - camera.position.z, ahead = (bx * _nsF.x + by * _nsF.y + bz * _nsF.z) / Math.max(0.1, far);
     // the men in front of the camera first: one behind it, or far off to the side, only fills a place nobody in view needs
     u.nsRank = eff * (R.nsOn ? 0.85 : 1) * (u.alive ? 1 : 1.6) * (ahead > 0.55 || far < 4 ? 1 : 6); NSB.cand.push(u); }
-  const w = near && NSB.allow.has(u); if (w !== !!R.nsOn) nsShow(R, w);
+  const w = near && (R.root.visible || R.nsOn); if (w !== !!R.nsOn) nsShow(R, w);
   if (w && R.talkU) nsJaw(u, R);
   if (w && R.ns && NEWSOL.geos && NEWSOL.geos.length > 1) {
     const cur = R.nsLod ?? 0, h = cur === 0 ? 1.1 : 0.92, l = eff < NS_L[0] * (cur === 0 ? h : 1) ? 0 : eff < NS_L[1] * (cur <= 1 ? 1.08 : 0.94) ? 1 : 2;   /* a little hysteresis: no flicker on the line */
@@ -469,5 +471,5 @@ function setSoldiers(v, live) {
   NEWSOL.on = v === 'new'; for (const x of document.querySelectorAll('#sol button')) x.setAttribute('aria-pressed', String(x.dataset.sol === v));
   if (!live) return; try { localStorage.setItem('yk73.sol', v); } catch (e) {} nsRefresh();
 }
-{ const el = $('#sol'); if (el) el.addEventListener('click', (e) => { const b = e.target.closest('button'); if (b && b.dataset.sol) setSoldiers(b.dataset.sol, true); }); setSoldiers(NEWSOL.on ? 'new' : 'old', false); }
+{ const el = $('#sol'); if (el) el.closest('div').parentNode.hidden = true; } if (0) { const el = $('#sol'); if (el) el.addEventListener('click', (e) => { const b = e.target.closest('button'); if (b && b.dataset.sol) setSoldiers(b.dataset.sol, true); }); setSoldiers(NEWSOL.on ? 'new' : 'old', false); }
 

@@ -4183,7 +4183,7 @@ const SOLDIER_DATA = {"hdr":{"bones":["hips","torso","sR","eR","sL","eL","hR","k
    The Israelis in olive with the M1, the Egyptians in khaki camouflage and the Syrians in forest camouflage under a Soviet-pattern helmet,
    moustached and dark-haired. Off in the Chinese Farm (its men in pits wear our uniforms - the old figure does that) and by the setting. */
 const NEWSOL = {
-  on: (() => { let v = null; try { v = localStorage.getItem('yk73.sol'); } catch (e) {} return v !== 'old'; })(),   /* on unless the player chose the old ones */
+  on: true,   /* always (the user: every soldier in the good figure, in every situation; the old one is gone as a choice) */
   geo: null, mats: null, camo: {},
 };
 const NS_BONES = ['hips', 'torso', 'sR', 'eR', 'sL', 'eL', 'hR', 'kR', 'hL', 'kL', 'headP'];
@@ -4600,12 +4600,14 @@ function nsDecide(u) {
   if (NSB.t !== fk) {   // a new frame: last frame's near men ranked, those wearing it already a little ahead (no flicker), the dead behind the living
     NSB.cand.sort((a, b) => a.nsRank - b.nsRank); NSB.allow = new Set(NSB.cand.slice(0, nsCine() ? NS_MAXC : NS_MAX)); NSB.cand.length = 0; NSB.t = fk;
   }
-  const nd = nsCine() ? NS_DC : NS_D; let near = NEWSOL.on && MODE !== 'farm' && eff < (R.nsOn ? nd * 1.12 : nd);
+  /* every man drawn wears it, at any distance (the detail steps down with the distance below); only the Chinese Farm's men disguised in our
+     uniforms in their pits keep the old figure, which is what wears the disguise */
+  let near = NEWSOL.on && !(u.mmHide || u.pitHid);
   if (near && !R.root.visible) near = false;   /* a man not drawn takes no one's place */
   if (near) { camera.getWorldDirection(_nsF); const bx = u.pos.x - camera.position.x, by = u.pos.y + 1 - camera.position.y, bz = u.pos.z - camera.position.z, ahead = (bx * _nsF.x + by * _nsF.y + bz * _nsF.z) / Math.max(0.1, far);
     // the men in front of the camera first: one behind it, or far off to the side, only fills a place nobody in view needs
     u.nsRank = eff * (R.nsOn ? 0.85 : 1) * (u.alive ? 1 : 1.6) * (ahead > 0.55 || far < 4 ? 1 : 6); NSB.cand.push(u); }
-  const w = near && NSB.allow.has(u); if (w !== !!R.nsOn) nsShow(R, w);
+  const w = near && (R.root.visible || R.nsOn); if (w !== !!R.nsOn) nsShow(R, w);
   if (w && R.talkU) nsJaw(u, R);
   if (w && R.ns && NEWSOL.geos && NEWSOL.geos.length > 1) {
     const cur = R.nsLod ?? 0, h = cur === 0 ? 1.1 : 0.92, l = eff < NS_L[0] * (cur === 0 ? h : 1) ? 0 : eff < NS_L[1] * (cur <= 1 ? 1.08 : 0.94) ? 1 : 2;   /* a little hysteresis: no flicker on the line */
@@ -4646,7 +4648,7 @@ function setSoldiers(v, live) {
   NEWSOL.on = v === 'new'; for (const x of document.querySelectorAll('#sol button')) x.setAttribute('aria-pressed', String(x.dataset.sol === v));
   if (!live) return; try { localStorage.setItem('yk73.sol', v); } catch (e) {} nsRefresh();
 }
-{ const el = $('#sol'); if (el) el.addEventListener('click', (e) => { const b = e.target.closest('button'); if (b && b.dataset.sol) setSoldiers(b.dataset.sol, true); }); setSoldiers(NEWSOL.on ? 'new' : 'old', false); }
+{ const el = $('#sol'); if (el) el.closest('div').parentNode.hidden = true; } if (0) { const el = $('#sol'); if (el) el.addEventListener('click', (e) => { const b = e.target.closest('button'); if (b && b.dataset.sol) setSoldiers(b.dataset.sol, true); }); setSoldiers(NEWSOL.on ? 'new' : 'old', false); }
 
 /* ================= terrain maps made outside the code =================
    Each field chapter can have a map (tools/maps/pack_maps.py -> maps/<name>.json): heights, colour, splat weights for four ground
@@ -5049,9 +5051,9 @@ function wpUpdate(kind, n, of, fill, ticks, gren, smoke, low) {
    react and the more of them storm; the more each hit costs and the less you heal; the weaker the men beside you; the fewer the saves.
    The aim lock is the same on every level */
 const DIFF = [
-  { name: 'טירון', cap: 0.9, seats: 4, extra: 0.8, boats: 0.8, acc: 0.04, accF: 0.012, dmg: [9, 13], bleed: 200, art: [32, 48], boat: 9.5, fgun: 0.85, fAcc: 1.5, fSmart: 2, regenD: 2, regenCap: 100, react: 1.2, storm: 0.25, gren: 0, aware: 18, cp: 2, gren0: 6, foeMap: true },
-  { name: 'לוחם', cap: 1.5, seats: 5, extra: 1.0, boats: 1.0, acc: 0.065, accF: 0.022, dmg: [14, 21], bleed: 140, art: [22, 34], boat: 10.5, fgun: 1, fAcc: 1, fSmart: 1, regenD: 3, regenCap: 100, react: 0.7, storm: 0.55, gren: 1, aware: 24, cp: 1, gren0: 4, foeMap: true },
-  { name: 'ותיק', cap: 1.9, seats: 6, extra: 1.35, boats: 1.3, acc: 0.09, accF: 0.032, dmg: [21, 31], bleed: 90, art: [15, 25], boat: 11.5, fgun: 1.25, fAcc: 0.6, fSmart: 0, regenD: 5, regenCap: 60, react: 0.4, storm: 0.75, gren: 1.6, aware: 30, cp: 0, gren0: 3, foeMap: false },
+  { name: 'טירון', cap: 0.9, seats: 4, extra: 0.8, boats: 0.8, acc: 0.06, accF: 0.017, dmg: [9, 13], bleed: 200, art: [32, 48], boat: 9.5, fgun: 0.85, fAcc: 1.5, fSmart: 2, regenD: 2, regenCap: 100, react: 1.2, storm: 0.25, gren: 0, aware: 18, cp: 2, gren0: 6, foeMap: true },
+  { name: 'לוחם', cap: 1.5, seats: 5, extra: 1.0, boats: 1.0, acc: 0.1, accF: 0.031, dmg: [14, 21], bleed: 140, art: [22, 34], boat: 10.5, fgun: 1, fAcc: 1, fSmart: 1, regenD: 3, regenCap: 100, react: 0.7, storm: 0.55, gren: 1, aware: 24, cp: 1, gren0: 4, foeMap: true },
+  { name: 'ותיק', cap: 1.9, seats: 6, extra: 1.35, boats: 1.3, acc: 0.13, accF: 0.045, dmg: [21, 31], bleed: 90, art: [15, 25], boat: 11.5, fgun: 1.25, fAcc: 0.6, fSmart: 0, regenD: 5, regenCap: 60, react: 0.4, storm: 0.75, gren: 1.6, aware: 30, cp: 0, gren0: 3, foeMap: false },
 ];
 let diff = DIFF[1];
 /* the first chapter has to leave the player sure that he can win: on top of the level, the stronghold eases its own war (survival keeps the
@@ -5969,8 +5971,16 @@ function sapPlan(e, sap, j) {
 /* where a man of a sap's force starts: hidden in the scrub on its line (or, with no way laid to it, at the sap's head) */
 function sapSpawn(sap, r) { const A = SAP_APPR.find((q) => q.sap === sap), p = A ? A.spawn : sap[0], w = A ? 4 : 0.8; return [p[0] + (r() - 0.5) * w, p[1] + (r() - 0.5) * (A ? 3 : 0.8)]; }
 function northPlan(e, i) { return sapPlan(e, SAPS.n[i % 2], i); }
+/* the commando from the north as the second wave comes: not down the saps but straight across the open ground and up the face of the
+   rampart, each man to his own place along the north trench, over the sandbags and in - face to face (the user: like the second wave) */
+let NORTH_K = null;
+function northRushPlan(e, j) {
+  const r = rng(4321 + j * 17); if (!NORTH_K) NORTH_K = TR.pts.map((p, k) => [p, k]).filter(([p]) => p[1] < -83 && p[0] > -60 && p[0] < -16).map(([, k]) => k);
+  if (!NORTH_K.length) return northPlan(e, j); const k = NORTH_K[Math.floor(r() * NORTH_K.length)], p = TR.pts[k], o = TR.out[k], sd = (r() - 0.5) * 3;
+  return [{ t: 'run', near: 1.0, x: p[0] + o[0] * 9 + o[1] * sd, z: p[1] + o[1] * 9 - o[0] * sd }, { t: 'run', final: true, x: p[0] + o[0] * PARA_D, z: p[1] + o[1] * PARA_D }, { t: 'vault', x: p[0], z: p[1] }];
+}
 /* a commando man: quicker on his feet, short stops only (no one stays behind for long), his rocket ready early and again soon after */
-function cmdTune(e) { e.cmd = true; e.speed = Math.max(e.speed || 5, 5.6) * 1.2; for (const s of e.plan || []) if (s.t === 'cover') { s.supp = false; s.dur = rand(0.6, 1.3); } if (e.kind === 'rpg') { e.rpgCd = rand(1.2, 2.6); e.cmdRpg = true; } }
+function cmdTune(e) { e.cmd = true; e.speed = Math.max(e.speed || 5, 5.6) * 1.2; for (const s of e.plan || []) if (s.t === 'cover' && !s.supp) s.dur = rand(0.6, 1.3); if (e.kind === 'rpg') { e.rpgCd = rand(1.2, 2.6); e.cmdRpg = true; } }
 /* men already ashore before the player gets there: each waits in his place on the sand (the cover he ran to, or where he jumped down) until
    'until', firing from it, and only then goes for the rampart */
 function holdPlan(e, until) {
@@ -6092,23 +6102,26 @@ function trenchStep(e, dt, shoot, aimPitch) {
   // cover up and steps back onto the middle of the trench
   if (e.slide) { const dx = e.slide[0] - e.pos.x, dz = e.slide[1] - e.pos.z, dl = Math.hypot(dx, dz), st = Math.min(dl, 3.2 * dt); if (dl > 0.03) { e.pos.x += dx / dl * st; e.pos.z += dz / dl * st; e.pos.y = groundAt(e.pos.x, e.pos.z); } else e.slide = null; }   /* freed: he steps across to the middle, not a jump */
   if (Math.hypot(e.pos.x - e.stX, e.pos.z - e.stZ) > 0.6) { e.stX = e.pos.x; e.stZ = e.pos.z; e.stT = 0; }
-  else if ((e.stT += dt) > 3.5 && e.moving) { if (e.tcov) { e.usedTrav.add(e.tcov); releaseCov(e); } const q = TR.pts[clamp(e.k + (TR.pK >= e.k ? 1 : -1), 0, TR.pts.length - 1)]; if (!blocked(q[0], q[1], 0.3, groundAt(q[0], q[1]))) e.slide = [q[0], q[1]]; e.stT = 0; }
+  else if ((e.stT += dt) > (e.cmd ? 1.5 : 3.5) && (e.moving || e.cmd)) { if (e.tcov) { e.usedTrav.add(e.tcov); releaseCov(e); } const q = TR.pts[clamp(e.k + (TR.pK >= e.k ? 1 : -1), 0, TR.pts.length - 1)]; if (!blocked(q[0], q[1], 0.3, groundAt(q[0], q[1]))) e.slide = [q[0], q[1]]; e.stT = 0; }
   const dk = TR.pK - e.k, dir = dk >= 0 ? 1 : -1, dP = Math.hypot(P.pos.x - e.pos.x, P.pos.z - e.pos.z), seesP = !!(e.target && e.target.player);
   for (const f of FRIENDS) if (f.state === 'post' && f.unit.pos.distanceTo(e.pos) < 2.2 && Math.random() < dt * 0.5) woundFriend(f, Math.random() < 0.4);
   e.meleeCd -= dt; e.patience += dt;
   const busy = playerBusy(), aimed = aimedAt(e), between = TR.travK.some((kc) => (kc - e.k) * dir > 0 && (TR.pK - kc) * dir > 0); e.moving = false;
   if (!e.rush && !between && dP < (e.cmd ? 16 : 10) && ((e.patience > (e.cmd ? 2.5 : 10) && !aimed) || (busy && dP < 13))) e.rush = true;
-  if (!e.rush && e.cmd && dP < 7 && e.patience > 4) e.rush = true;   /* the commando does not wait behind a traverse: a few seconds and he goes over it at you */
+  if (!e.rush && e.cmd && !between && dP < 7) e.rush = true;   /* nothing between: straight at him */
+  if (e.cmd && e.gCd > 6) e.gCd = rand(3, 6);   /* the commando does not wait behind a traverse: a few seconds and he goes over it at you */
   if (e.tcov && e.tcov.dir !== dir) releaseCov(e);
   // point blank, or the player is reloading next to us, or he left the trench: go for the kill
   if (P.alive && (dP < 3.5 || e.rush || (busy && dP < 11 && !between) || (TR.pD > 2.2 && dP < 12))) {
     releaseCov(e);
     if (dP < 1.75 && e.meleeCd <= 0) { e.meleeCd = 1.3; e.face(P.pos.x, P.pos.z); e.throwT = 0.5; hurtPlayer(diff.dmg[1], e.chest()); return; }
-    e.anim += dt * 9; if (dP > 1.3) steer(e, P.pos.x, P.pos.z, dP > 8 ? 5.0 : 3.4, dt);
+    e.anim += dt * 9; if (e.cmd && dP < 6 && crowdedAt(e.pos.x, e.pos.z, 1.1, e)) sideStep(e, dt, 1.6);   /* the men already on him take the room: the rest spread and fire, no heap */
+    else if (dP > 1.3) steer(e, P.pos.x, P.pos.z, dP > 8 ? 5.0 : 3.4, dt);
     e.face(P.pos.x, P.pos.z); e.stance = 'stand';
     e.fireCd -= dt; if (seesP && e.fireCd <= 0) { if (e.burst <= 0) e.burst = wBurst(e); e.burst--; e.fireCd = e.burst > 0 ? wGap(e) : wPause(e, 0.3); enemyFire(e); }
     e.rig.pose(dP > 8 ? 'run' : 'aim', e.anim, aimPitch()); return;
   }
+  if (e.cmd) { trenchCmd(e, dt, dir, dP, seesP, between, aimed, aimPitch); return; }
   // no traverse left between us and him: crouch, fire bursts and keep moving sideways; fall back to cover if he has us in his sights
   if (!between && dP < 10 && !(e.tcov && !e.inCov)) {
     if (aimed) e.aimT = (e.aimT || 0) + dt; else e.aimT = Math.max(0, (e.aimT || 0) - dt);
@@ -6151,6 +6164,36 @@ function trenchStep(e, dt, shoot, aimPitch) {
   D.tok[dir] = e; e.moving = true;
   const ni = clamp(e.k + dir * 2, 0, TR.pts.length - 1), w = lanePt(ni);
   e.anim += dt * 9.5; e.stance = 'stand'; steer(e, w[0], w[1], dP > 30 ? 5.2 : e.speed, dt); e.rig.pose('run', e.anim);
+}
+/* ---------- the trench fight of the determined (every invader now: the user found them poor in the trenches) ----------
+   A column with room in it: never more than two men close together - a man who comes up on the back of the one ahead stops, kneels and fires
+   past him, so there is always someone shooting while someone moves (bounding in pairs). A traverse between him and the player is cleared,
+   not walked round: a grenade over it and the rush straight after the blast. Under the player's sights he does not freeze: he drops to a
+   knee, fires back and goes on. One man in four climbs out and runs along the top to drop back into the trench behind the player.
+   Close in (dP < 4 or the rush) the shared code above charges him with the rifle butt; a man stuck for more than a second and a half is moved
+   on along the trench (above) */
+const TRC = { t: -1, men: [] };
+function trenchCmd(e, dt, dir, dP, seesP, between, aimed, aimPitch) {
+  if (TRC.t !== GAME.t) { TRC.t = GAME.t; TRC.men = UNITS.enemies.filter((o) => o.alive && o.state === 'trench'); }
+  const fire = (pause) => { if (!seesP) return; e.face(P.pos.x, P.pos.z); e.fireCd -= dt; if (e.fireCd <= 0) { if (e.burst <= 0) e.burst = wBurst(e); e.burst--; e.fireCd = e.burst > 0 ? wGap(e) : wPause(e, pause); enemyFire(e); } };
+  // the flanker: out over the parapet behind him, along the top, and back in on the player's far side
+  if (!e.flankDone && UNITS.enemies.indexOf(e) % 4 === 1 && dP > 9 && dP < 32 && TR.pD < 2.2) { e.flankDone = true;
+    const kk = clamp(TR.pK + dir * 4, 1, TR.pts.length - 2), q = TR.pts[kk], o = TR.out[kk], k0 = clamp(e.k, 1, TR.pts.length - 2), q0 = TR.pts[k0], o0 = TR.out[k0];
+    if (o && o0) { releaseCov(e); const ox = q0[0] + o0[0] * PARA_D, oz = q0[1] + o0[1] * PARA_D; e.plan = [{ t: 'run', near: 0.9, x: q[0] + o[0] * (PARA_D + 1.5), z: q[1] + o[1] * (PARA_D + 1.5) }, { t: 'run', final: true, x: q[0] + o[0] * PARA_D, z: q[1] + o[1] * PARA_D }, { t: 'vault', x: q[0], z: q[1] }]; e.ps = 0;
+      e.state = 'jump'; e.t = 0; e.jd = 0; e.j0 = e.pos.clone(); e.j1 = V3(ox, groundAt(ox, oz), oz); return; } }   /* up over the parapet (the vault's own movement), then along the top */
+  // a traverse between: grenade over it, then go
+  if (between && dP < 15 && e.gCd <= 0 && GAME.gCd <= 0 && seesP !== null) { lobGrenade(e, P.pos); e.rushAt = GAME.t + 1.7; e.rig.pose('crouch', e.anim, aimPitch()); return; }
+  if (e.rushAt && GAME.t > e.rushAt) { e.rushAt = 0; if (dP < 16) { e.rush = true; return; } }
+  // in his sights: down on a knee for a moment, firing back
+  if (aimed && dP > 5 && !(e.diveT > 0) && Math.random() < dt * 2.2) e.diveT = rand(0.6, 1.1);
+  if (e.diveT > 0) { e.diveT -= dt; e.stance = 'crouch'; e.anim += dt; fire(0.35); e.rig.pose('crouch', e.anim, aimPitch()); return; }
+  // room in the column: the nearest comrade ahead of him on the way to the player
+  let ahead = 99; for (const o of TRC.men) { if (o === e) continue; const a = (o.k - e.k) * dir; if (a <= 0 || (TR.pK - o.k) * dir < 0) continue; const d = Math.hypot(o.pos.x - e.pos.x, o.pos.z - e.pos.z); if (d < ahead) ahead = d; }
+  if (ahead < 1.9 && dP > 4) { e.stance = 'crouch'; e.anim += dt * 3; sideStep(e, dt, 1.2); fire(0.4); e.rig.pose('crouch', e.anim, aimPitch()); e.moving = false; return; }   // on the back of the man ahead: kneel, fire past him
+  // move up: running, or walking and firing when he has the player in sight
+  e.moving = true; const ni = clamp(e.k + dir * 2, 0, TR.pts.length - 1), w = lanePt(ni), walkFire = seesP && dP < 28;
+  e.anim += dt * (walkFire ? 7 : 9.5); e.stance = 'stand'; steer(e, w[0], w[1], walkFire ? 3.4 : Math.max(5, e.speed || 5), dt); if (walkFire) fire(0.5);
+  e.rig.pose(walkFire ? 'aim' : 'run', e.anim, aimPitch());
 }
 /* ================= boats & waves ================= */
 /* a wave of boats: n of them (more on the hard level, fewer on a phone), their landing points spread along the front and their starts a couple of
@@ -6258,7 +6301,7 @@ function updBoats(dt) {
         if (!s.alive || s.gone || bt.landT < i * 0.25) return;   // the soldiers first, then the rowers ship their oars and follow them
         const sp = bt.seatWorld(i), r = rng(bt.seed + i * 97), z = bt.zLand + (i % 2 ? 1 : -1) * (0.5 + r() * 3.5);
         const e = spawnEnemy(tongueWestX(z) + 1.6, z, varyKind(s.kind, z * 3.1, i * 7.7), null, null, { jump: sp });
-        if (!e) return; e.plan = westPlan(e, z, i, r); if (D.landHold && GAME.t < D.landHold && !SURV.on) holdPlan(e, D.landHold + r() * 6); bt.intact = false; bt.setLod(false); s.gone = true; s.m.visible = false; if (s.oar) s.oar.visible = false;
+        if (!e) return; e.plan = westPlan(e, z, i, r); cmdTune(e); if (D.landHold && GAME.t < D.landHold && !SURV.on) holdPlan(e, D.landHold + r() * 6); bt.intact = false; bt.setLod(false); s.gone = true; s.m.visible = false; if (s.oar) s.oar.visible = false;
       });
       if (bt.seats.every((s) => !s.alive || s.gone) && bt.landT > 30) bt.dispose();
     }
@@ -6294,7 +6337,8 @@ function rowsWave() {   // the next wave's boats: where each lands on the beach 
   if (j === 0) boat(ROWS.aLand, zc + (r() - 0.5) * 8, false, 0);   // to the frame: the boats film shows this one go up on the mines
   else if (j === 1) { boat(ROWS.ctrl + 10, zc - d * 0.9); boat(ROWS.ctrl + 10.8, zc + d * 0.9); }
   else { const L = ROWS.ctrl + 10 + ROWS.every * (j - 1), c = zc + (r() - 0.5) * 8, sg = j % 2 ? 1 : -1;
-    for (const k of [-1, 0, 1]) boat(L, c + k * d); for (const k of [-1, 0, 1]) boat(L + 2.6, c + sg * d / 2 + k * d, true); }
+    for (const k of [-1, 0, 1]) boat(L, c + k * d); for (const k of [-1, 0, 1]) boat(L + 2.6, c + sg * d / 2 + k * d, true);
+    if (j === 3) { boat(L + 1.3, c - 1.6 * d); boat(L + 1.3, c + 1.6 * d); ROWS.total += 2 * ROW_LOAD(); } }   /* the fourth wave: two boats more (the user), on its wings
   out.length = Math.min(out.length, Math.max(1, Math.ceil((ROWS.total - ROWS.men) / ROW_LOAD())));   /* the last wave: only what is left of the total */
   ROWS.men += out.length * ROW_LOAD(); ROWS.q.push(...out); ROWS.q.sort((a, b) => a.land - b.land);
 }
@@ -6315,14 +6359,14 @@ function rowsUpd(dt) {
 }
 function southGroup(n, delay, kinds = [], i0 = 0) {   // the same out of the southern scrub, up the southern saps
   for (let i = 0; i < n; i++) {
-    const k = kinds[i] || 'rifle', j = i + i0, sap = SAPS.s[j % 2], r = rng(91 + j * 29), go = () => { const e = spawnEnemy(sap[0][0] + (r() - 0.5) * 0.8, sap[0][1] + (r() - 0.5) * 0.8, varyKind(k, j * 2.9, delay), null, null); if (!e) { DIRQ.push({ at: GAME.t + 1, spawn: true, fn: go }); return; } e.plan = sapPlan(e, sap, j + 50); e.state = 'plan'; };
+    const k = kinds[i] || 'rifle', j = i + i0, sap = SAPS.s[j % 2], r = rng(91 + j * 29), go = () => { const e = spawnEnemy(sap[0][0] + (r() - 0.5) * 0.8, sap[0][1] + (r() - 0.5) * 0.8, varyKind(k, j * 2.9, delay), null, null); if (!e) { DIRQ.push({ at: GAME.t + 1, spawn: true, fn: go }); return; } e.plan = sapPlan(e, sap, j + 50); e.state = 'plan'; cmdTune(e); };
     DIRQ.push({ at: GAME.t + delay + i * 0.9, spawn: true, fn: go });
   }
 }
 function northGroup(n, delay, kinds = [], i0 = 0, cmd = false) {   // i0: the first man's number in the whole force, so each squad has its own starts and its own routes
   for (let i = 0; i < n; i++) {
     const k = kinds[i] || 'rifle', j = i + i0;
-    const r = rng(77 + j * 31), sap = SAPS.n[j % 2], go = () => { const sp = sapSpawn(sap, r), e = spawnEnemy(sp[0], sp[1], varyKind(k, j * 3.7, delay), null, null);   /* at the head of one of their saps, in the scrub */ if (!e) { DIRQ.push({ at: GAME.t + 1, spawn: true, fn: go }); return; } e.plan = northPlan(e, j); e.state = 'plan'; if (cmd) cmdTune(e); };
+    const r = rng(77 + j * 31), sap = SAPS.n[j % 2], go = () => { const sp = sapSpawn(sap, r), e = spawnEnemy(sp[0], sp[1], varyKind(k, j * 3.7, delay), null, null);   /* at the head of one of their saps, in the scrub */ if (!e) { DIRQ.push({ at: GAME.t + 1, spawn: true, fn: go }); return; } e.plan = cmd ? northRushPlan(e, j) : northPlan(e, j); e.state = 'plan'; cmdTune(e); };
     DIRQ.push({ at: GAME.t + delay + (cmd ? (i >> 1) * 0.6 : i * 1.7), spawn: true, fn: go });   /* out of the scrub one after another, a little apart */
   }
 }
