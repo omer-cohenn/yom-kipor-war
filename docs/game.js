@@ -5984,7 +5984,7 @@ function northRushPlan(e, j) {
   return [{ t: 'run', near: 1.0, x: p[0] + o[0] * 9 + o[1] * sd, z: p[1] + o[1] * 9 - o[0] * sd }, { t: 'run', final: true, x: p[0] + o[0] * PARA_D, z: p[1] + o[1] * PARA_D }, { t: 'vault', x: p[0], z: p[1] }];
 }
 /* a commando man: quicker on his feet, short stops only (no one stays behind for long), his rocket ready early and again soon after */
-function cmdTune(e) { e.cmd = true; e.speed = Math.max(e.speed || 5, 5.6) * 1.2; for (const s of e.plan || []) if (s.t === 'cover') { s.supp = false; s.dur = rand(0.15, 0.4); }   /* everyone charges (the user): a breath behind a stone, no one stays back to cover */ if (e.kind === 'rpg') { e.rpgCd = rand(1.2, 2.6); e.cmdRpg = true; } }
+function cmdTune(e) { e.cmd = true; e.speed = Math.max(e.speed || 5, 5.6) * 1.2; if (e.plan) { for (const s of e.plan) if (s.t === 'cover' && s.c && s.c.by === e) s.c.by = null; e.plan = e.plan.filter((s) => s.t !== 'cover'); }   /* everyone charges straight for the fighting trench, no stop on the way (the user): no cover, no one stays back */ if (e.kind === 'rpg') { e.rpgCd = rand(1.2, 2.6); e.cmdRpg = true; } }
 /* men already ashore before the player gets there: each waits in his place on the sand (the cover he ran to, or where he jumped down) until
    'until', firing from it, and only then goes for the rampart */
 function holdPlan(e, until) {
@@ -6099,6 +6099,7 @@ function releaseCov(e) { if (e.tcov && e.tcov.by === e) e.tcov.by = null; e.tcov
 function tokFree(dir, e) { const t = D.tok[dir]; return !t || t === e || !t.alive || t.state !== 'trench' || !t.moving; }
 function sideStep(e, dt, speed) { e.sideT -= dt; if (e.sideT <= 0) { e.cside = -(e.cside || 1); e.sideT = rand(0.8, 1.6); } const p = TR.pts[e.k], n = TR.n[e.k]; steer(e, p[0] + n[0] * e.cside * 0.55, p[1] + n[1] * e.cside * 0.55, speed, dt); }
 function trenchStep(e, dt, shoot, aimPitch) {
+  if (e.cmd) e.rush = true;   /* in the fighting trench the invaders go straight for the player (the user: no stopping at all) */
   separate(e); e.k = trNear(e.k, e.pos.x, e.pos.z);
   if (e.reachBy && MODE === 'mezach' && P.alive) { const d0 = Math.hypot(P.pos.x - e.pos.x, P.pos.z - e.pos.z); if (GAME.t > e.reachBy - d0 / 4.6) { if (d0 < 14) e.rush = true; else { releaseCov(e); const dr = TR.pK >= e.k ? 1 : -1, w = lanePt(clamp(e.k + dr * 3, 0, TR.pts.length - 1)); e.anim += dt * 9.5; e.stance = 'stand'; steer(e, w[0], w[1], 4.8, dt); e.moving = true; if (e.target && e.target.player) { e.fireCd -= dt; if (e.fireCd <= 0) { e.fireCd = rand(0.35, 0.8); enemyFire(e); } } e.rig.pose('run', e.anim); return; } } }   // in the trench: never more than some five seconds before he is on the player - close by straight at him, further off bounding on without sitting in cover
   // a man wedged against a sandbag traverse where the trench floor climbs steeply (the north-west corner) never reaches the cover he is
@@ -6305,7 +6306,7 @@ function updBoats(dt) {
         if (!s.alive || s.gone || bt.landT < i * 0.25) return;   // the soldiers first, then the rowers ship their oars and follow them
         const sp = bt.seatWorld(i), r = rng(bt.seed + i * 97), z = bt.zLand + (i % 2 ? 1 : -1) * (0.5 + r() * 3.5);
         const e = spawnEnemy(tongueWestX(z) + 1.6, z, varyKind(s.kind, z * 3.1, i * 7.7), null, null, { jump: sp });
-        if (!e) return; e.plan = westPlan(e, z, i, r); cmdTune(e); if (i === 0) rpgFirst(e); if (D.landHold && GAME.t < D.landHold && !SURV.on) holdPlan(e, D.landHold + r() * 6); bt.intact = false; bt.setLod(false); s.gone = true; s.m.visible = false; if (s.oar) s.oar.visible = false;
+        if (!e) return; e.plan = westPlan(e, z, i, r); cmdTune(e); if (i === 0) rpgFirst(e); bt.intact = false; bt.setLod(false); s.gone = true; s.m.visible = false; if (s.oar) s.oar.visible = false;
       });
       if (bt.seats.every((s) => !s.alive || s.gone) && bt.landT > 30) bt.dispose();
     }
