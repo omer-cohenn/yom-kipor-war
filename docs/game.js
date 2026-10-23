@@ -5051,9 +5051,9 @@ function wpUpdate(kind, n, of, fill, ticks, gren, smoke, low) {
    react and the more of them storm; the more each hit costs and the less you heal; the weaker the men beside you; the fewer the saves.
    The aim lock is the same on every level */
 const DIFF = [
-  { name: 'טירון', cap: 0.9, seats: 4, extra: 0.8, boats: 0.8, acc: 0.06, accF: 0.017, dmg: [9, 13], bleed: 200, art: [32, 48], boat: 9.5, fgun: 0.85, fAcc: 1.5, fSmart: 2, regenD: 2, regenCap: 100, react: 1.2, storm: 0.25, gren: 0, aware: 18, cp: 2, gren0: 6, foeMap: true },
-  { name: 'לוחם', cap: 1.5, seats: 5, extra: 1.0, boats: 1.0, acc: 0.1, accF: 0.031, dmg: [14, 21], bleed: 140, art: [22, 34], boat: 10.5, fgun: 1, fAcc: 1, fSmart: 1, regenD: 3, regenCap: 100, react: 0.7, storm: 0.55, gren: 1, aware: 24, cp: 1, gren0: 4, foeMap: true },
-  { name: 'ותיק', cap: 1.9, seats: 6, extra: 1.35, boats: 1.3, acc: 0.13, accF: 0.045, dmg: [21, 31], bleed: 90, art: [15, 25], boat: 11.5, fgun: 1.25, fAcc: 0.6, fSmart: 0, regenD: 5, regenCap: 60, react: 0.4, storm: 0.75, gren: 1.6, aware: 30, cp: 0, gren0: 3, foeMap: false },
+  { name: 'טירון', cap: 0.9, seats: 4, extra: 0.8, boats: 0.8, acc: 0.18, accF: 0.051, dmg: [9, 13], bleed: 200, art: [32, 48], boat: 9.5, fgun: 0.85, fAcc: 1.5, fSmart: 2, regenD: 2, regenCap: 100, react: 1.2, storm: 0.25, gren: 0, aware: 18, cp: 2, gren0: 6, foeMap: true },
+  { name: 'לוחם', cap: 1.5, seats: 5, extra: 1.0, boats: 1.0, acc: 0.3, accF: 0.093, dmg: [14, 21], bleed: 140, art: [22, 34], boat: 10.5, fgun: 1, fAcc: 1, fSmart: 1, regenD: 3, regenCap: 100, react: 0.7, storm: 0.55, gren: 1, aware: 24, cp: 1, gren0: 4, foeMap: true },
+  { name: 'ותיק', cap: 1.9, seats: 6, extra: 1.35, boats: 1.3, acc: 0.39, accF: 0.135, dmg: [21, 31], bleed: 90, art: [15, 25], boat: 11.5, fgun: 1.25, fAcc: 0.6, fSmart: 0, regenD: 5, regenCap: 60, react: 0.4, storm: 0.75, gren: 1.6, aware: 30, cp: 0, gren0: 3, foeMap: false },
 ];
 let diff = DIFF[1];
 /* the first chapter has to leave the player sure that he can win: on top of the level, the stronghold eases its own war (survival keeps the
@@ -5644,13 +5644,17 @@ function targetsFor(e) {
 const WPN = { rifle: { burst: [2, 5], gap: 0.12, pause: [1.4, 2.8], acc: 1, dmg: 1, range: 320, snd: 'ak' }, smg: { burst: [5, 9], gap: 0.07, pause: [1.0, 2.0], acc: 0.65, dmg: 0.7, range: 110, snd: 'smg' }, lmg: { burst: [7, 13], gap: 0.085, pause: [1.8, 3.2], acc: 0.8, dmg: 1, range: 360, snd: 'lmg', tracer: 0.8 }, sniper: { burst: [1, 1], gap: 0, pause: [2.4, 3.8], acc: 2.4, dmg: 1.9, range: 520, snd: 'svd' }, rpg: { burst: [2, 4], gap: 0.13, pause: [1.6, 3.0], acc: 0.9, dmg: 1, range: 300, snd: 'ak' }, flame: { burst: [2, 4], gap: 0.13, pause: [1.6, 3.0], acc: 0.8, dmg: 1, range: 200, snd: 'ak' } };
 const wpnOf = (e) => WPN[e.kind] || WPN.rifle, wBurst = (e) => { const b = wpnOf(e).burst; return Math.floor(rand(b[0], b[1] + 1) * (e.wild ? 1.7 : 1)); }, wGap = (e, k = 1) => wpnOf(e).gap * k, wPause = (e, k = 1) => { const p = wpnOf(e).pause; return rand(p[0], p[1]) * k * (e.wild ? 0.3 : 1); };
 /* an RPG man fires his launcher, and only that: down on a knee, a rocket, then the long reload (no rifle bursts from a man holding a tube) */
+/* the first man of every boat and every squad: a rocket within a quarter of a second of seeing the player, then he drops the launcher and
+   charges with a submachine gun like the rest (the user) */
+function rpgFirst(e) { e.setKind('rpg'); e.rpgFirst = true; e.rpgCd = 0; e.cmdRpg = true; }
 function rpgShoot(e, tp) {
   e.rpgCd = e.cmdRpg ? rand(4, 6) : rand(8, 12); e.rpgPause = e.cmdRpg ? 1.1 : 1.6; e.face(tp.x, tp.z); e.rig.shoulderT = GAME.t + 1.6;   // up to the shoulder, aim, and the shot 0.6 s later
-  e.rpgTp = tp.clone().add(V3(rand(-1.4, 1.4), rand(-0.4, 0.7), rand(-1.4, 1.4))); e.rpgFireAt = GAME.t + 0.6;
+  e.rpgTp = tp.clone().add(V3(rand(-1.4, 1.4), rand(-0.4, 0.7), rand(-1.4, 1.4))); e.rpgFireAt = GAME.t + (e.rpgFirst ? 0.25 : 0.6);
 }
 function rpgFireDue(e) {
   if (!e.rpgFireAt || GAME.t < e.rpgFireAt) return; e.rpgFireAt = 0; if (!e.alive || !e.rpgTp) return;
   const from = e.muzzle(), q = fireRocket(from, e.rpgTp, 'e', e), at = q ? q.m.position : from; fxMuzzle(at, true); sndRocket(at);
+  if (e.rpgFirst) { e.rpgFirst = false; DIRQ.push({ at: GAME.t + 0.35, fn: () => { if (!e.alive) return; e.setKind('smg'); e.rpgCd = 1e9; e.cmdRpg = false; if (e.state === 'trench') e.rush = true; } }); }
 }
 function enemyFire(e) {
   if (e.kind === 'rpg' && e.target) { const tp = e.target.player ? playerEye() : e.target.f.unit.chest(), d = e.pos.distanceTo(tp); if (e.rpgCd <= 0 && d > (e.state === 'trench' ? 6 : 12) && d < 230) rpgShoot(e, tp); return; }
@@ -5980,7 +5984,7 @@ function northRushPlan(e, j) {
   return [{ t: 'run', near: 1.0, x: p[0] + o[0] * 9 + o[1] * sd, z: p[1] + o[1] * 9 - o[0] * sd }, { t: 'run', final: true, x: p[0] + o[0] * PARA_D, z: p[1] + o[1] * PARA_D }, { t: 'vault', x: p[0], z: p[1] }];
 }
 /* a commando man: quicker on his feet, short stops only (no one stays behind for long), his rocket ready early and again soon after */
-function cmdTune(e) { e.cmd = true; e.speed = Math.max(e.speed || 5, 5.6) * 1.2; for (const s of e.plan || []) if (s.t === 'cover' && !s.supp) s.dur = rand(0.6, 1.3); if (e.kind === 'rpg') { e.rpgCd = rand(1.2, 2.6); e.cmdRpg = true; } }
+function cmdTune(e) { e.cmd = true; e.speed = Math.max(e.speed || 5, 5.6) * 1.2; for (const s of e.plan || []) if (s.t === 'cover') { s.supp = false; s.dur = rand(0.15, 0.4); }   /* everyone charges (the user): a breath behind a stone, no one stays back to cover */ if (e.kind === 'rpg') { e.rpgCd = rand(1.2, 2.6); e.cmdRpg = true; } }
 /* men already ashore before the player gets there: each waits in his place on the sand (the cover he ran to, or where he jumped down) until
    'until', firing from it, and only then goes for the rampart */
 function holdPlan(e, until) {
@@ -6108,7 +6112,7 @@ function trenchStep(e, dt, shoot, aimPitch) {
   e.meleeCd -= dt; e.patience += dt;
   const busy = playerBusy(), aimed = aimedAt(e), between = TR.travK.some((kc) => (kc - e.k) * dir > 0 && (TR.pK - kc) * dir > 0); e.moving = false;
   if (!e.rush && !between && dP < (e.cmd ? 16 : 10) && ((e.patience > (e.cmd ? 2.5 : 10) && !aimed) || (busy && dP < 13))) e.rush = true;
-  if (!e.rush && e.cmd && !between && dP < 7) e.rush = true;   /* nothing between: straight at him */
+  if (!e.rush && e.cmd && !between && dP < 14) e.rush = true;   /* nothing between: straight at him */
   if (e.cmd && e.gCd > 6) e.gCd = rand(3, 6);   /* the commando does not wait behind a traverse: a few seconds and he goes over it at you */
   if (e.tcov && e.tcov.dir !== dir) releaseCov(e);
   // point blank, or the player is reloading next to us, or he left the trench: go for the kill
@@ -6301,7 +6305,7 @@ function updBoats(dt) {
         if (!s.alive || s.gone || bt.landT < i * 0.25) return;   // the soldiers first, then the rowers ship their oars and follow them
         const sp = bt.seatWorld(i), r = rng(bt.seed + i * 97), z = bt.zLand + (i % 2 ? 1 : -1) * (0.5 + r() * 3.5);
         const e = spawnEnemy(tongueWestX(z) + 1.6, z, varyKind(s.kind, z * 3.1, i * 7.7), null, null, { jump: sp });
-        if (!e) return; e.plan = westPlan(e, z, i, r); cmdTune(e); if (D.landHold && GAME.t < D.landHold && !SURV.on) holdPlan(e, D.landHold + r() * 6); bt.intact = false; bt.setLod(false); s.gone = true; s.m.visible = false; if (s.oar) s.oar.visible = false;
+        if (!e) return; e.plan = westPlan(e, z, i, r); cmdTune(e); if (i === 0) rpgFirst(e); if (D.landHold && GAME.t < D.landHold && !SURV.on) holdPlan(e, D.landHold + r() * 6); bt.intact = false; bt.setLod(false); s.gone = true; s.m.visible = false; if (s.oar) s.oar.visible = false;
       });
       if (bt.seats.every((s) => !s.alive || s.gone) && bt.landT > 30) bt.dispose();
     }
@@ -6359,14 +6363,14 @@ function rowsUpd(dt) {
 }
 function southGroup(n, delay, kinds = [], i0 = 0) {   // the same out of the southern scrub, up the southern saps
   for (let i = 0; i < n; i++) {
-    const k = kinds[i] || 'rifle', j = i + i0, sap = SAPS.s[j % 2], r = rng(91 + j * 29), go = () => { const e = spawnEnemy(sap[0][0] + (r() - 0.5) * 0.8, sap[0][1] + (r() - 0.5) * 0.8, varyKind(k, j * 2.9, delay), null, null); if (!e) { DIRQ.push({ at: GAME.t + 1, spawn: true, fn: go }); return; } e.plan = sapPlan(e, sap, j + 50); e.state = 'plan'; cmdTune(e); };
+    const k = kinds[i] || 'rifle', j = i + i0, sap = SAPS.s[j % 2], r = rng(91 + j * 29), go = () => { const e = spawnEnemy(sap[0][0] + (r() - 0.5) * 0.8, sap[0][1] + (r() - 0.5) * 0.8, varyKind(k, j * 2.9, delay), null, null); if (!e) { DIRQ.push({ at: GAME.t + 1, spawn: true, fn: go }); return; } e.plan = sapPlan(e, sap, j + 50); e.state = 'plan'; cmdTune(e); if (i === 0) rpgFirst(e); };
     DIRQ.push({ at: GAME.t + delay + i * 0.9, spawn: true, fn: go });
   }
 }
 function northGroup(n, delay, kinds = [], i0 = 0, cmd = false) {   // i0: the first man's number in the whole force, so each squad has its own starts and its own routes
   for (let i = 0; i < n; i++) {
     const k = kinds[i] || 'rifle', j = i + i0;
-    const r = rng(77 + j * 31), sap = SAPS.n[j % 2], go = () => { const sp = sapSpawn(sap, r), e = spawnEnemy(sp[0], sp[1], varyKind(k, j * 3.7, delay), null, null);   /* at the head of one of their saps, in the scrub */ if (!e) { DIRQ.push({ at: GAME.t + 1, spawn: true, fn: go }); return; } e.plan = cmd ? northRushPlan(e, j) : northPlan(e, j); e.state = 'plan'; cmdTune(e); };
+    const r = rng(77 + j * 31), sap = SAPS.n[j % 2], go = () => { const sp = sapSpawn(sap, r), e = spawnEnemy(sp[0], sp[1], varyKind(k, j * 3.7, delay), null, null);   /* at the head of one of their saps, in the scrub */ if (!e) { DIRQ.push({ at: GAME.t + 1, spawn: true, fn: go }); return; } e.plan = cmd ? northRushPlan(e, j) : northPlan(e, j); e.state = 'plan'; cmdTune(e); if (i === 0) rpgFirst(e); };
     DIRQ.push({ at: GAME.t + delay + (cmd ? (i >> 1) * 0.6 : i * 1.7), spawn: true, fn: go });   /* out of the scrub one after another, a little apart */
   }
 }
@@ -6441,7 +6445,7 @@ function medevacStart() {
     f.unit.place(x, z); const b = V3(x - 1.5, groundAt(x - 1.5, z + 1), z + 1); fxExplosion(b, 1.1); sndBoom(b, 1.1); FX.shake = Math.max(FX.shake, 0.4); woundFriend(f, false, true);
   } }));
   DIRQ.push({ at: GAME.t + 0.3, fn: () => { if (!D.medMsg) { D.medMsg = true; sceneAnnounce(D.scene); } } });   // told even if nobody was left at a post to be hit
-  boatWave(30, 50, 5, 8, 6, diff.seats, 1, 0);   /* the first-aid wave: two boats more than it had (the user) */
+  { const n0 = BOATS.length; boatWave(30, 50, 5, 8, 6, diff.seats, 1, 0); for (const b of BOATS.slice(n0)) b.speed *= 1.7; }   /* the first-aid wave: two boats more than it had, and rowing hard - much quicker across (the user) */
   D.artT = 6;
 }
 function pendingSpawns() { let n = 0; for (const q of DIRQ) if (q.spawn) n++; return n; }
