@@ -16498,7 +16498,16 @@ const MENUS = ['#mBrief', '#mOps', '#mSet', '#mPause', '#mEnd'];
 function menuShow(id) { for (const m of MENUS) { $(m).hidden = m !== id; if (m !== id) for (const v of $(m).querySelectorAll('video')) v.pause(); } }
 function showTitle() {
   const n = nextChapter(), any = PROG.done.size > 0, all = PROG.done.size >= CH_ORDER.length;
-  $('#tContinue').innerHTML = `<span class="t-cta"><b>${all ? 'שחק שוב' : any ? 'המשך' : 'התחל'}</b><small>משימה ${CH_INFO[n].n} · ${CH_INFO[n].name} · ${Math.round(CHM[n].day)} באוקטובר</small></span><span class="t-thumb pic"><img src="${IMG(n)}" alt=""></span>`; $('#tContinue').dataset.chap = n;
+  // the first time: 'start' opens the training on the eve of Yom Kippur (it runs straight on into mission 1); the button beside it skips it.
+  // Once it is done - or any mission is - 'start' goes on with the missions and the training stays one button down, to come back to
+  const pro = !PROG.done.has('prologue') && !any;
+  if (pro) {
+    $('#tContinue').innerHTML = `<span class="t-cta"><b>התחל</b><small>משימה 0 · ערב יום כיפור · אימון קצר, ומשם ישר למשימה 1</small></span><span class="t-thumb pic"><img src="${IMG(n)}" alt=""></span>`; $('#tContinue').dataset.chap = 'prologue';
+    $('#tPro').innerHTML = `<span>דלג על האימון<small>ישר למשימה ${CH_INFO[n].n} · ${CH_INFO[n].name}</small></span>`; $('#tPro').dataset.chap = n;
+  } else {
+    $('#tContinue').innerHTML = `<span class="t-cta"><b>${all ? 'שחק שוב' : any ? 'המשך' : 'התחל'}</b><small>משימה ${CH_INFO[n].n} · ${CH_INFO[n].name} · ${Math.round(CHM[n].day)} באוקטובר</small></span><span class="t-thumb pic"><img src="${IMG(n)}" alt=""></span>`; $('#tContinue').dataset.chap = n;
+    $('#tPro').innerHTML = `<span>משימה 0 · ערב יום כיפור<small>${PROG.done.has('prologue') ? 'האימון · לחזור אליו' : 'האימון'}</small></span>`; $('#tPro').dataset.chap = 'prologue';
+  }
   $('#tProg').innerHTML = `<span class="seg">${CH_ORDER.map((k) => `<i class="${PROG.done.has(k) ? 'on' : k === n && !all ? 'nx' : ''}"></i>`).join('')}</span><span>${any ? `הושלמו ${PROG.done.size} מתוך ${CH_ORDER.length} משימות` : `${CH_ORDER.length} משימות לפי סדר הימים`}</span>`;
   $('#tStrip').innerHTML = CH_ORDER.map((k) => `<button type="button" class="st-card" role="listitem" data-k="${k}" aria-label="משימה ${CH_INFO[k].n}, ${CH_INFO[k].name}"><img src="${IMG(k)}" alt="" loading="lazy" decoding="async">${PROG.done.has(k) ? '<i>הושלמה</i>' : k === n && !all ? '<i class="nx">הבאה</i>' : ''}<span><em>${CH_INFO[k].n}</em><b>${CH_INFO[k].name}</b></span></button>`).join('');
   for (const b of document.querySelectorAll('#tStrip .st-card')) b.addEventListener('click', () => showOps(b.dataset.k));

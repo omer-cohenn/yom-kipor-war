@@ -866,7 +866,7 @@ button:focus-visible{outline:2px solid var(--sand);outline-offset:2px}
       <p class="t-tag">שמונה משימות, מהמעוזים על התעלה ועד הפסקת האש.</p>
       <nav class="t-nav" aria-label="תפריט ראשי">
         <button type="button" id="tContinue" class="t-btn t-main" data-chap="mezach"><span class="t-cta"><b>התחל</b><small>משימה 1 · המזח</small></span></button>
-        <button type="button" class="t-btn" data-chap="prologue"><span>משימה 0 · ערב יום כיפור<small>אימון · בבנייה</small></span></button>
+        <button type="button" id="tPro" class="t-btn" data-chap="prologue"><span>משימה 0 · ערב יום כיפור<small>אימון</small></span></button>
         <button type="button" id="tOps" class="t-btn"><span>בחירת משימה</span></button>
         <button type="button" id="tSurv" class="t-btn t-surv"><span>הישרדות · להחזיק את המעוז</span></button>
         <button type="button" id="tRange" class="t-btn t-range"><span>מטווח ניסויים<small>כל הנשקים, כל הכלים, בלי נזק</small></span></button>
@@ -1078,7 +1078,7 @@ window.LD = (function () {
 <script>
 /* the game's code is one big file: fetched here so the loading screen can show how much of it has arrived, then run as a module */
 (function () {
-  var SRC = 'game.js?v=953472f23a', SIZE = 14959256, mb = function (n) { return (n / 1048576).toFixed(1); };
+  var SRC = 'game.js?v=f28090dabb', SIZE = 14960292, mb = function (n) { return (n / 1048576).toFixed(1); };
   LD.plan([['dl', 'מוריד את המשחק', 5], ['code', 'מכין את המשחק', 4]], { img: 'img/mezach.jpg', clip: 'mezach' }); LD.step('dl'); LD.note('0.0 מתוך ' + mb(SIZE) + ' מ״ב');
   function fail() { LD.error('ההורדה נכשלה. בדקו את החיבור לאינטרנט ורעננו את הדף.'); }
   function start(s) { LD.step('code'); LD.frac(0.15, 2500); s.type = 'module'; document.body.appendChild(s); }
