@@ -6338,7 +6338,7 @@ function rowsWave() {   // the next wave's boats: where each lands on the beach 
   else if (j === 1) { boat(ROWS.ctrl + 10, zc - d * 0.9); boat(ROWS.ctrl + 10.8, zc + d * 0.9); }
   else { const L = ROWS.ctrl + 10 + ROWS.every * (j - 1), c = zc + (r() - 0.5) * 8, sg = j % 2 ? 1 : -1;
     for (const k of [-1, 0, 1]) boat(L, c + k * d); for (const k of [-1, 0, 1]) boat(L + 2.6, c + sg * d / 2 + k * d, true);
-    if (j === 3) { boat(L + 1.3, c - 1.6 * d); boat(L + 1.3, c + 1.6 * d); ROWS.total += 2 * ROW_LOAD(); } }   /* the fourth wave: two boats more (the user), on its wings
+  }
   out.length = Math.min(out.length, Math.max(1, Math.ceil((ROWS.total - ROWS.men) / ROW_LOAD())));   /* the last wave: only what is left of the total */
   ROWS.men += out.length * ROW_LOAD(); ROWS.q.push(...out); ROWS.q.sort((a, b) => a.land - b.land);
 }
@@ -6374,7 +6374,7 @@ function northGroup(n, delay, kinds = [], i0 = 0, cmd = false) {   // i0: the fi
    there was (the user: too few there), but never all of them at once, and only a couple of RPGs - more targets, not more fire. Per level:
    the men in each squad; a squad sets off MZ_CMD_GAP seconds after the one before it */
 const MZ_CMD = [6, 8, 10], MZ_CMD_GAP = 6.5;   // squads of four - two from each sap - one every few seconds, each with its RPG (two in every other)
-function mzCommando() { let t = 4, i0 = 0; for (let k = 0; k < MZ_CMD[Math.max(0, DIFF.indexOf(diff))]; k++) { northGroup(6, t, k % 2 ? ['rifle', 'rpg', 'rifle', 'rifle', 'rpg', 'rifle'] : ['rpg', 'rifle', 'rifle', 'rifle', 'rifle', 'rifle'], i0, true); i0 += 6; t += MZ_CMD_GAP; } }
+function mzCommando() { let t = 4, i0 = 0; for (let k = 0; k < MZ_CMD[Math.max(0, DIFF.indexOf(diff))]; k++) { northGroup(4, t, k % 2 ? ['rifle', 'rpg', 'rifle', 'rifle'] : ['rpg', 'rifle', 'rifle', 'rifle'], i0, true); i0 += 4; t += MZ_CMD_GAP; }   /* squads of four (the user: a third smaller than six) */ }
 const DIRQ = [];
 const BARRAGE_AT = 4, BARRAGE_LEN = 16;   // twenty seconds in the covered trench, then out to the guns
 const D = { scene: -1, phase: 'alert', phaseT: 0, introLen: 0, artT: 12, inside: 0, barT: 0, launched: false, r2: false, jets: false, smoke: [], capture: 0, capWarn: false, chargeMsg: -99, objDone: false, trenchMsg: -99, inTrench: 0, tok: { 1: null, '-1': null } };
@@ -6441,7 +6441,7 @@ function medevacStart() {
     f.unit.place(x, z); const b = V3(x - 1.5, groundAt(x - 1.5, z + 1), z + 1); fxExplosion(b, 1.1); sndBoom(b, 1.1); FX.shake = Math.max(FX.shake, 0.4); woundFriend(f, false, true);
   } }));
   DIRQ.push({ at: GAME.t + 0.3, fn: () => { if (!D.medMsg) { D.medMsg = true; sceneAnnounce(D.scene); } } });   // told even if nobody was left at a post to be hit
-  boatWave(30, 50, 3, 8, 6, diff.seats, 1, 0);
+  boatWave(30, 50, 5, 8, 6, diff.seats, 1, 0);   /* the first-aid wave: two boats more than it had (the user) */
   D.artT = 6;
 }
 function pendingSpawns() { let n = 0; for (const q of DIRQ) if (q.spawn) n++; return n; }
