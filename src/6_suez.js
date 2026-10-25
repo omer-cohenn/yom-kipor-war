@@ -1648,7 +1648,7 @@ function szSetup(stage) {
 function startSuez() {
   ensureBase(); facesNow(); envReady(); if (!SZ.built) buildSuez();
   snapReset(); MODE = 'suez'; if (SZ.cityCovers) { SZ.covers = SZ.cityCovers; SZ.slots = SZ.citySlots; } TANK.toW = (x, z) => [LX(x), LZ(z)]; TANK.vmax = 4.2; TANK.hdV = null; P.ride = null; szShow(true); setRim(MAT.clothE, 0); $('#clockSub').textContent = '24.10.1973 · העיר סואץ'; GAME.t = 0; GAME.gCd = 0; resetTutorial(); $('#feed').innerHTML = ''; FEED.length = 0;
-  Object.assign(STATS, { kills: 0, heads: 0, treated: 0, saved: 0, kia: 0, shots: 0 }); D.capture = 0;
+  Object.assign(STATS, { kills: 0, heads: 0, treated: 0, saved: 0, kia: 0, shots: 0, wounded: 0 }); scoreReset(); D.capture = 0;
   for (const j of STRAFE) scene.remove(j.m); STRAFE.length = 0; for (const j of JETS) scene.remove(j.m); JETS.length = 0;
   cvidPrefetch('suez'); szSetup(0); GAME.state = 'play'; $('#app').classList.add('play'); for (const m of ['#mBrief', '#mPause', '#mEnd']) $(m).hidden = true;
   initAudio(); lockPointer(); toast('24 באוקטובר 1973 · 10:40', 'העיר סואץ, שעות לפני הפסקת האש');

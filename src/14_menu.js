@@ -305,7 +305,7 @@ function showTitle() {
   $('#tStrip').innerHTML = CH_ORDER.map((k) => `<button type="button" class="st-card" role="listitem" data-k="${k}" aria-label="משימה ${CH_INFO[k].n}, ${CH_INFO[k].name}"><img src="${IMG(k)}" alt="" loading="lazy" decoding="async">${PROG.done.has(k) ? '<i>הושלמה</i>' : k === n && !all ? '<i class="nx">הבאה</i>' : ''}<span><em>${CH_INFO[k].n}</em><b>${CH_INFO[k].name}</b></span></button>`).join('');
   for (const b of document.querySelectorAll('#tStrip .st-card')) b.addEventListener('click', () => showOps(b.dataset.k));
   $('#tSurv').innerHTML = `<span>הישרדות · להחזיק את המעוז${SURV.best ? `<small>השיא שלכם: ${SURV.best.toLocaleString('he-IL')}</small>` : '<small>גל אחרי גל, מכל הכיוונים</small>'}</span>`;
-  menuShow('#mBrief'); titleShow(CH_ORDER.indexOf(n));
+  menuShow('#mBrief'); titleShow(CH_ORDER.indexOf(n)); starsPaint();
 }
 // behind the title, the eight battles play one after another, like the trailer of the game: footage when it loads, the still picture until then
 const TSHOW = { i: 0, timer: 0, dur: 5 };   // a clip is four seconds of footage, played a little slowed down
@@ -332,7 +332,8 @@ function titleShow(start) {
   clearInterval(TSHOW.timer); go(start >= 0 ? start : 0);
   if (!REDUCED_M) TSHOW.timer = setInterval(() => { if ($('#mBrief').hidden) { clearInterval(TSHOW.timer); return; } go(TSHOW.i + 1); }, TSHOW.dur * 1000);
 }
-function showOps(k) { menuShow('#mOps'); vidClose(); opsSelect(k || PROG.sel || (PROG.last && CHM[PROG.last] ? PROG.last : nextChapter())); setTimeout(() => { const b = document.querySelector('#mOps .m-item.on'); if (b) b.focus({ preventScroll: true }); }, 30); }
+function starsPaint() { for (const el of document.querySelectorAll('#opsList .m-item[data-k], #tStrip .st-card[data-k]')) { const b = scoreGet(el.dataset.k); let sp = el.querySelector('.m-stars'); if (!b) { if (sp) sp.remove(); continue; } if (!sp) { sp = document.createElement('span'); sp.className = 'm-stars'; sp.style.cssText = 'position:absolute;top:4px;left:6px;font-size:13px;letter-spacing:1px;color:#e2b84a;text-shadow:0 1px 2px #000;pointer-events:none;z-index:2'; if (getComputedStyle(el).position === 'static') el.style.position = 'relative'; el.appendChild(sp); } sp.innerHTML = '★'.repeat(b.stars) + '<span style="opacity:.3">' + '★'.repeat(3 - b.stars) + '</span>'; } }
+function showOps(k) { starsPaint(); menuShow('#mOps'); vidClose(); opsSelect(k || PROG.sel || (PROG.last && CHM[PROG.last] ? PROG.last : nextChapter())); setTimeout(() => { const b = document.querySelector('#mOps .m-item.on'); if (b) b.focus({ preventScroll: true }); }, 30); }
 function showSet(from) { PROG.from = from; menuShow('#mSet'); }
 function toOps() { survStop(); if (CINE.on) endCine(true); GAME.state = 'menu'; $('#app').classList.remove('play'); if (document.pointerLockElement && document.exitPointerLock) document.exitPointerLock(); meter(null); showOps(MODE); }
 function initMenus() {

@@ -705,7 +705,7 @@ function fieldStart(m) {
   for (const e of UNITS.enemies) if (e.mmHide || e.pitHid) { fmDisguise(e, false); e.mmHide = false; e.pitHid = false; }
   MODE = m; P.ride = null; GATE.on = false; meter(null); MAT.clothE.color.setHex(C.cloth ?? 0xffffff); uniformFor(m); TANK.goal = null; $('#app').classList.remove('armor'); if (CINE.on) endCine(true); showWorld(m); setRim(MAT.clothE, 0); SZ.covers = C.covers; SZ.slots = C.slots;
   $('#clockSub').textContent = C.clock; GAME.t = 0; GAME.gCd = 0; resetTutorial(); $('#feed').innerHTML = ''; FEED.length = 0;
-  Object.assign(STATS, { kills: 0, heads: 0, treated: 0, saved: 0, kia: 0, shots: 0 }); D.capture = 0;
+  Object.assign(STATS, { kills: 0, heads: 0, treated: 0, saved: 0, kia: 0, shots: 0, wounded: 0 }); scoreReset(); D.capture = 0;
   for (const j of STRAFE) scene.remove(j.m); STRAFE.length = 0; for (const j of JETS) scene.remove(j.m); JETS.length = 0; for (const f of FLARES) { scene.remove(f.s); f.light.intensity = 0; } FLARES.length = 0;
   if (TANK.spot) TANK.spot.intensity = 0; FLARE_LIGHT = 0;
   cvidPrefetch(m); C.setup(0); GAME.state = 'play'; $('#app').classList.add('play'); for (const k of ['#mBrief', '#mPause', '#mEnd', '#mOps', '#mSet']) $(k).hidden = true;

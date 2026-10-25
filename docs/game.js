@@ -1009,7 +1009,10 @@ function blocked(x, z, r, feet) {
   for (const k of a) {
     if (k.noMove || k.top < feet + 0.45 || k.bot > feet + 1.5) continue;
     const dx = x - k.x, dz = z - k.z; const lx = dx * k.c - dz * k.s, lz = dx * k.s + dz * k.c;
-    if (Math.abs(lx) < k.hx + r && Math.abs(lz) < k.hz + r) return true;
+    // rounded corners (the user: for the player and the soldiers alike): the box shrunk by up to a quarter metre and grown back round, so a man
+    // brushing a corner of a traverse or a wall slides round it instead of catching on its edge
+    const cr = Math.min(0.25, k.hx * 0.5, k.hz * 0.5), ex = Math.max(0, Math.abs(lx) - (k.hx - cr)), ez = Math.max(0, Math.abs(lz) - (k.hz - cr)), R = r + cr;
+    if (ex * ex + ez * ez < R * R) return true;
   }
   return false;
 }
@@ -2087,13 +2090,15 @@ function buildTrenches() {
     /* the raised walls of bags stand on the earth top, clear of the planks: the plank face leans back as it rises (TW at the floor, TW + 0.18 at
        its top), so a bag only 0.3 m out had its belly through the boards - a thin pointed sliver of it showing. Where the trench is deeper than
        a layer, that layer is in the earth behind the planks and is not laid at all */
-    for (const sd of [-1, 1]) for (let lay = 0; lay < 5; lay++) for (let a = -1.6; a <= 1.61; a += 0.53) { const o = a + (lay % 2 ? 0.26 : 0); if (Math.abs(o) > 1.75) continue;
+    const RH = 0.45;   /* the roof a good half metre higher than it was (the user: it cut across the view) */
+    for (const sd of [-1, 1]) for (let lay = 0; lay < 8; lay++) for (let a = -1.6; a <= 1.61; a += 0.53) { const o = a + (lay % 2 ? 0.26 : 0); if (Math.abs(o) > 1.75) continue;
       const y = fl + 1.12 + lay * 0.17, ax = p[0] + tx * o + nx * sd * TW, az = p[1] + tz * o + nz * sd * TW; if (y + 0.1 < Math.max(fl + 1.12, groundAt(ax, az) + trenchCut(ax, az) + 0.12)) continue;
       BATCH.bag.push([p[0] + tx * o + nx * sd * (TW + 0.44), y, p[1] + tz * o + nz * sd * (TW + 0.44), rot]); }
-    for (let a = -1.65; a <= 1.66; a += 0.33) wood.push([p[0] + tx * a, fl + 2.02, p[1] + tz * a, rot, 0.26, 0.2, W2 * 2]);
-    for (const a of [-1.85, 1.85]) wood.push([p[0] + tx * a, fl + 1.98, p[1] + tz * a, rot, 0.3, 0.34, W2 * 2 + 0.3]);
-    iron.push([p[0], fl + 2.15, p[1], rot, 3.9, 0.05, W2 * 2 + 0.2]);
-    for (let lay = 0; lay < 2; lay++) for (let b = -W2 + 0.3; b <= W2 - 0.29; b += 0.4) for (let a = -1.55; a <= 1.56; a += 0.62) BATCH.bag.push([p[0] + tx * (a + (lay ? 0.3 : 0)) + nx * b, fl + 2.27 + lay * 0.18, p[1] + tz * (a + (lay ? 0.3 : 0)) + nz * b, rot]);
+    // slim beams with daylight between them, and the iron and the bags over them in strips: up through the gaps the planes go over and the shells burst
+    for (let a = -1.6; a <= 1.61; a += 0.53) wood.push([p[0] + tx * a, fl + 2.02 + RH, p[1] + tz * a, rot, 0.18, 0.16, W2 * 2]);
+    for (const a of [-1.85, 1.85]) wood.push([p[0] + tx * a, fl + 1.98 + RH, p[1] + tz * a, rot, 0.3, 0.3, W2 * 2 + 0.3]);
+    for (const a of [-1.3, 0, 1.3]) { iron.push([p[0] + tx * a, fl + 2.13 + RH, p[1] + tz * a, rot, 0.78, 0.05, W2 * 2 + 0.2]);
+      for (let b = -W2 + 0.3; b <= W2 - 0.29; b += 0.4) BATCH.bag.push([p[0] + tx * a + nx * b, fl + 2.25 + RH, p[1] + tz * a + nz * b, rot]); }
     ROOFS.push({ x: p[0], z: p[1], tx, tz, k });
   }
   box(wood, MAT.wood); box(iron, MAT.rust);
@@ -5341,7 +5346,7 @@ function woundFriend(f, killed = false, force = false) {
   { const c = u.chest(), o = V3(Math.sin(u.heading), 0, Math.cos(u.heading)); fxBlood(c, 12); bodyWound(u, c.clone().addScaledVector(o, 0.2).add(V3(rand(-0.08, 0.08), rand(-0.12, 0.06), 0))); }
   DIRQ.push({ at: GAME.t + 0.8, fn: () => { if (f.state === 'wounded' || f.state === 'kia') bloodPool(u, u.chest(), killed ? rand(0.95, 1.2) : rand(0.6, 0.8), f); } });
   if (killed) { f.state = 'kia'; feed(`${f.name} נהרג`, 'bad'); STATS.kia++; }
-  else { f.state = 'wounded'; f.bleed = diff.bleed; feed(`${f.name} נפגע! ״חובש!״`, 'bad'); f.marker.visible = true; radio(f.name, 'נפגעתי! חובש!', 3); }
+  else { STATS.wounded++; f.state = 'wounded'; f.bleed = diff.bleed; feed(`${f.name} נפגע! ״חובש!״`, 'bad'); f.marker.visible = true; radio(f.name, 'נפגעתי! חובש!', 3); }
 }
 /* ================= the squad: how the men beside the player fight =================
    As an IDF squad does. Contact: the first man to see the enemy calls it - the clock and the range - and the squad goes to ground, each man
@@ -5649,7 +5654,7 @@ const wpnOf = (e) => WPN[e.kind] || WPN.rifle, wBurst = (e) => { const b = wpnOf
 function rpgFirst(e) { e.setKind('rpg'); e.rpgFirst = true; e.rpgCd = 0; e.cmdRpg = true; }
 function rpgShoot(e, tp) {
   e.rpgCd = e.cmdRpg ? rand(4, 6) : rand(8, 12); e.rpgPause = e.cmdRpg ? 1.1 : 1.6; e.face(tp.x, tp.z); e.rig.shoulderT = GAME.t + 1.6;   // up to the shoulder, aim, and the shot 0.6 s later
-  e.rpgTp = tp.clone().add(V3(rand(-1.4, 1.4), rand(-0.4, 0.7), rand(-1.4, 1.4))); e.rpgFireAt = GAME.t + (e.rpgFirst ? 0.25 : 0.6);
+  e.rpgTp = tp.clone().add(V3(rand(-1.4, 1.4), rand(-0.4, 0.7), rand(-1.4, 1.4))); e.rpgFireAt = GAME.t + (e.rpgFirst ? cmdSmart().rpg : 0.6);
 }
 function rpgFireDue(e) {
   if (!e.rpgFireAt || GAME.t < e.rpgFireAt) return; e.rpgFireAt = 0; if (!e.alive || !e.rpgTp) return;
@@ -5657,6 +5662,7 @@ function rpgFireDue(e) {
   if (e.rpgFirst) { e.rpgFirst = false; DIRQ.push({ at: GAME.t + 0.35, fn: () => { if (!e.alive) return; e.setKind('smg'); e.rpgCd = 1e9; e.cmdRpg = false; if (e.state === 'trench') e.rush = true; } }); }
 }
 function enemyFire(e) {
+  if (D.retreat && MODE === 'mezach') return;
   if (e.kind === 'rpg' && e.target) { const tp = e.target.player ? playerEye() : e.target.f.unit.chest(), d = e.pos.distanceTo(tp); if (e.rpgCd <= 0 && d > (e.state === 'trench' ? 6 : 12) && d < 230) rpgShoot(e, tp); return; }
   const mz = mzEase(), from = e.muzzle(); const tgt = e.target; if (!tgt) return; if (tgt.player) { e.shotT = GAME.t; if (MODE === 'suez') szFireAt(e, from); if (Math.hypot(e.pos.x - P.pos.x, e.pos.z - P.pos.z) < 150) SQF.spots.set(e, GAME.t), SQF.cT = GAME.t; } const W = wpnOf(e);
   const tp = tgt.player ? playerEye() : tgt.f.unit.chest(); const d = from.distanceTo(tp); const rangeF = clamp(1 - d / W.range, 0.25, 1) * (W.range < 200 && d > W.range * 0.6 ? 0.3 : 1);
@@ -5799,7 +5805,7 @@ function updEnemy(e, dt) {
   if (nadeDodge(e, dt)) { e.sync(); return; }
   e.inside = inPoly(e.pos.x, e.pos.z, YARD);
   tacTick(e, dt);
-  e.scanCd -= dt; if (e.scanCd <= 0) { e.scanCd = e.cmd ? rand(0.18, 0.32) : rand(0.5, 0.9); const was = !!(e.target && e.target.player); e.target = targetsFor(e); if (e.target && e.target.player && !tacSees(e)) e.target = null; if (!was && e.target && e.target.player) e.fireCd = Math.max(e.fireCd, e.cmd ? rand(0.12, 0.3) : diff.react * rand(0.8, 1.2) * (mzEase() ? mzEase().react : 1)); }   /* the charging men fire the moment they see him: running at him they had no time for the slow first look, and reached him without a shot (the bug the user saw) */   /* a man who has just seen the player needs a moment before he fires: longer on the easy level */
+  e.scanCd -= dt; if (e.scanCd <= 0) { e.scanCd = e.cmd ? rand(0.18, 0.32) : rand(0.5, 0.9); const was = !!(e.target && e.target.player); e.target = targetsFor(e); if (e.target && e.target.player && !tacSees(e)) e.target = null; if (!was && e.target && e.target.player) e.fireCd = Math.max(e.fireCd, e.cmd ? cmdSmart().react * rand(0.8, 1.2) : diff.react * rand(0.8, 1.2) * (mzEase() ? mzEase().react : 1)); }   /* the charging men fire the moment they see him: running at him they had no time for the slow first look, and reached him without a shot (the bug the user saw) */   /* a man who has just seen the player needs a moment before he fires: longer on the easy level */
   const g = e.group;
   if (e.state === 'jump') {
     // over the gunwale and down onto the sand: the vault's own movement, at a pace a man can jump (not a flight)
@@ -6109,6 +6115,15 @@ function trenchStep(e, dt, shoot, aimPitch) {
   if (Math.hypot(e.pos.x - e.stX, e.pos.z - e.stZ) > 0.6) { e.stX = e.pos.x; e.stZ = e.pos.z; e.stT = 0; }
   else if ((e.stT += dt) > (e.cmd ? 1.5 : 3.5) && (e.moving || e.cmd)) { if (e.tcov) { e.usedTrav.add(e.tcov); releaseCov(e); } const q = TR.pts[clamp(e.k + (TR.pK >= e.k ? 1 : -1), 0, TR.pts.length - 1)]; if (!blocked(q[0], q[1], 0.3, groundAt(q[0], q[1]))) e.slide = [q[0], q[1]]; e.stT = 0; }
   const dk = TR.pK - e.k, dir = dk >= 0 ? 1 : -1, dP = Math.hypot(P.pos.x - e.pos.x, P.pos.z - e.pos.z), seesP = !!(e.target && e.target.player);
+  if (e.cmd) { const SM = cmdSmart();
+    // the flanker (more of them the higher the level): out over the parapet, along the top, back in behind the player
+    if (!e.flankDone && SM.flank && UNITS.enemies.indexOf(e) % SM.flank === 1 && dP > 9 && dP < 32 && TR.pD < 2.2) { e.flankDone = true;
+      const kk = clamp(TR.pK + dir * 4, 1, TR.pts.length - 2), q = TR.pts[kk], o = TR.out[kk], k0 = clamp(e.k, 1, TR.pts.length - 2), q0 = TR.pts[k0], o0 = TR.out[k0];
+      if (o && o0) { releaseCov(e); e.rush = false; const ox = q0[0] + o0[0] * PARA_D, oz = q0[1] + o0[1] * PARA_D; e.plan = [{ t: 'run', near: 0.9, x: q[0] + o[0] * (PARA_D + 1.5), z: q[1] + o[1] * (PARA_D + 1.5) }, { t: 'run', final: true, x: q[0] + o[0] * PARA_D, z: q[1] + o[1] * PARA_D }, { t: 'vault', x: q[0], z: q[1] }]; e.ps = 0;
+        e.state = 'jump'; e.t = 0; e.jd = 0; e.j0 = e.pos.clone(); e.j1 = V3(ox, groundAt(ox, oz), oz); return; } }
+    // a traverse between him and the player: a grenade over it as he runs (on the higher levels)
+    if (e.nadeOK === undefined) e.nadeOK = Math.random() < SM.nade;
+    if (e.nadeOK && dP < 15 && dP > 4 && e.gCd <= 0 && GAME.gCd <= 0 && TR.travK.some((kc) => (kc - e.k) * dir > 0 && (TR.pK - kc) * dir > 0)) lobGrenade(e, P.pos); }
   for (const f of FRIENDS) if (f.state === 'post' && f.unit.pos.distanceTo(e.pos) < 2.2 && Math.random() < dt * 0.5) woundFriend(f, Math.random() < 0.4);
   e.meleeCd -= dt; e.patience += dt;
   const busy = playerBusy(), aimed = aimedAt(e), between = TR.travK.some((kc) => (kc - e.k) * dir > 0 && (TR.pK - kc) * dir > 0); e.moving = false;
@@ -6179,6 +6194,13 @@ function trenchStep(e, dt, shoot, aimPitch) {
    Close in (dP < 4 or the rush) the shared code above charges him with the rifle butt; a man stuck for more than a second and a half is moved
    on along the trench (above) */
 const TRC = { t: -1, men: [] };
+/* low cover in front of the player: a sandbag wall or traverse, or the trench's own parapet, between knee and chest height a step ahead */
+function lowCoverAhead() {
+  const fx = -Math.sin(P.yaw), fz = -Math.cos(P.yaw), y = P.pos.y;
+  for (const d of [0.45, 0.75]) { const x = P.pos.x + fx * d, z = P.pos.z + fz * d, top = hAt(x, z, y + 1.6) - y; if (top > 0.65 && top < 1.45) return true;
+    const a = CGRID.get(cgk(Math.floor(x / CG), Math.floor(z / CG))); if (a) for (const k of a) { if (k.noMove || k.top - y < 0.65 || k.top - y > 1.45 || k.bot > y + 0.5) continue; const dx = x - k.x, dz = z - k.z, lx = dx * k.c - dz * k.s, lz = dx * k.s + dz * k.c; if (Math.abs(lx) < k.hx + 0.15 && Math.abs(lz) < k.hz + 0.15) return true; } }
+  return false;
+}
 function trenchCmd(e, dt, dir, dP, seesP, between, aimed, aimPitch) {
   if (TRC.t !== GAME.t) { TRC.t = GAME.t; TRC.men = UNITS.enemies.filter((o) => o.alive && o.state === 'trench'); }
   const fire = (pause) => { if (!seesP) return; e.face(P.pos.x, P.pos.z); e.fireCd -= dt; if (e.fireCd <= 0) { if (e.burst <= 0) e.burst = wBurst(e); e.burst--; e.fireCd = e.burst > 0 ? wGap(e) : wPause(e, pause); enemyFire(e); } };
@@ -6281,8 +6303,9 @@ function updBoats(dt) {
     if (bt.dead) continue;
     { const fz = CINE.on && bt.ft0 !== undefined && !bt.filmLand; bt.t += fz ? dt * (CINE.def.boatRate || 1) : dt; if (fz) bt.t = Math.min(bt.t, (bt.len - 5) / bt.speed); }   /* in a film of the boats (boatsFreeze) only its own boat lands */
     if (bt.state === 'wait') { if (bt.t >= 0) { bt.state = 'cross'; bt.g.visible = true; } else continue; }
+    if (bt.state === 'cross' && bt.retreat) { bt.t -= dt * 2.3; if (bt.t <= 0) { bt.dead = true; bt.g.visible = false; continue; } }   /* backing off the way it came, rowing hard */
     if (bt.state === 'cross') {
-      if (LANDCAP.wave && bt.wave !== undefined) { bt.holding = false;
+      if (!bt.retreat && LANDCAP.wave && bt.wave !== undefined) { bt.holding = false;
         if (bt.wave > LANDCAP.open && bt.len - bt.t * bt.speed < 25) LANDCAP.open = bt.wave;   /* in past the line (in a film, or put there): its wave is in */
         if (!CINE.on && bt.wave > LANDCAP.open) { const k = bt.wave - LANDCAP.open - 1, tl = (bt.len - 25 - 32 * k - (bt.back ? 9 : 0)) / bt.speed;   /* the second row waits a boat's length behind the first */
           if (bt.t > tl && bt.t - dt <= tl + 1e-3) { if (k === 0 && men <= LANDCAP.wave) LANDCAP.open = bt.wave; else { bt.holding = true; bt.t = tl; } } } }
@@ -6335,14 +6358,14 @@ function mzMineBoat(bt) {
    few metres behind it, the rows zigzagging one wave to the next. A boat is put on the water only when it is due to leave the quays; while
    the boats ahead are held off the beach (the landing cap), or the canal holds as many boats as it can draw, the waves behind wait */
 const ROWS = { on: false, q: [] };
-function rowsStart(o) { Object.assign(ROWS, { on: true, q: [], j: 0, men: 0, shift: 0, total: o.total, z0: o.z0, z1: o.z1, every: o.every, ctrl: o.ctrl, aLand: o.aLand, r: rng(7300 + Math.round(GAME.t * 7)) }); }
+function rowsStart(o) { Object.assign(ROWS, { on: true, q: [], j: 0, men: 0, shift: 0, total: o.total, z0: o.z0, z1: o.z1, every: o.every, ctrl: o.ctrl, aLand: o.aLand, nextL: o.ctrl + 10 + o.every, rpgP: 0.3, r: rng(7300 + Math.round(GAME.t * 7)) }); }
 const ROW_MEN = 6, ROW_OARS = 4, ROW_LOAD = () => ROW_MEN + ROW_OARS;   /* a boat of the great wave: ten men, six soldiers and four at the oars - a wave of six boats is sixty */
 function rowsWave() {   // the next wave's boats: where each lands on the beach and when
   const j = ROWS.j++, r = ROWS.r, out = [], zc = (ROWS.z0 + ROWS.z1) / 2, d = (ROWS.z1 - ROWS.z0) / 3.4, cl = (z) => clamp(z, ROWS.z0, ROWS.z1);
-  const boat = (land, z, back = false, jit = 0.5) => out.push({ land: land + rand(-jit, jit), z: cl(z + (r() - 0.5) * 4), wave: j, back, rpg: r() < 0.3 ? 1 : 0, flame: j > 2 && r() < 0.12 ? 1 : 0 });
+  const boat = (land, z, back = false, jit = 0.5) => out.push({ land: land + rand(-jit, jit), z: cl(z + (r() - 0.5) * 4), wave: j, back, rpg: r() < (ROWS.rpgP ?? 0.3) ? 1 : 0, flame: j > 2 && r() < 0.12 ? 1 : 0 });
   if (j === 0) boat(ROWS.aLand, zc + (r() - 0.5) * 8, false, 0);   // to the frame: the boats film shows this one go up on the mines
   else if (j === 1) { boat(ROWS.ctrl + 10, zc - d * 0.9); boat(ROWS.ctrl + 10.8, zc + d * 0.9); }
-  else { const L = ROWS.ctrl + 10 + ROWS.every * (j - 1), c = zc + (r() - 0.5) * 8, sg = j % 2 ? 1 : -1;
+  else { const L = ROWS.nextL ?? ROWS.ctrl + 10 + ROWS.every * (j - 1); ROWS.nextL = L + ROWS.every; const c = zc + (r() - 0.5) * 8, sg = j % 2 ? 1 : -1;
     for (const k of [-1, 0, 1]) boat(L, c + k * d); for (const k of [-1, 0, 1]) boat(L + 2.6, c + sg * d / 2 + k * d, true);
   }
   out.length = Math.min(out.length, Math.max(1, Math.ceil((ROWS.total - ROWS.men) / ROW_LOAD())));   /* the last wave: only what is left of the total */
@@ -6379,12 +6402,70 @@ function northGroup(n, delay, kinds = [], i0 = 0, cmd = false) {   // i0: the fi
 /* the commando from the north comes in squads, one behind the other down the Lexicon road: far more men to stop than the one small group
    there was (the user: too few there), but never all of them at once, and only a couple of RPGs - more targets, not more fire. Per level:
    the men in each squad; a squad sets off MZ_CMD_GAP seconds after the one before it */
-const MZ_CMD = [6, 8, 10], MZ_CMD_GAP = 6.5;   // squads of four - two from each sap - one every few seconds, each with its RPG (two in every other)
+const MZ_CMD = [8, 8, 8], MZ_CMD_GAP = 6.5;   /* the same number on every level (the user): only how cleverly they fight changes (CMD_SMART) */   // squads of four - two from each sap - one every few seconds, each with its RPG (two in every other)
 function mzCommando() { let t = 4, i0 = 0; for (let k = 0; k < MZ_CMD[Math.max(0, DIFF.indexOf(diff))]; k++) { northGroup(4, t, k % 2 ? ['rifle', 'rpg', 'rifle', 'rifle'] : ['rpg', 'rifle', 'rifle', 'rifle'], i0, true); i0 += 4; t += MZ_CMD_GAP; }   /* squads of four (the user: a third smaller than six) */ }
+/* ---------- the last wave: three minutes to hold, heavier every minute; then they turn back ---------- */
+function mzSurvive() {
+  if (D.retreat) return; const t = GAME.t - D.survT0;
+  if (D.survLv < 1 && t > 60) { D.survLv = 1; ROWS.every = 17; ROWS.rpgP = 0.4; northGroup(4, 0, ['rpg', 'rifle', 'rifle', 'rifle'], 200, true); radio('תצפית', 'עוד שורות יוצאות מהרציף! וחוליה נוספת בכביש מצפון!', 4.2); }
+  if (D.survLv < 2 && t > 120) { D.survLv = 2; ROWS.every = 12; ROWS.rpgP = 0.55; radio('מ״פ', 'זו הדחיפה האחרונה שלהם! עוד דקה עד החשכה, מחזיקים!', 4.2); }
+  if (GAME.t >= D.survEnd) mzRetreat();
+}
+/* the film of the end: the boats on the water stop and back off, the men still on the sand run for the water, the line of boats draws away west
+   in the dusk - and the little stronghold, smoking, holds */
+function mzRetreat() {
+  D.retreat = true; ROWS.on = false; ROWS.q.length = 0; for (let i = DIRQ.length - 1; i >= 0; i--) if (DIRQ[i].spawn) DIRQ.splice(i, 1);
+  for (const b of BOATS) { if (b.dead) continue; if (b.state === 'wait') { b.dead = true; b.g.visible = false; } else if (b.state === 'cross') b.retreat = true; }
+  for (const e of UNITS.enemies) if (e.alive) { const x = tongueWestX(e.pos.z) - 2.5; e.plan = null; e.rush = false; e.target = null; e.state = 'retreat'; e.path = [[e.pos.x, e.pos.z], [x, e.pos.z + rand(-3, 3)]]; e.pi = 0; e.speed = 5.5; }
+  if (P.mode === 'mag') leaveMag();
+  const zc = 20, cx = crestX(zc), bx = tongueWestX(zc);
+  playCine({ title: 'מעוז המזח · 6 באוקטובר 1973 · רדת החשכה',
+    shots: [
+      { d: 4.5, cam: (u) => ({ p: V3(cx - 1, groundAt(cx - 1, zc) + 2.4, zc - 2), l: V3(cx - 70, 0.6, zc + 8 + u * 6), fov: 46 }) },
+      { d: 4.5, cam: (u) => ({ p: V3(bx + 2.5, groundAt(bx + 2.5, zc + 14) + 1.3, zc + 14 - u * 3), l: V3(bx - 30, 1.0, zc - 4), fov: 50 }) },
+      { d: 6.5, cam: (u) => { const e = u * u * (3 - 2 * u); return { p: V3(cx - 8 + e * 34, 4 + e * 38, zc + e * 22), l: V3(cx - 160 * (0.6 + 0.4 * e), 0, zc + 10), fov: lerp(48, 58, e) }; } },
+    ],
+    caps: [[0.3, '<b>קשר:</b> הם... הם חוזרים אחורה!', 3.6], [4.8, 'הסירות נעצרות וחותרות לאחור. מי שעוד על החוף רץ בחזרה למים.', 4.2], [9.6, '<b>6 באוקטובר, לילה.</b> מעוז המזח מחזיק.', 5]],
+    end: () => endGame(true) });
+}
+/* how cleverly the invaders fight, by level (the numbers are the same on all three): the first shot after seeing the player, the rocket of the
+   first man, a grenade over a traverse on the way in, the man who climbs out to come round behind */
+const CMD_SMART = [{ react: 0.8, rpg: 1.0, nade: 0, flank: 0 }, { react: 0.4, rpg: 0.5, nade: 0.5, flank: 6 }, { react: 0.15, rpg: 0.5, nade: 1, flank: 4 }];
+const cmdSmart = () => CMD_SMART[Math.max(0, DIFF.indexOf(diff))];
 const DIRQ = [];
 const BARRAGE_AT = 4, BARRAGE_LEN = 16;   // twenty seconds in the covered trench, then out to the guns
 const D = { scene: -1, phase: 'alert', phaseT: 0, introLen: 0, artT: 12, inside: 0, barT: 0, launched: false, r2: false, jets: false, smoke: [], capture: 0, capWarn: false, chargeMsg: -99, objDone: false, trenchMsg: -99, inTrench: 0, tok: { 1: null, '-1': null } };
-const STATS = { kills: 0, heads: 0, treated: 0, saved: 0, kia: 0 };
+const STATS = { kills: 0, heads: 0, treated: 0, saved: 0, kia: 0, wounded: 0 };
+/* ---------- the score at the end of a mission, and its stars (the user) ----------
+   +10 a man down, +5 more for the head, +100 a wounded man treated, +150 one brought to the aid post, a bonus for the time (up to 300: full
+   under half the par, nothing past one and a half), +360 for the last wave held to the dark; -50 each of ours wounded, -400 each of ours
+   killed, -200 each time the player fell and went back to a checkpoint. Stars, on a win: one for finishing, two at 60% of what a clean run of
+   that same fight would have scored, three at 85% with nobody of ours killed. The best per mission is kept, and shown in the menus */
+const SCORE = { t0: 0, deaths: 0, par: 900 };
+function scoreReset() { SCORE.t0 = GAME.t; SCORE.deaths = 0; }
+function scoreCalc(win) {
+  const T = Math.max(0, GAME.t - SCORE.t0), tb = Math.round(clamp(300 * (1.5 - T / SCORE.par), 0, 300)), surv = MODE === 'mezach' && D.retreat ? 360 : 0;
+  const rows = [[STATS.kills * 10, `${STATS.kills} אויבים נפגעו`], [STATS.heads * 5, `${STATS.heads} פגיעות ראש`], [STATS.treated * 100, `${STATS.treated} פצועים טופלו`], [STATS.saved * 150, `${STATS.saved} הובאו לתאג״ד`],
+    [tb, `זמן: ${Math.floor(T / 60)}:${String(Math.floor(T % 60)).padStart(2, '0')}`]];
+  if (surv) rows.push([surv, 'הגל האחרון נהדף']);
+  if (STATS.wounded) rows.push([-50 * STATS.wounded, `${STATS.wounded} לוחמים שלנו נפצעו`]);
+  if (STATS.kia) rows.push([-400 * STATS.kia, `${STATS.kia} לוחמים שלנו נהרגו`]);
+  if (SCORE.deaths) rows.push([-200 * SCORE.deaths, `${SCORE.deaths} פעמים חזרת לנקודת שמירה`]);
+  const total = Math.max(0, rows.reduce((a, r) => a + r[0], 0)), ideal = STATS.kills * 12 + Math.max(STATS.wounded, STATS.treated) * 250 + 300 + (surv ? 360 : 0), ratio = total / Math.max(1, ideal);
+  const stars = !win ? 0 : ratio >= 0.85 && !STATS.kia ? 3 : ratio >= 0.6 ? 2 : 1;
+  return { rows, total, stars };
+}
+function scoreSave(m, sc) { let all = {}; try { all = JSON.parse(localStorage.getItem('yk73.stars') || '{}'); } catch (e) {} const o = all[m] || { stars: 0, score: 0 }; const best = sc.total > o.score; all[m] = { stars: Math.max(o.stars, sc.stars), score: Math.max(o.score, sc.total) }; try { localStorage.setItem('yk73.stars', JSON.stringify(all)); } catch (e) {} SCORE.mem = all; return best; }
+function scoreGet(m) { if (!SCORE.mem) { try { SCORE.mem = JSON.parse(localStorage.getItem('yk73.stars') || '{}'); } catch (e) { SCORE.mem = {}; } } return SCORE.mem[m] || null; }
+function scoreShow(sc, best) {
+  const st = (n) => '<span style="color:#e2b84a">' + '★'.repeat(n) + '</span><span style="opacity:.28">' + '★'.repeat(3 - n) + '</span>';
+  $('#endStats').innerHTML = sc.rows.map(([v, l]) => `<div><b style="color:${v < 0 ? '#e0665a' : 'inherit'}">${v > 0 ? '+' : ''}${v}</b><span>${l}</span></div>`).join('')
+    + `<div style="grid-column:1/-1;text-align:center;padding-top:8px"><b id="scoreTot" style="font-size:30px">0</b><span>ניקוד${best ? ' · שיא חדש!' : ''}</span><div id="scoreStars" style="font-size:40px;letter-spacing:6px;line-height:1.1;margin-top:4px">${st(0)}</div></div>`;
+  const el = $('#scoreTot'), t0 = performance.now(), dur = 1300;
+  const step = () => { const u = Math.min(1, (performance.now() - t0) / dur); el.textContent = Math.round(sc.total * u * (2 - u)).toLocaleString('he-IL'); if (u < 1) requestAnimationFrame(step); else { let k = 0; const lit = () => { $('#scoreStars').innerHTML = st(++k); if (k < sc.stars) setTimeout(lit, 320); }; if (sc.stars) setTimeout(lit, 200); } };
+  setTimeout(() => requestAnimationFrame(step), 1500);
+}
+
 const trenchAt = (z) => [crestX(z) + 3.6, z];
 const POSTP = (id) => POSTS.find((q) => q.id === id);
 const bayOf = (id, r = 2.7) => { const p = POSTP(id); return [p.x, p.z, r]; };
@@ -6405,17 +6486,13 @@ function corridorHas(C, x, z) {
 const SCENES = [
   { title: 'סירות על המים', sub: 'שתיים אחרי הצהריים. מעבר לתעלה, מתוך העשן, יוצאות סירות עץ בשורה — עשרות חיילים בכל אחת, חותרים ישר אלינו. המא״ג המערבי הוא כל מה שעומד בינם לבין הסוללה.', goal: 'ירו בסירות מהמא״ג המערבי. מי שעלה לתעלה — הרגו אותו בתוכה', open: [136, 176], spawn: () => trenchAt(-1.0), face: 345, focus: w2Focus,
     entries: [-20, -14, -8, -2, 3, 8.5], radio: ['מ״פ', 'סירות במים ממערב! המא״ג המערבי שלך!'], cap: [1, 1, 2], start() { boatWave(-21, 10, 18, 3, 1.8, diff.seats, 0, 0, 150); } },
-  { title: 'הפרצה בצפון', sub: 'המחסום הצפוני נפתח, ובקצה הסוללה, ליד עמדה 1, כבר מטפסים הראשונים שצלחו. בתעלה הצרה פוגשים אותם פנים אל פנים, שק חול אחרי שק חול.', goal: 'התקדמו צפונה בתעלה ונקו אותה מהצולחים', open: [96, 176], spawn: () => TR.pts[140], face: 0, focus: trFocus(-38, 'עמדה מערבית 1'),
-    entries: [-55, -50, -39.5, -27], radio: ['יוסי', 'הם עולים עליי מצפון! תביאו תגבורת לתעלה!'], cap: [1, 1, 2], pre(len) { const nb = [2, 2, 3][Math.max(0, DIFF.indexOf(diff))]; for (let i = 0; i < nb; i++) { const b = launchBoat(lerp(-76, -60, nb > 1 ? i / (nb - 1) : 0.5), 0, 5, i === 0 ? 1 : 0, 0, 5, 30, 3); b.t = (b.len - 1.5 - i * 5) / b.speed; } D.landHold = GAME.t + len + 2; }, start() {} },   // two boats, beached as the stage is called: their men are on the sand under the rampart, some forty metres from the trench, when the player gets there - and wait there a little before they go for it
-  { title: 'קומנדו בשער', sub: 'מכביש לכסיקון, מצפון, רץ כוח קומנדו ישר אל השער. הם מכירים את המוצב מתצלומי האוויר, ויודעים שהתעלה הצפונית היא הדרך פנימה.', goal: 'עצרו את הקומנדו בתעלה הצפונית, עד הפינה — והחזיקו אותה', open: [0, 176], spawn: () => TR.pts[100], face: 0, focus: postFocus('N1', 'עמדה צפונית'),
-    radio: ['תצפית', 'כוח קומנדו בכביש מצפון! הם רצים לתעלה הצפונית!'], acc: 1.0, start: mzCommando },   // acc: running men firing on the move: more of them, each one less deadly
-  { title: 'חובש!', sub: 'ההרעשה חזרה. פגז נכנס ישר לעמדה הדרומית, ובתעלה שוכבים חברים שצועקים לחובש. התאג״ד חפור בדופן התעלה, ומי שנחבש בזמן חוזר לעמדה.', goal: 'עזרה ראשונה לפצועים בתעלה הדרומית (להחזיק F) — הם חוזרים להילחם', medevac: true, open: [136, 222], spawn: () => trenchAt(-6), face: 180,
-    focus: () => { const w = nearestWounded(); return w ? [w.unit.pos.x, w.unit.pos.y, w.unit.pos.z, `פצוע · ${w.name}`] : null; },
-    entries: [12, 24, 35, 46], radio: ['דודו', 'פגיעה ישירה בעמדה! יש פצועים בתעלה הדרומית!'], start: medevacStart },
-  { title: 'הגל הגדול', sub: 'לפנות ערב הם זורקים את הכול: סירות לכל אורך הסוללה המערבית, מקצה לקצה, והשמש השוקעת מאחוריהם. המוצב הקטן הזה הוא כל מה שנשאר מהקו.', goal: 'ירו בסירות מהמא״ג המערבי. אל תתנו להן להגיע לחוף', open: [96, 250], spawn: () => trenchAt(-2), face: 338, focus: w2Focus,
-    entries: [-50, -27, -14, 8.5, 24, 46, 56, 68], radio: ['מ״פ', 'גל גדול של סירות! כולם לסוללה המערבית!'], waveRoom: [20, 26, 32], boatV: [0.55, 0.58, 0.62],
-    pre(len) { const lv = Math.max(0, DIFF.indexOf(diff)), film = !D.boatsFilm, ctrl = GAME.t + len; D.mineMsg = false;   // the film stops the battle (boatsFreeze): the player has the gun again with the boats where they were as it began - but for its own boat, which reaches the mines 14.9 s into it
-      rowsStart({ z0: -25, z1: 63, total: [60, 90, 120][lv], every: [24, 22, 20][lv], ctrl, aLand: film ? ctrl + 14.9 + MZ_MINE_T : ctrl + 4 }); }, start() { mzBoatsFilm(); } },   // the great wave: half the boats it had (the user), and no mines - they land and come up the rampart
+  { title: 'הגל מצפון', sub: 'בקצה הסוללה, ליד עמדה 1, כבר מטפסים הראשונים שצלחו — ומכביש לכסיקון, מצפון, רץ כוח קומנדו אל התעלה הצפונית. עד שהאחרון שבהם לא נופל, אין מנוחה.', goal: 'נקו את הצפון: הצולחים ליד עמדה 1 וכל חוליות הקומנדו מהכביש', open: [0, 176], spawn: () => TR.pts[140], face: 0, focus: trFocus(-38, 'עמדה מערבית 1'),
+    entries: [-55, -50, -39.5, -27], radio: ['יוסי', 'הם עולים עליי מצפון! ומהכביש רץ אלינו קומנדו!'], cap: [2, 2, 2],
+    pre(len) { const nb = 2; for (let i = 0; i < nb; i++) { const b = launchBoat(lerp(-76, -60, i / (nb - 1)), 0, 5, i === 0 ? 1 : 0, 0, 5, 30, 3); b.t = (b.len - 1.5 - i * 5) / b.speed; } },
+    start() { DIRQ.push({ at: GAME.t + 8, spawn: true, fn: mzCommando }); } },   // the breach and the commando are one stage now (the user): the men from the two beached boats first, the commando squads down the road from eight seconds on; the stage ends only when the last of them is dead
+  { title: 'הגל האחרון', sub: 'לפנות ערב הם זורקים את הכול: סירות לכל אורך הסוללה המערבית, והשמש השוקעת מאחוריהם. צריך להחזיק עד רדת החשכה.', goal: 'להחזיק עד רדת החשכה', open: [0, 250], spawn: () => trenchAt(-2), face: 338, focus: w2Focus,
+    entries: [-50, -27, -14, 8.5, 24, 46, 56, 68], radio: ['מ״פ', 'סירות! כל הקו המערבי! כולם לסוללה, מחזיקים עד החשכה!'], waveRoom: [26, 26, 26], boatV: [0.58, 0.58, 0.58], quiet: true, survival: 180,
+    pre(len) { const ctrl = GAME.t + len; D.mineMsg = false; D.boatsFilm = true; rowsStart({ z0: -25, z1: 63, total: 1e6, every: 24, ctrl, aLand: ctrl + 4 }); }, start() {} },   // straight on from the north, with no stage card and no film (the user: one continuous fight); three minutes from the moment it begins, heavier every minute (mzSurvive), then they turn back (mzRetreat)
 ];
 function scCorr(i) {
   const S = SCENES[i]; if (S._c) return S._c; const [a, b] = S.open;
@@ -6466,7 +6543,8 @@ function introScene(i, len) {
   for (const f of FRIENDS) if ((f.state === 'wounded' || f.state === 'stable') && !corridorHas(scCorr(i), f.unit.pos.x, f.unit.pos.z)) { f.state = 'saved'; f.marker.visible = false; feed(`חובשים פינו את ${f.name} לתאג״ד`, 'good'); }
   CP.boats = boatSnap();   // the boats already on the water as the stage begins: after a death they are put back just where they were
   D.landHold = 0; const S = SCENES[i], lv = Math.max(0, DIFF.indexOf(diff)); LANDCAP.n = S.cap ? S.cap[lv] : 999; LANDCAP.wave = S.waveRoom ? S.waveRoom[lv] : 0; LANDCAP.open = -1; if (S.pre) S.pre(len);
-  if (S.medevac) D.medMsg = false; else sceneAnnounce(i);   /* the medics' stage: nothing is said until the shell has come in (medevacStart) */
+  if (S.medevac) D.medMsg = false; else if (S.quiet) radio(S.radio[0], S.radio[1], 4.5); else sceneAnnounce(i);
+  if (S.survival) { D.survT0 = GAME.t; D.survEnd = GAME.t + S.survival; D.survLv = 0; D.retreat = false; }   /* the medics' stage: nothing is said until the shell has come in (medevacStart) */
   snapRequest('stage');
   if (i > 0) { P.reserve = 160; P.gren = diff.gren0; for (const p of POSTS) if (p.mag) { p.mag.belt = p.mag.cap || 200; p.mag.reload = 0; } if (!corridorHas(scCorr(i), P.pos.x, P.pos.z)) moveToScene(i); }
 }
@@ -6546,11 +6624,11 @@ function updDirector(dt) {
   } else if (D.phase === 'intro') {
     if (D.phaseT >= D.introLen) { if (!corridorHas(scCorr(D.scene), P.pos.x, P.pos.z)) moveToScene(D.scene); D.phase = 'scene'; D.phaseT = 0; if (!(D.scene === 0 && D.launched)) SCENES[D.scene].start(); D.artT = rand(diff.art[0], diff.art[1]) * (mzEase() ? mzEase().art : 1); }
   } else if (D.phase === 'scene') {
-    if (sceneClear()) D.clearT = (D.clearT || 0) + dt; else D.clearT = 0;
+    if (SCENES[D.scene].survival) { mzSurvive(); D.clearT = 0; } else if (sceneClear()) D.clearT = (D.clearT || 0) + dt; else D.clearT = 0;
     if (D.clearT > 2.5) {
       D.clearT = 0; feed('כל המצרים באזור חוסלו', 'good');
       if (D.scene >= SCENES.length - 1) { endGame(true); return; }
-      feed('השלב הושלם', 'good'); radio('מ״פ', 'השטח נקי. משלימים תחמושת, יש עוד עבודה.'); introScene(D.scene + 1, SCENES[D.scene + 1].medevac ? 3 : 11); return;   /* before the medics' stage only three seconds of quiet, then the shell */
+      const nS = SCENES[D.scene + 1]; if (!nS.quiet) { feed('השלב הושלם', 'good'); radio('מ״פ', 'השטח נקי. משלימים תחמושת, יש עוד עבודה.'); } introScene(D.scene + 1, nS.quiet ? 2 : 11); return;   /* before the medics' stage only three seconds of quiet, then the shell */
     }
     D.artT -= dt;
     if (D.artT <= 0) { D.artT = rand(diff.art[0], diff.art[1]) * (SCENES[D.scene].medevac ? 0.55 : 1) * (mzEase() ? mzEase().art : 1); const n = Math.floor(rand(3, 6)); for (let i = 0; i < n; i++) DIRQ.push({ at: GAME.t + i * rand(0.6, 1.4), fn: incomingShell }); }
@@ -6829,13 +6907,17 @@ function updPlayer(dt) {
     const wx = (-sy * fwd + cy * str) * sp, wz = (-cy * fwd - sy * str) * sp, acc = (l > 0.05 ? 28 : 36) * dt;
     const ap = (a, b) => (Math.abs(b - a) <= acc ? b : a + Math.sign(b - a) * acc);
     P.vx = ap(P.vx || 0, wx); P.vz = ap(P.vz || 0, wz);
-    const dx = P.vx * dt, dz = P.vz * dt;
-    const inside = MODE === 'mezach' && inStage(P.pos.x, P.pos.z);
-    const ok = (x, z) => { if (inside && !inStage(x, z)) { hint('bounds', 'הקרב שלכם בקטע התעלה הזה (מסומן בצהוב במפה הקטנה). אי אפשר לעזוב אותו עד שכל המצרים בו מתים.', 6); P.bumpT = 0.6; return false; } if (FIELDM() && !laneOk(x, z)) { P.bumpT = 0.6; return false; } return (groundAt(x, z) > -0.3 || hAt(x, z, P.pos.y) > -0.3) && !blocked(x, z, 0.3, P.pos.y); };
+    let dx = P.vx * dt, dz = P.vz * dt;
+    const inside = MODE === 'mezach' && inStage(P.pos.x, P.pos.z), inTr = MODE === 'mezach' && TR.pD !== undefined && TR.pD < 1.6;
+    const ok = (x, z) => { if (inside && !inStage(x, z)) { hint('bounds', 'הקרב שלכם בקטע התעלה הזה (מסומן בצהוב במפה הקטנה). אי אפשר לעזוב אותו עד שכל המצרים בו מתים.', 6); P.bumpT = 0.6; return false; } if (FIELDM() && !laneOk(x, z)) { P.bumpT = 0.6; return false; } return (groundAt(x, z) > -0.3 || hAt(x, z, P.pos.y) > -0.3) && !blocked(x, z, inTr ? 0.23 : 0.3, P.pos.y); };
     const x0 = P.pos.x, z0 = P.pos.z;
+    // in the trench the way bends with it (the user: moving in it was clumsy): a step that would run into the wall ahead is turned along the
+    // trench instead - its share along the trench kept, at nearly full pace - so walking on round a bend or past a traverse needs no fiddling
+    if (inTr && (dx || dz) && !ok(P.pos.x + dx, P.pos.z + dz)) { const k = clamp(TR.pK, 1, TR.pts.length - 2), a = TR.pts[k - 1], b = TR.pts[k + 1]; let tx = b[0] - a[0], tz = b[1] - a[1]; const tl = Math.hypot(tx, tz) || 1; tx /= tl; tz /= tl;
+      const along = dx * tx + dz * tz, L = Math.hypot(dx, dz); if (Math.abs(along) > L * 0.2) { const sg = Math.sign(along), m = L * 0.92; const ndx = tx * sg * m, ndz = tz * sg * m; if (ok(P.pos.x + ndx, P.pos.z + ndz)) { dx = ndx; dz = ndz; } } }
     // a long frame (a phone that stutters) is walked in short steps, so a sandbag wall is never crossed or entered in one jump
     const nSub = Math.max(1, Math.ceil(Math.hypot(dx, dz) / 0.12)), sdx = dx / nSub, sdz = dz / nSub;
-    for (let si = 0; si < nSub; si++) { if (ok(P.pos.x + sdx, P.pos.z)) P.pos.x += sdx; else { P.vx *= 0.2; break; } } for (let si = 0; si < nSub; si++) { if (ok(P.pos.x, P.pos.z + sdz)) P.pos.z += sdz; else { P.vz *= 0.2; break; } }
+    for (let si = 0; si < nSub; si++) { if (ok(P.pos.x + sdx, P.pos.z)) P.pos.x += sdx; else { P.vx *= inTr ? 0.7 : 0.2; break; } } for (let si = 0; si < nSub; si++) { if (ok(P.pos.x, P.pos.z + sdz)) P.pos.z += sdz; else { P.vz *= inTr ? 0.7 : 0.2; break; } }
     { const want = Math.hypot(dx, dz), got = Math.hypot(P.pos.x - x0, P.pos.z - z0); if (want > 1e-4 && got < want * 0.35) { const px = -dz / want, pz = dx / want; for (const sg of [1, -1]) { const sx = P.pos.x + px * sg * want * 0.9, sz = P.pos.z + pz * sg * want * 0.9; if (ok(sx, sz) && ok(sx + dx, sz + dz)) { P.pos.x = sx; P.pos.z = sz; break; } } } }
     if (PDOOR.on) pdoorMove(dt); else pushFromMen();
     // caught inside a wall or a sandbag heap (a slope that led into it, a step down off it): ease out to the nearest free ground instead of freezing
@@ -6845,6 +6927,14 @@ function updPlayer(dt) {
     const vyBefore = P.vy; P.vy -= 9.8 * dt; P.pos.y += P.vy * dt; if (P.pos.y <= ground) { if (!P.grounded && vyBefore < -2.5) P.land = Math.min(0.16, -vyBefore * 0.035); P.pos.y = ground; P.vy = 0; P.grounded = true; }
     // the walk: the eye rises and dips with each step and sways a little to the side; the amount follows the real speed
     const speed = Math.hypot(P.vx, P.vz), ms = Math.hypot(P.pos.x - x0, P.pos.z - z0) / Math.max(dt, 1e-4);
+    // in the trench: stopping behind low cover (bags, a traverse, the parapet) the man kneels behind it by himself, and is up again the moment he
+    // moves or raises the rifle (the user: no buttons for cover - it should just be smooth)
+    if (inTr && P.mode === 'rifle') {
+      if (ms < 0.25 && P.ads < 0.1 && !INPUT.fire) { P.stillT = (P.stillT || 0) + dt; if (P.stillT > 0.45 && !P.crouch && lowCoverAhead()) { P.crouch = true; P.autoC = true; } }
+      else { P.stillT = 0; if (P.autoC && (ms > 0.5 || P.ads > 0.3 || INPUT.fire)) { P.crouch = false; P.autoC = false; } }
+    } else if (P.autoC) { P.crouch = false; P.autoC = false; }
+    // and the wall a hand's breadth from the eye is not drawn across the whole screen: the near edge of the view moves out a little in the trench
+    { const wn = inTr ? 0.3 : (LITE ? 0.15 : 0.05); if (camera.near !== wn) { camera.near = wn; camera.updateProjectionMatrix(); } }
     const ampW = P.grounded && ms > 0.3 ? clamp(ms / 4.4, 0, 1.6) : 0; P.bobAmp = (P.bobAmp || 0) + (ampW - (P.bobAmp || 0)) * (1 - Math.exp(-dt * 9));
     if (P.grounded) P.bob += dt * Math.max(ms, 0.001) * 1.95;
     P.land = Math.max(0, (P.land || 0) * Math.exp(-dt * 7) - dt * 0.02);
@@ -6903,14 +6993,14 @@ function tutorialTriggers() {
   if (D.phase === 'alert' && GAME.t > 0.5) hint('start', `המלחמה פרצה. אתם <b>בקטע המקורה של תעלת הקרב</b>, צמוד למא״ג המערבי. <b>הישארו מתחת לגג</b> עד שההפצצה וההרעשה ייפסקו.`, 9);
   if (D.phase === 'barrage' && D.phaseT > 2 && !sheltered()) hint('left', TOUCH ? `אתם חשופים! חזרו לקטע המקורה בתעלה עד שההרעשה תיפסק.` : `אתם חשופים! חזרו לקטע המקורה, או כרעו בתוך התעלה (${K('C')}).`, 6);
   if (D.phase !== 'alert' && D.phase !== 'barrage' && D.scene === 0 && D.phaseT > 0.3) hint('run', TOUCH ? `<b>לעמדות!</b> המא״ג המערבי צמוד אליכם (◆ הצהוב). כשתעמדו לידו יופיע הכפתור הירוק <kbd>לאייש מא״ג</kbd>.` : `<b>לעמדות!</b> המא״ג המערבי צמוד אליכם (◆ הצהוב). עמדו לידו ולחצו ${K('E')}.`, 8);
-  if ((D.scene === 0 || D.scene === 4) && P.mode !== 'mag') { const p = POSTS.find((q) => q.id === 'W2'); if (Math.hypot(p.x - P.pos.x, p.z - P.pos.z) < 7) hint('man', `לחצו ${K('E')} ליד המא״ג כדי לאייש אותו.`, 5); }
+  if ((D.scene === 0 || SCENES[Math.max(0, D.scene)].survival) && P.mode !== 'mag') { const p = POSTS.find((q) => q.id === 'W2'); if (Math.hypot(p.x - P.pos.x, p.z - P.pos.z) < 7) hint('man', `לחצו ${K('E')} ליד המא״ג כדי לאייש אותו.`, 5); }
   if (P.mode === 'mag') hint('mag', TOUCH ? `ירו בסירות לפני שהן נוחתות: החזיקו <kbd>אש</kbd> לצרור, <kbd>כוונת</kbd> לזום. הכפתור הירוק <kbd>לרדת</kbd> עוזב את המא״ג.` : `ירו בסירות לפני שהן נוחתות. ${K('לחצן ימני')} לזום, ${K('לחיצה ממושכת')} לצרור, ${K('R')} להחלפת שרשרת, ${K('E')} לעזוב את המא״ג.`, 9);
   if (D.inTrench > 0) hint('intrench', P.mode === 'mag' ? `<b>מצרים בתעלה!</b> המא״ג לא מכסה את התעלה. רדו ממנו (${TOUCH ? '<kbd>לרדת</kbd>' : K('E')}) ולחמו בתעלה.` : `<b>מצרים בתעלה!</b> הם רצים אליכם ומסתתרים מאחורי חומות שקי החול שבתעלה. תפסו אותם כשהם מציצים, או זרקו רימון (${K('G')}) מעבר לחומה.`, 9);
   const w = FRIENDS.find((f) => f.state === 'wounded'); if (w) hint('wounded', `<b>${w.name} נפגע!</b> רוצו אליו (מגן דוד אדום), החזיקו ${K('F')} לעזרה ראשונה. אחרי החבישה הוא חוזר להילחם.`, 10);
   if (P.mode === 'carry') hint('carry', `סחבו אותו בתעלת הקשר לתאג״ד הקדמי (◆) ולחצו ${K('E')} ליד האלונקות.`, 6);
   if (P.mode === 'rifle' && P.reserve < 40) hint('ammo', `<b>תחמושת אוזלת!</b> ארגזי תחמושת בכל עמדה לאורך התעלה - ${K('E')} ליד הארגז.`, 7);
   if (P.hp < 45 && D.phase !== 'alert') hint('hp', `<b>אתם מדממים!</b> מחסה - שקי חול או חומה - וכריעה. כמה שניות בלי פגיעה והכוח חוזר.`, 7);
-  if (D.phase === 'intro' && D.scene > 0) hint('cp', `<b>שלב הושלם ✓</b> נקודת שמירה: חיים ותחמושת מלאים. קדימה בתעלה אל ה־◆.`, 8);
+  if (D.phase === 'intro' && D.scene > 0 && !SCENES[D.scene].quiet) hint('cp', `<b>שלב הושלם ✓</b> נקודת שמירה: חיים ותחמושת מלאים. קדימה בתעלה אל ה־◆.`, 8);
   if (D.phase === 'scene' && SCENES[D.scene].medevac) hint('medevac', `שני לוחמים נפגעו. השלב נגמר רק כשכל הפצועים בתאג״ד וכל המצרים מתים.`, 7);
 }
 const OBJ = { on: false, p: V3(), label: '', el: null, marker: null, beam: null };
@@ -7042,7 +7132,7 @@ function updHUD(dt) {
     items.push([ok ? 'done' : 'warn', `${ok ? '✓ במחסה' : 'חזרו לקטע המקורה'} · ההרעשה: עוד ${left} שנ׳`]);
     items.push(['next', 'אחר כך: למא״ג המערבי שלידכם (◆)']);
   }
-  if (D.phase === 'intro' || D.phase === 'scene') { items.push(['go', (SCENES[D.scene].goal || SCENES[D.scene].sub) + (OBJ.on ? ' (◆)' : '')]); if (D.phase === 'intro' && D.introLen > 1) items.push(['next', `מתחיל בעוד ${Math.max(0, Math.ceil(D.introLen - D.phaseT))} שנ׳`]); else items.push(['', `מצרים שנותרו בשלב: ${enemiesLeft()}`]); }
+  if (D.phase === 'intro' || D.phase === 'scene') { { const S = SCENES[D.scene]; let g = S.goal || S.sub; if (S.survival && D.survEnd) { const left = Math.max(0, Math.ceil(D.survEnd - GAME.t)); g += ` · ${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`; } items.push(['go', g + (OBJ.on ? ' (◆)' : '')]); } if (D.phase === 'intro' && D.introLen > 1) items.push(['next', `מתחיל בעוד ${Math.max(0, Math.ceil(D.introLen - D.phaseT))} שנ׳`]); else items.push(['', `מצרים שנותרו בשלב: ${enemiesLeft()}`]); }
   if (D.inTrench > 0) items.push(['warn', `מצרים בתעלה: ${D.inTrench}`]);
   if (D.inside > 0) items.push(['warn', `מצרים בתוך המוצב: ${D.inside}`]);
   $('#cap').classList.toggle('on', D.capture > 0.5); $('#capFill').style.width = `${D.capture}%`; $('#capText').textContent = `המצרים משתלטים על המוצב · ${Math.round(D.capture)}%`;
@@ -7113,7 +7203,7 @@ function clearBattle() {
   for (const q of PROJ) { scene.remove(q.m); if (q.marker) scene.remove(q.marker); } PROJ.length = 0;
   FX.flashes.clear(); FX.glows.clear(); FX.smoke.clear(); FX.dust.clear(); FX.fire.clear(); FX.cones.clear(); FX.sparks.clear(); FX.trail.clear(); FX.exh.clear(); for (const t of FX.tracers) { t.on = false; t.m.visible = false; }
   DRUMFIRE.on = false; LIGHTS.fire.intensity = 0; LIGHTS.boom.intensity = 0; LIGHTS.wreck.intensity = 0; for (const p of POSTS) if (p.occupant === 'player') p.occupant = null;
-  Object.assign(D, { capture: 0, capWarn: false, inside: 0, inTrench: 0, chargeMsg: -99, clearT: 0, trenchMsg: -99, tok: { 1: null, '-1': null } }); for (const c of COVER) c.by = null;
+  Object.assign(D, { capture: 0, capWarn: false, inside: 0, inTrench: 0, chargeMsg: -99, clearT: 0, trenchMsg: -99, tok: { 1: null, '-1': null }, retreat: false, survEnd: 0 }); for (const c of COVER) c.by = null;
 }
 function placeFriendAtPost(f) { f.post.occupant = f; f.state = 'post'; f.bleed = 0; f.target = null; f.burst = 0; f.marker.visible = false; const u = f.unit; u.alive = true; u.fall = -1; u.stance = 'stand'; u.place(f.post.stand[0], f.post.stand[1]); u.heading = Math.atan2(f.post.fx, f.post.fz); u.rig.root.visible = true; u.sync(); }
 /* a checkpoint gives everything back (the user's rule, on every chapter): on reaching one - a stage begins (snapRequest) - and on coming back
@@ -7125,6 +7215,7 @@ function cpRefill() {
   if (P.mode === 'tank' && TANK.alive) { TANK.hp = 100; TANK.gunT = 0; }
 }
 function restoreCheckpoint() {
+  SCORE.deaths++;
   if (FIELDM()) { CH().restore(); cpRefill(); return; }
   if (CP.scene < 0) { startGame(); return; }
   clearBattle(); Object.assign(STATS, CP.stats); resetTutorial(); for (const k of ['start', 'left', 'run', 'mag', 'man', 'cp']) TUT.seen[k] = true;
@@ -7148,7 +7239,7 @@ function resetGame() {
   for (const j of STRAFE) scene.remove(j.m); STRAFE.length = 0;
   AIR.mirage = false; AIR.ev = null; AIR.next = 30; AIR.magT = 0; for (const b of AIR.bombs) scene.remove(b.m); AIR.bombs.length = 0; if (AIR.models) { AIR.models.m.g.visible = false; AIR.models.m.wingR.visible = false; AIR.models.mig.visible = false; AIR.models.chute.visible = false; }
   Object.assign(D, { mineMsg: false, filmDone: false, boatsFilm: false, droneFilm: false, s2: false, s3: false, capture: 0, capWarn: false, chargeMsg: -99, scene: -1, objDone: false, introLen: 0, phase: 'alert', phaseT: 0, artT: 12, breachT: 0, inside: 0, barT: 0, launched: false, r2: false, jets: false, smoke: [] });
-  Object.assign(STATS, { kills: 0, heads: 0, treated: 0, saved: 0, kia: 0, shots: 0 });
+  Object.assign(STATS, { kills: 0, heads: 0, treated: 0, saved: 0, kia: 0, shots: 0, wounded: 0 }); scoreReset();
   GAME.t = 0; GAME.gCd = 0; resetPlayer(); P.alive = true; resetFriends(); setTimeOfDay(0); resetTutorial();
   $('#feed').innerHTML = ''; FEED.length = 0;
 }
@@ -7168,12 +7259,14 @@ function endGame(win, why) { if (win) markDone(MODE); $('#mEnd').style.setProper
   if (FIELDM()) {
     const C = CH(); const [title, text, stats] = C.end(win, why); $('#endTitle').textContent = title; $('#endText').textContent = text;
     $('#endStats').innerHTML = stats.map(([n, l]) => `<div><b>${n}</b><span>${l}</span></div>`).join('');
+    if (win && MODE !== 'range' && MODE !== 'prologue') { const sc = scoreCalc(true); scoreShow(sc, scoreSave(MODE, sc)); }
     $('#bRetry').hidden = win; $('#bRetry').textContent = `המשך מתחילת שלב ${C.cp() + 1}`; setTimeout(() => { $('#mEnd').hidden = false; }, win ? 1200 : 700); return;
   }
-  if (win) { $('#endTitle').textContent = 'המוצב החזיק'; $('#endText').textContent = 'חמשת השלבים הושלמו: הסירות נהדפו, השערים החזיקו והפצועים בתאג״ד. השמש יורדת מעל פורט תאופיק, והמצור רק מתחיל.'; }
+  if (win) { $('#endTitle').textContent = 'המוצב החזיק'; $('#endText').textContent = 'הסירות נהדפו, הצפון נוקה, והגל האחרון נסוג אל מעבר לתעלה. הלילה יורד על פורט תאופיק, והמצור רק מתחיל.'; }
   else if (why === 'breach') { $('#endTitle').textContent = 'המוצב נכבש'; $('#endText').textContent = 'המצרים השתלטו על התעלה ועל המוצב. עצרו אותם כבר במים עם המא״ג, ומי שקופץ לתעלה צריך למות מהר, לפני שהמד מתמלא.'; }
   else { $('#endTitle').textContent = 'נפגעת'; $('#endText').textContent = 'בהרעשה כורעים בתעלה. כשהמצרים בתעלה, אל תעמדו בקו ישר מולם: כרעו מאחורי חומת שקי חול, חכו שיציצו, וזרקו רימון מעבר לחומה. אל תתנו להם להגיע אליכם צמוד.'; }
   $('#endStats').innerHTML = [[STATS.kills, 'אויבים נפגעו'], [STATS.treated, 'פצועים טופלו'], [STATS.saved, 'נחבשו וחזרו להילחם'], [STATS.kia, 'לוחמים שלנו נהרגו']].map(([n, l]) => `<div><b>${n}</b><span>${l}</span></div>`).join('');
+  if (win) { const sc = scoreCalc(true); scoreShow(sc, scoreSave(MODE, sc)); }
   $('#bRetry').hidden = win || CP.scene < 0; $('#bRetry').textContent = CP.scene >= 0 ? `המשך מתחילת שלב ${CP.scene + 1}` : '';
   setTimeout(() => { $('#mEnd').hidden = false; }, win ? 1200 : 700);
 }
@@ -9087,7 +9180,7 @@ function szSetup(stage) {
 function startSuez() {
   ensureBase(); facesNow(); envReady(); if (!SZ.built) buildSuez();
   snapReset(); MODE = 'suez'; if (SZ.cityCovers) { SZ.covers = SZ.cityCovers; SZ.slots = SZ.citySlots; } TANK.toW = (x, z) => [LX(x), LZ(z)]; TANK.vmax = 4.2; TANK.hdV = null; P.ride = null; szShow(true); setRim(MAT.clothE, 0); $('#clockSub').textContent = '24.10.1973 · העיר סואץ'; GAME.t = 0; GAME.gCd = 0; resetTutorial(); $('#feed').innerHTML = ''; FEED.length = 0;
-  Object.assign(STATS, { kills: 0, heads: 0, treated: 0, saved: 0, kia: 0, shots: 0 }); D.capture = 0;
+  Object.assign(STATS, { kills: 0, heads: 0, treated: 0, saved: 0, kia: 0, shots: 0, wounded: 0 }); scoreReset(); D.capture = 0;
   for (const j of STRAFE) scene.remove(j.m); STRAFE.length = 0; for (const j of JETS) scene.remove(j.m); JETS.length = 0;
   cvidPrefetch('suez'); szSetup(0); GAME.state = 'play'; $('#app').classList.add('play'); for (const m of ['#mBrief', '#mPause', '#mEnd']) $(m).hidden = true;
   initAudio(); lockPointer(); toast('24 באוקטובר 1973 · 10:40', 'העיר סואץ, שעות לפני הפסקת האש');
@@ -9860,7 +9953,7 @@ function fieldStart(m) {
   for (const e of UNITS.enemies) if (e.mmHide || e.pitHid) { fmDisguise(e, false); e.mmHide = false; e.pitHid = false; }
   MODE = m; P.ride = null; GATE.on = false; meter(null); MAT.clothE.color.setHex(C.cloth ?? 0xffffff); uniformFor(m); TANK.goal = null; $('#app').classList.remove('armor'); if (CINE.on) endCine(true); showWorld(m); setRim(MAT.clothE, 0); SZ.covers = C.covers; SZ.slots = C.slots;
   $('#clockSub').textContent = C.clock; GAME.t = 0; GAME.gCd = 0; resetTutorial(); $('#feed').innerHTML = ''; FEED.length = 0;
-  Object.assign(STATS, { kills: 0, heads: 0, treated: 0, saved: 0, kia: 0, shots: 0 }); D.capture = 0;
+  Object.assign(STATS, { kills: 0, heads: 0, treated: 0, saved: 0, kia: 0, shots: 0, wounded: 0 }); scoreReset(); D.capture = 0;
   for (const j of STRAFE) scene.remove(j.m); STRAFE.length = 0; for (const j of JETS) scene.remove(j.m); JETS.length = 0; for (const f of FLARES) { scene.remove(f.s); f.light.intensity = 0; } FLARES.length = 0;
   if (TANK.spot) TANK.spot.intensity = 0; FLARE_LIGHT = 0;
   cvidPrefetch(m); C.setup(0); GAME.state = 'play'; $('#app').classList.add('play'); for (const k of ['#mBrief', '#mPause', '#mEnd', '#mOps', '#mSet']) $(k).hidden = true;
@@ -16562,7 +16655,7 @@ function showTitle() {
   $('#tStrip').innerHTML = CH_ORDER.map((k) => `<button type="button" class="st-card" role="listitem" data-k="${k}" aria-label="משימה ${CH_INFO[k].n}, ${CH_INFO[k].name}"><img src="${IMG(k)}" alt="" loading="lazy" decoding="async">${PROG.done.has(k) ? '<i>הושלמה</i>' : k === n && !all ? '<i class="nx">הבאה</i>' : ''}<span><em>${CH_INFO[k].n}</em><b>${CH_INFO[k].name}</b></span></button>`).join('');
   for (const b of document.querySelectorAll('#tStrip .st-card')) b.addEventListener('click', () => showOps(b.dataset.k));
   $('#tSurv').innerHTML = `<span>הישרדות · להחזיק את המעוז${SURV.best ? `<small>השיא שלכם: ${SURV.best.toLocaleString('he-IL')}</small>` : '<small>גל אחרי גל, מכל הכיוונים</small>'}</span>`;
-  menuShow('#mBrief'); titleShow(CH_ORDER.indexOf(n));
+  menuShow('#mBrief'); titleShow(CH_ORDER.indexOf(n)); starsPaint();
 }
 // behind the title, the eight battles play one after another, like the trailer of the game: footage when it loads, the still picture until then
 const TSHOW = { i: 0, timer: 0, dur: 5 };   // a clip is four seconds of footage, played a little slowed down
@@ -16589,7 +16682,8 @@ function titleShow(start) {
   clearInterval(TSHOW.timer); go(start >= 0 ? start : 0);
   if (!REDUCED_M) TSHOW.timer = setInterval(() => { if ($('#mBrief').hidden) { clearInterval(TSHOW.timer); return; } go(TSHOW.i + 1); }, TSHOW.dur * 1000);
 }
-function showOps(k) { menuShow('#mOps'); vidClose(); opsSelect(k || PROG.sel || (PROG.last && CHM[PROG.last] ? PROG.last : nextChapter())); setTimeout(() => { const b = document.querySelector('#mOps .m-item.on'); if (b) b.focus({ preventScroll: true }); }, 30); }
+function starsPaint() { for (const el of document.querySelectorAll('#opsList .m-item[data-k], #tStrip .st-card[data-k]')) { const b = scoreGet(el.dataset.k); let sp = el.querySelector('.m-stars'); if (!b) { if (sp) sp.remove(); continue; } if (!sp) { sp = document.createElement('span'); sp.className = 'm-stars'; sp.style.cssText = 'position:absolute;top:4px;left:6px;font-size:13px;letter-spacing:1px;color:#e2b84a;text-shadow:0 1px 2px #000;pointer-events:none;z-index:2'; if (getComputedStyle(el).position === 'static') el.style.position = 'relative'; el.appendChild(sp); } sp.innerHTML = '★'.repeat(b.stars) + '<span style="opacity:.3">' + '★'.repeat(3 - b.stars) + '</span>'; } }
+function showOps(k) { starsPaint(); menuShow('#mOps'); vidClose(); opsSelect(k || PROG.sel || (PROG.last && CHM[PROG.last] ? PROG.last : nextChapter())); setTimeout(() => { const b = document.querySelector('#mOps .m-item.on'); if (b) b.focus({ preventScroll: true }); }, 30); }
 function showSet(from) { PROG.from = from; menuShow('#mSet'); }
 function toOps() { survStop(); if (CINE.on) endCine(true); GAME.state = 'menu'; $('#app').classList.remove('play'); if (document.pointerLockElement && document.exitPointerLock) document.exitPointerLock(); meter(null); showOps(MODE); }
 function initMenus() {

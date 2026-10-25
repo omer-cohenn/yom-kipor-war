@@ -178,7 +178,10 @@ function blocked(x, z, r, feet) {
   for (const k of a) {
     if (k.noMove || k.top < feet + 0.45 || k.bot > feet + 1.5) continue;
     const dx = x - k.x, dz = z - k.z; const lx = dx * k.c - dz * k.s, lz = dx * k.s + dz * k.c;
-    if (Math.abs(lx) < k.hx + r && Math.abs(lz) < k.hz + r) return true;
+    // rounded corners (the user: for the player and the soldiers alike): the box shrunk by up to a quarter metre and grown back round, so a man
+    // brushing a corner of a traverse or a wall slides round it instead of catching on its edge
+    const cr = Math.min(0.25, k.hx * 0.5, k.hz * 0.5), ex = Math.max(0, Math.abs(lx) - (k.hx - cr)), ez = Math.max(0, Math.abs(lz) - (k.hz - cr)), R = r + cr;
+    if (ex * ex + ez * ez < R * R) return true;
   }
   return false;
 }
@@ -1256,13 +1259,15 @@ function buildTrenches() {
     /* the raised walls of bags stand on the earth top, clear of the planks: the plank face leans back as it rises (TW at the floor, TW + 0.18 at
        its top), so a bag only 0.3 m out had its belly through the boards - a thin pointed sliver of it showing. Where the trench is deeper than
        a layer, that layer is in the earth behind the planks and is not laid at all */
-    for (const sd of [-1, 1]) for (let lay = 0; lay < 5; lay++) for (let a = -1.6; a <= 1.61; a += 0.53) { const o = a + (lay % 2 ? 0.26 : 0); if (Math.abs(o) > 1.75) continue;
+    const RH = 0.45;   /* the roof a good half metre higher than it was (the user: it cut across the view) */
+    for (const sd of [-1, 1]) for (let lay = 0; lay < 8; lay++) for (let a = -1.6; a <= 1.61; a += 0.53) { const o = a + (lay % 2 ? 0.26 : 0); if (Math.abs(o) > 1.75) continue;
       const y = fl + 1.12 + lay * 0.17, ax = p[0] + tx * o + nx * sd * TW, az = p[1] + tz * o + nz * sd * TW; if (y + 0.1 < Math.max(fl + 1.12, groundAt(ax, az) + trenchCut(ax, az) + 0.12)) continue;
       BATCH.bag.push([p[0] + tx * o + nx * sd * (TW + 0.44), y, p[1] + tz * o + nz * sd * (TW + 0.44), rot]); }
-    for (let a = -1.65; a <= 1.66; a += 0.33) wood.push([p[0] + tx * a, fl + 2.02, p[1] + tz * a, rot, 0.26, 0.2, W2 * 2]);
-    for (const a of [-1.85, 1.85]) wood.push([p[0] + tx * a, fl + 1.98, p[1] + tz * a, rot, 0.3, 0.34, W2 * 2 + 0.3]);
-    iron.push([p[0], fl + 2.15, p[1], rot, 3.9, 0.05, W2 * 2 + 0.2]);
-    for (let lay = 0; lay < 2; lay++) for (let b = -W2 + 0.3; b <= W2 - 0.29; b += 0.4) for (let a = -1.55; a <= 1.56; a += 0.62) BATCH.bag.push([p[0] + tx * (a + (lay ? 0.3 : 0)) + nx * b, fl + 2.27 + lay * 0.18, p[1] + tz * (a + (lay ? 0.3 : 0)) + nz * b, rot]);
+    // slim beams with daylight between them, and the iron and the bags over them in strips: up through the gaps the planes go over and the shells burst
+    for (let a = -1.6; a <= 1.61; a += 0.53) wood.push([p[0] + tx * a, fl + 2.02 + RH, p[1] + tz * a, rot, 0.18, 0.16, W2 * 2]);
+    for (const a of [-1.85, 1.85]) wood.push([p[0] + tx * a, fl + 1.98 + RH, p[1] + tz * a, rot, 0.3, 0.3, W2 * 2 + 0.3]);
+    for (const a of [-1.3, 0, 1.3]) { iron.push([p[0] + tx * a, fl + 2.13 + RH, p[1] + tz * a, rot, 0.78, 0.05, W2 * 2 + 0.2]);
+      for (let b = -W2 + 0.3; b <= W2 - 0.29; b += 0.4) BATCH.bag.push([p[0] + tx * a + nx * b, fl + 2.25 + RH, p[1] + tz * a + nz * b, rot]); }
     ROOFS.push({ x: p[0], z: p[1], tx, tz, k });
   }
   box(wood, MAT.wood); box(iron, MAT.rust);
