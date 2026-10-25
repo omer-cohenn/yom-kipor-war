@@ -752,7 +752,7 @@ function updEnemy(e, dt) {
   if (nadeDodge(e, dt)) { e.sync(); return; }
   e.inside = inPoly(e.pos.x, e.pos.z, YARD);
   tacTick(e, dt);
-  e.scanCd -= dt; if (e.scanCd <= 0) { e.scanCd = rand(0.5, 0.9); const was = !!(e.target && e.target.player); e.target = targetsFor(e); if (e.target && e.target.player && !tacSees(e)) e.target = null; if (!was && e.target && e.target.player) e.fireCd = Math.max(e.fireCd, diff.react * rand(0.8, 1.2) * (mzEase() ? mzEase().react : 1)); }   /* a man who has just seen the player needs a moment before he fires: longer on the easy level */
+  e.scanCd -= dt; if (e.scanCd <= 0) { e.scanCd = e.cmd ? rand(0.18, 0.32) : rand(0.5, 0.9); const was = !!(e.target && e.target.player); e.target = targetsFor(e); if (e.target && e.target.player && !tacSees(e)) e.target = null; if (!was && e.target && e.target.player) e.fireCd = Math.max(e.fireCd, e.cmd ? rand(0.12, 0.3) : diff.react * rand(0.8, 1.2) * (mzEase() ? mzEase().react : 1)); }   /* the charging men fire the moment they see him: running at him they had no time for the slow first look, and reached him without a shot (the bug the user saw) */   /* a man who has just seen the player needs a moment before he fires: longer on the easy level */
   const g = e.group;
   if (e.state === 'jump') {
     // over the gunwale and down onto the sand: the vault's own movement, at a pace a man can jump (not a flight)
@@ -1007,7 +1007,7 @@ function planStep(e, dt, shoot, aimPitch) {
     const dGo = Math.hypot(s.x - e.pos.x, s.z - e.pos.z), last = s.final && dGo < 4.5;   /* the last few metres to the parapet: no ducking, no stopping to fire - straight at it and over */
     if (s.final && !last && s.tt < 4 && aimedAt(e)) { e.stance = 'hide'; e.rig.pose('hide', e.anim); return; }
     if (!last && !e.cmd && awareReact(e, dt, shoot, aimPitch)) return;
-    if (e.cmd && !last && e.target) shoot();   /* the commando fire as they run */
+    if (e.cmd && e.target) shoot();   /* the charging men fire as they run, right up to the parapet */
     e.anim += dt * (s.crun ? 8.5 : 9.5); e.stance = s.crun ? 'crouch' : 'stand'; const d = steer(e, s.x, s.z, s.crun ? Math.min(e.speed, e.cmd ? 4.9 : 3.7) : e.speed, dt); e.rig.pose(s.crun ? 'crun' : 'run', e.anim);   /* in the sap: bent low */
     if (s.t === 'run') { const nx = e.plan[e.ps + 1];
       if (d < (s.final ? 0.35 : s.near || 0.6) || (s.final ? (s.quick ? s.tt > 2.5 && d < 2.2 : s.tt > 9 && d < 1.0) : s.tt > 14)) e.ps++;   /* the last steps to the parapet end in the vault - but only from beside it, never a leap from afar */
@@ -1076,7 +1076,8 @@ function trenchStep(e, dt, shoot, aimPitch) {
     e.anim += dt * 9; if (e.cmd && dP < 6 && crowdedAt(e.pos.x, e.pos.z, 1.1, e)) sideStep(e, dt, 1.6);   /* the men already on him take the room: the rest spread and fire, no heap */
     else if (dP > 1.3) steer(e, P.pos.x, P.pos.z, dP > 8 ? 5.0 : 3.4, dt);
     e.face(P.pos.x, P.pos.z); e.stance = 'stand';
-    e.fireCd -= dt; if (seesP && e.fireCd <= 0) { if (e.burst <= 0) e.burst = wBurst(e); e.burst--; e.fireCd = e.burst > 0 ? wGap(e) : wPause(e, 0.3); enemyFire(e); }
+    let canSee = seesP; if (!canSee && e.cmd && dP < 40) { const ey = e.eye(), pe = playerEye(); if (seeW(ey.x, ey.y, ey.z, pe.x, pe.y, pe.z)) { e.target = { player: true, p: pe }; canSee = true; } }
+    e.fireCd -= dt; if (canSee && e.fireCd <= 0) { if (e.burst <= 0) e.burst = wBurst(e); e.burst--; e.fireCd = e.burst > 0 ? wGap(e) : wPause(e, e.cmd ? 0.18 : 0.3); enemyFire(e); }
     e.rig.pose(dP > 8 ? 'run' : 'aim', e.anim, aimPitch()); return;
   }
   if (e.cmd) { trenchCmd(e, dt, dir, dP, seesP, between, aimed, aimPitch); return; }
