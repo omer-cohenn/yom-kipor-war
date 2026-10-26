@@ -1925,6 +1925,11 @@ const TKEY = { T: 'עשן', E: 'הכפתור הירוק', F: 'פעולה (להח
 const K = (k) => `<kbd>${TOUCH && TKEY[k] ? TKEY[k] : k}</kbd>`;
 const TUT = { seen: {}, queue: [], cur: null, curT: 0, shown: 0, radioQ: [], radioT: 0, step: 'shelter' };
 function hint(key, html, dur = 7) { if (TUT.seen[key]) return; TUT.seen[key] = true; TUT.queue.push({ html: touchIcons(html), dur }); }
+/* whose face goes with a line: by his role; our own men by name take the soldier's face; the player himself none */
+const PORTRAIT_OF = { 'מ״פ': 'mp', 'מג״ד': 'mp', 'מפקד המעוז': 'mp', 'מ״פ צנחנים': 'mp', 'מ״מ': 'mp', 'מפקד פורקן': 'mp', 'שיירה': 'mp', 'צנחנים': 'mp', 'צנחן': 'tazpit', 'מפקד הסירה': 'mp',
+  'תצפית': 'tazpit', 'שומר': 'tazpit', 'קשר': 'tazpit', 'חובש': 'tazpit', 'החובש': 'tazpit', 'לוחם': 'tazpit', 'מח״ט': 'mahat', 'חמ״ל': 'mahat', 'מפקד הגשר': 'mahat', 'גשר': 'mahat',
+  'נהג': 'nahag', 'תותחן': 'nahag', 'הטען': 'nahag', 'מפקד הטנק': 'nahag', 'טנק 2': 'nahag', 'טנק 3': 'nahag' };
+function portraitOf(who) { if (!who || who === 'אתה' || who === 'אתם') return null; return PORTRAIT_OF[who] || 'tazpit'; }
 function radio(who, text, dur = 4.2, quiet = false) { TUT.radioQ.push({ who, text, dur, quiet }); }   // quiet: said by a man beside the player, not over the radio
 function resetTutorial() { Object.assign(TUT, { seen: {}, queue: [], cur: null, curT: 0, shown: 0, radioQ: [], radioT: 0, step: 'shelter' }); $('#hint').classList.remove('on'); $('#radio').classList.remove('on'); clearObjective(); }
 function updTutorial(dt) {
@@ -1932,7 +1937,7 @@ function updTutorial(dt) {
   if (TUT.cur) { TUT.curT -= dt; TUT.shown += dt; if (TUT.queue.length && TUT.shown > 4) TUT.curT = Math.min(TUT.curT, 0.4); if (TUT.curT <= 0) { TUT.cur = null; $('#hint').classList.remove('on'); } }
   if (!TUT.cur && TUT.queue.length) { TUT.cur = TUT.queue.shift(); TUT.curT = TUT.cur.dur; TUT.shown = 0; $('#hintText').innerHTML = TUT.cur.html; $('#hint').classList.add('on'); }
   TUT.radioT -= dt;
-  if (TUT.radioT <= 0) { if (TUT.radioQ.length) { const r = TUT.radioQ.shift(); $('#radioWho').textContent = r.who; $('#radioText').textContent = r.text; $('#radio').classList.add('on'); $('#radio').classList.toggle('near', !!r.quiet); TUT.radioT = r.dur; { const sp = FRIENDS.find((f) => f.name === r.who && f.unit.alive && f.unit.rig.root.visible); if (sp) nsTalk(sp.unit, Math.min(r.dur * 0.85, 0.6 + r.text.length * 0.065), /!$/.test(r.text) && r.text.length < 30 ? 'shout' : 'speak'); } if (!r.quiet) sndRadio(); } else $('#radio').classList.remove('on'); }
+  if (TUT.radioT <= 0) { if (TUT.radioQ.length) { const r = TUT.radioQ.shift(); $('#radioWho').textContent = r.who; $('#radioText').textContent = r.text; { const pk = portraitOf(r.who); if (pk) $('#radioPic').src = PORTRAITS[pk]; $('#radio').classList.toggle('nopic', !pk); } $('#radio').classList.add('on'); $('#radio').classList.toggle('near', !!r.quiet); TUT.radioT = r.dur; { const sp = FRIENDS.find((f) => f.name === r.who && f.unit.alive && f.unit.rig.root.visible); if (sp) nsTalk(sp.unit, Math.min(r.dur * 0.85, 0.6 + r.text.length * 0.065), /!$/.test(r.text) && r.text.length < 30 ? 'shout' : 'speak'); } if (!r.quiet) sndRadio(); } else $('#radio').classList.remove('on'); }
   updObjective();
 }
 function tutorialTriggers() {

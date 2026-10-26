@@ -808,6 +808,23 @@ button:focus-visible{outline:2px solid var(--sand);outline-offset:2px}
   .h-num{font-size:34px} .h-txt b{font-size:16px}
 }
 
+
+/* the caption of who speaks (the user): his face, his name and what he says, all in one colour, on a strip that is mostly see-through and blurs
+   the game behind it; at the bottom, never cut - a long line wraps; phone held either way */
+#app #radio{top:auto;bottom:max(18px,env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:12px;direction:rtl;
+  width:min(640px,calc(100% - 32px));max-width:none;box-sizing:border-box;padding:10px 18px 10px 10px;border:0;border-radius:14px;
+  background:rgba(14,15,11,.17);-webkit-backdrop-filter:blur(9px);backdrop-filter:blur(9px);color:#ece3cc;font-size:17px;line-height:1.35;white-space:normal;text-shadow:0 1px 3px rgba(0,0,0,.85)}
+#app #radio .rTxt{min-width:0;flex:1}
+#app #radio b{display:block;color:#ece3cc;margin:0 0 2px;font-size:15px;font-weight:700}
+#app #radio #radioText{display:block;overflow-wrap:anywhere}
+#app #radio #radioPic{width:76px;height:76px;flex:none;object-fit:cover;-webkit-mask-image:radial-gradient(circle at 50% 46%,#000 48%,rgba(0,0,0,.6) 60%,transparent 71%);mask-image:radial-gradient(circle at 50% 46%,#000 48%,rgba(0,0,0,.6) 60%,transparent 71%)}
+#app #radio.nopic #radioPic{display:none}
+#app #radio.nopic{padding-right:18px}
+#app #radio.near #radioWho::after{content:""}
+#app.is-touch #radio{top:auto;bottom:max(14px,env(safe-area-inset-bottom,0px));width:min(560px,calc(100% - 300px));max-width:none;font-size:15px;line-height:1.35;padding:8px 16px 8px 8px}
+#app.is-touch #radio b{font-size:13.5px}
+#app.is-touch #radio #radioPic{width:64px;height:64px}
+@media (orientation: portrait){ #app #radio,#app.is-touch #radio{top:auto;bottom:150px;width:calc(100% - 24px);max-width:none;font-size:16px} #app #radio #radioPic,#app.is-touch #radio #radioPic{width:68px;height:68px} }
 </style>
 
 <div id="app" dir="rtl" lang="he">
@@ -839,7 +856,7 @@ button:focus-visible{outline:2px solid var(--sand);outline-offset:2px}
   <div class="hud" id="feed"></div>
   <div class="hud" id="toast"><b id="toastT"></b><span id="toastS"></span></div>
   <div class="hud" id="cap" role="status"><span id="capText"></span><div class="bar"><i id="capFill"></i></div></div>
-  <div class="hud" id="radio" role="status"><b id="radioWho"></b><span id="radioText"></span></div>
+  <div class="hud" id="radio" role="status"><img id="radioPic" alt=""><div class="rTxt"><b id="radioWho"></b><span id="radioText"></span></div></div>
   <div class="hud" id="hint" role="status"><div id="hintText"></div></div>
   <div class="hud" id="guide" aria-hidden="true"><svg viewBox="0 0 40 40"><path d="M20 3 L33 31 L20 24 L7 31 Z" stroke="#1b150b" stroke-width="2.4" stroke-linejoin="round"/></svg><span id="guideD"></span></div>
   <div class="hud" id="edge"><svg viewBox="0 0 46 46" aria-hidden="true"><path d="M23 3 L38 32 L23 25 L8 32 Z" fill="#ffcf73" stroke="#1b150b" stroke-width="2" stroke-linejoin="round"/></svg><span id="edgeD"></span></div>
@@ -1078,7 +1095,7 @@ window.LD = (function () {
 <script>
 /* the game's code is one big file: fetched here so the loading screen can show how much of it has arrived, then run as a module */
 (function () {
-  var SRC = 'game.js?v=470f4373c6', SIZE = 14978398, mb = function (n) { return (n / 1048576).toFixed(1); };
+  var SRC = 'game.js?v=16b71b597d', SIZE = 15016737, mb = function (n) { return (n / 1048576).toFixed(1); };
   LD.plan([['dl', 'מוריד את המשחק', 5], ['code', 'מכין את המשחק', 4]], { img: 'img/mezach.jpg', clip: 'mezach' }); LD.step('dl'); LD.note('0.0 מתוך ' + mb(SIZE) + ' מ״ב');
   function fail() { LD.error('ההורדה נכשלה. בדקו את החיבור לאינטרנט ורעננו את הדף.'); }
   function start(s) { LD.step('code'); LD.frac(0.15, 2500); s.type = 'module'; document.body.appendChild(s); }
