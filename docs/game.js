@@ -12764,23 +12764,23 @@ function mirageFilm() {
   let shots;
   shots = [
     // behind and above the MiG: it fills the left of the frame, the Mirage small and sharp seventy metres ahead
-    { d: 1.6, cam: (u) => ({ p: at(gp(), -15 + u * 2, 3.2, 3.2), l: mp().add(V3(0, -0.5, 0)), fov: 30 }) },
+    { d: 3.2, slow: 0.5, cam: (u) => ({ p: at(gp(), -15 + u * 2, 3.2, 3.2), l: mp().add(V3(0, -0.5, 0)), fov: 30 }) },
     // beside the MiG's wing as the missile leaves it: the camera turns to follow the missile across the gap
     { d: 1.6, slow: 0.5, cam: (u) => ({ p: at(gp(), -2 + u * 6, 7, 1.4), l: ev.missile ? ev.missile.m.position.clone().lerp(mp(), 0.35) : mp(), fov: 36 }) },
     // alongside the Mirage, slow: the missile arrives, the fireball, the wing torn off and tumbling away
-    { d: 1.1, slow: 0.35, cam: (u) => ({ p: at(mp(), -7 + u * 1, 17, 2.6 - u * 0.8), l: mp().addScaledVector(d, -2), fov: 40 }) },
+    { d: 0.8, slow: 0.5, cam: (u) => ({ p: at(mp(), -7 + u * 1, 17, 2.6 - u * 0.8), l: mp().addScaledVector(d, -2), fov: 40 }) },
     // close on the cockpit, from ahead and beside it: the canopy blows, the seat fires him up and out
-    { d: 1.7, slow: 0.3, cam: (u) => { const ck = M.m.g.localToWorld((M.m.canopy.userData.p0 || V3(3.6, 0.2, 0)).clone()); return { p: at(ck, 5 - u * 2, 7.5, 1.8 + u * 1.5), l: ev.chuteOn ? ck.clone().lerp(ev.chP, 0.6) : ck, fov: 40 }; } },
+    { d: 1.0, slow: 0.5, cam: (u) => { const ck = M.m.g.localToWorld((M.m.canopy.userData.p0 || V3(3.6, 0.2, 0)).clone()); return { p: at(ck, 5 - u * 2, 7.5, 1.8 + u * 1.5), l: ev.chuteOn ? ck.clone().lerp(ev.chP, 0.6) : ck, fov: 40 }; } },
     // the parachute opening, in slow motion: the streamer, then the bloom
-    { d: 3.4, slow: 0.35, cam: (u) => { const c = chT(); return { p: at(c, -4 + u * 2, 10 + u * 3, 0.5 + u * 2), l: c.clone().add(V3(0, 2.4 * Math.min(1, (ev.chT || 0) / 1.2), 0)), fov: 42 }; } },
+    { d: 2.4, slow: 0.5, cam: (u) => { const c = chT(); return { p: at(c, -4 + u * 2, 10 + u * 3, 0.5 + u * 2), l: c.clone().add(V3(0, 2.4 * Math.min(1, (ev.chT || 0) / 1.2), 0)), fov: 42 }; } },
     // open: at normal speed again, pulling away until the jet is a burning streak far below
-    { d: 3.2, cam: (u) => { const c = chT(); return { p: at(c, -2 + u * 4, 13 + u * 14, 2 + u * 6), l: c.clone().add(V3(0, 2.6 * (1 - u * 0.6) - u * 4, 0)), fov: 44 + u * 8 }; } },
+    { d: 6.4, slow: 0.5, cam: (u) => { const c = chT(); return { p: at(c, -2 + u * 4, 13 + u * 14, 2 + u * 6), l: c.clone().add(V3(0, 2.6 * (1 - u * 0.6) - u * 4, 0)), fov: 44 + u * 8 }; } },
   ];
 
   playCine({ vid: 'mz_mirage',
     title: 'מעל תעלת סואץ · 14:00',
     shots,
-    caps: [[0.1, '<b>תצפית:</b> מיראז׳ שלנו מעל התעלה! מיג מצרי על הזנב שלו!', 1.6], [1.6, '<b>תצפית:</b> טיל! טיל באוויר!', 1.6], [3.3, '<b>תצפית:</b> פגיעה! הכנף נקרעה!', 2.2], [4.4, '<b>מ״פ:</b> הטייס נטש! יש מצנח!', 2.6], [9.6, '<b>מ״פ:</b> כולם להישאר במקורה, המטוסים חוזרים!', 2.2]],
+    caps: [[0.1, '<b>תצפית:</b> מיראז׳ שלנו מעל התעלה! מיג מצרי על הזנב שלו!', 3.0], [3.2, '<b>תצפית:</b> טיל! טיל באוויר!', 1.6], [4.8, '<b>תצפית:</b> פגיעה! הכנף נקרעה!', 1.4], [6.0, '<b>מ״פ:</b> הטייס נטש! יש מצנח!', 3.0], [12.4, '<b>מ״פ:</b> כולם להישאר במקורה, המטוסים חוזרים!', 2.6]],
     end: () => { M.mig.visible = false; },
   });
 }
