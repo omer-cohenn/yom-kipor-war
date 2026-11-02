@@ -12629,8 +12629,8 @@ const jxBurnt = () => JX.burnt || (JX.burnt = new THREE.MeshStandardMaterial({ c
 function mirageModelJ() {
   const J = jetParts(), skin = jetMat('il'), g = new THREE.Group(), wy = J.wingY;
   for (const [geo, mat] of [[J.body, skin], [J.tank, skin], [J.pit, _jetPit()]]) g.add(new THREE.Mesh(geo, mat));
-  const wingR = new THREE.Mesh(J.wingR, skin); g.add(wingR);
-  const canopy = new THREE.Group(); { const gg = J.glass.clone(); gg.computeBoundingBox(); const c = gg.boundingBox.getCenter(V3()); gg.translate(-c.x, -c.y, -c.z); canopy.position.copy(c); canopy.add(new THREE.Mesh(gg, _jetGlass())); g.add(canopy); }
+  const wingR = new THREE.Mesh(J.wingR, skin); wingR.userData.y0 = 0; g.add(wingR);
+  const canopy = new THREE.Group(); { const gg = J.glass.clone(); gg.computeBoundingBox(); const c = gg.boundingBox.getCenter(V3()); gg.translate(-c.x, -c.y, -c.z); canopy.position.copy(c); canopy.userData.p0 = c.clone(); canopy.add(new THREE.Mesh(gg, _jetGlass())); g.add(canopy); }
   const tearIn = [], ins = new THREE.MeshStandardMaterial({ color: 0x3a3630, metalness: 0.6, roughness: 0.6 });
   for (const x of [-5.2, -4.0, -2.8, -1.6, -0.4]) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.12, 0.06), ins); b.position.set(x, wy, 2.12); b.visible = false; g.add(b); tearIn.push(b);
     const r2 = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.14, 0.35), jxBurnt()); r2.position.set(x + 0.3, wy, 2.0); r2.visible = false; g.add(r2); tearIn.push(r2); }
@@ -12753,8 +12753,8 @@ const MG_T = { launch: 7.0, hit: 7.8, eject: 8.2, gap: 70 };
 function mirageFilm() {
   if (!AIR.models) { AIR.models = { m: mirageModel(), mig: migModel(), chute: chuteModel() }; }
   const M = AIR.models, H = V3(nearX(-350), 330, 175), d = V3(0.9, 0, -0.45).normalize(), sp = 92;
-  M.m.g.visible = true; M.m.wingR.visible = true; M.mig.visible = true; for (const r of M.mig.userData.rail || []) r.visible = true; M.chute.visible = false; if (M.m.wingR.parent !== M.m.g) { M.m.g.attach(M.m.wingR); } M.m.wingR.position.set(0, -0.22, 0); M.m.wingR.rotation.set(0, 0, 0);
-  for (const s2 of (AIR.ev && AIR.ev.shards) || []) scene.remove(s2.m); if (AIR.models) { for (const b of AIR.models.m.tearIn || []) b.visible = false; const cp = AIR.models.m.canopy; if (cp) { if (cp.parent !== AIR.models.m.g) AIR.models.m.g.attach(cp); cp.position.set(3.9, 0.3, 0); cp.rotation.set(0, 0, 0); cp.visible = true; } }
+  M.m.g.visible = true; M.m.wingR.visible = true; M.mig.visible = true; for (const r of M.mig.userData.rail || []) r.visible = true; M.chute.visible = false; if (M.m.wingR.parent !== M.m.g) { M.m.g.attach(M.m.wingR); } M.m.wingR.position.set(0, M.m.wingR.userData.y0 ?? -0.22, 0); M.m.wingR.rotation.set(0, 0, 0);
+  for (const s2 of (AIR.ev && AIR.ev.shards) || []) scene.remove(s2.m); if (AIR.models) { for (const b of AIR.models.m.tearIn || []) b.visible = false; const cp = AIR.models.m.canopy; if (cp) { if (cp.parent !== AIR.models.m.g) AIR.models.m.g.attach(cp); cp.position.copy(cp.userData.p0 || V3(3.9, 0.3, 0)); cp.rotation.set(0, 0, 0); cp.visible = true; } }
   const ev = AIR.ev = { fireLast: null, t: 5.4, H, d, sp, hit: false, vy: 0, roll: 0, crashed: false, missile: null, wingV: V3(), smokeT: 0, chuteOn: false, ejected: false };
   updMirage(0);
   const side = V3(-d.z, 0, d.x), sunSd = side.x * SUN.dir.x + side.z * SUN.dir.z > 0 ? 1 : -1, UP = V3(0, 1, 0);
@@ -12768,11 +12768,13 @@ function mirageFilm() {
     // beside the MiG's wing as the missile leaves it: the camera turns to follow the missile across the gap
     { d: 1.6, slow: 0.5, cam: (u) => ({ p: at(gp(), -2 + u * 6, 7, 1.4), l: ev.missile ? ev.missile.m.position.clone().lerp(mp(), 0.35) : mp(), fov: 36 }) },
     // alongside the Mirage, slow: the missile arrives, the fireball, the wing torn off and tumbling away
-    { d: 2.6, slow: 0.35, cam: (u) => ({ p: at(mp(), -7 + u * 2, 17, 2.6 - u * 2), l: mp().addScaledVector(d, -2), fov: 40 }) },
-    // behind the falling jet: the canopy goes, the seat fires the pilot clear
-    { d: 1.6, slow: 0.4, cam: (u) => ({ p: at(mp(), -13, 6, 7 - u * 2), l: chT().lerp(mp(), 0.4), fov: 46 }) },
-    // the parachute opening high over the canal, pulling away until the jet is a burning streak far below
-    { d: 4.6, slow: 0.5, cam: (u) => { const c = chT(), up = ev.chuteOn ? 2.6 * Math.min(1, ev.chT / 1.2) : 0; return { p: at(c, -3 + u * 5, 11 + u * 16, up - 1 + u * 7), l: c.clone().add(V3(0, up * (1 - u * 0.6) - u * 4, 0)), fov: 44 + u * 8 }; } },
+    { d: 1.1, slow: 0.35, cam: (u) => ({ p: at(mp(), -7 + u * 1, 17, 2.6 - u * 0.8), l: mp().addScaledVector(d, -2), fov: 40 }) },
+    // close on the cockpit, from ahead and beside it: the canopy blows, the seat fires him up and out
+    { d: 1.7, slow: 0.3, cam: (u) => { const ck = M.m.g.localToWorld((M.m.canopy.userData.p0 || V3(3.6, 0.2, 0)).clone()); return { p: at(ck, 5 - u * 2, 7.5, 1.8 + u * 1.5), l: ev.chuteOn ? ck.clone().lerp(ev.chP, 0.6) : ck, fov: 40 }; } },
+    // the parachute opening, in slow motion: the streamer, then the bloom
+    { d: 3.4, slow: 0.35, cam: (u) => { const c = chT(); return { p: at(c, -4 + u * 2, 10 + u * 3, 0.5 + u * 2), l: c.clone().add(V3(0, 2.4 * Math.min(1, (ev.chT || 0) / 1.2), 0)), fov: 42 }; } },
+    // open: at normal speed again, pulling away until the jet is a burning streak far below
+    { d: 3.2, cam: (u) => { const c = chT(); return { p: at(c, -2 + u * 4, 13 + u * 14, 2 + u * 6), l: c.clone().add(V3(0, 2.6 * (1 - u * 0.6) - u * 4, 0)), fov: 44 + u * 8 }; } },
   ];
 
   playCine({ vid: 'mz_mirage',
@@ -12822,18 +12824,13 @@ function updMirage(dt) {
     ev.smokeT -= dt; if (ev.smokeT <= 0) { ev.smokeT = 0.025; const sp0 = g.localToWorld(M.m.stub.clone()); if (t - T_HIT < 1.6) { const v2 = FX.smoke.get(); v2.life = 1.6; v2.s.position.copy(sp0); v2.s.material.color.set(0xf0eee8); v2.upd = (q, u) => { q.s.scale.setScalar(0.6 + u * 3); q.s.material.opacity = 0.6 * (1 - u); }; }   /* the fuel spraying white from the torn tanks */ const s = FX.smoke.get(); s.life = 7; s.s.position.copy(sp0); s.s.material.color.set(0x1d1a17); s.upd = (q, u) => { q.s.scale.setScalar(3 + u * 12); q.s.material.opacity = 0.85 * (1 - u); }; const prev = ev.fireLast || sp0, seg = prev.distanceTo(sp0), nf = Math.min(14, Math.max(1, Math.ceil(seg / 1.1))); for (let q = 0; q < nf; q++) { const f = FX.fire.get(); f.life = 0.32; f.s.position.copy(prev).lerp(sp0, (q + 1) / nf); const sc = 2.2 + Math.random() * 1.4; f.s.scale.setScalar(sc); f.upd = (o, u) => o.s.scale.setScalar(sc * (1 - u * 0.7)); } ev.fireLast = sp0.clone(); }   // a continuous ribbon of flame from the torn root, not a string of balls
     if (t > MG_T.eject && !ev.chuteOn) {
       const up = V3(0, 1, 0).applyQuaternion(g.quaternion), dir = up.clone().multiplyScalar(0.45).add(V3(0, 1, 0)).normalize();
-      ev.chuteOn = true; ev.chT = 0; ev.chB = null; ev.chP = g.localToWorld(V3(3.6, 0.5, 0)); ev.chV = ev.v.clone().multiplyScalar(0.55).addScaledVector(dir, 34); ev.chTilt = Math.atan2(up.x * d.z - up.z * d.x, up.y) || 0;
+      ev.chuteOn = true; ev.chT = 0; ev.chB = null; ev.chP = g.localToWorld((M.m.canopy.userData.p0 || V3(3.6, 0.2, 0)).clone().add(V3(-0.3, 0.3, 0))); ev.chV = ev.v.clone().multiplyScalar(0.55).addScaledVector(dir, 34); ev.chTilt = Math.atan2(up.x * d.z - up.z * d.x, up.y) || 0;
       M.chute.visible = true; M.chute.scale.setScalar(1); M.chute.userData.canopy.scale.set(0.02, 0.02, 0.02); M.chute.position.copy(ev.chP); }
     const gy = groundAt(g.position.x, g.position.z); if (g.position.y < Math.max(gy, 0) + 1) { ev.crashed = true; ev.crashP = g.position.clone(); ev.crashP.y = Math.max(gy, 0); fxExplosion(ev.crashP, 3.2); sndBoom(ev.crashP, 3); g.visible = false; D.smoke.push(smokeColumn(ev.crashP.x, ev.crashP.z, 36, true)); FX.shake = Math.max(FX.shake, 0.6); }
     if (w.position.y < Math.max(groundAt(w.position.x, w.position.z), 0)) { w.visible = false; }
   }
   if (ev.chuteOn) { const c = M.chute;
-    /* the way out of the cockpit, three times slower (the user): his own motion - the seat's shove, the fall, the canopy opening - runs at a
-       third of the pace for the first part, while what he carries of the jet's speed goes on at its own */
-    const slowEj = ev.chT < 1.6, dtc = slowEj ? dt / 3 : dt;
-    if (slowEj && !ev.chB) { ev.chB = ev.v.clone().multiplyScalar(0.55); ev.chV.sub(ev.chB); }
-    if (ev.chB) { if (slowEj) { ev.chP.addScaledVector(ev.chB, dt); ev.chB.multiplyScalar(Math.max(0, 1 - dt * 0.5)); } else { ev.chV.add(ev.chB); ev.chB = null; ev.chBdone = true; } }
-    ev.chT += dtc; const T2 = ev.chT;
+    const dtc = dt; ev.chT += dtc; const T2 = ev.chT;
     const open = smooth(0.55, 1.5, T2);   // how far the canopy has opened: its drag takes over from the fall
     if (T2 < 0.3) { const f = FX.fire.get(); f.life = 0.18; f.s.position.copy(ev.chP).add(V3(0, -0.5, 0)); f.s.scale.setScalar(1.6); f.upd = (o, u) => o.s.scale.setScalar(1.6 * (1 - u)); const sm = FX.smoke.get(); sm.life = 1.6; sm.s.position.copy(ev.chP).add(V3(0, -0.6, 0)); sm.s.material.color.set(0xd8d2c6); sm.upd = (o, u) => { o.s.scale.setScalar(0.5 + u * 2.5); o.s.material.opacity = 0.6 * (1 - u); }; }   // the seat's rocket
     ev.chV.y -= 9.8 * dtc * (1 - open); ev.chV.multiplyScalar(Math.max(0, 1 - dtc * (0.5 + 2.2 * open)));
