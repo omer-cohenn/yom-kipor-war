@@ -923,6 +923,7 @@ function flotReset() { if (!FLOT.mesh) return; FLOT.on = false; for (const b of 
 
 /* ================= aircraft ================= */
 const JET_GEO = (() => {
+  if (typeof jetMerged === 'function') return jetMerged();   /* the downloaded fighter's shape (4j_jet_data.js); the old built one below stays as a fallback */
   const C = 0xa3a8a6, D = 0x7a8180, K = 0x26292b, GL = 0x3e5566;
   const wR = G.ext([[2.2, 0], [-2.8, 3.8], [-3.5, 3.8], [-3.7, 0]], 0.1).rotateX(Math.PI / 2), wL = G.ext([[2.2, 0], [-3.7, 0], [-3.5, -3.8], [-2.8, -3.8]], 0.1).rotateX(Math.PI / 2);
   const hR = G.ext([[-4.3, 0], [-5.5, 1.6], [-6.0, 1.6], [-6.0, 0]], 0.07).rotateX(Math.PI / 2), hL = G.ext([[-4.3, 0], [-6.0, 0], [-6.0, -1.6], [-5.5, -1.6]], 0.07).rotateX(Math.PI / 2);

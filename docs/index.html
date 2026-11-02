@@ -814,6 +814,7 @@ button:focus-visible{outline:2px solid var(--sand);outline-offset:2px}
 #app #radio{top:auto;bottom:max(18px,env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:12px;direction:rtl;
   width:min(640px,calc(100% - 32px));max-width:none;box-sizing:border-box;padding:10px 18px 10px 10px;border:0;border-radius:14px;
   background:rgba(14,15,11,.17);-webkit-backdrop-filter:blur(9px);backdrop-filter:blur(9px);color:#ece3cc;font-size:17px;line-height:1.35;white-space:normal;text-shadow:0 1px 3px rgba(0,0,0,.85)}
+#app #radio,#app.is-touch #radio{z-index:5}   /* over the touch buttons (the sight button was covering the face) */
 #app #radio .rTxt{min-width:0;flex:1}
 #app #radio b{display:block;color:#ece3cc;margin:0 0 2px;font-size:15px;font-weight:700}
 #app #radio #radioText{display:block;overflow-wrap:anywhere}
@@ -824,7 +825,7 @@ button:focus-visible{outline:2px solid var(--sand);outline-offset:2px}
 #app.is-touch #radio{top:auto;bottom:max(14px,env(safe-area-inset-bottom,0px));width:min(560px,calc(100% - 300px));max-width:none;font-size:15px;line-height:1.35;padding:8px 16px 8px 8px}
 #app.is-touch #radio b{font-size:13.5px}
 #app.is-touch #radio #radioPic{width:64px;height:64px}
-@media (orientation: portrait){ #app #radio,#app.is-touch #radio{top:auto;bottom:150px;width:calc(100% - 24px);max-width:none;font-size:16px} #app #radio #radioPic,#app.is-touch #radio #radioPic{width:68px;height:68px} }
+@media (orientation: portrait){ #app #radio,#app.is-touch #radio{top:auto;bottom:calc(214px + env(safe-area-inset-bottom,0px));width:calc(100% - 24px);max-width:none;font-size:16px} #app #radio #radioPic,#app.is-touch #radio #radioPic{width:68px;height:68px} }
 </style>
 
 <div id="app" dir="rtl" lang="he">
@@ -1095,7 +1096,7 @@ window.LD = (function () {
 <script>
 /* the game's code is one big file: fetched here so the loading screen can show how much of it has arrived, then run as a module */
 (function () {
-  var SRC = 'game.js?v=16b71b597d', SIZE = 15016737, mb = function (n) { return (n / 1048576).toFixed(1); };
+  var SRC = 'game.js?v=9c9796cc78', SIZE = 15658969, mb = function (n) { return (n / 1048576).toFixed(1); };
   LD.plan([['dl', 'מוריד את המשחק', 5], ['code', 'מכין את המשחק', 4]], { img: 'img/mezach.jpg', clip: 'mezach' }); LD.step('dl'); LD.note('0.0 מתוך ' + mb(SIZE) + ' מ״ב');
   function fail() { LD.error('ההורדה נכשלה. בדקו את החיבור לאינטרנט ורעננו את הדף.'); }
   function start(s) { LD.step('code'); LD.frac(0.15, 2500); s.type = 'module'; document.body.appendChild(s); }

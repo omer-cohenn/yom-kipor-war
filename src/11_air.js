@@ -74,7 +74,28 @@ function egyFlagTex() { const c = canvas(96, 72), g = c.getContext('2d'); g.fill
 const jxGlass = () => JX.glass || (JX.glass = new THREE.MeshStandardMaterial({ color: 0x223442, metalness: 0.9, roughness: 0.08, transparent: true, opacity: 0.88, envMapIntensity: 1.6 }));
 const jxDark = () => JX.dark || (JX.dark = new THREE.MeshStandardMaterial({ color: 0x2a2b2b, metalness: 0.7, roughness: 0.45 }));
 const jxBurnt = () => JX.burnt || (JX.burnt = new THREE.MeshStandardMaterial({ color: 0x6f5a46, metalness: 0.8, roughness: 0.35 }));
+/* the Mirage and the MiG from the downloaded model's shape (4j_jet_data.js), each in its own paint: the parts the film needs - the outer right
+   wing the missile tears away, the canopy that blows off, the torn insides along the tear, the point where the fire streams from */
+function mirageModelJ() {
+  const J = jetParts(), skin = jetMat('il'), g = new THREE.Group(), wy = J.wingY;
+  for (const [geo, mat] of [[J.body, skin], [J.tank, skin], [J.pit, _jetPit()]]) g.add(new THREE.Mesh(geo, mat));
+  const wingR = new THREE.Mesh(J.wingR, skin); g.add(wingR);
+  const canopy = new THREE.Group(); { const gg = J.glass.clone(); gg.computeBoundingBox(); const c = gg.boundingBox.getCenter(V3()); gg.translate(-c.x, -c.y, -c.z); canopy.position.copy(c); canopy.add(new THREE.Mesh(gg, _jetGlass())); g.add(canopy); }
+  const tearIn = [], ins = new THREE.MeshStandardMaterial({ color: 0x3a3630, metalness: 0.6, roughness: 0.6 });
+  for (const x of [-5.2, -4.0, -2.8, -1.6, -0.4]) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.12, 0.06), ins); b.position.set(x, wy, 2.12); b.visible = false; g.add(b); tearIn.push(b);
+    const r2 = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.14, 0.35), jxBurnt()); r2.position.set(x + 0.3, wy, 2.0); r2.visible = false; g.add(r2); tearIn.push(r2); }
+  g.traverse((m) => { if (m.isMesh) { m.castShadow = SHADOWS; onLayer1(m); } }); g.visible = false; scene.add(g); return { g, wingR, canopy, stub: V3(-2.6, wy, 2.1), skin, tearIn };
+}
+function migModelJ() {
+  const J = jetParts(), skin = jetMat('eg'), g = new THREE.Group(), wy = J.wingY;
+  for (const [geo, mat] of [[J.body, skin], [J.wingR, skin], [J.tank, skin], [J.pit, _jetPit()], [J.glass, _jetGlass()]]) g.add(new THREE.Mesh(geo, mat));
+  const rail = [], wm = new THREE.MeshStandardMaterial({ color: 0xd9d6cc, roughness: 0.5 });
+  for (const sd of [-1, 1]) { const m = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 2.7, 12).rotateZ(Math.PI / 2), wm); m.position.set(-1.5, wy - 0.28, sd * 2.6); g.add(m); rail.push(m); }
+  g.userData.rail = rail;
+  g.traverse((m) => { if (m.isMesh) { m.castShadow = SHADOWS; onLayer1(m); } }); g.visible = false; scene.add(g); return g;
+}
 function mirageModel() {
+  if (typeof JET_DATA !== 'undefined') return mirageModelJ();
   const skin = new THREE.MeshStandardMaterial({ map: jxCamoTex(), metalness: 0.15, roughness: 0.58 }), g = new THREE.Group(), add = (geo, mat, x = 0, y = 0, z = 0) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); g.add(m); return m; };
   // the fuselage, tail to radome, and the pitot boom
   // the fuselage to the radome's joint, and the radome: a long tangent ogive, full and round where it meets the body and drawing out to a
@@ -125,6 +146,7 @@ function mirageModel() {
   g.traverse((m) => { if (m.isMesh) { m.castShadow = SHADOWS; onLayer1(m); } }); g.visible = false; scene.add(g); return { g, wingR, canopy, stub: V3(-2.6, -0.22, 2.1), skin, tearIn };
 }
 function migModel() {
+  if (typeof JET_DATA !== 'undefined') return migModelJ();
   const skin = new THREE.MeshStandardMaterial({ map: jxMetalTex(), metalness: 0.72, roughness: 0.34 }), g = new THREE.Group(), add = (geo, mat, x = 0, y = 0, z = 0) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); g.add(m); return m; };
   // the fuselage, open at the nose round its intake, the shock cone in it, the spine down the back
   add(jxLathe([[0.5, -6.6], [0.56, -6.2], [0.6, -5], [0.62, -2], [0.62, 0], [0.6, 2], [0.56, 3.5], [0.5, 5], [0.46, 6.3], [0.45, 6.6], [0.4, 6.62], [0.38, 6.2]], 56), skin);
@@ -250,16 +272,22 @@ function updMirage(dt) {
     ev.smokeT -= dt; if (ev.smokeT <= 0) { ev.smokeT = 0.025; const sp0 = g.localToWorld(M.m.stub.clone()); if (t - T_HIT < 1.6) { const v2 = FX.smoke.get(); v2.life = 1.6; v2.s.position.copy(sp0); v2.s.material.color.set(0xf0eee8); v2.upd = (q, u) => { q.s.scale.setScalar(0.6 + u * 3); q.s.material.opacity = 0.6 * (1 - u); }; }   /* the fuel spraying white from the torn tanks */ const s = FX.smoke.get(); s.life = 7; s.s.position.copy(sp0); s.s.material.color.set(0x1d1a17); s.upd = (q, u) => { q.s.scale.setScalar(3 + u * 12); q.s.material.opacity = 0.85 * (1 - u); }; const prev = ev.fireLast || sp0, seg = prev.distanceTo(sp0), nf = Math.min(14, Math.max(1, Math.ceil(seg / 1.1))); for (let q = 0; q < nf; q++) { const f = FX.fire.get(); f.life = 0.32; f.s.position.copy(prev).lerp(sp0, (q + 1) / nf); const sc = 2.2 + Math.random() * 1.4; f.s.scale.setScalar(sc); f.upd = (o, u) => o.s.scale.setScalar(sc * (1 - u * 0.7)); } ev.fireLast = sp0.clone(); }   // a continuous ribbon of flame from the torn root, not a string of balls
     if (t > MG_T.eject && !ev.chuteOn) {
       const up = V3(0, 1, 0).applyQuaternion(g.quaternion), dir = up.clone().multiplyScalar(0.45).add(V3(0, 1, 0)).normalize();
-      ev.chuteOn = true; ev.chT = 0; ev.chP = g.localToWorld(V3(3.6, 0.5, 0)); ev.chV = ev.v.clone().multiplyScalar(0.55).addScaledVector(dir, 34); ev.chTilt = Math.atan2(up.x * d.z - up.z * d.x, up.y) || 0;
+      ev.chuteOn = true; ev.chT = 0; ev.chB = null; ev.chP = g.localToWorld(V3(3.6, 0.5, 0)); ev.chV = ev.v.clone().multiplyScalar(0.55).addScaledVector(dir, 34); ev.chTilt = Math.atan2(up.x * d.z - up.z * d.x, up.y) || 0;
       M.chute.visible = true; M.chute.scale.setScalar(1); M.chute.userData.canopy.scale.set(0.02, 0.02, 0.02); M.chute.position.copy(ev.chP); }
     const gy = groundAt(g.position.x, g.position.z); if (g.position.y < Math.max(gy, 0) + 1) { ev.crashed = true; ev.crashP = g.position.clone(); ev.crashP.y = Math.max(gy, 0); fxExplosion(ev.crashP, 3.2); sndBoom(ev.crashP, 3); g.visible = false; D.smoke.push(smokeColumn(ev.crashP.x, ev.crashP.z, 36, true)); FX.shake = Math.max(FX.shake, 0.6); }
     if (w.position.y < Math.max(groundAt(w.position.x, w.position.z), 0)) { w.visible = false; }
   }
-  if (ev.chuteOn) { const c = M.chute; ev.chT += dt; const T2 = ev.chT;
+  if (ev.chuteOn) { const c = M.chute;
+    /* the way out of the cockpit, three times slower (the user): his own motion - the seat's shove, the fall, the canopy opening - runs at a
+       third of the pace for the first part, while what he carries of the jet's speed goes on at its own */
+    const slowEj = ev.chT < 1.6, dtc = slowEj ? dt / 3 : dt;
+    if (slowEj && !ev.chB) { ev.chB = ev.v.clone().multiplyScalar(0.55); ev.chV.sub(ev.chB); }
+    if (ev.chB) { if (slowEj) { ev.chP.addScaledVector(ev.chB, dt); ev.chB.multiplyScalar(Math.max(0, 1 - dt * 0.5)); } else { ev.chV.add(ev.chB); ev.chB = null; ev.chBdone = true; } }
+    ev.chT += dtc; const T2 = ev.chT;
     const open = smooth(0.55, 1.5, T2);   // how far the canopy has opened: its drag takes over from the fall
     if (T2 < 0.3) { const f = FX.fire.get(); f.life = 0.18; f.s.position.copy(ev.chP).add(V3(0, -0.5, 0)); f.s.scale.setScalar(1.6); f.upd = (o, u) => o.s.scale.setScalar(1.6 * (1 - u)); const sm = FX.smoke.get(); sm.life = 1.6; sm.s.position.copy(ev.chP).add(V3(0, -0.6, 0)); sm.s.material.color.set(0xd8d2c6); sm.upd = (o, u) => { o.s.scale.setScalar(0.5 + u * 2.5); o.s.material.opacity = 0.6 * (1 - u); }; }   // the seat's rocket
-    ev.chV.y -= 9.8 * dt * (1 - open); ev.chV.multiplyScalar(Math.max(0, 1 - dt * (0.5 + 2.2 * open)));
-    const term = V3(1.2, -4.2, 0); ev.chV.lerp(term, Math.min(1, dt * 1.6 * open)); ev.chP.addScaledVector(ev.chV, dt); c.position.copy(ev.chP);
+    ev.chV.y -= 9.8 * dtc * (1 - open); ev.chV.multiplyScalar(Math.max(0, 1 - dtc * (0.5 + 2.2 * open)));
+    const term = V3(1.2, -4.2, 0); ev.chV.lerp(term, Math.min(1, dtc * 1.6 * open)); ev.chP.addScaledVector(ev.chV, dtc); c.position.copy(ev.chP);
     { const st = smooth(0.35, 0.6, T2), kk = open, w2 = Math.max(0.02, Math.max(st * 0.12, kk)); c.userData.canopy.scale.set(w2 * (1 + 0.03 * Math.sin(t * 3)), Math.max(0.02, Math.max(st * 1.15 * (1 - kk) + kk, 0.02)), w2 * (1 + 0.03 * Math.sin(t * 3 + 1))); }   // first a long streamer, then it blooms round
     chutePose(c, t); c.rotation.z = (ev.chTilt || 0) * (1 - smooth(0, 1.2, T2)) + Math.sin(t * 0.9) * 0.08 * open;   // he leaves at the jet's angle and swings upright under the canopy
     if (ev.chP.y < Math.max(groundAt(ev.chP.x, ev.chP.z), 0) + 0.3) { c.visible = false; ev.chuteOn = false; feed('הטייס נחת מאחורי המעוז', 'good'); } }
