@@ -16,10 +16,19 @@ let diff = DIFF[1];
    capture meter that much slower; react: a man who has just seen the player waits that much longer before he fires */
 const MZ_EASE = [
   { acc: 0.78, dmg: 0.55, gren: 0, art: 1.8, regen: [1.2, 38, 100], fAcc: 2, fHit: 0.4, boats: 0.7, boatV: 0.85, cap: 0.5, react: 1.6 },
-  { acc: 0.85, dmg: 0.6, gren: 0.3, art: 1.5, regen: [1.6, 34, 100], fAcc: 1.8, fHit: 0.5, boats: 0.7, boatV: 0.88, cap: 0.6, react: 1.4 },
-  { acc: 1.0, dmg: 0.75, gren: 0.6, art: 1.25, regen: [2.8, 28, 85], fAcc: 1.45, fHit: 0.7, boats: 0.85, boatV: 0.94, cap: 0.75, react: 1.2 },
+  { acc: 0.633, dmg: 0.5, gren: 0.15, art: 1.7, regen: [1.4, 36, 100], fAcc: 1.8, fHit: 0.5, boats: 0.61, boatV: 0.88, cap: 0.6, react: 2.0 },
+  { acc: 0.667, dmg: 0.43, gren: 0.25, art: 1.5, regen: [2.0, 32, 100], fAcc: 1.45, fHit: 0.7, boats: 0.556, boatV: 0.94, cap: 0.75, react: 2.5 },
+];
+/* the stronghold's own rules (the user, Nov 2026): men in each boat of the first wave, boats in each row of the last wave, the RPG - the hit
+   it costs the player, how long from seeing him to the rocket, how wide of him it may land */
+const MZ_LV = [
+  { seats: 4, row: 3, rpgDmg: 45, rpgT: 1.5, rpgSp: 2.5 },
+  { seats: 5, row: 4, rpgDmg: 50, rpgT: 1.2, rpgSp: 2.0 },
+  { seats: 5, row: 5, rpgDmg: 60, rpgT: 0.9, rpgSp: 1.6 },
 ];
 const mzEase = () => (MODE === 'mezach' && !SURV.on ? MZ_EASE[Math.max(0, DIFF.indexOf(diff))] : null);
+const mzLv = () => (MODE === 'mezach' && !SURV.on ? MZ_LV[Math.max(0, DIFF.indexOf(diff))] : null);
+const rpgTurn = () => !mzLv() || (D.rpgAlt = !D.rpgAlt);   /* in the stronghold only every other boat or squad leads with a rocket */
 const GAME = { state: 'loading', t: 0, stats: null };
 
 /* ================= audio ================= */
@@ -294,6 +303,7 @@ function woundFriend(f, killed = false, force = false) {
   { const c = u.chest(), o = V3(Math.sin(u.heading), 0, Math.cos(u.heading)); fxBlood(c, 12); bodyWound(u, c.clone().addScaledVector(o, 0.2).add(V3(rand(-0.08, 0.08), rand(-0.12, 0.06), 0))); }
   DIRQ.push({ at: GAME.t + 0.8, fn: () => { if (f.state === 'wounded' || f.state === 'kia') bloodPool(u, u.chest(), killed ? rand(0.95, 1.2) : rand(0.6, 0.8), f); } });
   if (killed) { f.state = 'kia'; feed(`${f.name} נהרג`, 'bad'); STATS.kia++; }
+  else if (MODE === 'mezach') { f.state = 'down'; DIRQ.push({ at: GAME.t + rand(3.5, 5), fn: () => { if (f.state === 'down') reviveFriend(f); } }); }   /* the user: no first aid in the stronghold */
   else { STATS.wounded++; f.state = 'wounded'; f.bleed = diff.bleed; feed(`${f.name} נפגע! ״חובש!״`, 'bad'); f.marker.visible = true; radio(f.name, 'נפגעתי! חובש!', 3); }
 }
 /* ================= the squad: how the men beside the player fight =================
@@ -476,9 +486,9 @@ function updFriend(f, dt, time) {
       const T = SQF.threat; if (T) u.heading += wrapPi(Math.atan2(T.x - u.pos.x, T.z - u.pos.z) - u.heading) * Math.min(1, dt * 4);
       const low = f.cov && f.cov.h < 1.3; u.stance = low ? 'hide' : 'crouch'; u.rig.pose(low ? 'hide' : 'crouch', u.anim, 0);
     } else { u.heading += wrapPi(Math.atan2(p.fx, p.fz) - u.heading) * 0.05; u.stance = 'stand'; u.rig.pose('idle', u.anim); }
-  } else if (f.state === 'wounded' || f.state === 'stable' || f.state === 'saved' || f.state === 'kia') {
+  } else if (f.state === 'wounded' || f.state === 'down' || f.state === 'stable' || f.state === 'saved' || f.state === 'kia') {
     if (u.fall >= 0 && u.fall < 1.4) { u.fall += dt; if (u.fall < 0.5) u.fallSlope = fallSlope(u, 1); u.rig.fallPose(u.fall, 1, 'back', u.fallSlope || 0); }
-    else if (f.state !== 'kia') u.rig.pose('prone', f.state === 'wounded' ? u.anim * 2 : u.anim * 0.4);
+    else if (f.state !== 'kia') u.rig.pose('prone', f.state === 'wounded' || f.state === 'down' ? u.anim * 2 : u.anim * 0.4);
     if (f.state === 'wounded') { f.bleed -= dt; if (f.bleed <= 0) { f.state = 'kia'; f.marker.visible = false; feed(`${f.name} מת מפצעיו`, 'bad'); STATS.kia++; } }
   }
   u.sync();
@@ -602,7 +612,8 @@ const wpnOf = (e) => WPN[e.kind] || WPN.rifle, wBurst = (e) => { const b = wpnOf
 function rpgFirst(e) { e.setKind('rpg'); e.rpgFirst = true; e.rpgCd = 0; e.cmdRpg = true; }
 function rpgShoot(e, tp) {
   e.rpgCd = e.cmdRpg ? rand(4, 6) : rand(8, 12); e.rpgPause = e.cmdRpg ? 1.1 : 1.6; e.face(tp.x, tp.z); e.rig.shoulderT = GAME.t + 1.6;   // up to the shoulder, aim, and the shot 0.6 s later
-  e.rpgTp = tp.clone().add(V3(rand(-1.4, 1.4), rand(-0.4, 0.7), rand(-1.4, 1.4))); e.rpgFireAt = GAME.t + (e.rpgFirst ? cmdSmart().rpg : 0.6);
+  const ml = mzLv(), sp = ml ? ml.rpgSp : 1.4; e.rpgTp = tp.clone().add(V3(rand(-sp, sp), rand(-0.4, 0.7), rand(-sp, sp))); e.rpgFireAt = GAME.t + (ml ? Math.max(ml.rpgT, e.rpgFirst ? 0 : 0.6) : e.rpgFirst ? cmdSmart().rpg : 0.6);
+  if (ml && e.target && e.target.player && GAME.t - (D.rpgYell || -9) > 1.5) { D.rpgYell = GAME.t; feed('RPG!', 'bad'); sndShouts(e.pos, 0.5); }   /* a warning the moment he shoulders it */
 }
 function rpgFireDue(e) {
   if (!e.rpgFireAt || GAME.t < e.rpgFireAt) return; e.rpgFireAt = 0; if (!e.alive || !e.rpgTp) return;
@@ -636,7 +647,8 @@ const TAC = [   // by level: how easily fire pins them, how fast it wears off, h
   { supp: 1.1, sDecay: 0.34, ramp: 2.7, flank: 20, mover: 0.36, fall: 0.55 },
   { supp: 0.8, sDecay: 0.3, ramp: 1.8, flank: 13, mover: 0.45, fall: 0.68 },
 ];
-const tacK = () => TAC[Math.max(0, DIFF.indexOf(diff))] || TAC[1];
+const TAC_MZ = [TAC[0], { supp: 1.3, sDecay: 0.37, ramp: 3.2, flank: 25, mover: 0.33, fall: 0.5 }, { supp: 1.05, sDecay: 0.33, ramp: 2.6, flank: 19, mover: 0.38, fall: 0.57 }];
+const tacK = () => (mzLv() ? TAC_MZ : TAC)[Math.max(0, DIFF.indexOf(diff))] || TAC[1];
 const pinned = (e) => (e.supp || 0) > 0.55;
 const sqKey = (e) => e.sq || e.sqAuto;   // his squad: the chapter's tag, or else the men who came in with him (spawned together, close by)
 const SQ = {};   // the squads by tag: their men, how many they were, where they last saw the player, their last flank and smoke, broken
@@ -1176,6 +1188,12 @@ function trenchCmd(e, dt, dir, dP, seesP, between, aimed, aimPitch) {
    seconds apart, so the canal fills with boats; rpg / flame: how many boats carry an RPG man or a flamethrower. Every boat is full - eight
    soldiers and the rowers - and all of them come ashore. near [d0, step]: the wave is already on the water, the first boat d0 metres from
    the beach and each next one step metres further out */
+/* the first wave in the stronghold: two rows across the canal, the second some seconds behind the first - 10 / 12 / 13 boats by level */
+function mzFirstWave() {
+  const N = [10, 12, 13][Math.max(0, DIFF.indexOf(diff))], f = Math.ceil(N / 2), r = rng(4417);
+  for (let i = 0; i < N; i++) { const row = i < f ? 0 : 1, k = row ? i - f : i, m = row ? N - f : f, z = lerp(-21, 10, (k + (row ? 0.5 : 0)) / Math.max(1, m - (row ? 0 : 1))) + (r() - 0.5) * 1.5;
+    const b = launchBoat(clamp(z, -22, 11), 3 + row * 9 + r() * 0.8, 8); b.hp = 150; }
+}
 function boatWave(z0, z1, n, t0, gap, seats, rpg = 0, flame = 0, hp, near) {
   const N = Math.max(2, Math.round(n * diff.boats * (LITE ? 0.8 : 1) * (mzEase() ? mzEase().boats : 1))), r = rng(4400 + Math.round(z0 * 7 + z1 * 3) + Math.max(0, D.scene) * 131);
   for (let i = 0; i < N; i++) { const z = lerp(z0, z1, (i * 0.618034) % 1) + (r() - 0.5) * 2.5, b = launchBoat(z, t0 + i * gap + r() * gap * 0.6, seats, i < rpg ? 1 : 0, i === Math.floor(N / 2) && flame ? 1 : 0); if (hp) b.hp = hp;
@@ -1278,7 +1296,7 @@ function updBoats(dt) {
         if (!s.alive || s.gone || bt.landT < i * 0.25) return;   // the soldiers first, then the rowers ship their oars and follow them
         const sp = bt.seatWorld(i), r = rng(bt.seed + i * 97), z = bt.zLand + (i % 2 ? 1 : -1) * (0.5 + r() * 3.5);
         const e = spawnEnemy(tongueWestX(z) + 1.6, z, varyKind(s.kind, z * 3.1, i * 7.7), null, null, { jump: sp });
-        if (!e) return; e.plan = westPlan(e, z, i, r); cmdTune(e); if (i === 0) rpgFirst(e); bt.intact = false; bt.setLod(false); s.gone = true; s.m.visible = false; if (s.oar) s.oar.visible = false;
+        if (!e) return; e.plan = westPlan(e, z, i, r); cmdTune(e); if (i === 0 && rpgTurn()) rpgFirst(e); bt.intact = false; bt.setLod(false); s.gone = true; s.m.visible = false; if (s.oar) s.oar.visible = false;
       });
       if (bt.seats.every((s) => !s.alive || s.gone) && bt.landT > 30) bt.dispose();
     }
@@ -1306,15 +1324,16 @@ function mzMineBoat(bt) {
    few metres behind it, the rows zigzagging one wave to the next. A boat is put on the water only when it is due to leave the quays; while
    the boats ahead are held off the beach (the landing cap), or the canal holds as many boats as it can draw, the waves behind wait */
 const ROWS = { on: false, q: [] };
-function rowsStart(o) { Object.assign(ROWS, { on: true, q: [], j: 0, men: 0, shift: 0, total: o.total, z0: o.z0, z1: o.z1, every: o.every, ctrl: o.ctrl, aLand: o.aLand, nextL: o.ctrl + 10 + o.every, rpgP: 0.3, r: rng(7300 + Math.round(GAME.t * 7)) }); }
-const ROW_MEN = 6, ROW_OARS = 4, ROW_LOAD = () => ROW_MEN + ROW_OARS;   /* a boat of the great wave: ten men, six soldiers and four at the oars - a wave of six boats is sixty */
+function rowsStart(o) { Object.assign(ROWS, { on: true, q: [], j: 0, men: 0, shift: 0, total: o.total, z0: o.z0, z1: o.z1, every: o.every, ctrl: o.ctrl, aLand: o.aLand, nextL: o.ctrl + 10 + o.every, rpgP: 0.2, r: rng(7300 + Math.round(GAME.t * 7)) }); }
+const ROW_MEN = 5, ROW_OARS = 4, ROW_LOAD = () => ROW_MEN + ROW_OARS;   /* a boat of the great wave: ten men, six soldiers and four at the oars - a wave of six boats is sixty */
 function rowsWave() {   // the next wave's boats: where each lands on the beach and when
   const j = ROWS.j++, r = ROWS.r, out = [], zc = (ROWS.z0 + ROWS.z1) / 2, d = (ROWS.z1 - ROWS.z0) / 3.4, cl = (z) => clamp(z, ROWS.z0, ROWS.z1);
   const boat = (land, z, back = false, jit = 0.5) => out.push({ land: land + rand(-jit, jit), z: cl(z + (r() - 0.5) * 4), wave: j, back, rpg: r() < (ROWS.rpgP ?? 0.3) ? 1 : 0, flame: j > 2 && r() < 0.12 ? 1 : 0 });
   if (j === 0) boat(ROWS.aLand, zc + (r() - 0.5) * 8, false, 0);   // to the frame: the boats film shows this one go up on the mines
   else if (j === 1) { boat(ROWS.ctrl + 10, zc - d * 0.9); boat(ROWS.ctrl + 10.8, zc + d * 0.9); }
   else { const L = ROWS.nextL ?? ROWS.ctrl + 10 + ROWS.every * (j - 1); ROWS.nextL = L + ROWS.every; const c = zc + (r() - 0.5) * 8, sg = j % 2 ? 1 : -1;
-    for (const k of [-1, 0, 1]) boat(L, c + k * d); for (const k of [-1, 0, 1]) boat(L + 2.6, c + sg * d / 2 + k * d, true);
+    const nr = mzLv() ? mzLv().row : 6, fc = Math.ceil(nr / 2), bc = nr - fc, ks = (m) => (m === 1 ? [0] : Array.from({ length: m }, (_, q) => -1 + 2 * q / (m - 1)));   /* the row: 3 / 4 / 5 boats by level, the front line and a second behind it */
+    for (const k of ks(fc)) boat(L, c + k * d); if (bc) for (const k of ks(bc)) boat(L + 2.6, c + sg * d / 2 + k * d, true);
   }
   out.length = Math.min(out.length, Math.max(1, Math.ceil((ROWS.total - ROWS.men) / ROW_LOAD())));   /* the last wave: only what is left of the total */
   ROWS.men += out.length * ROW_LOAD(); ROWS.q.push(...out); ROWS.q.sort((a, b) => a.land - b.land);
@@ -1336,27 +1355,27 @@ function rowsUpd(dt) {
 }
 function southGroup(n, delay, kinds = [], i0 = 0) {   // the same out of the southern scrub, up the southern saps
   for (let i = 0; i < n; i++) {
-    const k = kinds[i] || 'rifle', j = i + i0, sap = SAPS.s[j % 2], r = rng(91 + j * 29), go = () => { const e = spawnEnemy(sap[0][0] + (r() - 0.5) * 0.8, sap[0][1] + (r() - 0.5) * 0.8, varyKind(k, j * 2.9, delay), null, null); if (!e) { DIRQ.push({ at: GAME.t + 1, spawn: true, fn: go }); return; } e.plan = sapPlan(e, sap, j + 50); e.state = 'plan'; cmdTune(e); if (i === 0) rpgFirst(e); };
+    const k = kinds[i] || 'rifle', j = i + i0, sap = SAPS.s[j % 2], r = rng(91 + j * 29), go = () => { const e = spawnEnemy(sap[0][0] + (r() - 0.5) * 0.8, sap[0][1] + (r() - 0.5) * 0.8, varyKind(k, j * 2.9, delay), null, null); if (!e) { DIRQ.push({ at: GAME.t + 1, spawn: true, fn: go }); return; } e.plan = sapPlan(e, sap, j + 50); e.state = 'plan'; cmdTune(e); if (i === 0 && rpgTurn()) rpgFirst(e); };
     DIRQ.push({ at: GAME.t + delay + i * 0.9, spawn: true, fn: go });
   }
 }
 function northGroup(n, delay, kinds = [], i0 = 0, cmd = false) {   // i0: the first man's number in the whole force, so each squad has its own starts and its own routes
   for (let i = 0; i < n; i++) {
     const k = kinds[i] || 'rifle', j = i + i0;
-    const r = rng(77 + j * 31), sap = SAPS.n[j % 2], go = () => { const sp = sapSpawn(sap, r), e = spawnEnemy(sp[0], sp[1], varyKind(k, j * 3.7, delay), null, null);   /* at the head of one of their saps, in the scrub */ if (!e) { DIRQ.push({ at: GAME.t + 1, spawn: true, fn: go }); return; } e.plan = cmd ? northRushPlan(e, j) : northPlan(e, j); e.state = 'plan'; cmdTune(e); if (i === 0) rpgFirst(e); };
+    const r = rng(77 + j * 31), sap = SAPS.n[j % 2], go = () => { const sp = sapSpawn(sap, r), e = spawnEnemy(sp[0], sp[1], varyKind(k, j * 3.7, delay), null, null);   /* at the head of one of their saps, in the scrub */ if (!e) { DIRQ.push({ at: GAME.t + 1, spawn: true, fn: go }); return; } e.plan = cmd ? northRushPlan(e, j) : northPlan(e, j); e.state = 'plan'; cmdTune(e); if (i === 0 && rpgTurn()) rpgFirst(e); };
     DIRQ.push({ at: GAME.t + delay + (cmd ? (i >> 1) * 0.6 : i * 1.7), spawn: true, fn: go });   /* out of the scrub one after another, a little apart */
   }
 }
 /* the commando from the north comes in squads, one behind the other down the Lexicon road: far more men to stop than the one small group
    there was (the user: too few there), but never all of them at once, and only a couple of RPGs - more targets, not more fire. Per level:
    the men in each squad; a squad sets off MZ_CMD_GAP seconds after the one before it */
-const MZ_CMD = [8, 8, 8], MZ_CMD_GAP = 6.5;   /* the same number on every level (the user): only how cleverly they fight changes (CMD_SMART) */   // squads of four - two from each sap - one every few seconds, each with its RPG (two in every other)
-function mzCommando() { let t = 4, i0 = 0; for (let k = 0; k < MZ_CMD[Math.max(0, DIFF.indexOf(diff))]; k++) { northGroup(4, t, k % 2 ? ['rifle', 'rpg', 'rifle', 'rifle'] : ['rpg', 'rifle', 'rifle', 'rifle'], i0, true); i0 += 4; t += MZ_CMD_GAP; }   /* squads of four (the user: a third smaller than six) */ }
+const MZ_CMD = [3, 3, 4], MZ_CMD_GAP = 8;   /* half what the north had (the user, Nov 2026) */   /* the same number on every level (the user): only how cleverly they fight changes (CMD_SMART) */   // squads of four - two from each sap - one every few seconds, each with its RPG (two in every other)
+function mzCommando() { let t = 4, i0 = 0; for (let k = 0; k < MZ_CMD[Math.max(0, DIFF.indexOf(diff))]; k++) { northGroup(4, t, ['rifle', 'rifle', 'rifle', 'rifle'], i0, true);   /* the rocket only from the first man of every other squad (rpgTurn) */ i0 += 4; t += MZ_CMD_GAP; }   /* squads of four (the user: a third smaller than six) */ }
 /* ---------- the last wave: three minutes to hold, heavier every minute; then they turn back ---------- */
 function mzSurvive() {
   if (D.retreat) return; const t = GAME.t - D.survT0;
-  if (D.survLv < 1 && t > 60) { D.survLv = 1; ROWS.every = 17; ROWS.rpgP = 0.4; northGroup(4, 0, ['rpg', 'rifle', 'rifle', 'rifle'], 200, true); radio('תצפית', 'עוד שורות יוצאות מהרציף! וחוליה נוספת בכביש מצפון!', 4.2); }
-  if (D.survLv < 2 && t > 120) { D.survLv = 2; ROWS.every = 12; ROWS.rpgP = 0.55; radio('מ״פ', 'זו הדחיפה האחרונה שלהם! עוד דקה עד החשכה, מחזיקים!', 4.2); }
+  if (D.survLv < 1 && t > 60) { D.survLv = 1; ROWS.every = 30; ROWS.rpgP = 0.25; northGroup(4, 0, ['rpg', 'rifle', 'rifle', 'rifle'], 200, true); radio('תצפית', 'עוד שורות יוצאות מהרציף! וחוליה נוספת בכביש מצפון!', 4.2); }
+  if (D.survLv < 2 && t > 120) { D.survLv = 2; ROWS.every = 24; ROWS.rpgP = 0.35; radio('מ״פ', 'זו הדחיפה האחרונה שלהם! עוד דקה עד החשכה, מחזיקים!', 4.2); }
   if (GAME.t >= D.survEnd) mzRetreat();
 }
 /* the film of the end: the boats on the water stop and back off, the men still on the sand run for the water, the line of boats draws away west
@@ -1378,7 +1397,7 @@ function mzRetreat() {
 }
 /* how cleverly the invaders fight, by level (the numbers are the same on all three): the first shot after seeing the player, the rocket of the
    first man, a grenade over a traverse on the way in, the man who climbs out to come round behind */
-const CMD_SMART = [{ react: 0.8, rpg: 1.0, nade: 0, flank: 0 }, { react: 0.4, rpg: 0.5, nade: 0.5, flank: 6 }, { react: 0.15, rpg: 0.5, nade: 1, flank: 4 }];
+const CMD_SMART = [{ react: 0.8, rpg: 1.5, nade: 0, flank: 0 }, { react: 0.55, rpg: 1.2, nade: 0.2, flank: 9 }, { react: 0.3, rpg: 0.9, nade: 0.5, flank: 5 }];
 const cmdSmart = () => CMD_SMART[Math.max(0, DIFF.indexOf(diff))];
 const DIRQ = [];
 const BARRAGE_AT = 4, BARRAGE_LEN = 16;   // twenty seconds in the covered trench, then out to the guns
@@ -1433,14 +1452,14 @@ function corridorHas(C, x, z) {
 /* the mission is one trench: each stage opens the next stretch, sandbag barricades close everything else */
 const SCENES = [
   { title: 'סירות על המים', sub: 'שתיים אחרי הצהריים. מעבר לתעלה, מתוך העשן, יוצאות סירות עץ בשורה — עשרות חיילים בכל אחת, חותרים ישר אלינו. המא״ג המערבי הוא כל מה שעומד בינם לבין הסוללה.', goal: 'ירו בסירות מהמא״ג המערבי. מי שעלה לתעלה — הרגו אותו בתוכה', open: [136, 176], spawn: () => trenchAt(-1.0), face: 345, focus: w2Focus,
-    entries: [-20, -14, -8, -2, 3, 8.5], radio: ['מ״פ', 'סירות במים ממערב! המא״ג המערבי שלך!'], cap: [1, 1, 2], start() { boatWave(-21, 10, 18, 3, 1.8, diff.seats, 0, 0, 150); } },
+    entries: [-20, -14, -8, -2, 3, 8.5], radio: ['מ״פ', 'סירות במים ממערב! המא״ג המערבי שלך!'], cap: [1, 1, 2], start() { mzFirstWave(); } },
   { title: 'הגל מצפון', sub: 'בקצה הסוללה, ליד עמדה 1, כבר מטפסים הראשונים שצלחו — ומכביש לכסיקון, מצפון, רץ כוח קומנדו אל התעלה הצפונית. עד שהאחרון שבהם לא נופל, אין מנוחה.', goal: 'נקו את הצפון: הצולחים ליד עמדה 1 וכל חוליות הקומנדו מהכביש', open: [0, 176], spawn: () => TR.pts[140], face: 0, focus: trFocus(-38, 'עמדה מערבית 1'),
     entries: [-55, -50, -39.5, -27], radio: ['יוסי', 'הם עולים עליי מצפון! ומהכביש רץ אלינו קומנדו!'], cap: [2, 2, 2],
-    pre(len) { const nb = 2; for (let i = 0; i < nb; i++) { const b = launchBoat(lerp(-76, -60, i / (nb - 1)), 0, 5, i === 0 ? 1 : 0, 0, 5, 30, 3); b.t = (b.len - 1.5 - i * 5) / b.speed; } },
+    pre(len) { const nb = 2, men = [3, 4, 4][Math.max(0, DIFF.indexOf(diff))]; for (let i = 0; i < nb; i++) { const b = launchBoat(lerp(-76, -60, i / (nb - 1)), 0, men, i === 0 ? 1 : 0, 0, men, 30, 2); b.t = (b.len - 1.5 - i * 5) / b.speed; } },
     start() { DIRQ.push({ at: GAME.t + 8, spawn: true, fn: mzCommando }); } },   // the breach and the commando are one stage now (the user): the men from the two beached boats first, the commando squads down the road from eight seconds on; the stage ends only when the last of them is dead
   { title: 'הגל האחרון', sub: 'לפנות ערב הם זורקים את הכול: סירות לכל אורך הסוללה המערבית, והשמש השוקעת מאחוריהם. צריך להחזיק עד רדת החשכה.', goal: 'להחזיק עד רדת החשכה', open: [0, 250], spawn: () => trenchAt(-2), face: 338, focus: w2Focus,
     entries: [-50, -27, -14, 8.5, 24, 46, 56, 68], radio: ['מ״פ', 'סירות! כל הקו המערבי! כולם לסוללה, מחזיקים עד החשכה!'], waveRoom: [26, 26, 26], boatV: [0.58, 0.58, 0.58], quiet: true, survival: 180,
-    pre(len) { const ctrl = GAME.t + len; D.mineMsg = false; D.boatsFilm = true; rowsStart({ z0: -25, z1: 63, total: 1e6, every: 24, ctrl, aLand: ctrl + 4 }); }, start() {} },   // straight on from the north, with no stage card and no film (the user: one continuous fight); three minutes from the moment it begins, heavier every minute (mzSurvive), then they turn back (mzRetreat)
+    pre(len) { const ctrl = GAME.t + len; D.mineMsg = false; D.boatsFilm = true; rowsStart({ z0: -25, z1: 63, total: 1e6, every: 36, ctrl, aLand: ctrl + 4 }); }, start() {} },   // straight on from the north, with no stage card and no film (the user: one continuous fight); three minutes from the moment it begins, heavier every minute (mzSurvive), then they turn back (mzRetreat)
 ];
 function scCorr(i) {
   const S = SCENES[i]; if (S._c) return S._c; const [a, b] = S.open;
@@ -1628,7 +1647,7 @@ function updProjectiles(dt) {
       if (FIELDM() && q.owner === 'e' && TANK.alive && TANK.g && TANK.g.visible && p.distanceTo(tankTurretWorld(_tw)) < 3.0) { tankHit(p.clone(), false, null, p.clone().addScaledVector(q.v, -1)); scene.remove(q.m); PROJ.splice(i, 1); continue; }
       if (q.owner === 'e') { let hv = null; for (const v of VEH) if (v.rpgHit && v.alive && v.mode === MODE && v.g.visible && Math.hypot(p.x - v.g.position.x, p.z - v.g.position.z) < 3.6 && p.y < v.g.position.y + v.half[1] + 1.2) { hv = v; break; } if (hv) { vehHit(hv, hv.rpgHit, p); fxExplosion(p.clone(), 1.0); sndBoom(p, 1.0); FX.shake = Math.max(FX.shake, 0.3); scene.remove(q.m); PROJ.splice(i, 1); continue; } }
       const hitT = p.distanceTo(q.target) < 2.5 || (q.age > 0.08 && p.y < hAt(p.x, p.z, p.y) + 0.2);   // armed after a few metres
-      if (hitT || q.life <= 0) { explode(p.clone(), 0.9, FIELDM() ? 5.5 : 7, FIELDM() ? 75 : 140, 'rpg'); scene.remove(q.m); PROJ.splice(i, 1); }
+      if (hitT || q.life <= 0) { { const ml = mzLv(), mz = mzEase(); explode(p.clone(), 0.9, FIELDM() ? 5.5 : ml ? 5 : 7, FIELDM() ? 75 : ml ? ml.rpgDmg / (mz ? mz.dmg : 1) : 140, 'rpg'); } scene.remove(q.m); PROJ.splice(i, 1); }
     }
   }
 }
