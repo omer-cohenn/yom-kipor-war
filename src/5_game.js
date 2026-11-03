@@ -1373,7 +1373,11 @@ const MZ_CMD = [3, 3, 4], MZ_CMD_GAP = 8;   /* half what the north had (the user
 function mzCommando() { let t = 4, i0 = 0; for (let k = 0; k < MZ_CMD[Math.max(0, DIFF.indexOf(diff))]; k++) { northGroup(4, t, ['rifle', 'rifle', 'rifle', 'rifle'], i0, true);   /* the rocket only from the first man of every other squad (rpgTurn) */ i0 += 4; t += MZ_CMD_GAP; }   /* squads of four (the user: a third smaller than six) */ }
 /* ---------- the last wave: three minutes to hold, heavier every minute; then they turn back ---------- */
 function mzSurvive() {
-  if (D.retreat) return; const t = GAME.t - D.survT0;
+  if (D.retreat) return;
+  if (D.lastWait != null) { if (P.mode !== 'mag' && GAME.t - D.lastWait < 45) return;   // not yet: the player is still on his way to the gun
+    D.lastWait = null; const ctrl = GAME.t + 3; D.boatsFilm = true; rowsStart({ z0: -25, z1: 63, total: 1e6, every: 36, ctrl, aLand: ctrl + 4 });
+    D.survT0 = GAME.t; D.survEnd = GAME.t + SCENES[D.scene].survival; radio('מ״פ', 'סירות! כל הקו המערבי! מחזיקים עד החשכה!', 4.5); }
+  const t = GAME.t - D.survT0;
   if (D.survLv < 1 && t > 60) { D.survLv = 1; ROWS.every = 30; ROWS.rpgP = 0.25; northGroup(4, 0, ['rpg', 'rifle', 'rifle', 'rifle'], 200, true); radio('תצפית', 'עוד שורות יוצאות מהרציף! וחוליה נוספת בכביש מצפון!', 4.2); }
   if (D.survLv < 2 && t > 120) { D.survLv = 2; ROWS.every = 24; ROWS.rpgP = 0.35; radio('מ״פ', 'זו הדחיפה האחרונה שלהם! עוד דקה עד החשכה, מחזיקים!', 4.2); }
   if (GAME.t >= D.survEnd) mzRetreat();
@@ -1458,8 +1462,8 @@ const SCENES = [
     pre(len) { const nb = 2, men = [3, 4, 4][Math.max(0, DIFF.indexOf(diff))]; for (let i = 0; i < nb; i++) { const b = launchBoat(lerp(-76, -60, i / (nb - 1)), 0, men, i === 0 ? 1 : 0, 0, men, 30, 2); b.t = (b.len - 1.5 - i * 5) / b.speed; } },
     start() { DIRQ.push({ at: GAME.t + 8, spawn: true, fn: mzCommando }); } },   // the breach and the commando are one stage now (the user): the men from the two beached boats first, the commando squads down the road from eight seconds on; the stage ends only when the last of them is dead
   { title: 'הגל האחרון', sub: 'לפנות ערב הם זורקים את הכול: סירות לכל אורך הסוללה המערבית, והשמש השוקעת מאחוריהם. צריך להחזיק עד רדת החשכה.', goal: 'להחזיק עד רדת החשכה', open: [0, 250], spawn: () => trenchAt(-2), face: 338, focus: w2Focus,
-    entries: [-50, -27, -14, 8.5, 24, 46, 56, 68], radio: ['מ״פ', 'סירות! כל הקו המערבי! כולם לסוללה, מחזיקים עד החשכה!'], waveRoom: [26, 26, 26], boatV: [0.58, 0.58, 0.58], quiet: true, survival: 180,
-    pre(len) { const ctrl = GAME.t + len; D.mineMsg = false; D.boatsFilm = true; rowsStart({ z0: -25, z1: 63, total: 1e6, every: 36, ctrl, aLand: ctrl + 4 }); }, start() {} },   // straight on from the north, with no stage card and no film (the user: one continuous fight); three minutes from the moment it begins, heavier every minute (mzSurvive), then they turn back (mzRetreat)
+    entries: [-50, -27, -14, 8.5, 24, 46, 56, 68], radio: ['מ״פ', 'תפוס את המא״ג המערבי! הם מכינים עוד גל!'], waveRoom: [26, 26, 26], boatV: [0.58, 0.58, 0.58], quiet: true, survival: 180,
+    pre(len) { D.mineMsg = false; D.lastWait = GAME.t; }, start() {} },   /* the boats wait for the player to reach the western MG (or 45 s): only then do they push off, and the three minutes start (mzSurvive) */   // straight on from the north, with no stage card and no film (the user: one continuous fight); three minutes from the moment it begins, heavier every minute (mzSurvive), then they turn back (mzRetreat)
 ];
 function scCorr(i) {
   const S = SCENES[i]; if (S._c) return S._c; const [a, b] = S.open;
@@ -1511,7 +1515,7 @@ function introScene(i, len) {
   CP.boats = boatSnap();   // the boats already on the water as the stage begins: after a death they are put back just where they were
   D.landHold = 0; const S = SCENES[i], lv = Math.max(0, DIFF.indexOf(diff)); LANDCAP.n = S.cap ? S.cap[lv] : 999; LANDCAP.wave = S.waveRoom ? S.waveRoom[lv] : 0; LANDCAP.open = -1; if (S.pre) S.pre(len);
   if (S.medevac) D.medMsg = false; else if (S.quiet) radio(S.radio[0], S.radio[1], 4.5); else sceneAnnounce(i);
-  if (S.survival) { D.survT0 = GAME.t; D.survEnd = GAME.t + S.survival; D.survLv = 0; D.retreat = false; }   /* the medics' stage: nothing is said until the shell has come in (medevacStart) */
+  if (S.survival) { D.survT0 = GAME.t; D.survEnd = 0; D.survLv = 0; D.retreat = false; }   /* the medics' stage: nothing is said until the shell has come in (medevacStart) */
   snapRequest('stage');
   if (i > 0) { P.reserve = 160; P.gren = diff.gren0; for (const p of POSTS) if (p.mag) { p.mag.belt = p.mag.cap || 200; p.mag.reload = 0; } if (!corridorHas(scCorr(i), P.pos.x, P.pos.z)) moveToScene(i); }
 }
