@@ -1501,7 +1501,7 @@ function medevacStart() {
 function pendingSpawns() { let n = 0; for (const q of DIRQ) if (q.spawn) n++; return n; }
 function enemiesLeft() { let n = pendingSpawns() + rowsPending(); for (const e of UNITS.enemies) if (e.alive) n++; for (const b of BOATS) if (!b.dead && b.state !== 'sinking') n += b.seats.filter((s) => s.alive && !s.gone).length; return n; }
 function mzNorthStep() {   // the north stage: the boats push off when the player is at his place facing them; when they are done, the commando
-  const o = SCENES[D.scene].focus && SCENES[D.scene].focus(), at = !o || Math.hypot(P.pos.x - o[0], P.pos.z - o[2]) < 7;
+  const o = SCENES[D.scene].focus && SCENES[D.scene].focus(), at = !o || Math.hypot(P.pos.x - o[0], P.pos.z - o[2]) < 2;   /* on the point itself (the user), not near it */
   if (at) for (const b of BOATS) if (b.north && b.nGo != null) { b.t = b.nGo; b.nGo = null; }
   if (!at) return;
   if (!D.cmdWait || D.phaseT < 6 || enemiesLeft() > 0) return;
