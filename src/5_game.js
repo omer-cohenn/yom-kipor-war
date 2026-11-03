@@ -22,9 +22,9 @@ const MZ_EASE = [
 /* the stronghold's own rules (the user, Nov 2026): men in each boat of the first wave, boats in each row of the last wave, the RPG - the hit
    it costs the player, how long from seeing him to the rocket, how wide of him it may land */
 const MZ_LV = [
-  { seats: 4, row: 3, rpgDmg: 45, rpgT: 1.5, rpgSp: 2.5 },
-  { seats: 5, row: 4, rpgDmg: 50, rpgT: 1.2, rpgSp: 2.0 },
-  { seats: 5, row: 5, rpgDmg: 60, rpgT: 0.9, rpgSp: 1.6 },
+  { seats: 4, every: [45, 40, 36], row: 3, rpgDmg: 45, rpgT: 1.5, rpgSp: 2.5 },
+  { seats: 5, every: [42, 37, 33], row: 4, rpgDmg: 50, rpgT: 1.2, rpgSp: 2.0 },
+  { seats: 5, every: [39, 34, 30], row: 5, rpgDmg: 60, rpgT: 0.9, rpgSp: 1.6 },
 ];
 const mzEase = () => (MODE === 'mezach' && !SURV.on ? MZ_EASE[Math.max(0, DIFF.indexOf(diff))] : null);
 const mzLv = () => (MODE === 'mezach' && !SURV.on ? MZ_LV[Math.max(0, DIFF.indexOf(diff))] : null);
@@ -1375,11 +1375,11 @@ function mzCommando() { let t = 4, i0 = 0; for (let k = 0; k < MZ_CMD[Math.max(0
 function mzSurvive() {
   if (D.retreat) return;
   if (D.lastWait != null) { if (P.mode !== 'mag' && GAME.t - D.lastWait < 45) return;   // not yet: the player is still on his way to the gun
-    D.lastWait = null; const ctrl = GAME.t + (tongueWestX(20) - 4.5 - nearX(-400)) / boatSpd() - 4;   /* the first boat lands only after a whole crossing: they leave the quays now, not halfway over */ D.boatsFilm = true; rowsStart({ z0: -25, z1: 63, total: 1e6, every: 39, ctrl, aLand: ctrl + 4 });
+    D.lastWait = null; const ctrl = GAME.t + (tongueWestX(20) - 4.5 - nearX(-400)) / boatSpd() - 4;   /* the first boat lands only after a whole crossing: they leave the quays now, not halfway over */ D.boatsFilm = true; rowsStart({ z0: -25, z1: 63, total: 1e6, every: mzLv().every[0], ctrl, aLand: ctrl + 4 });
     D.survT0 = GAME.t; D.survEnd = GAME.t + SCENES[D.scene].survival; radio('מ״פ', 'סירות! כל הקו המערבי! מחזיקים עד החשכה!', 4.5); }
   const t = GAME.t - D.survT0;
-  if (D.survLv < 1 && t > 40) { D.survLv = 1; ROWS.every = 27.5; ROWS.rpgP = 0.25; radio('תצפית', 'עוד שורות יוצאות מהרציף!', 3.6); }   /* only boats from the west (the user) */
-  if (D.survLv < 2 && t > 80) { D.survLv = 2; ROWS.every = 20; ROWS.rpgP = 0.35; radio('מ״פ', 'זו הדחיפה האחרונה שלהם! עוד קצת עד החשכה, מחזיקים!', 4.2); }
+  if (D.survLv < 1 && t > 40) { D.survLv = 1; ROWS.every = mzLv().every[1]; ROWS.rpgP = 0.25; radio('תצפית', 'עוד שורות יוצאות מהרציף!', 3.6); }   /* only boats from the west (the user) */
+  if (D.survLv < 2 && t > 80) { D.survLv = 2; ROWS.every = mzLv().every[2]; ROWS.rpgP = 0.35; radio('מ״פ', 'זו הדחיפה האחרונה שלהם! עוד קצת עד החשכה, מחזיקים!', 4.2); }
   if (GAME.t >= D.survEnd) mzRetreat();
 }
 /* the film of the end: the boats on the water stop and back off, the men still on the sand run for the water, the line of boats draws away west
