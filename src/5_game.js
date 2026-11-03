@@ -1188,9 +1188,9 @@ function trenchCmd(e, dt, dir, dP, seesP, between, aimed, aimPitch) {
    seconds apart, so the canal fills with boats; rpg / flame: how many boats carry an RPG man or a flamethrower. Every boat is full - eight
    soldiers and the rowers - and all of them come ashore. near [d0, step]: the wave is already on the water, the first boat d0 metres from
    the beach and each next one step metres further out */
-/* the first wave in the stronghold: two rows across the canal, the second some seconds behind the first - 10 / 12 / 13 boats by level */
+/* the first wave in the stronghold: two rows across the canal, the second some seconds behind the first - 8 / 10 / 10 boats by level (a fifth fewer, the user) */
 function mzFirstWave() {
-  const N = [10, 12, 13][Math.max(0, DIFF.indexOf(diff))], f = Math.ceil(N / 2), r = rng(4417);
+  const N = [8, 10, 10][Math.max(0, DIFF.indexOf(diff))], f = Math.ceil(N / 2), r = rng(4417);
   for (let i = 0; i < N; i++) { const row = i < f ? 0 : 1, k = row ? i - f : i, m = row ? N - f : f, z = lerp(-21, 10, (k + (row ? 0.5 : 0)) / Math.max(1, m - (row ? 0 : 1))) + (r() - 0.5) * 1.5;
     const b = launchBoat(clamp(z, -22, 11), 3 + row * 9 + r() * 0.8, 8); b.hp = 150; }
 }
@@ -1207,7 +1207,7 @@ function boatSnap() {
 }
 function boatRestore(list) { for (const o of list) { const b = launchBoat(o.z, 0, 8, o.rpg, o.flame, o.men, o.spread, o.rowers); b.t = o.t; b.hp = o.hp; if (o.wave !== undefined) b.wave = o.wave; } }
 /* the oars' pace: the level's, eased in the stronghold, and slower still where a stage asks for it (boatV: the great wave) */
-const boatSpd = () => { const mz = mzEase(), S = SCENES[Math.max(0, D.scene)]; return diff.boat * 0.34 * (!mz ? 1 : S.boatV ? S.boatV[Math.max(0, DIFF.indexOf(diff))] : mz.boatV); };
+const boatSpd = () => { const mz = mzEase(), S = SCENES[Math.max(0, D.scene)]; return diff.boat * 0.34 * (!mz ? 1 : 0.8 * (S.boatV ? S.boatV[Math.max(0, DIFF.indexOf(diff))] : mz.boatV)); };   /* the stronghold's boats a fifth slower again (the user, Nov 2026) */
 function launchBoat(zLand, delay, n, rpg = 0, flame = 0, men, spread = 90, rowers) {
   const seed = 9001 + Math.round(zLand * 13) + Math.max(0, D.scene) * 7919, r = rng(seed);
   const to = [tongueWestX(zLand) - 4.5, zLand]; const from = [nearX(-400), clamp(zLand + (r() - 0.5) * spread, -380, 380)];   // from just off the Port Tewfik quays
@@ -1375,11 +1375,11 @@ function mzCommando() { let t = 4, i0 = 0; for (let k = 0; k < MZ_CMD[Math.max(0
 function mzSurvive() {
   if (D.retreat) return;
   if (D.lastWait != null) { if (P.mode !== 'mag' && GAME.t - D.lastWait < 45) return;   // not yet: the player is still on his way to the gun
-    D.lastWait = null; const ctrl = GAME.t + 3; D.boatsFilm = true; rowsStart({ z0: -25, z1: 63, total: 1e6, every: 36, ctrl, aLand: ctrl + 4 });
+    D.lastWait = null; const ctrl = GAME.t + 3; D.boatsFilm = true; rowsStart({ z0: -25, z1: 63, total: 1e6, every: 45, ctrl, aLand: ctrl + 4 });
     D.survT0 = GAME.t; D.survEnd = GAME.t + SCENES[D.scene].survival; radio('מ״פ', 'סירות! כל הקו המערבי! מחזיקים עד החשכה!', 4.5); }
   const t = GAME.t - D.survT0;
-  if (D.survLv < 1 && t > 60) { D.survLv = 1; ROWS.every = 30; ROWS.rpgP = 0.25; northGroup(4, 0, ['rpg', 'rifle', 'rifle', 'rifle'], 200, true); radio('תצפית', 'עוד שורות יוצאות מהרציף! וחוליה נוספת בכביש מצפון!', 4.2); }
-  if (D.survLv < 2 && t > 120) { D.survLv = 2; ROWS.every = 24; ROWS.rpgP = 0.35; radio('מ״פ', 'זו הדחיפה האחרונה שלהם! עוד דקה עד החשכה, מחזיקים!', 4.2); }
+  if (D.survLv < 1 && t > 60) { D.survLv = 1; ROWS.every = 37.5; ROWS.rpgP = 0.25; northGroup(4, 0, ['rpg', 'rifle', 'rifle', 'rifle'], 200, true); radio('תצפית', 'עוד שורות יוצאות מהרציף! וחוליה נוספת בכביש מצפון!', 4.2); }
+  if (D.survLv < 2 && t > 120) { D.survLv = 2; ROWS.every = 30; ROWS.rpgP = 0.35; radio('מ״פ', 'זו הדחיפה האחרונה שלהם! עוד דקה עד החשכה, מחזיקים!', 4.2); }
   if (GAME.t >= D.survEnd) mzRetreat();
 }
 /* the film of the end: the boats on the water stop and back off, the men still on the sand run for the water, the line of boats draws away west
