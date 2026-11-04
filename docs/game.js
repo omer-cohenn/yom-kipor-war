@@ -6503,7 +6503,7 @@ function mzCommando() { let t = 4, i0 = 0; for (let k = 0; k < MZ_CMD[Math.max(0
 function mzSurvive() {
   if (D.retreat) return;
   if (D.lastWait != null) { if (P.mode !== 'mag' && GAME.t - D.lastWait < 45) return;   // not yet: the player is still on his way to the gun
-    D.lastWait = null; const ctrl = GAME.t + (tongueWestX(20) - 4.5 - nearX(-400)) / boatSpd() - 4;   /* the first boat lands only after a whole crossing: they leave the quays now, not halfway over */ D.boatsFilm = true; rowsStart({ z0: -48, z1: 76, total: 1e6, every: mzLv().every[0], ctrl, aLand: ctrl + 4 });
+    D.lastWait = null; const ctrl = GAME.t + (tongueWestX(20) - 4.5 - nearX(-400)) / boatSpd() - 4;   /* the first boat lands only after a whole crossing: they leave the quays now, not halfway over */ D.boatsFilm = true; rowsStart({ z0: -28, z1: 58,   /* the rows about 80 m along the beach */ total: 1e6, every: mzLv().every[0], ctrl, aLand: ctrl + 4 });
     D.survT0 = GAME.t; D.survEnd = GAME.t + SCENES[D.scene].survival; radio('מ״פ', 'סירות! כל הקו המערבי! מחזיקים עד החשכה!', 4.5); }
   const t = GAME.t - D.survT0;
   if (D.survLv < 1 && t > 40) { D.survLv = 1; ROWS.every = mzLv().every[1]; ROWS.rpgP = 0.25; radio('תצפית', 'עוד שורות יוצאות מהרציף!', 3.6); }   /* only boats from the west (the user) */
