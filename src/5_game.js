@@ -509,7 +509,7 @@ function getUnit() {
   if (oldest) { oldest.rig.root.visible = false; return oldest; } return null;
 }
 function spawnEnemy(x, z, kind, group, path, opts = {}) {
-  const e = getUnit(); if (!e) return null; woundsOff(e);
+  const e = getUnit(); if (!e) return null; woundsOff(e); e.slowK = 0; e.noStop = false;   /* a pooled man forgets an earlier stage's pace */
   e.thrT = -99; e.arcT = -9; e.shotT = -9;   /* nothing he did in an earlier life counts as fire at the player */
   if (e.mmHide || e.pitHid) fmDisguise(e, false); e.mmHide = false; e.pitHid = false;   /* a man last used as a disguised figure in a crater gets his own colours back */
   e.side = 'e'; e.setKind(kind); e.alive = true; e.hp = 100; e.fall = -1; e.stance = 'stand'; e.place(x, z); e.rig.root.visible = true; e.rig.gun.visible = true; e.deadAt = undefined; e.rig.shut = false; e.rig.head.material = MAT.faces[e.side][e.rig.faceV]; e.rig.deadOpen = Math.random() < 0.35; e.rig.blinkT = rand(1, 4);
@@ -818,7 +818,7 @@ function updEnemy(e, dt) {
     e.stopCd -= dt;
     if (e.charge && e.target && Math.random() < dt * 0.7) { e.face(e.target.p.x, e.target.p.z); enemyFire(e); }
     if (e.charge && P.alive && Math.hypot(P.pos.x - e.pos.x, P.pos.z - e.pos.z) < 22) { e.state = 'inside'; e.goalCd = 0; e.next = null; }
-    if (e.target && e.stopCd <= 0 && e.kind !== 'flame') { e.stopCd = rand(3, 6); if (Math.random() < (e.charge ? 0.2 : 0.6)) { e.state = 'engage'; e.engageT = rand(1.3, 2.8); e.stance = Math.random() < 0.6 ? 'crouch' : 'stand'; } }
+    if (e.target && e.stopCd <= 0 && e.kind !== 'flame' && !e.noStop) { e.stopCd = rand(3, 6); if (Math.random() < (e.charge ? 0.2 : 0.6)) { e.state = 'engage'; e.engageT = rand(1.3, 2.8); e.stance = Math.random() < 0.6 ? 'crouch' : 'stand'; } }
     e.anim += dt * 9.5; e.stance = 'stand';
     const done = moveAlong(e, dt, e.speed * (e.kind === 'flame' ? 0.9 : 1));
     e.rig.pose('run', e.anim);
@@ -950,7 +950,7 @@ function northRushPlan(e, j) {
   return [{ t: 'run', near: 1.0, x: p[0] + o[0] * 9 + o[1] * sd, z: p[1] + o[1] * 9 - o[0] * sd }, { t: 'run', final: true, x: p[0] + o[0] * PARA_D, z: p[1] + o[1] * PARA_D }, { t: 'vault', x: p[0], z: p[1] }];
 }
 /* a commando man: quicker on his feet, short stops only (no one stays behind for long), his rocket ready early and again soon after */
-function cmdTune(e) { e.cmd = true; if (MODE === 'mezach' && D.scene === 1) e.slowK = 0.56;   /* the north: they run a little slower (the user) */ e.speed = Math.max(e.speed || 5, 5.6) * 1.2; if (e.plan) { for (const s of e.plan) if (s.t === 'cover' && s.c && s.c.by === e) s.c.by = null; e.plan = e.plan.filter((s) => s.t !== 'cover'); }   /* everyone charges straight for the fighting trench, no stop on the way (the user): no cover, no one stays back */ if (e.kind === 'rpg') { e.rpgCd = rand(1.2, 2.6); e.cmdRpg = true; } }
+function cmdTune(e) { e.cmd = true; if (MODE === 'mezach' && D.scene === 1) { e.slowK = 0.67; e.noStop = true; }   /* the north: a little slower than the rest, and nothing stops them until the trench (the user) */   /* the north: they run a little slower (the user) */ e.speed = Math.max(e.speed || 5, 5.6) * 1.2; if (e.plan) { for (const s of e.plan) if (s.t === 'cover' && s.c && s.c.by === e) s.c.by = null; e.plan = e.plan.filter((s) => s.t !== 'cover'); }   /* everyone charges straight for the fighting trench, no stop on the way (the user): no cover, no one stays back */ if (e.kind === 'rpg') { e.rpgCd = rand(1.2, 2.6); e.cmdRpg = true; } }
 /* men already ashore before the player gets there: each waits in his place on the sand (the cover he ran to, or where he jumped down) until
    'until', firing from it, and only then goes for the rampart */
 function holdPlan(e, until) {
@@ -1013,12 +1013,12 @@ function awareReact(e, dt, shoot, aimPitch) {
 }
 function planStep(e, dt, shoot, aimPitch) {
   const s = e.plan[e.ps]; if (!s) { enterTrench(e); return; }
-  if (e.rpgPause > 0) { e.rpgPause -= dt; e.stance = 'crouch'; e.anim += dt; e.rig.pose('crouch', e.anim, aimPitch()); return; }   /* down on a knee as the rocket goes */
+  if (e.rpgPause > 0) { e.rpgPause -= dt; if (!e.noStop) { e.stance = 'crouch'; e.anim += dt; e.rig.pose('crouch', e.anim, aimPitch()); return; } }   /* down on a knee as the rocket goes (the north's men fire it on the run) */
   if (e.kind === 'rpg' && e.target && e.rpgCd <= 0 && s.t !== 'vault' && !s.final) { const tp = e.target.player ? playerEye() : e.target.f.unit.chest(), d = e.pos.distanceTo(tp); if (d > 12 && d < 230) { rpgShoot(e, tp); return; } }
   s.tt = (s.tt || 0) + dt;
   if (s.t === 'run' || (s.t === 'cover' && !s.go)) {
     const dGo = Math.hypot(s.x - e.pos.x, s.z - e.pos.z), last = s.final && dGo < 4.5;   /* the last few metres to the parapet: no ducking, no stopping to fire - straight at it and over */
-    if (s.final && !last && s.tt < 4 && aimedAt(e)) { e.stance = 'hide'; e.rig.pose('hide', e.anim); return; }
+    if (s.final && !last && !e.noStop && s.tt < 4 && aimedAt(e)) { e.stance = 'hide'; e.rig.pose('hide', e.anim); return; }
     if (!last && !e.cmd && awareReact(e, dt, shoot, aimPitch)) return;
     if (e.cmd && e.target) shoot();   /* the charging men fire as they run, right up to the parapet */
     e.anim += dt * (s.crun ? 8.5 : 9.5); e.stance = s.crun ? 'crouch' : 'stand'; const d = steer(e, s.x, s.z, s.crun ? Math.min(e.speed, e.cmd ? 4.9 : 3.7) : e.speed, dt); e.rig.pose(s.crun ? 'crun' : 'run', e.anim);   /* in the sap: bent low */
@@ -1460,10 +1460,10 @@ const SCENES = [
     entries: [-20, -14, -8, -2, 3, 8.5], radio: ['מ״פ', 'סירות במים ממערב! המא״ג המערבי שלך!'], cap: [1, 1, 2], start() { mzFirstWave(); } },
   { title: 'הגל מצפון', sub: 'בקצה הסוללה, ליד עמדה 1, כבר מטפסים הראשונים שצלחו — ומכביש לכסיקון, מצפון, רץ כוח קומנדו אל התעלה הצפונית. עד שהאחרון שבהם לא נופל, אין מנוחה.', goal: 'נקו את הצפון: הצולחים ליד עמדה 1 וכל חוליות הקומנדו מהכביש', open: [0, 176], spawn: () => TR.pts[140], face: 0, focus: () => (D.boatsDone && D.cmdWait ? postFocus('N1', 'עמדה צפונית')() : trFocus(-38, 'עמדה מערבית 1')()),
     entries: [-55, -50, -39.5, -27], radio: ['יוסי', 'סירות עלו עליי מצפון!'], cap: [2, 2, 2],
-    pre(len) { const nb = 2, men = 2; for (let i = 0; i < nb; i++) { const b = launchBoat(i ? -106 : -58, 0, men, i === 0 ? 1 : 0, 0, men, 30, 1);   /* half the men (the user), one boat where they were and one further north */ b.t = (b.len - 14 - i * 5) / b.speed; } },   /* still some way out on the water, not on the sand */
+    pre(len) { const nb = 2; for (let i = 0; i < nb; i++) { const men = i ? 2 : 3, b = launchBoat(i ? -106 : -58, 0, men, i === 0 ? 1 : 0, 0, men, 30, 1);   /* half the men (the user), one boat where they were and one further north */ b.t = (b.len - 14 - i * 5) / b.speed; } },   /* still some way out on the water, not on the sand */
     start() { D.cmdWait = true; } },   /* the boats' men first; the commando sets off only when they are all dead (mzNorthStep) */   // the breach and the commando are one stage now (the user): the men from the two beached boats first, the commando squads down the road from eight seconds on; the stage ends only when the last of them is dead
   { title: 'הגל האחרון', sub: 'לפנות ערב הם זורקים את הכול: סירות לכל אורך הסוללה המערבית, והשמש השוקעת מאחוריהם. צריך להחזיק עד רדת החשכה.', goal: 'להחזיק עד רדת החשכה', open: [0, 250], spawn: () => trenchAt(-2), face: 338, focus: w2Focus,
-    entries: [-50, -27, -14, 8.5, 24, 46, 56, 68], radio: ['מ״פ', 'תפוס את המא״ג המערבי! הם מכינים עוד גל!'], waveRoom: [0, 0, 0],   /* no queue on the water: the rows behind used to wait 60-120 m out for the one ahead (the boats stuck far off, the user) */ boatV: [0.58, 0.58, 0.58], quiet: true, survival: 120,
+    entries: [-50, -27, -14, 8.5, 24, 46, 56, 68], radio: ['מ״פ', 'תפוס את המא״ג המערבי! הם מכינים עוד גל!'], waveRoom: [0, 0, 0],   /* no queue on the water: the rows behind used to wait 60-120 m out for the one ahead (the boats stuck far off, the user) */ boatV: [0.667, 0.667, 0.667], quiet: true, survival: 120,
     pre(len) { D.mineMsg = false; D.lastWait = GAME.t; }, start() {} },   /* the boats wait for the player to reach the western MG (or 45 s): only then do they push off, and the three minutes start (mzSurvive) */   // straight on from the north, with no stage card and no film (the user: one continuous fight); three minutes from the moment it begins, heavier every minute (mzSurvive), then they turn back (mzRetreat)
 ];
 function scCorr(i) {
