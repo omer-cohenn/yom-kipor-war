@@ -983,8 +983,8 @@ const FX = {
 /* a shot's flash: one of several drawn bursts, a new spin and size each time, swelling and dying in ~60 ms. When the target is known, the
    flame cone thrown forward out of the muzzle is laid along the shot as it is seen on screen (foreshortened; seen end-on only the burst shows) */
 const _mzA = V3(), _mzB = V3();
-function fxMuzzle(p, big = false, to = null) {
-  const q = FX.flashes.get(), s0 = (big ? 1.15 : 0.72) * rand(0.8, 1.2), fl = rand(0.85, 1.15); q.life = rand(0.05, 0.075); q.s.material.map = pick(FXT.bursts); q.s.position.copy(p);
+function fxMuzzle(p, big = false, to = null, k = 1) {
+  const q = FX.flashes.get(), s0 = (big ? 1.15 : 0.72) * rand(0.8, 1.2) * k, fl = rand(0.85, 1.15); q.life = rand(0.05, 0.075); q.s.material.map = pick(FXT.bursts); q.s.position.copy(p);
   q.upd = (o, u) => { o.s.scale.setScalar(s0 * (0.7 + 0.55 * Math.sqrt(u))); o.s.material.opacity = (1 - u * u) * fl; }; q.upd(q, 0);
   if (!to) return; const d = _mzB.copy(to).sub(p), dl = d.length(); if (dl < 0.5) return; d.multiplyScalar(1 / dl);
   const len = s0 * (big ? 2.2 : 1.9), a = _mzA.copy(p).project(camera); if (a.z > 1 || a.z < -1) return; const ax = a.x, ay = a.y;

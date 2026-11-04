@@ -824,6 +824,9 @@ button:focus-visible{outline:2px solid var(--sand);outline-offset:2px}
 #app.is-touch #radio #radioPic{width:64px;height:64px}
 @media (orientation: portrait){ #app #radio,#app.is-touch #radio{top:auto;bottom:calc(214px + env(safe-area-inset-bottom,0px));width:calc(100% - 24px);max-width:none;font-size:16px} #app #radio #radioPic,#app.is-touch #radio #radioPic{width:68px;height:68px} }
 #dExp,#hExp{display:none!important}   /* the mission videos are gone */
+/* the spoken lines: only the words, no box and no blur behind them (the user) */
+#radio,#app.is-touch #radio{background:none!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;border:0!important;box-shadow:none!important;text-shadow:0 1px 3px #000,0 0 2px #000,0 0 8px rgba(0,0,0,.8)}
+#radioPic{display:none!important}
 </style>
 
 <div id="app" dir="rtl" lang="he">
