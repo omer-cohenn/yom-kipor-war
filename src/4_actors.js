@@ -1128,7 +1128,7 @@ function rpgLaunch(e) {
 /* the launcher comes up to the shoulder before the shot (t seconds); true once it is there */
 function rpgReady(e, t = 0.6) { if (e.rig) e.rig.shoulderT = GAME.t + 1.0; if (!e.rpgUpT || GAME.t - e.rpgUpT > 1.5) e.rpgUpT = GAME.t + t; if (GAME.t < e.rpgUpT) return false; e.rpgUpT = 0; return true; }
 function rpgReloaded(e) { if (e.rpgEmptyT && GAME.t > e.rpgEmptyT) { e.rpgEmptyT = 0; if (e.rig.wkind === 'rpg') gunGeo(e.rig.gun, RPG_W, e.rig.lod); } }
-function fireRocket(from, to, owner, shooter = null) {
+function fireRocket(from, to, owner, shooter = null) { if (owner === 'e' && shooter && MODE === 'rescue' && typeof rsArcOK === 'function' && !rsArcOK(shooter)) return null;
   const L = rpgLaunch(shooter); if (L) from = L.p;
   const dir = to.clone().sub(from).normalize(), p0 = L ? from.clone() : from.clone().addScaledVector(dir, 1.0);
   const m = L ? new THREE.Mesh(RPG_ROUND, RPG_W.userData && RPG_W.userData.wmat || MAT.vc) : new THREE.Mesh(ROCKET_GEO, MAT.vc); m.scale.setScalar(L ? L.s : 1.7); m.position.copy(p0); m.lookAt(to);

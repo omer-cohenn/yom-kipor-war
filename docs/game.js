@@ -725,14 +725,14 @@ function setTimeOfDay(min) {
   const d = sunVec(START_MIN + min), day = smooth(-0.05, 0.1, d.y), dusk = 1 - smooth(0.0, 0.16, d.y), sunI = 3.1 * smooth(-0.02, 0.12, d.y), moonI = 1.75 * dusk;
   const useSun = sunI >= moonI; SUN.dir.copy(useSun ? d : MOON); sun.intensity = Math.max(sunI, moonI, 1.2); sun.color.setHex(useSun ? 0xfff0da : 0xd6e0f4);
   hemi.intensity = lerp(0.42, 0.78, dusk); hemi.color.copy(HEMI_DAY[0]).lerp(HEMI_NIGHT[0], dusk); hemi.groundColor.copy(HEMI_DAY[1]).lerp(HEMI_NIGHT[1], dusk); scene.fog.color.copy(FOG_DAY).lerp(FOG_NIGHT, dusk); renderer.toneMappingExposure = lerp(0.5, 0.72, dusk) + 0.08 * (1 - day) * (1 - dusk);
-  const N = NIGHT_LOOK, C0 = CHAP[MODE], deep = NIGHT_DEEP = C0 && C0.night && MODE !== 'mezach' ? 1 - smooth(N.from, N.to, d.y) : 0; let skyMin = 0.03;
+  const N = (CHAP[MODE] && CHAP[MODE].nightLook) || NIGHT_LOOK, C0 = CHAP[MODE], deep = NIGHT_DEEP = C0 && C0.night && MODE !== 'mezach' ? 1 - smooth(N.from, N.to, d.y) : 0; let skyMin = 0.03;
   if (deep > 0) { sun.intensity = lerp(sun.intensity, N.moonI, deep); sun.color.lerp(_nc.setHex(N.moonCol), deep); hemi.intensity = lerp(hemi.intensity, N.hemiI, deep); hemi.color.lerp(_nc.setHex(N.hemiSky), deep); hemi.groundColor.lerp(_nc.setHex(N.hemiGnd), deep); scene.fog.color.lerp(_nc.setHex(N.fog), deep); renderer.toneMappingExposure = lerp(renderer.toneMappingExposure, N.exp, deep); skyMin = lerp(0.03, N.skyY, deep); }
   if (scene.fog.isFogExp2) scene.fog.density = 0.00013 * lerp(1, N.fogK, deep) * (MODE === 'hermon' ? 0.15 : 1);   // the Hermon's clear mountain air nightSkySet(deep);
   // the Mezach: dust and smoke over the canal at Port Tewfik - a pale sand-grey haze that softens the far bank and swallows the city behind it
   const hz = MODE === 'mezach' ? 1 - 0.6 * dusk : 0; if (hz > 0) { if (scene.fog.isFogExp2) scene.fog.density = Math.max(scene.fog.density, 0.0014 * hz); scene.fog.color.lerp(_nc.setHex(0xc4b9a0), 0.8 * hz); }
   if (water && water.material.uniforms && water.material.uniforms.waterColor) water.material.uniforms.waterColor.value.copy(WATER_BASE).lerp(WATER_HAZE, 0.65 * hz);
   // an illumination round overhead: the whole ground brightens and warms while it burns (on a phone this is all the light it gives)
-  if (FLARE_LIGHT > 0) { hemi.intensity += 0.7 * FLARE_LIGHT; sun.intensity += 0.7 * FLARE_LIGHT; sun.color.lerp(_nc.setHex(0xfff0d0), 0.6 * FLARE_LIGHT); hemi.color.lerp(_nc.setHex(0xe8e0d0), 0.5 * FLARE_LIGHT); }
+  if (FLARE_LIGHT > 0) { const fk = (C0 && C0.flareK) || 1; hemi.intensity += 0.7 * fk * FLARE_LIGHT; sun.intensity += 0.7 * fk * FLARE_LIGHT; sun.color.lerp(_nc.setHex(0xfff0d0), 0.6 * FLARE_LIGHT); hemi.color.lerp(_nc.setHex(0xe8e0d0), 0.5 * FLARE_LIGHT); }
   if (deep > 0 || hz > 0 || SKYU.rayleigh.value !== SKY_DAY.ray) for (const [k, u] of [['ray', 'rayleigh'], ['turb', 'turbidity'], ['mie', 'mieCoefficient']]) { const v = lerp(lerp(SKY_DAY[k], N[k], deep), SKY_HAZE[k], 0.92 * hz); if (SKYU[u].value !== v) { SKYU[u].value = v; envSky.material.uniforms[u].value = v; } }
   vmKey.intensity = 1.15 / renderer.toneMappingExposure; vmHemi.intensity = 0.275 / renderer.toneMappingExposure; vmKey.color.copy(sun.color); vmHemi.color.copy(hemi.color);
   // the sky never goes black: its sun is held just above the horizon, so night is a deep, glowing blue and the reflections keep some light (a real night holds it a touch below)
@@ -3824,7 +3824,7 @@ function rpgLaunch(e) {
 /* the launcher comes up to the shoulder before the shot (t seconds); true once it is there */
 function rpgReady(e, t = 0.6) { if (e.rig) e.rig.shoulderT = GAME.t + 1.0; if (!e.rpgUpT || GAME.t - e.rpgUpT > 1.5) e.rpgUpT = GAME.t + t; if (GAME.t < e.rpgUpT) return false; e.rpgUpT = 0; return true; }
 function rpgReloaded(e) { if (e.rpgEmptyT && GAME.t > e.rpgEmptyT) { e.rpgEmptyT = 0; if (e.rig.wkind === 'rpg') gunGeo(e.rig.gun, RPG_W, e.rig.lod); } }
-function fireRocket(from, to, owner, shooter = null) {
+function fireRocket(from, to, owner, shooter = null) { if (owner === 'e' && shooter && MODE === 'rescue' && typeof rsArcOK === 'function' && !rsArcOK(shooter)) return null;
   const L = rpgLaunch(shooter); if (L) from = L.p;
   const dir = to.clone().sub(from).normalize(), p0 = L ? from.clone() : from.clone().addScaledVector(dir, 1.0);
   const m = L ? new THREE.Mesh(RPG_ROUND, RPG_W.userData && RPG_W.userData.wmat || MAT.vc) : new THREE.Mesh(ROCKET_GEO, MAT.vc); m.scale.setScalar(L ? L.s : 1.7); m.position.copy(p0); m.lookAt(to);
@@ -5803,7 +5803,7 @@ function rpgFireDue(e) {
   const from = e.muzzle(), q = fireRocket(from, e.rpgTp, 'e', e), at = q ? q.m.position : from; fxMuzzle(at, true); sndRocket(at);
   if (e.rpgFirst) { e.rpgFirst = false; DIRQ.push({ at: GAME.t + 0.35, fn: () => { if (!e.alive) return; e.setKind('smg'); e.rpgCd = 1e9; e.cmdRpg = false; if (e.state === 'trench') e.rush = true; } }); }
 }
-function enemyFire(e) {
+function enemyFire(e) { if (MODE === 'rescue' && !rsArcOK(e)) return;
   if (D.retreat && MODE === 'mezach') return;
   if (e.kind === 'rpg' && e.target) { const tp = e.target.player ? playerEye() : e.target.f.unit.chest(), d = e.pos.distanceTo(tp); if (e.rpgCd <= 0 && d > (e.state === 'trench' ? 6 : 12) && d < 230) rpgShoot(e, tp); return; }
   const mz = mzEase(), from = e.muzzle(); const tgt = e.target; if (!tgt) return; if (tgt.player) { e.shotT = GAME.t; if (MODE === 'suez') szFireAt(e, from); if (Math.hypot(e.pos.x - P.pos.x, e.pos.z - P.pos.z) < 150) SQF.spots.set(e, GAME.t), SQF.cT = GAME.t; } const W = wpnOf(e);
@@ -10068,7 +10068,7 @@ function crewUpd(dt) {
   }
 }
 /* ---------- the Sagger: a wire-guided missile. It flies only as long as its operator keeps looking at the target ---------- */
-function fireAtgm(e, tgt = null) {
+function fireAtgm(e, tgt = null) { if (MODE === 'rescue' && !rsArcOK(e)) return;
   const L = rpgLaunch(e), from = L ? L.p : e.muzzle(); const m = new THREE.Group();
   if (L) { const r = new THREE.Mesh(RPG_ROUND, RPG_W.userData && RPG_W.userData.wmat || MAT.dark); r.scale.setScalar(L.s * 1.3); m.add(r); } else m.add(new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.8, 8).rotateX(Math.PI / 2), MAT.dark));
   const bright = !!(CH() && CH().atgmBright), fl = new THREE.Sprite(new THREE.SpriteMaterial({ map: FXT.fire, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, color: bright ? new THREE.Color(5, 4.2, 0.7) : new THREE.Color(4, 1.6, 0.6) })); fl.scale.setScalar(bright ? 3.4 : 0.9); fl.position.z = -0.5; m.add(fl);
@@ -10862,7 +10862,7 @@ function rsTrackZ(x) { const T = RS_TRACK; if (x >= T[0][0]) return T[0][1]; for
 // the ambushes of one leg: their places are fixed (seeded), the same in every game
 function rsAmbDefs(stage) {
   return RS_AMBX[stage].map((x, i) => { const r = rng(7100 + stage * 100 + i), sd = i % 2 ? 1 : -1, kinds = RS_KINDS[(i + stage) % 4];
-    return { x, id: `a${stage}_${i}`, sh: kinds.map((k0, k) => { const kind = stage === 4 && k0 === 'atgm' && i % 2 ? 'rpg' : k0, side = k % 2 ? -sd : sd, off = [34, 58, 96, 74][k] + r() * 16, dx = (r() - 0.5) * 46;
+    return { x, id: `a${stage}_${i}`, sh: kinds.map((k0, k) => { const kind = stage === 4 && k0 === 'atgm' && i % 2 ? 'rpg' : k0, side = k % 2 ? -sd : sd, off = [34, 58, 96, 74][k] + r() * 16, dx = (stage === 4 ? 1 : -1) * r() * 30;   /* only ahead of the column (the user: the enemy in front, 150 degrees) */
       return { dx, side, off, kind, how: kind === 'rifle' ? 'run' : 'pit' }; }) }; });
 }
 const RS_STAGES = [
@@ -10903,7 +10903,7 @@ const RS_GROUPS = {
 };
 function rsArc(x) { let best = 0, bd = 1e9, acc = 0; for (let i = 0; i < RS_TRACK.length - 1; i++) { const a = RS_TRACK[i], b = RS_TRACK[i + 1], L = Math.hypot(b[0] - a[0], b[1] - a[1]); for (let u = 0; u <= 1; u += 0.02) { const px = lerp(a[0], b[0], u); if (Math.abs(px - x) < bd) { bd = Math.abs(px - x); best = acc + L * u; } } acc += L; } return best; }
 function rsBuild() {
-  const C = CHAP.rescue; C.ground = makeGround({ x0: RS.o.x - 780, x1: RS.o.x + 760, z0: RS.o.z - 330, z1: RS.o.z + 330, step: 3.2, h: mapH('rescue', rsNat, rsCarve), map: 'rescue', vegOk: (x, z) => distPolyline(x - RS.o.x, z - RS.o.z, RS_TRACK_S) > 7, grass: 'sand', sand: true }); GROUND = C.ground;
+  const C = CHAP.rescue; C.ground = makeGround({ x0: RS.o.x - 780, x1: RS.o.x + 760, z0: RS.o.z - 330, z1: RS.o.z + 330, step: 3.2, h: mapH('rescue', rsNat, rsCarve), map: 'rescue', vegOk: (x, z) => distPolyline(x - RS.o.x, z - RS.o.z, RS_TRACK_S) > 7 && ((Math.sin(x * 12.9898 + z * 78.233) * 43758.5453) % 1 + 1) % 1 < 0.35, grass: 'sand', sand: true }); GROUND = C.ground;
   const BAGS = [], sv = BATCH.bag; BATCH.bag = BAGS; const k0 = COVER.length; C.slots = []; C.nestBush = []; C.fires = [];
   { const r = rng(4242); for (const id of ['A', 'B', 'C', 'D']) { const g = RS_GROUPS[id], cx = g.at ?? g.pts[0][0]; if (g.extra) continue; g.extra = true; for (let k = 0; k < 5; k++) { const sd = k % 2 ? 1 : -1; g.pts.push([cx + (r() - 0.5) * 200, sd * (70 + r() * 120)]); g.kinds.push(['rifle', 'rpg', 'rifle', 'rifle', 'atgm'][k]); } } }
   for (const [id, g] of Object.entries(RS_GROUPS)) g.pts.forEach(([x0, z0], i) => { const lane = id === 'W' ? RS_WEST : id === 'S' ? RS_SOUTH : RS_TRACK, [x, z] = corr(lane, x0, z0, 23, id === 'W' || id === 'S' ? 4 : 12); const [wx, wz] = RW(x, z); let tx = x, tz = 0; { let bd = 1e9; for (const p of id === 'W' || id === 'S' ? [RS_MEET2, [-560, -66]] : densify(RS_TRACK, 10)) { const d = Math.hypot(p[0] - x, p[1] - z); if (d < bd) { bd = d; tx = p[0]; tz = p[1]; } } } const dx = tx - x, dz = tz - z, l = Math.hypot(dx, dz) || 1; const s = foxhole(wx, wz, dx / l, dz / l, C.slots); s.grp = id; s.kind = g.kinds[i]; if (g.bush) for (let k = 0; k < 6; k++) { const a = Math.atan2(dx, dz) + rand(-2.4, 2.4), d = rand(1.6, 3.4); C.nestBush.push([wx + Math.sin(a) * d, wz + Math.cos(a) * d, rand(0.9, 1.6), rand(0, 6), greenBush(Math.random)]); } });
@@ -10924,12 +10924,12 @@ function rsBuild() {
     dressRoute(TW, okW, 900, 1.2, 0.15); dressArea(X0, X1, Z0, Z1, okW, 950, 1, 0.1); dressArea(X0, RS.o.x - 330, Z0, Z1, okW, 980, 0.8, 0.85);
     instScatter(ROCK_G, scatterIn(LITE ? 200 : 460, X0, X1, Z0, Z1, 301, okW, (x, z, r) => [x, z, 0.22 + r() ** 3 * 1.1, r() * 6, rockCol(r), 0.2, 0.55]).concat(scatterNear(TW, LITE ? 260 : 700, 9, 140, 311, okW, (x, z, r) => [x, z, 0.18 + r() ** 3 * 1.3, r() * 6, rockCol(r), 0.2, 0.55])));
     instScatter(BUSH_G, scatterNear(TW, LITE ? 220 : 560, 10, 150, 312, okW, (x, z, r) => [x, z, 0.5 + r() * 1.0, r() * 6, r() < 0.25 ? greenBush(r) : dryBush(r), 0, 0.8]));
-    { const bl2 = scatterNear(TW, LITE ? 16 : 30, 18, 110, 313, okW, (x, z, r) => [x, z, 1.2 + r() * 1.8, r() * 6, rockCol(r), 0.3, 0.72]); instScatter(BOULDER_G, bl2); boulders(bl2); }
-    const bl = scatterIn(LITE ? 30 : 44, X0, X1, Z0, Z1, 303, okW, (x, z, r) => [x, z, 1.3 + r() * 1.5, r() * 6, rockCol(r), 0.3, 0.72]); instScatter(BOULDER_G, bl); boulders(bl);
-    desertFlora(X0, X1, Z0, Z1, 3200, okW, 1, TW);   // agaves, cacti, saguaros and hawks (3_world.js)
-    instScatter(BUSH_G, scatterIn(LITE ? 220 : 520, X0, RS.o.x - 300, Z0, Z1, 304, okW, (x, z, r) => [x, z, 0.4 + r() * 0.7, r() * 6, dryBush(r), 0, 0.75]).concat(scatterIn(LITE ? 120 : 260, RS.o.x - 300, X1, Z0, Z1, 305, okW, (x, z, r) => [x, z, 0.35 + r() * 0.5, r() * 6, dryBush(r), 0, 0.7])));
+    { const bl2 = scatterNear(TW, LITE ? 5 : 10, 18, 110, 313, okW, (x, z, r) => [x, z, 1.2 + r() * 1.8, r() * 6, rockCol(r), 0.3, 0.72]); instScatter(BOULDER_G, bl2); boulders(bl2); }
+    const bl = scatterIn(LITE ? 10 : 15, X0, X1, Z0, Z1, 303, okW, (x, z, r) => [x, z, 1.3 + r() * 1.5, r() * 6, rockCol(r), 0.3, 0.72]); instScatter(BOULDER_G, bl); boulders(bl);
+    desertFlora(X0, X1, Z0, Z1, 3200, okW, 0.35, TW);   /* a third of the plants and rocks: the enemy has to stand out (the user) */   // agaves, cacti, saguaros and hawks (3_world.js)
+    instScatter(BUSH_G, scatterIn(LITE ? 70 : 170, X0, RS.o.x - 300, Z0, Z1, 304, okW, (x, z, r) => [x, z, 0.55 + r() * 0.35, r() * 6, dryBush(r), 0, 0.75]).concat(scatterIn(LITE ? 120 : 260, RS.o.x - 300, X1, Z0, Z1, 305, okW, (x, z, r) => [x, z, 0.35 + r() * 0.5, r() * 6, dryBush(r), 0, 0.7])));
     // the green belt toward the canal: fields and thick scrub where the tank hunters wait
-    instScatter(BUSH_G, scatterIn(LITE ? 300 : 760, X0, RS.o.x - 340, Z0, Z1, 306, okW, (x, z, r) => [x, z, 0.7 + r() * 1.1, r() * 6, greenBush(r), 0, 0.9]).concat(C.nestBush));
+    instScatter(BUSH_G, scatterIn(LITE ? 100 : 250, X0, RS.o.x - 340, Z0, Z1, 306, okW, (x, z, r) => [x, z, 0.55 + r() * 0.75, r() * 6, greenBush(r), 0, 0.9]).concat(C.nestBush));
     for (let i = 0; i < 70; i++) { const r = rng(400 + i); const [x, z] = [X0 + r() * 420, Z0 + r() * 640]; if (okW(x, z)) addCover(x + 1.2, z, -1, 0, 1.1); }
     palms(scatterIn(26, X0, RS.o.x - 520, Z0, Z1, 307, okW, (x, z, r) => [x, z, 0.8 + r() * 0.3, r() * 6]));
     powerLine(densify(RS_TRACK, 40).filter(([x]) => x > -420).map(([x, z]) => RW(x, z - 30)), 46);
@@ -11142,10 +11142,32 @@ function rsHillWake() {
   radio('מח״ט', 'מצרים!! אלה מצרים! אש! אש!', 3); feed('קבוצת החיילים מהגבעה — מצרים! הם פותחים באש!', 'bad'); FX.shake = Math.max(FX.shake, 0.5);
   hint('rs-hill2', `<b>מטווח אפס!</b> מקלע 0.5 (${TOUCH ? 'אש' : 'לחיצה ממושכת'}) ופגז (${TOUCH ? 'רימון' : 'G'}) לתוך הקבוצה. אם האש כבדה מדי — לתוך הצריח (${TOUCH ? 'כפתור צריח' : 'C'}) וממשיכים לירות משם.`, 8);
 }
+/* the enemy in front: shooters only in the 150 degrees ahead of the column (75 each side of where the tank is going; out at 80, back in at
+   75, so a man on the edge does not flicker); the column will not drive on while any of them lives; a man in front that the tank's MG
+   cannot see for six seconds while it waits is taken off (no enemy that cannot be hit, no column stuck waiting for him) */
+const RS_ARC_IN = Math.cos(75 * Math.PI / 180), RS_ARC_OUT = Math.cos(80 * Math.PI / 180);
+function rsDriving() { return MODE === 'rescue' && RS.stage !== 1 && RS.stage !== 3 && !(RS.stage === 2 && RS.hillOn) && TANK.g; }
+function rsFwd() { const hd = TANK.hdV ?? 0; return [Math.sin(hd), Math.cos(hd)]; }
+function rsArcOK(e) {
+  if (!rsDriving() || !e || !e.pos) return true; const t = TANK.g.position, dx = e.pos.x - t.x, dz = e.pos.z - t.z, d = Math.hypot(dx, dz) || 1, [fx, fz] = rsFwd(), c = (dx * fx + dz * fz) / d;
+  if (e.arcOut) { if (c > RS_ARC_IN) e.arcOut = false; } else if (c < RS_ARC_OUT) e.arcOut = true; return !e.arcOut;
+}
+function rsMgSees(e) { const t = TANK.g.position, h = e.chest(); return losW(t.x, t.y + 3.1, t.z, h.x, h.y + 0.4, h.z); }
+function rsHold(dt) {
+  if (!rsDriving()) { if (RS.held) { RS.held = false; TANK.vmax = RS.vmax0 ?? TANK.vmax; } return; }
+  if (RS.vmax0 === undefined || (!RS.held && TANK.vmax > 0)) RS.vmax0 = TANK.vmax;
+  const t = TANK.g.position; let block = false;
+  for (const e of UNITS.enemies) { if (!e.alive || !e.rig.root.visible || e.state === 'film') continue; const d = Math.hypot(e.pos.x - t.x, e.pos.z - t.z); if (d > 175 || !rsArcOK(e)) continue;
+    if (rsMgSees(e)) { e.blindT = 0; block = true; continue; }
+    e.blindT = (e.blindT || 0) + dt; if (RS.held && e.blindT > 6 && !e.peek) { e.alive = false; e.rig.root.visible = false; if (e.tag) e.tag.visible = false; if (e.slot) { e.slot.used = false; e.slot = null; } continue; }
+    block = true; }
+  if (block && !RS.held) { RS.held = true; TANK.vmax = 0; } else if (!block && RS.held) { RS.held = false; TANK.vmax = RS.vmax0; }
+}
 function rsUpd(dt) {
   const C = CHAP.rescue; C.t += dt; RS.t += dt; if (Math.floor(RS.t * 2) !== Math.floor((RS.t - dt) * 2)) szEnemyCleanup();
   for (let i = DIRQ.length - 1; i >= 0; i--) if (DIRQ[i] && GAME.t >= DIRQ[i].at) { const q = DIRQ.splice(i, 1)[0]; q.fn(); }
-  rsNightUpd(dt); rsRidersUpd(dt); if (RS.walk) rsWalkUpd(dt); if (RS.stage !== 1 && RS.stage !== 3) rsAmbUpd(dt);
+  rsNightUpd(dt); rsHold(dt); if (P.mode === 'tank') P.crouch = false;   /* no ducking into the turret in this mission (the user) */
+  rsRidersUpd(dt); if (RS.walk) rsWalkUpd(dt); if (RS.stage !== 1 && RS.stage !== 3) rsAmbUpd(dt);
   // the T-55s pick on Shaul's tank once it carries the garrison, the player the rest of the time
   C.t55.forEach((v, i) => { v.tgtV = i >= 3 && RS.stage >= 3 && C.shaul.alive ? (Math.random() < 0.6 ? () => C.shaul : null) : null; });
   if (C.shaul.alive && C.shaul.hp < C.shaul.hpSeen - 1) { C.shaul.hpSeen = C.shaul.hp; radio('שאול', pick(['חטפתי! עוד אני נע.', 'פגיעה בטנק, יש פצועים על הסיפון! תוריד אותם!']), 2.6); }
@@ -11271,7 +11293,7 @@ function rsEnd(win, why) {
   if (why === 'shaul') return ['הטנק של שאול נפגע', 'הטנק עם לוחמי פורקן על הסיפון הוא המטרה של כל אר־פי־ג׳י וכל טנק בגזרה. הישארו מולו, חפשו את הסימונים הצהובים ברגע שהם מופיעים, ותנו פגז לכל טנק מצרי שמציץ מהדיונות.', stats];
   return ['נפגעת', 'המפקד חשוף בצריח. כשהאש כבדה, היכנסו לצריח וירו בכוונת התותחן.', stats];
 }
-CHAP.rescue = { stages: RS_STAGES, st: () => RS.stage, cp: () => CHAP.rescue.cpN || 0, upd: rsUpd, obj: rsObj, hints: rsHints, items: rsItems, mini: rsMini, restore: fieldRestore, tod: () => RS_TOD[RS.stage] - START_MIN + CHAP.rescue.t / 8, end: rsEnd, tank: true, dry: true, night: true, tracers: 0.75, burnLong: true, hitK: () => 0.75, hard: 0.4,
+CHAP.rescue = { nightLook: Object.assign({}, NIGHT_LOOK, { moonI: 0.42, hemiI: 0.2 }), flareK: 1.6, stages: RS_STAGES, st: () => RS.stage, cp: () => CHAP.rescue.cpN || 0, upd: rsUpd, obj: rsObj, hints: rsHints, items: rsItems, mini: rsMini, restore: fieldRestore, tod: () => RS_TOD[RS.stage] - START_MIN + CHAP.rescue.t / 8, end: rsEnd, tank: true, dry: true, night: true, tracers: 0.75, burnLong: true, hitK: () => 0.75, hard: 0.4,
   atgmTarget: (e) => (RS.stage >= 3 && CHAP.rescue.shaul.alive && Math.random() < 0.6 ? () => CHAP.rescue.shaul.g.position.clone().add(V3(0, 1.6, 0)) : null),
   build: () => chapterBuild(CHAP.rescue, rsBuild), setup: rsSetup, clock: '9.10.1973 · ציר טליסמן', toast: ['הלילה שבין 8 ל־9 באוקטובר 1973 · 03:40', 'כוח חילוץ יוצא בלילה לאסוף את לוחמי מעוז פורקן'], start: () => fieldStart('rescue') };
 

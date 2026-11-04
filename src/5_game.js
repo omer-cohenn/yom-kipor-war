@@ -698,7 +698,7 @@ function rpgFireDue(e) {
   const from = e.muzzle(), q = fireRocket(from, e.rpgTp, 'e', e), at = q ? q.m.position : from; fxMuzzle(at, true); sndRocket(at);
   if (e.rpgFirst) { e.rpgFirst = false; DIRQ.push({ at: GAME.t + 0.35, fn: () => { if (!e.alive) return; e.setKind('smg'); e.rpgCd = 1e9; e.cmdRpg = false; if (e.state === 'trench') e.rush = true; } }); }
 }
-function enemyFire(e) {
+function enemyFire(e) { if (MODE === 'rescue' && !rsArcOK(e)) return;
   if (D.retreat && MODE === 'mezach') return;
   if (e.kind === 'rpg' && e.target) { const tp = e.target.player ? playerEye() : e.target.f.unit.chest(), d = e.pos.distanceTo(tp); if (e.rpgCd <= 0 && d > (e.state === 'trench' ? 6 : 12) && d < 230) rpgShoot(e, tp); return; }
   const mz = mzEase(), from = e.muzzle(); const tgt = e.target; if (!tgt) return; if (tgt.player) { e.shotT = GAME.t; if (MODE === 'suez') szFireAt(e, from); if (Math.hypot(e.pos.x - P.pos.x, e.pos.z - P.pos.z) < 150) SQF.spots.set(e, GAME.t), SQF.cT = GAME.t; } const W = wpnOf(e);
