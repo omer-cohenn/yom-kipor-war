@@ -5205,7 +5205,7 @@ function barkKey(text) {
 }
 function voxPlay(k, { radio = false, pos = null, vol = 1.25, line = true, reach = 0 } = {}) {
   const b = VOX.buf[k], ctx = AUD.ctx; if (!b || !ctx || AUD.muted) return false;
-  const now = ctx.currentTime; if (now - (VOX.last[k] ?? -99) < (line ? 6 : 2.2)) return false; VOX.last[k] = now;   /* the same line twice in a row (two calls for one event): once */
+  const now = ctx.currentTime; if (now - (VOX.last[k] ?? -99) < (line ? 6 : k.startsWith('groan') ? 0.3 : 2.2)) return false; VOX.last[k] = now;   /* the same line twice in a row (two calls for one event): once */
   if (k.startsWith('b_')) line = false;
   let far = 0; if (pos) { const d = camera.position.distanceTo(pos); far = d; vol *= reach ? Math.pow(Math.max(0.14, 1 - d / reach), 1.4) : Math.min(1, 14 / (d + 6)); if (vol < 0.04) return false; }   /* reach: a gentle fall-off over that many metres (the boats' cries across the canal) */
   if (line && VOX.cur) { try { VOX.cur.stop(); } catch (e) {} VOX.cur = null; }   /* one spoken line at a time: a new one cuts the last (shouts go on top) */
@@ -5474,7 +5474,7 @@ function reviveFriend(f) {
   const u = f.unit; f.state = f.prevState === 'follow' ? 'follow' : 'post'; f.bleed = 0; f.marker.visible = false; f.target = null; f.burst = 0; f.scanCd = 0.5; u.fall = -1; u.stance = 'stand'; u.alive = true; u.rig.root.rotation.x = 0; u.rig.shut = false; u.rig.head.material = MAT.faces[u.side][u.rig.faceV];
   if (f.post && !f.post.occupant) f.post.occupant = f; if (f.state === 'follow') { f.ti = SZ.trailN ? Math.max(SZ.trailBase, SZ.trailN - 6) : 0; f.stuck = 0; }
 }
-function woundFriend(f, killed = false, force = false) {
+function woundFriend(f, killed = false, force = false) { if (f && f.unit && (f.state === 'post' || f.state === 'follow')) groan(f.unit.pos);
   if (GOD()) return; if (f.state !== 'post' && f.state !== 'follow') return; if (!force && MODE === 'mezach' && !inStage(f.unit.pos.x, f.unit.pos.z)) return;
   f.prevState = f.state; if (f.post && f.post.occupant === f) f.post.occupant = null;
   const u = f.unit; u.fall = 0; u.fallDir = 1; u.stance = 'down';
@@ -5757,7 +5757,10 @@ function bodyWound(u, p) {
   m.position.copy(T.worldToLocal(wp)); m.quaternion.copy(tq.invert().multiply(q)); m.renderOrder = 2;
   T.add(m); onLayer1(m); WOUNDS.push({ u, m, t0: GAME.t, r: rand(0.1, 0.15) }); m.scale.setScalar(0.02);
 }
-function killEnemy(e, headshot) {
+/* the death groans (the user's recordings), one and then the other: a man killed, one of ours hit, the player near death or dead */
+const GROAN = { i: 0, t: -9 };
+function groan(pos, force = false) { if (!AUD.ctx || (!force && GAME.t - GROAN.t < 0.7)) return; GROAN.i = (GROAN.i + 1) % 2; if (voxPlay('groan_' + (GROAN.i + 1), { pos, vol: 1.1, line: false })) GROAN.t = GAME.t; else VOX.last['groan_' + (GROAN.i + 1)] = -99; }
+function killEnemy(e, headshot) { if (e && e.alive) groan(e.pos);
   if (!e.alive) return; leaveCover(e); if (e.plan) for (const s of e.plan) if (s.c && s.c.by === e) s.c.by = null; if (e.tcov && e.tcov.by === e) e.tcov.by = null; e.tcov = null; if (D.tok[1] === e) D.tok[1] = null; if (D.tok[-1] === e) D.tok[-1] = null; e.alive = false; e.state = 'dying'; e.fall = 0; e.stance = 'down'; e.deadAt = GAME.t; STATS.kills++; if (headshot) STATS.heads++;
   // how he goes down: a head shot drops him like a sack, a running man staggers on and pitches forward, the rest fold, spin or are thrown back
   const run = e.rig.kind === 'run' || e.rig.kind === 'walk', r = Math.random();
@@ -6946,7 +6949,7 @@ function moving() { const k = INPUT.keys; return !!(k.KeyW || k.KeyA || k.KeyS |
 function hurtPlayer(dmg, from, splash = false) {
   if (!P.alive || GAME.state !== 'play' || CINE.on) return;
   { const mz = mzEase(); if (mz) dmg *= mz.dmg; }
-  if (!GOD()) P.hp -= dmg; P.lastHit = GAME.t; sndHurt(); $('#flashHit').style.opacity = String(clamp(dmg / 40, 0.2, 0.8));
+  { const h0 = P.hp; if (!GOD()) P.hp -= dmg; if (h0 >= 10 && P.hp < 10) groan(null, true); } P.lastHit = GAME.t; sndHurt(); $('#flashHit').style.opacity = String(clamp(dmg / 40, 0.2, 0.8));
   showDmgDir(from);
   if (P.hp <= 0) { P.hp = 0; P.alive = false; endGame(false, 'dead'); }
 }
