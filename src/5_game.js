@@ -654,7 +654,7 @@ function bodyWound(u, p) {
 }
 /* the death groans (the user's recordings), one and then the other: a man killed, one of ours hit, the player near death or dead */
 const GROAN = { i: 0, t: -9 };
-function groan(pos, force = false) { if (!AUD.ctx || (!force && GAME.t - GROAN.t < 0.7)) return; GROAN.i = (GROAN.i + 1) % 2; if (voxPlay('groan_' + (GROAN.i + 1), { pos, vol: 1.1, line: false })) GROAN.t = GAME.t; else VOX.last['groan_' + (GROAN.i + 1)] = -99; }
+function groan(pos, force = false) { if (!AUD.ctx || (!force && GAME.t - GROAN.t < 0.7)) return; GROAN.i = (GROAN.i + 1) % 2; if (voxPlay('groan_' + (GROAN.i + 1), { pos, vol: 2.75, line: false })) GROAN.t = GAME.t; else VOX.last['groan_' + (GROAN.i + 1)] = -99; }
 function killEnemy(e, headshot) { if (e && e.alive) groan(e.pos);
   if (!e.alive) return; leaveCover(e); if (e.plan) for (const s of e.plan) if (s.c && s.c.by === e) s.c.by = null; if (e.tcov && e.tcov.by === e) e.tcov.by = null; e.tcov = null; if (D.tok[1] === e) D.tok[1] = null; if (D.tok[-1] === e) D.tok[-1] = null; e.alive = false; e.state = 'dying'; e.fall = 0; e.stance = 'down'; e.deadAt = GAME.t; STATS.kills++; if (headshot) STATS.heads++;
   // how he goes down: a head shot drops him like a sack, a running man staggers on and pitches forward, the rest fold, spin or are thrown back
