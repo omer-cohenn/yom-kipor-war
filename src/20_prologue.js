@@ -383,8 +383,7 @@ function prMcTo(i) {
 function prDrillDone() {
   PR.msgs.end = GAME.t; radio(PR_MC, 'זהו. אתם מוכנים, ואני מקווה שלא נצטרך. ארוחת חג בשש, ושמירה בלילה.', 4.6, true);
   DIRQ.push({ at: GAME.t + 5.0, fn: () => radio('רפי', 'המפקד, המודיעין אומר "סבירות נמוכה". המצרים עושים תרגיל, כמו כל סתיו.', 4.4, true) });
-  DIRQ.push({ at: GAME.t + 9.6, fn: () => radio(PR_MC, 'שיעשו. אחרי ששת הימים הם יודעים מה מחכה להם. עכשיו סיור ג׳יפ לפני החג, ואתה על המקלע.', 4.6, true) });
-  DIRQ.push({ at: GAME.t + 14.6, fn: () => prCut(() => prSetup(1)) });
+  DIRQ.push({ at: GAME.t + 9.0, fn: () => prCut(() => prSetup(1)) });   /* only the recorded lines: 'ready' and the intelligence (the user) */
 }
 function prNight() {
   const [x, z] = PR_AT.night; P.pos.set(x, groundAt(x, z), z); P.yaw = Math.PI / 2; P.pitch = 0.02; PR.nightT = 0;
