@@ -134,15 +134,7 @@ const PR_STEPS = [
     start: () => prAirRun(),
     hint: () => (TOUCH ? '<b>מטוס בצלילה:</b> ג׳ויסטיק עד הקצה, ורוצו' : '<b>מטוס בצלילה:</b> רוצו') + ' לקטע המקורה בתעלה, שהגג שלו משקי חול (◆). בשטח פתוח התותחים שלו קורעים הכול.',
     done: () => PR.air === 'ok' },
-  { id: 'treat', btn: 'taid', title: 'עזרה ראשונה', at: () => { const u = prDudu().unit; return [u.pos.x, u.pos.y + 0.4, u.pos.z, 'דודו · "פצוע"']; },
-    say: ['דודו "נפגע" בתרגיל. אל תצחקו, תחבשו אותו כמו שצריך.'],
-    start: () => prWoundDudu(),
-    hint: () => `<b>עזרה ראשונה:</b> עמדו ליד הפצוע (מגן דוד אדום) והחזיקו ${prKey(K('F'), 'את הכפתור הירוק שמופיע מימין')} עד שהפס מתמלא.`,
-    done: () => prDudu().state === 'stable' },
-  { id: 'carry', btn: 'tact', title: 'פינוי לתאג״ד', at: () => prCarryAt(),
-    say: ['עכשיו לתאג״ד. סוחבים אותו בתעלת הקשר, לא מעל הסוללה.'],
-    hint: () => `<b>פינוי:</b> ${prKey('הכפתור הירוק', K('E'))} מרים אותו. סחבו אותו לאוהל התאג״ד (◆), ושם ${prKey('הכפתור הירוק', K('E'))} משכיב אותו על האלונקה.`,
-    done: () => prDudu().state === 'saved' },
+  /* the first-aid drill (Dudu 'wounded', dressing, carrying him to the aid post) is gone: there is no first aid in the battle any more, and none of it was recorded (the user) */
 ];
 /* ---------- the tank range: a Magach of the platoon goes up into a hull-down position at the south end of the stronghold and fires two
    shells at two old tanks towed out there as targets ---------- */
