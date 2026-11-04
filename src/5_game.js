@@ -98,14 +98,14 @@ function barkKey(text) {
   return /^(מגע|אויב)/.test(n) ? 'contact' : /^רימון/.test(n) ? 'nade' : /^(נפל|חיסלתי|פגעתי|הואלמטה)/.test(n) ? 'down' : /^(יוריםעליי|אנימרותק)/.test(n) ? 'fire' : /^(יוריםעלינו|מרתקים|ראשיםלמטה)/.test(n) ? 'us' : /^(זז|עובר|מתקדם|קפיצה|חפה)/.test(n) ? 'cover' : /^נפגעתי/.test(n) ? 'hit'
     : n.includes('מצרי') ? (n.includes('מאחוריך') ? 'behind' : n.includes('מימינך') ? 'right' : n.includes('משמאלך') ? 'left' : null) : null;
 }
-function voxPlay(k, { radio = false, pos = null, vol = 1.25, line = true } = {}) {
+function voxPlay(k, { radio = false, pos = null, vol = 1.25, line = true, reach = 0 } = {}) {
   const b = VOX.buf[k], ctx = AUD.ctx; if (!b || !ctx || AUD.muted) return false;
   const now = ctx.currentTime; if (now - (VOX.last[k] ?? -99) < (line ? 6 : 2.2)) return false; VOX.last[k] = now;   /* the same line twice in a row (two calls for one event): once */
   if (k.startsWith('b_')) line = false;
-  let far = 0; if (pos) { const d = camera.position.distanceTo(pos); far = d; vol *= Math.min(1, 14 / (d + 6)); if (vol < 0.04) return false; }
+  let far = 0; if (pos) { const d = camera.position.distanceTo(pos); far = d; vol *= reach ? Math.pow(Math.max(0.14, 1 - d / reach), 1.4) : Math.min(1, 14 / (d + 6)); if (vol < 0.04) return false; }   /* reach: a gentle fall-off over that many metres (the boats' cries across the canal) */
   if (line && VOX.cur) { try { VOX.cur.stop(); } catch (e) {} VOX.cur = null; }   /* one spoken line at a time: a new one cuts the last (shouts go on top) */
   const s = ctx.createBufferSource(); s.buffer = b; let n = s;
-  if (far > 30) { const l = ctx.createBiquadFilter(); l.type = 'lowpass'; l.frequency.value = Math.max(900, 7000 - far * 45); n.connect(l); n = l; }   /* far off: muffled, across the water */
+  if (far > 30) { const l = ctx.createBiquadFilter(); l.type = 'lowpass'; l.frequency.value = reach ? Math.max(1100, 7000 - far * 18) : Math.max(900, 7000 - far * 45); n.connect(l); n = l; }   /* far off: muffled, across the water */
   if (radio) { const h = ctx.createBiquadFilter(); h.type = 'highpass'; h.frequency.value = 280; const l = ctx.createBiquadFilter(); l.type = 'lowpass'; l.frequency.value = 3600; n.connect(h); h.connect(l); n = l; }   // over the radio: thin
   const g = ctx.createGain(); g.gain.value = vol; n.connect(g); g.connect(AUD.master); s.start();
   if (line) { VOX.cur = s; s.onended = () => { if (VOX.cur === s) VOX.cur = null; }; } return true;
@@ -1391,10 +1391,12 @@ function seatInstUpdate() {
 // from the old figure's frame (scaled to the boat, facing its way) to the baked soldier's: the same scale and facing (the rower's figure is turned)
 const SEAT_FIX = [new THREE.Matrix4(), new THREE.Matrix4()];
 function updBoats(dt) {
-  sndRowing(dt); seatInstUpdate();
+  sndRowing(dt); seatInstUpdate(); nGuideUpd();
   if (MODE === 'mezach' && !CINE.on && AUD.ctx && (D.boatCryT = (D.boatCryT ?? 2) - dt) <= 0) { D.boatCryT = rand(2.5, 4.5);   /* the boats chant as they come: 'Allahu akbar' over the water (the user: more of it) */
-    const near = BOATS.filter((b) => !b.dead && b.state === 'cross' && b.g.visible && camera.position.distanceTo(b.g.position) < 140); const b = near.length ? pick(near) : null;
-    if (b && GAME.t - AR_LAST.t > 1.4 && voxPlay('ar_allah_' + (Math.random() < 0.5 ? 1 : 2), { pos: b.g.position, vol: 1.2, line: false })) AR_LAST.t = GAME.t; }
+    /* from the whole width of the canal, muffled far off and clearer as they come: one cry at a time, the nearer boats more often */
+    const near = BOATS.filter((b) => !b.dead && b.state === 'cross' && b.g.visible && camera.position.distanceTo(b.g.position) < 380).sort((a, c) => camera.position.distanceToSquared(a.g.position) - camera.position.distanceToSquared(c.g.position));
+    const b = near.length ? near[Math.floor(Math.pow(Math.random(), 1.8) * near.length)] : null;
+    if (b && GAME.t - AR_LAST.t > 1.4 && voxPlay((Math.random() < 0.75 ? 'ar_allah_' : 'ar_yalla_') + (Math.random() < 0.5 ? 1 : 2), { pos: b.g.position, vol: 1.15, line: false, reach: 420 })) AR_LAST.t = GAME.t; }
   // counted before any boat moves this frame (a boat coming to the line must not count itself)
   let men = 0; if ((LANDCAP.n < 999 || LANDCAP.wave) && !CINE.on) { for (const e of UNITS.enemies) if (e.alive) men++; for (const bt of BOATS) if (!bt.dead && (bt.state === 'landed' || (bt.state === 'cross' && bt.t * bt.speed > bt.len - 25 + 0.01))) men += aboard(bt); }
   const load = 8 + (LITE ? 4 : 6), room = (LANDCAP.n + 0.3) * load;
@@ -1635,6 +1637,17 @@ function medevacStart() {
 }
 function pendingSpawns() { let n = 0; for (const q of DIRQ) if (q.spawn) n++; return n; }
 function enemiesLeft() { let n = pendingSpawns() + rowsPending(); for (const e of UNITS.enemies) if (e.alive) n++; for (const b of BOATS) if (!b.dead && b.state !== 'sinking') n += b.seats.filter((s) => s.alive && !s.gone).length; return n; }
+/* the way to the northern post: a yellow ring on the trench floor a few metres ahead of the player, along the trench towards it (the user) */
+const NGUIDE = { m: null };
+function nGuideUpd() {
+  const on = MODE === 'mezach' && D.boatsDone && D.cmdWait && GAME.state === 'play' && !CINE.on;
+  if (!on) { if (NGUIDE.m) NGUIDE.m.visible = false; return; }
+  if (!NGUIDE.m) { NGUIDE.m = new THREE.Mesh(new THREE.RingGeometry(0.55, 0.8, 40), new THREE.MeshBasicMaterial({ color: 0xffd23a, transparent: true, opacity: 0.85, depthWrite: false, side: THREE.DoubleSide, fog: false })); NGUIDE.m.rotation.x = -Math.PI / 2; NGUIDE.m.renderOrder = 5; onLayer1(NGUIDE.m); scene.add(NGUIDE.m); }
+  const n = POSTP('N1'), tx = n.stand[0], tz = n.stand[1], dT = Math.hypot(P.pos.x - tx, P.pos.z - tz); let x = tx, z = tz;
+  if (dT > 7) { const k0 = trK(P.pos.x, P.pos.z)[0], k1 = trK(tx, tz)[0], dir = Math.sign(k1 - k0) || 1; let k = k0, run = 0, px = TR.pts[k0][0], pz = TR.pts[k0][1];
+    while (k !== k1 && run < 7) { k += dir; const q = TR.pts[k]; run += Math.hypot(q[0] - px, q[1] - pz); px = q[0]; pz = q[1]; } x = px; z = pz; }
+  const m = NGUIDE.m; m.visible = true; m.position.set(x, groundAt(x, z) + 0.06, z); const s = 1 + 0.12 * Math.sin(GAME.t * 5); m.scale.set(s, s, s); m.material.opacity = 0.65 + 0.25 * Math.sin(GAME.t * 5);
+}
 function mzNorthStep() {   // the north stage: the boats' men as before; when the last of them is dead the player is sent to the northern post, facing the scrub - and only when he stands there does the commando come out of it
   if (!D.cmdWait || D.phaseT < 6) return;
   if (!D.boatsDone) { if (enemiesLeft() > 0) return; D.boatsDone = true; radio('יוסי', 'הם עולים מצפון! ומהכביש קומנדו!', 3.6); radio('מ״פ', 'לעמדה הצפונית, מול השיחים!', 3.2); return; }
