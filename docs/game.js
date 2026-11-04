@@ -5149,9 +5149,9 @@ const MZ_EASE = [
 /* the stronghold's own rules (the user, Nov 2026): men in each boat of the first wave, boats in each row of the last wave, the RPG - the hit
    it costs the player, how long from seeing him to the rocket, how wide of him it may land */
 const MZ_LV = [
-  { seats: 4, every: [19, 15, 11], row: 5, rpgDmg: 45, rpgT: 1.5, rpgSp: 2.5 },
-  { seats: 5, every: [17, 13, 9], row: 6, rpgDmg: 50, rpgT: 1.2, rpgSp: 2.0 },
-  { seats: 5, every: [15, 11, 7], row: 7, rpgDmg: 60, rpgT: 0.9, rpgSp: 1.6 },
+  { seats: 4, every: [21, 17, 13], row: 5, rpgDmg: 45, rpgT: 1.5, rpgSp: 2.5 },
+  { seats: 5, every: [19, 15, 11], row: 6, rpgDmg: 50, rpgT: 1.2, rpgSp: 2.0 },
+  { seats: 5, every: [17, 13, 9], row: 7, rpgDmg: 60, rpgT: 0.9, rpgSp: 1.6 },
 ];
 const mzEase = () => (MODE === 'mezach' && !SURV.on ? MZ_EASE[Math.max(0, DIFF.indexOf(diff))] : null);
 const mzLv = () => (MODE === 'mezach' && !SURV.on ? MZ_LV[Math.max(0, DIFF.indexOf(diff))] : null);
@@ -6401,7 +6401,7 @@ function updBoats(dt) {
       if (!bt.retreat && LANDCAP.wave && bt.wave !== undefined) { bt.holding = false;
         if (bt.wave > LANDCAP.open && bt.len - bt.t * bt.speed < 25) LANDCAP.open = bt.wave;   /* in past the line (in a film, or put there): its wave is in */
         if (!CINE.on && bt.wave > LANDCAP.open) { const k = bt.wave - LANDCAP.open - 1, tl = (bt.len - 25 - 32 * k - (bt.back ? 9 : 0)) / bt.speed;   /* the second row waits a boat's length behind the first */
-          if (bt.t > tl && bt.t - dt <= tl + 1e-3) { if (k === 0 && men <= LANDCAP.wave) LANDCAP.open = bt.wave; else { bt.holding = true; bt.t = tl; } } } }
+          if (bt.t > tl && bt.t - dt <= tl + 1e-3) { bt.holdT = (bt.holdT || 0) + dt; if (k === 0 && (men <= LANDCAP.wave || bt.holdT > 5)) LANDCAP.open = bt.wave; else { bt.holding = true; bt.t = tl; }   /* held off the beach five seconds at most: they never sit still on the water (the bug the user saw) */ } } }
       else { const tHold = (bt.len - 25) / bt.speed; bt.holding = false;
         if (LANDCAP.n < 999 && !CINE.on && bt.t > tHold && bt.t - dt <= tHold + 1e-3) { const a = aboard(bt); if (men > 0 && men + a > room) { bt.holding = true; bt.t = tHold; } else men += a; } }
       const u = Math.min(1, bt.t * bt.speed / bt.len); const x = lerp(bt.from[0], bt.to[0], u), z = lerp(bt.from[1], bt.to[1], u);
@@ -6497,7 +6497,7 @@ function northGroup(n, delay, kinds = [], i0 = 0, cmd = false) {   // i0: the fi
 /* the commando from the north comes in squads, one behind the other down the Lexicon road: far more men to stop than the one small group
    there was (the user: too few there), but never all of them at once, and only a couple of RPGs - more targets, not more fire. Per level:
    the men in each squad; a squad sets off MZ_CMD_GAP seconds after the one before it */
-const MZ_CMD = [3, 3, 4], MZ_CMD_GAP = 8;   /* half what the north had (the user, Nov 2026) */   /* the same number on every level (the user): only how cleverly they fight changes (CMD_SMART) */   // squads of four - two from each sap - one every few seconds, each with its RPG (two in every other)
+const MZ_CMD = [3, 3, 4], MZ_CMD_GAP = 10;   /* half what the north had (the user, Nov 2026) */   /* the same number on every level (the user): only how cleverly they fight changes (CMD_SMART) */   // squads of four - two from each sap - one every few seconds, each with its RPG (two in every other)
 function mzCommando() { let t = 4, i0 = 0; for (let k = 0; k < MZ_CMD[Math.max(0, DIFF.indexOf(diff))]; k++) { northGroup(4, t, ['rifle', 'rifle', 'rifle', 'rifle'], i0, true);   /* the rocket only from the first man of every other squad (rpgTurn) */ i0 += 4; t += MZ_CMD_GAP; }   /* squads of four (the user: a third smaller than six) */ }
 /* ---------- the last wave: three minutes to hold, heavier every minute; then they turn back ---------- */
 function mzSurvive() {
