@@ -113,7 +113,7 @@ function voxPlay(k, { radio = false, pos = null, vol = 1.25, line = true } = {})
    fire, 'watch your back' in the trench - from the man himself, one cry at a time across the field */
 const AR_LAST = { t: -99 };
 function arShout(e, kind, p = 1) {
-  if (!e || !AUD.ctx || Math.random() > p || GAME.t - AR_LAST.t < 2.2 || GAME.t - (e.arT ?? -99) < 9) return; if (camera.position.distanceTo(e.pos) > 90) return;
+  if (!e || !AUD.ctx || Math.random() > p || GAME.t - AR_LAST.t < 1.4 || GAME.t - (e.arT ?? -99) < 6) return; if (camera.position.distanceTo(e.pos) > 140) return;
   if (voxPlay('ar_' + kind + '_' + (Math.random() < 0.5 ? 1 : 2), { pos: e.pos, vol: 1.1, line: false })) { AR_LAST.t = GAME.t; e.arT = GAME.t; }
 }
 function voxBark(f, k) {   // a squad man's shout, in his own voice (one of two), from where he is
@@ -588,7 +588,7 @@ function spawnEnemy(x, z, kind, group, path, opts = {}) {
   e.side = 'e'; e.setKind(kind); e.alive = true; e.hp = 100; e.fall = -1; e.stance = 'stand'; e.place(x, z); e.rig.root.visible = true; e.rig.gun.visible = true; e.deadAt = undefined; e.rig.shut = false; e.rig.head.material = MAT.faces[e.side][e.rig.faceV]; e.rig.deadOpen = Math.random() < 0.35; e.rig.blinkT = rand(1, 4);
   Object.assign(e, { state: 'move', path, pi: 0, group, t: 0, fireCd: rand(0.5, 1.5), burst: 0, scanCd: 0, target: null, stopCd: rand(2, 5), engageT: 0, gCd: diff.gren > 0 ? rand(8, 20) / diff.gren : 1e9, rpgCd: rand(2, 5), rpgPause: 0, flameT: 0, hold: opts.hold ?? -1, speed: rand(3.9, 4.6), inside: false, goalCd: 0, charge: false, plan: null, ps: 0, tcov: null, tcovCd: 0, inCov: false, usedTrav: null, k: 0, meleeCd: 0, throwT: 0, cover: null, sz: null, slot: null, cov: null, dormant: false, wakeG: undefined, wakeR: 24, climb: false, raid: false, sq: undefined, guide: null, peek: false, rpgAim: 0, wild: false, rpgMiss: false, noTag: false,
     sqAuto: 'g' + Math.round(GAME.t / 4) + ':' + Math.round(x / 50) + ':' + Math.round(z / 50), supp: 0, seeT: 0, alert: false, lkp: null, lkpT: -99, fellBack: false, flanking: false, peekOff: 0, blindCd: undefined, blindN: 0, blindK: undefined, tac: undefined, flankD: false, reactCd: undefined, reactT: 0 });   // (a pooled body keeps nothing of how his last owner fought)
-  if (opts.jump && MODE === 'mezach') arShout(e, Math.random() < 0.6 ? 'allah' : 'yalla', 0.5);
+  if (opts.jump && MODE === 'mezach') arShout(e, Math.random() < 0.85 ? 'allah' : 'yalla', 0.9);
   if (opts.jump) { e.state = 'jump'; e.jd = 0; e.j0 = opts.jump.clone(); e.j1 = V3(x, groundAt(x, z), z); e.pos.copy(e.j0); }
   e.sync(); return e;
 }
@@ -1024,7 +1024,7 @@ function northRushPlan(e, j) {
   return [{ t: 'run', near: 1.0, x: p[0] + o[0] * 9 + o[1] * sd, z: p[1] + o[1] * 9 - o[0] * sd }, { t: 'run', final: true, x: p[0] + o[0] * PARA_D, z: p[1] + o[1] * PARA_D }, { t: 'vault', x: p[0], z: p[1] }];
 }
 /* a commando man: quicker on his feet, short stops only (no one stays behind for long), his rocket ready early and again soon after */
-function cmdTune(e) { e.cmd = true; if (MODE === 'mezach') DIRQ.push({ at: GAME.t + rand(0.5, 3), fn: () => { if (e.alive) arShout(e, 'yalla', 0.35); } }); if (MODE === 'mezach' && D.scene === 1) { e.slowK = 0.67; e.noStop = true; }   /* the north: a little slower than the rest, and nothing stops them until the trench (the user) */   /* the north: they run a little slower (the user) */ e.speed = Math.max(e.speed || 5, 5.6) * 1.2; if (e.plan) { for (const s of e.plan) if (s.t === 'cover' && s.c && s.c.by === e) s.c.by = null; e.plan = e.plan.filter((s) => s.t !== 'cover'); }   /* everyone charges straight for the fighting trench, no stop on the way (the user): no cover, no one stays back */ if (e.kind === 'rpg') { e.rpgCd = rand(1.2, 2.6); e.cmdRpg = true; } }
+function cmdTune(e) { e.cmd = true; if (MODE === 'mezach') DIRQ.push({ at: GAME.t + rand(0.5, 3), fn: () => { if (e.alive) arShout(e, Math.random() < 0.6 ? 'allah' : 'yalla', 0.5); } }); if (MODE === 'mezach' && D.scene === 1) { e.slowK = 0.67; e.noStop = true; }   /* the north: a little slower than the rest, and nothing stops them until the trench (the user) */   /* the north: they run a little slower (the user) */ e.speed = Math.max(e.speed || 5, 5.6) * 1.2; if (e.plan) { for (const s of e.plan) if (s.t === 'cover' && s.c && s.c.by === e) s.c.by = null; e.plan = e.plan.filter((s) => s.t !== 'cover'); }   /* everyone charges straight for the fighting trench, no stop on the way (the user): no cover, no one stays back */ if (e.kind === 'rpg') { e.rpgCd = rand(1.2, 2.6); e.cmdRpg = true; } }
 /* men already ashore before the player gets there: each waits in his place on the sand (the cover he ran to, or where he jumped down) until
    'until', firing from it, and only then goes for the rampart */
 function holdPlan(e, until) {
@@ -1112,7 +1112,7 @@ function planStep(e, dt, shoot, aimPitch) {
     if (u >= 1) { e.ps++; if (!e.plan[e.ps]) enterTrench(e); }
   }
 }
-function enterTrench(e) { if (e.side === 'e') arShout(e, Math.random() < 0.5 ? 'back' : 'allah', 0.6);
+function enterTrench(e) { if (e.side === 'e') arShout(e, Math.random() < 0.7 ? 'allah' : 'back', 0.8);
   Object.assign(e, { state: 'trench', slide: null, plan: null, k: trK(e.pos.x, e.pos.z)[0], stX: e.pos.x, stZ: e.pos.z, stT: 0, tcov: null, tcovCd: 0, inCov: false, usedTrav: new Set(), meleeCd: 0.5, fireCd: rand(0.12, 0.4), reachBy: GAME.t + 5, burst: 0, speed: rand(4.4, 5.0), patience: 0, rush: false, moving: false, cside: Math.random() < 0.5 ? 1 : -1, sideT: 0, gCd: rand(4, 9) });
   if (GAME.t - (D.trenchMsg || -99) > 25) { D.trenchMsg = GAME.t; radio(pick(['יוסי', 'דודו', 'רפי']), pick(['הם בתעלה! הם בתעלה!', 'מצרים קפצו לתעלה! תשמרו על הגב!', 'יש להם רגל בתעלה! לחסל אותם!']), 3.2); }
 }
@@ -1388,6 +1388,9 @@ function seatInstUpdate() {
 const SEAT_FIX = [new THREE.Matrix4(), new THREE.Matrix4()];
 function updBoats(dt) {
   sndRowing(dt); seatInstUpdate();
+  if (MODE === 'mezach' && !CINE.on && AUD.ctx && (D.boatCryT = (D.boatCryT ?? 2) - dt) <= 0) { D.boatCryT = rand(2.5, 4.5);   /* the boats chant as they come: 'Allahu akbar' over the water (the user: more of it) */
+    const near = BOATS.filter((b) => !b.dead && b.state === 'cross' && b.g.visible && camera.position.distanceTo(b.g.position) < 140); const b = near.length ? pick(near) : null;
+    if (b && GAME.t - AR_LAST.t > 1.4 && voxPlay('ar_allah_' + (Math.random() < 0.5 ? 1 : 2), { pos: b.g.position, vol: 1.2, line: false })) AR_LAST.t = GAME.t; }
   // counted before any boat moves this frame (a boat coming to the line must not count itself)
   let men = 0; if ((LANDCAP.n < 999 || LANDCAP.wave) && !CINE.on) { for (const e of UNITS.enemies) if (e.alive) men++; for (const bt of BOATS) if (!bt.dead && (bt.state === 'landed' || (bt.state === 'cross' && bt.t * bt.speed > bt.len - 25 + 0.01))) men += aboard(bt); }
   const load = 8 + (LITE ? 4 : 6), room = (LANDCAP.n + 0.3) * load;
