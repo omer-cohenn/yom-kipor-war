@@ -5189,7 +5189,7 @@ function sndLoad() {
    the dubbed lines (vox.json, beside the page: recorded in ElevenLabs by the user, re-encoded small). A radio line or a film caption is
    matched to its recording by how its text begins; the squad's shouts by their first word, in one of two voices */
 const VOX = { buf: {}, loading: false, cur: null, last: {} };
-const VOX_DUR = {"airraid":2.95,"alert":2.85,"b_behind_D":1.59,"b_contact_D":1.25,"b_contact_I":1.15,"b_down_D":1.02,"b_down_I":0.99,"b_fire_D":1.1,"b_fire_I":0.91,"b_hit_D":1.04,"b_hit_I":1.02,"b_left_D":1.57,"b_left_I":1.46,"b_mag_D":1.46,"b_mag_I":1.54,"b_nade_D":1.07,"b_nade_I":0.91,"b_right_D":1.46,"b_right_I":1.41,"b_rpg_D":1.15,"b_rpg_I":1.1,"barrage":3.4,"barrage_end":3.19,"barrels":3.79,"belt":3.47,"boatsmag":2.14,"clear":2.56,"dead":3.71,"dinghy":2.98,"dive":2.66,"downed":1.1,"dozens":2.72,"driver":5.85,"eject":2.46,"enemynade":1.65,"eve":3.45,"halfmag":5.88,"headdown":1.99,"holddark":3.4,"inside":2.19,"intel":2.51,"intrench":1.36,"kippur":4.62,"lastmin":2.32,"loader":2.93,"looks":5.69,"manmag":1.59,"mine":1.65,"mirage":2.61,"missile":1.23,"north":2.87,"openfield":3.0,"pit":2.72,"portboats":2.35,"quiet":1.54,"ready":3.4,"retreat":2.01,"rows":1.62,"run":2.93,"seenyou":2.69,"shmulik":3.79,"sixofsix":1.52,"takemag":2.46,"tank1":2.93,"tank2":2.4,"twohits":2.59,"wing":2.09};   // seconds: a line stays on the screen at least this long
+const VOX_DUR = {"airraid":2.95,"alert":2.85,"b_behind_D":1.59,"b_contact_D":1.25,"b_contact_I":1.15,"b_down_D":1.02,"b_down_I":0.99,"b_fire_D":1.1,"b_fire_I":0.91,"b_hit_D":1.04,"b_hit_I":1.02,"b_left_D":1.57,"b_left_I":1.46,"b_nade_D":1.07,"b_nade_I":0.91,"b_right_D":1.46,"b_right_I":1.41,"b_rpg_D":1.15,"b_rpg_I":1.1,"barrage":3.4,"barrage_end":3.19,"barrels":3.79,"belt":3.47,"boatsmag":2.14,"clear":2.56,"dead":3.71,"dinghy":2.98,"dive":2.66,"downed":1.1,"dozens":2.72,"driver":5.85,"eject":2.46,"enemynade":1.65,"eve":3.45,"halfmag":5.88,"headdown":1.99,"holddark":3.4,"inside":2.19,"intel":2.51,"intrench":1.36,"kippur":4.62,"lastmin":2.32,"loader":2.93,"looks":5.69,"manmag":1.59,"mine":1.65,"mirage":2.61,"missile":1.23,"north":2.87,"openfield":3.0,"pit":2.72,"portboats":2.35,"quiet":1.54,"ready":3.4,"retreat":2.01,"rows":1.62,"run":2.93,"seenyou":2.69,"shmulik":3.79,"sixofsix":1.52,"takemag":2.46,"tank1":2.93,"tank2":2.4,"twohits":2.59,"wing":2.09,"cairo":3.19,"moving":1.91,"northboats":1.65,"northpost":1.93,"commando":1.2,"miragehit":1.44,"b_hit_N":0.99,"b_left_N":1.41,"b_right_N":1.38,"b_fire_N":0.94,"b_down_N":1.02,"b_us_N":0.99,"b_us_D":0.99,"b_cover_N":1.18,"b_cover_D":1.15,"ar_allah_1":1.38,"ar_allah_2":1.46,"ar_yalla_1":1.33,"ar_yalla_2":1.49,"ar_hide_1":0.89,"ar_hide_2":0.91,"ar_back_1":1.75,"ar_back_2":1.62};   // seconds: a line stays on the screen at least this long
 function voxLoad() {
   if (VOX.loading || !AUD.ctx) return; VOX.loading = true;
   fetch('vox.json').then((r) => (r.ok ? r.json() : null)).then((d) => { if (!d) return; for (const k in d) { try {
@@ -5216,13 +5216,14 @@ const VOX_LINES = [
   ['מת. בתרגיל', 'dead', 'מת. בתרגיל, אבל מת. עוד פעם!'], ['בשטח פתוח המטוס', 'openfield', 'בשטח פתוח הוא היה קורע אותך. עוד סיבוב!'], ['שש מתוך שש', 'sixofsix', 'שש מתוך שש!'],
   ['שתי יריות', 'twohits', 'שתי יריות, שתי פגיעות.'], ['אחרי מה שעשינו', 'loader', 'אחרי 67? הם לא יעזו לחצות.'], ['זהו. אתם מוכנים', 'ready', 'זהו. אתם מוכנים. ארוחת חג בשש.'],
   ['המפקד, המודיעין', 'intel', 'המודיעין אומר "סבירות נמוכה".'], ['שקט מדי הלילה', 'quiet', 'שקט מדי הלילה.'], ['מחר יום כיפור', 'kippur', 'מחר כיפור, אצלם רמדאן. אף אחד לא יירה, נכון?'],
-  ['שיירו', 'shmulik', 'שיירו. יש לנו סוללה, טנקים וחיל אוויר.'],
+  ['שיירו', 'shmulik', 'שיירו. יש לנו סוללה, טנקים וחיל אוויר.'], ['כן... יומיים', 'cairo', 'כן... יומיים, ואנחנו בקהיר.'], ['יפה. עכשיו בתנועה', 'moving', 'יפה. עכשיו בתנועה.'],
+  ['סירות עלו עליי מצפון', 'northboats', 'סירות עלו עליי מצפון!'], ['לעמדה הצפונית', 'northpost', 'לעמדה הצפונית!'], ['קומנדו מהשיחים', 'commando', 'קומנדו מהשיחים!'], ['מיראז׳ נפגע', 'miragehit', 'מיראז׳ נפגע!'],
 ].map(([t, k, said]) => [voxNorm(t), k, said]);
-const BARK_SAID = { contact: 'מגע!', nade: 'רימון!', mag: 'מחליף מחסנית!', down: 'נפל!', fire: 'יורים עליי!', hit: 'נפגעתי!', behind: 'מצרי מאחוריך!', right: 'מצרי מימינך!', left: 'מצרי משמאלך!', rpg: 'אר־פי־ג׳י!' };
+const BARK_SAID = { contact: 'מגע!', nade: 'רימון!', down: 'נפל!', fire: 'יורים עליי!', us: 'יורים עלינו!', cover: 'חפה עליי!', hit: 'נפגעתי!', behind: 'מצרי מאחוריך!', right: 'מצרי מימינך!', left: 'מצרי משמאלך!', rpg: 'אר־פי־ג׳י!' };
 function voxFind(text) { const n = voxNorm(text); for (const [t, k, said] of VOX_LINES) if (n.startsWith(t)) return { k, said }; return null; }
 function barkKey(text) {
   const n = voxNorm(text);
-  return /^(מגע|אויב)/.test(n) ? 'contact' : /^רימון/.test(n) ? 'nade' : /^(מחליף|מחסנית|טוען)/.test(n) ? 'mag' : /^(נפל|חיסלתי|פגעתי|הואלמטה)/.test(n) ? 'down' : /^(יורים|אנימרותק|מרתקים|ראשיםלמטה)/.test(n) ? 'fire' : /^נפגעתי/.test(n) ? 'hit'
+  return /^(מגע|אויב)/.test(n) ? 'contact' : /^רימון/.test(n) ? 'nade' : /^(נפל|חיסלתי|פגעתי|הואלמטה)/.test(n) ? 'down' : /^(יוריםעליי|אנימרותק)/.test(n) ? 'fire' : /^(יוריםעלינו|מרתקים|ראשיםלמטה)/.test(n) ? 'us' : /^(זז|עובר|מתקדם|קפיצה|חפה)/.test(n) ? 'cover' : /^נפגעתי/.test(n) ? 'hit'
     : n.includes('מצרי') ? (n.includes('מאחוריך') ? 'behind' : n.includes('מימינך') ? 'right' : n.includes('משמאלך') ? 'left' : null) : null;
 }
 function voxPlay(k, { radio = false, pos = null, vol = 1.25, line = true } = {}) {
@@ -5236,9 +5237,16 @@ function voxPlay(k, { radio = false, pos = null, vol = 1.25, line = true } = {})
   const g = ctx.createGain(); g.gain.value = vol; n.connect(g); g.connect(AUD.master); s.start();
   if (line) { VOX.cur = s; s.onended = () => { if (VOX.cur === s) VOX.cur = null; }; } return true;
 }
+/* the Egyptians' battle cries (Arabic, recorded by the user): 'Allahu akbar' leaping from the boats, 'yalla' as a squad sets off, 'hide' under
+   fire, 'watch your back' in the trench - from the man himself, one cry at a time across the field */
+const AR_LAST = { t: -99 };
+function arShout(e, kind, p = 1) {
+  if (!e || !AUD.ctx || Math.random() > p || GAME.t - AR_LAST.t < 2.2 || GAME.t - (e.arT ?? -99) < 9) return; if (camera.position.distanceTo(e.pos) > 90) return;
+  if (voxPlay('ar_' + kind + '_' + (Math.random() < 0.5 ? 1 : 2), { pos: e.pos, vol: 1.1, line: false })) { AR_LAST.t = GAME.t; e.arT = GAME.t; }
+}
 function voxBark(f, k) {   // a squad man's shout, in his own voice (one of two), from where he is
-  const v = f && f.name && f.name.charCodeAt(0) % 2 ? 'I' : 'D', pos = f && f.unit ? f.unit.pos : null;
-  return voxPlay('b_' + k + '_' + v, { pos }) || voxPlay('b_' + k + '_' + (v === 'I' ? 'D' : 'I'), { pos });
+  const V = ['I', 'D', 'N'], h = f && f.name ? [...f.name].reduce((a, c) => a + c.charCodeAt(0), 0) : 0, pos = f && f.unit ? f.unit.pos : null;   /* three voices among the squad */
+  for (let j = 0; j < 3; j++) { const key = 'b_' + k + '_' + V[(h + j) % 3]; if (VOX_DUR[key] && voxPlay(key, { pos })) return true; } return false;
 }
 /* the air-raid siren: the rising and falling wail of the stronghold's horn, for the aircraft warnings (not again within 20 s) */
 function sndSiren(dur = 7) {
@@ -5513,7 +5521,7 @@ function shout(f, text, dur = 1.9, force = false) {
   if (camera.position.distanceTo(f.unit.pos) > 60) return false;
   SQF.callT = GAME.t; f.shoutCd = GAME.t + 3.2;
   if (!f.say) { const el = document.createElement('div'); el.className = 'say'; f.say = new CSS2DObject(el); f.say.center.set(0.5, 1); scene.add(f.say); f.sayEl = el; }
-  { const bk = barkKey(text); if (bk) { text = BARK_SAID[bk]; voxBark(f, bk); } }   /* what he shouts is what is heard */
+  { const bk = barkKey(text); if (!bk) { f.shoutCd = 0; return false; } text = BARK_SAID[bk]; voxBark(f, bk); }   /* what he shouts is what is heard; a call with no recording (the reload) is not made at all */
   f.sayEl.textContent = `${f.name}: ${text}`; f.say.visible = true; f.sayT = dur; nsTalk(f.unit, Math.min(dur, 0.4 + text.length * 0.06), 'shout'); return true;
 }
 function sqfLater(f, text, delay) { if (f) SQF.later.push({ f, text, at: GAME.t + delay }); }
@@ -5708,6 +5716,7 @@ function spawnEnemy(x, z, kind, group, path, opts = {}) {
   e.side = 'e'; e.setKind(kind); e.alive = true; e.hp = 100; e.fall = -1; e.stance = 'stand'; e.place(x, z); e.rig.root.visible = true; e.rig.gun.visible = true; e.deadAt = undefined; e.rig.shut = false; e.rig.head.material = MAT.faces[e.side][e.rig.faceV]; e.rig.deadOpen = Math.random() < 0.35; e.rig.blinkT = rand(1, 4);
   Object.assign(e, { state: 'move', path, pi: 0, group, t: 0, fireCd: rand(0.5, 1.5), burst: 0, scanCd: 0, target: null, stopCd: rand(2, 5), engageT: 0, gCd: diff.gren > 0 ? rand(8, 20) / diff.gren : 1e9, rpgCd: rand(2, 5), rpgPause: 0, flameT: 0, hold: opts.hold ?? -1, speed: rand(3.9, 4.6), inside: false, goalCd: 0, charge: false, plan: null, ps: 0, tcov: null, tcovCd: 0, inCov: false, usedTrav: null, k: 0, meleeCd: 0, throwT: 0, cover: null, sz: null, slot: null, cov: null, dormant: false, wakeG: undefined, wakeR: 24, climb: false, raid: false, sq: undefined, guide: null, peek: false, rpgAim: 0, wild: false, rpgMiss: false, noTag: false,
     sqAuto: 'g' + Math.round(GAME.t / 4) + ':' + Math.round(x / 50) + ':' + Math.round(z / 50), supp: 0, seeT: 0, alert: false, lkp: null, lkpT: -99, fellBack: false, flanking: false, peekOff: 0, blindCd: undefined, blindN: 0, blindK: undefined, tac: undefined, flankD: false, reactCd: undefined, reactT: 0 });   // (a pooled body keeps nothing of how his last owner fought)
+  if (opts.jump && MODE === 'mezach') arShout(e, Math.random() < 0.6 ? 'allah' : 'yalla', 0.5);
   if (opts.jump) { e.state = 'jump'; e.jd = 0; e.j0 = opts.jump.clone(); e.j1 = V3(x, groundAt(x, z), z); e.pos.copy(e.j0); }
   e.sync(); return e;
 }
@@ -5863,7 +5872,7 @@ function suppressAlong(o, p, k = 1) {
   for (const e of UNITS.enemies) { if (!e.alive || e.state === 'film' || e.dormant) continue; const c = e.chest(), t = clamp(((c.x - o.x) * dx + (c.y - o.y) * dy + (c.z - o.z) * dz) / L2, 0, 1);
     const qx = o.x + dx * t - c.x, qy = o.y + dy * t - c.y, qz = o.z + dz * t - c.z, d = Math.sqrt(qx * qx + qy * qy + qz * qz); if (d < 2.2) { e.supp = Math.min(1.6, (e.supp || 0) + g * 0.42 * (1 - d / 2.2)); e.alert = true; } }
 }
-function supPin(e, a) { if (e && e.alive) { e.supp = Math.min(1.6, (e.supp || 0) + a * tacK().supp); e.alert = true; } }
+function supPin(e, a) { if (e && e.alive) { const was = (e.supp || 0) > 0.55; e.supp = Math.min(1.6, (e.supp || 0) + a * tacK().supp); e.alert = true; if (!was && e.supp > 0.55 && e.side === 'e') arShout(e, 'hide', 0.5); } }
 /* what he can see of the player: a man still unalerted at his post sees in front of him (or right beside him) */
 function tacSees(e) {
   if (e.alert || !e.slot || e.sz !== 'win') return true;
@@ -6143,7 +6152,7 @@ function northRushPlan(e, j) {
   return [{ t: 'run', near: 1.0, x: p[0] + o[0] * 9 + o[1] * sd, z: p[1] + o[1] * 9 - o[0] * sd }, { t: 'run', final: true, x: p[0] + o[0] * PARA_D, z: p[1] + o[1] * PARA_D }, { t: 'vault', x: p[0], z: p[1] }];
 }
 /* a commando man: quicker on his feet, short stops only (no one stays behind for long), his rocket ready early and again soon after */
-function cmdTune(e) { e.cmd = true; if (MODE === 'mezach' && D.scene === 1) { e.slowK = 0.67; e.noStop = true; }   /* the north: a little slower than the rest, and nothing stops them until the trench (the user) */   /* the north: they run a little slower (the user) */ e.speed = Math.max(e.speed || 5, 5.6) * 1.2; if (e.plan) { for (const s of e.plan) if (s.t === 'cover' && s.c && s.c.by === e) s.c.by = null; e.plan = e.plan.filter((s) => s.t !== 'cover'); }   /* everyone charges straight for the fighting trench, no stop on the way (the user): no cover, no one stays back */ if (e.kind === 'rpg') { e.rpgCd = rand(1.2, 2.6); e.cmdRpg = true; } }
+function cmdTune(e) { e.cmd = true; if (MODE === 'mezach') DIRQ.push({ at: GAME.t + rand(0.5, 3), fn: () => { if (e.alive) arShout(e, 'yalla', 0.35); } }); if (MODE === 'mezach' && D.scene === 1) { e.slowK = 0.67; e.noStop = true; }   /* the north: a little slower than the rest, and nothing stops them until the trench (the user) */   /* the north: they run a little slower (the user) */ e.speed = Math.max(e.speed || 5, 5.6) * 1.2; if (e.plan) { for (const s of e.plan) if (s.t === 'cover' && s.c && s.c.by === e) s.c.by = null; e.plan = e.plan.filter((s) => s.t !== 'cover'); }   /* everyone charges straight for the fighting trench, no stop on the way (the user): no cover, no one stays back */ if (e.kind === 'rpg') { e.rpgCd = rand(1.2, 2.6); e.cmdRpg = true; } }
 /* men already ashore before the player gets there: each waits in his place on the sand (the cover he ran to, or where he jumped down) until
    'until', firing from it, and only then goes for the rampart */
 function holdPlan(e, until) {
@@ -6231,7 +6240,7 @@ function planStep(e, dt, shoot, aimPitch) {
     if (u >= 1) { e.ps++; if (!e.plan[e.ps]) enterTrench(e); }
   }
 }
-function enterTrench(e) {
+function enterTrench(e) { if (e.side === 'e') arShout(e, Math.random() < 0.5 ? 'back' : 'allah', 0.6);
   Object.assign(e, { state: 'trench', slide: null, plan: null, k: trK(e.pos.x, e.pos.z)[0], stX: e.pos.x, stZ: e.pos.z, stT: 0, tcov: null, tcovCd: 0, inCov: false, usedTrav: new Set(), meleeCd: 0.5, fireCd: rand(0.12, 0.4), reachBy: GAME.t + 5, burst: 0, speed: rand(4.4, 5.0), patience: 0, rush: false, moving: false, cside: Math.random() < 0.5 ? 1 : -1, sideT: 0, gCd: rand(4, 9) });
   if (GAME.t - (D.trenchMsg || -99) > 25) { D.trenchMsg = GAME.t; radio(pick(['יוסי', 'דודו', 'רפי']), pick(['הם בתעלה! הם בתעלה!', 'מצרים קפצו לתעלה! תשמרו על הגב!', 'יש להם רגל בתעלה! לחסל אותם!']), 3.2); }
 }
@@ -6470,18 +6479,38 @@ function seatBake(row) {
   if (!row) { const m = R.gun, g = m.geometry.clone(); g.applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv, m.matrixWorld)); out.push([g, m.material]); }
   scene.remove(R.root); return out;
 }
+/* the far copy of a baked soldier: the same shape and colours with far fewer triangles - his vertices merged on a 4 cm grid (a man in a boat
+   sixty metres off and more) */
+function seatCoarse(g0, cell = 0.04) {
+  const P = g0.attributes.position, UV = g0.attributes.uv, I = g0.index ? g0.index.array : null, n = I ? I.length : P.count;
+  const pos = [], uv = [], idx = [], groups = [], map = new Map();
+  for (const gr of (g0.groups.length ? g0.groups : [{ start: 0, count: n, materialIndex: 0 }])) {
+    map.clear(); const st = idx.length;
+    const vid = (i) => { const x = P.getX(i), y = P.getY(i), z = P.getZ(i), key = Math.round(x / cell) + ',' + Math.round(y / cell) + ',' + Math.round(z / cell); let v = map.get(key);
+      if (v === undefined) { v = pos.length / 3; map.set(key, v); pos.push(x, y, z); if (UV) uv.push(UV.getX(i), UV.getY(i)); } return v; };
+    for (let t = gr.start; t < gr.start + gr.count; t += 3) { const a = vid(I ? I[t] : t), b = vid(I ? I[t + 1] : t + 1), c = vid(I ? I[t + 2] : t + 2); if (a !== b && b !== c && a !== c) idx.push(a, b, c); }
+    groups.push({ start: st, count: idx.length - st, materialIndex: gr.materialIndex ?? 0 });
+  }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); if (UV) g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  g.setIndex(idx); for (const gr of groups) g.addGroup(gr.start, gr.count, gr.materialIndex); g.computeVertexNormals(); g.computeBoundingSphere(); return g;
+}
+/* [up to how far (metres, as the eye sees it), the grid his vertices are merged on]: the full model has 105,000 triangles - a whole boat of
+   them was the stutter; 40,000 close by, 20,000 at middle range, a few thousand far off look the same at those distances */
+const SEAT_LOD = [[25, 0.012], [70, 0.025], [1e9, 0.06]];
 function seatInst() {
   if (SEATI.on) return SEATI.sets.length > 0; SEATI.on = true;
-  try { for (const row of [false, true]) { const parts = seatBake(row).map(([g, mat]) => { const mesh = new THREE.InstancedMesh(g, Array.isArray(mat) ? mat.slice() : mat, SEATI.N); mesh.count = 0; mesh.frustumCulled = false; SH(mesh, true, false); onLayer1(mesh); scene.add(mesh); return mesh; }); SEATI.sets.push({ row, parts }); } }
+  const inst = (g, mat) => { const mesh = new THREE.InstancedMesh(g, Array.isArray(mat) ? mat.slice() : mat, SEATI.N); mesh.count = 0; mesh.frustumCulled = false; mesh.castShadow = false; mesh.receiveShadow = false; onLayer1(mesh); scene.add(mesh); return mesh; };   /* no shadows of their own: from the rampart a seated man's shadow in the boat is hardly seen, and it doubled the cost */
+  try { for (const row of [false, true]) { const baked = seatBake(row); SEATI.sets.push({ row, lods: SEAT_LOD.map(([, cell]) => baked.map(([g, mat]) => inst(seatCoarse(g, cell), mat))) }); } }
   catch (e) { console.error(e); SEATI.sets.length = 0; } return SEATI.sets.length > 0;
 }
 function seatInstUpdate() {
   if (!BOATS.length && !SEATI.on) return; if (!seatInst()) return;
-  const n = [0, 0]; for (const bt of BOATS) { if (bt.dead || !bt.g.visible) continue; bt.lodOn = false;
+  const n = [[0, 0, 0], [0, 0, 0]], lk = Math.tan(camera.fov * Math.PI / 360) / 0.601, cp = camera.position;   /* through a sight a far boat counts as near */
+  for (const bt of BOATS) { if (bt.dead || !bt.g.visible) continue; bt.lodOn = false; const d = cp.distanceTo(bt.g.position) * lk; let far = 0; while (far < SEAT_LOD.length - 1 && d > SEAT_LOD[far][0]) far++;
     for (const q of bt.seats) { const m = q.m; if (m.material !== SEATI.hid) { m.material = SEATI.hid; m.visible = q.alive && !q.gone; } if (!m.visible || !q.alive || q.gone || (q.rower && bt.filmHide)) continue;
-      const k = q.rower ? 1 : 0; if (n[k] >= SEATI.N) continue; m.updateWorldMatrix(true, false); SEATI.m4.copy(m.matrixWorld).multiply(SEAT_FIX[k]);
-      for (const p of SEATI.sets[k].parts) p.setMatrixAt(n[k], SEATI.m4); n[k]++; } }
-  for (let k = 0; k < 2; k++) for (const p of SEATI.sets[k].parts) { p.count = n[k]; p.instanceMatrix.needsUpdate = true; }
+      const k = q.rower ? 1 : 0; if (n[k][far] >= SEATI.N) continue; m.updateWorldMatrix(true, false); SEATI.m4.copy(m.matrixWorld).multiply(SEAT_FIX[k]);
+      for (const p of SEATI.sets[k].lods[far]) p.setMatrixAt(n[k][far], SEATI.m4); n[k][far]++; } }
+  for (let k = 0; k < 2; k++) SEATI.sets[k].lods.forEach((L, f) => { for (const p of L) { p.count = n[k][f]; p.instanceMatrix.needsUpdate = true; } });
 }
 // from the old figure's frame (scaled to the boat, facing its way) to the baked soldier's: the same scale and facing (the rower's figure is turned)
 const SEAT_FIX = [new THREE.Matrix4(), new THREE.Matrix4()];
