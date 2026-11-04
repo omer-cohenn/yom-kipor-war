@@ -5150,9 +5150,9 @@ const MZ_EASE = [
 /* the stronghold's own rules (the user, Nov 2026): men in each boat of the first wave, boats in each row of the last wave, the RPG - the hit
    it costs the player, how long from seeing him to the rocket, how wide of him it may land */
 const MZ_LV = [
-  { seats: 4, every: [21, 17, 13], row: 5, rpgDmg: 45, rpgT: 1.5, rpgSp: 2.5 },
-  { seats: 5, every: [19, 15, 11], row: 6, rpgDmg: 50, rpgT: 1.2, rpgSp: 2.0 },
-  { seats: 5, every: [17, 13, 9], row: 7, rpgDmg: 60, rpgT: 0.9, rpgSp: 1.6 },
+  { seats: 4, every: [23, 19, 15], row: 5, rpgDmg: 45, rpgT: 1.5, rpgSp: 2.5 },
+  { seats: 5, every: [21, 17, 13], row: 6, rpgDmg: 50, rpgT: 1.2, rpgSp: 2.0 },
+  { seats: 5, every: [19, 15, 11], row: 7, rpgDmg: 60, rpgT: 0.9, rpgSp: 1.6 },
 ];
 const mzEase = () => (MODE === 'mezach' && !SURV.on ? MZ_EASE[Math.max(0, DIFF.indexOf(diff))] : null);
 const mzLv = () => (MODE === 'mezach' && !SURV.on ? MZ_LV[Math.max(0, DIFF.indexOf(diff))] : null);
@@ -7667,7 +7667,7 @@ const clock = new THREE.Clock(); let firstFrame = true;
 const _fwd = V3();
 function frame() {
   // the first frame only puts up the menu, which covers the screen: no world is drawn (and no shader compiled) until a mission is chosen
-  if (firstFrame) { firstFrame = false; window.__gameReady = true; clearTimeout(window.__gameTimer); LD.finish(); LD.hide(); showTitle(); GAME.state = 'menu'; setTimeout(facesIdle, 1500); if (HM_SANDBOX) setTimeout(() => startChapter('hermon'), 50); return; }   /* the building alone goes straight in */
+  if (firstFrame) { firstFrame = false; window.__gameReady = true; clearTimeout(window.__gameTimer); LD.finish(); LD.hide(); showTitle(); GAME.state = 'menu'; /* no face painting in the menu (it made the menu stutter on a phone): the faces are painted while a mission loads */ if (HM_SANDBOX) setTimeout(() => startChapter('hermon'), 50); return; }   /* the building alone goes straight in */
   try { frameInner(); } catch (err) { if (!frame.err) { frame.err = true; console.error(err); } }
 }
 const SLOW = { k: 1, left: 0, fade: 0.8, look: null };
