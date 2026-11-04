@@ -102,9 +102,10 @@ function voxPlay(k, { radio = false, pos = null, vol = 1.25, line = true } = {})
   const b = VOX.buf[k], ctx = AUD.ctx; if (!b || !ctx || AUD.muted) return false;
   const now = ctx.currentTime; if (now - (VOX.last[k] ?? -99) < (line ? 6 : 2.2)) return false; VOX.last[k] = now;   /* the same line twice in a row (two calls for one event): once */
   if (k.startsWith('b_')) line = false;
-  if (pos) { vol *= Math.min(1, 14 / (camera.position.distanceTo(pos) + 6)); if (vol < 0.04) return false; }
+  let far = 0; if (pos) { const d = camera.position.distanceTo(pos); far = d; vol *= Math.min(1, 14 / (d + 6)); if (vol < 0.04) return false; }
   if (line && VOX.cur) { try { VOX.cur.stop(); } catch (e) {} VOX.cur = null; }   /* one spoken line at a time: a new one cuts the last (shouts go on top) */
   const s = ctx.createBufferSource(); s.buffer = b; let n = s;
+  if (far > 30) { const l = ctx.createBiquadFilter(); l.type = 'lowpass'; l.frequency.value = Math.max(900, 7000 - far * 45); n.connect(l); n = l; }   /* far off: muffled, across the water */
   if (radio) { const h = ctx.createBiquadFilter(); h.type = 'highpass'; h.frequency.value = 280; const l = ctx.createBiquadFilter(); l.type = 'lowpass'; l.frequency.value = 3600; n.connect(h); h.connect(l); n = l; }   // over the radio: thin
   const g = ctx.createGain(); g.gain.value = vol; n.connect(g); g.connect(AUD.master); s.start();
   if (line) { VOX.cur = s; s.onended = () => { if (VOX.cur === s) VOX.cur = null; }; } return true;

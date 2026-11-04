@@ -899,6 +899,10 @@ function mzDroneFilm() {
   const live = () => W.filter((b) => !b.dead && b.state === 'cross');
   const tick = (dt) => {
     F.t += dt; F.step(dt); const cam = camera.position;
+    { const bp = V3(XL(), 1.2, zM + 2.2);   /* the men in the boat by the camera shout as they row: 'yalla yalla', then 'Allahu akbar' - close and loud */
+      if (!F.y1 && F.t > 0.05) { F.y1 = true; voxPlay('ar_yalla_1', { vol: 1.3, line: false }); }
+      if (!F.a1 && F.t > 0.55) { F.a1 = true; voxPlay('ar_allah_' + (Math.random() < 0.5 ? 1 : 2), { vol: 1.2, line: false }); }
+      if (!F.y2 && F.t > 1.1) { F.y2 = true; voxPlay('ar_yalla_2', { pos: bp, vol: 1.2, line: false }); } }
     // the stronghold answers: bursts from the rampart into the water round the boats, now and then into a boat
     F.it -= dt; if (F.it <= 0) { F.it = rand(0.12, 0.32); const near = live().filter((b) => Math.abs(b.g.position.z - cam.z) < 26); const b = near.length ? pick(near) : pick(live()); if (b) {
       const zf = b.g.position.z + rand(-30, 30), xf = crestX(zf) - 0.5, from = V3(xf, groundAt(xf, zf) + 1.1, zf), to = b.g.position.clone().add(V3(rand(-5, 3), 0.1, rand(-5, 5)));

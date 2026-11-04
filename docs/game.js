@@ -5230,9 +5230,10 @@ function voxPlay(k, { radio = false, pos = null, vol = 1.25, line = true } = {})
   const b = VOX.buf[k], ctx = AUD.ctx; if (!b || !ctx || AUD.muted) return false;
   const now = ctx.currentTime; if (now - (VOX.last[k] ?? -99) < (line ? 6 : 2.2)) return false; VOX.last[k] = now;   /* the same line twice in a row (two calls for one event): once */
   if (k.startsWith('b_')) line = false;
-  if (pos) { vol *= Math.min(1, 14 / (camera.position.distanceTo(pos) + 6)); if (vol < 0.04) return false; }
+  let far = 0; if (pos) { const d = camera.position.distanceTo(pos); far = d; vol *= Math.min(1, 14 / (d + 6)); if (vol < 0.04) return false; }
   if (line && VOX.cur) { try { VOX.cur.stop(); } catch (e) {} VOX.cur = null; }   /* one spoken line at a time: a new one cuts the last (shouts go on top) */
   const s = ctx.createBufferSource(); s.buffer = b; let n = s;
+  if (far > 30) { const l = ctx.createBiquadFilter(); l.type = 'lowpass'; l.frequency.value = Math.max(900, 7000 - far * 45); n.connect(l); n = l; }   /* far off: muffled, across the water */
   if (radio) { const h = ctx.createBiquadFilter(); h.type = 'highpass'; h.frequency.value = 280; const l = ctx.createBiquadFilter(); l.type = 'lowpass'; l.frequency.value = 3600; n.connect(h); h.connect(l); n = l; }   // over the radio: thin
   const g = ctx.createGain(); g.gain.value = vol; n.connect(g); g.connect(AUD.master); s.start();
   if (line) { VOX.cur = s; s.onended = () => { if (VOX.cur === s) VOX.cur = null; }; } return true;
@@ -10390,6 +10391,10 @@ function mzDroneFilm() {
   const live = () => W.filter((b) => !b.dead && b.state === 'cross');
   const tick = (dt) => {
     F.t += dt; F.step(dt); const cam = camera.position;
+    { const bp = V3(XL(), 1.2, zM + 2.2);   /* the men in the boat by the camera shout as they row: 'yalla yalla', then 'Allahu akbar' - close and loud */
+      if (!F.y1 && F.t > 0.05) { F.y1 = true; voxPlay('ar_yalla_1', { vol: 1.3, line: false }); }
+      if (!F.a1 && F.t > 0.55) { F.a1 = true; voxPlay('ar_allah_' + (Math.random() < 0.5 ? 1 : 2), { vol: 1.2, line: false }); }
+      if (!F.y2 && F.t > 1.1) { F.y2 = true; voxPlay('ar_yalla_2', { pos: bp, vol: 1.2, line: false }); } }
     // the stronghold answers: bursts from the rampart into the water round the boats, now and then into a boat
     F.it -= dt; if (F.it <= 0) { F.it = rand(0.12, 0.32); const near = live().filter((b) => Math.abs(b.g.position.z - cam.z) < 26); const b = near.length ? pick(near) : pick(live()); if (b) {
       const zf = b.g.position.z + rand(-30, 30), xf = crestX(zf) - 0.5, from = V3(xf, groundAt(xf, zf) + 1.1, zf), to = b.g.position.clone().add(V3(rand(-5, 3), 0.1, rand(-5, 5)));
