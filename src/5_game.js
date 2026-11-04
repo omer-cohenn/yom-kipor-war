@@ -68,17 +68,34 @@ function voxLoad() {
     const r = AUD.ctx.decodeAudioData(u.buffer, (b) => { VOX.buf[k] = b; }, () => {}); if (r && r.catch) r.catch(() => {}); } catch (e) {} } }).catch(() => {});
 }
 const voxNorm = (t) => String(t).replace(/<[^>]*>/g, '').replace(/[^א-ת0-9]/g, '');
+/* [how the game's line begins, the recording, what is said in it - and so what the screen shows (the user: the text only what is heard)] */
 const VOX_LINES = [
-  ['כוננות ספיגה', 'alert'], ['הרעשה ארטילרית', 'barrage'], ['סירות יוצאות מהרציף בפורט', 'portboats'], ['כשההרעשה נגמרת', 'barrage_end'], ['סירות במים ממערב', 'boatsmag'],
-  ['השטח נקי', 'clear'], ['הם בתוך המוצב', 'inside'], ['הם עולים מצפון', 'north'], ['תפוס את המא״ג המערבי', 'takemag'], ['סירות על כל הקו', 'holddark'], ['עוד שורות יוצאות מהרציף', 'rows'],
-  ['דקה אחרונה', 'lastmin'], ['סירה עלתה על מוקש', 'mine'], ['מטוס בצלילה', 'dive'], ['מיגים מעל המעוז', 'dive'], ['סוחוי בצלילה', 'dive'], ['הוא צולל ישר עליך', 'dive'],
-  ['פגיעה! המטוס בוער', 'downed'], ['הפלתם אותו', 'downed'], ['הטייס ראה אותך', 'seenyou'], ['הם בתעלה', 'intrench'], ['מצרים קפצו לתעלה', 'intrench'], ['יש להם רגל בתעלה', 'intrench'],
-  ['תצפית: הם כבר באמצע התעלה', 'dozens'], ['תצפית: מיראז׳ שלנו', 'mirage'], ['תצפית: טיל! טיל באוויר', 'missile'], ['תצפית: פגיעה! הכנף נקרעה', 'wing'], ['מ״פ: הטייס נטש', 'eject'], ['קשר: הם... הם חוזרים אחורה', 'retreat'],
-  ['ערב חג', 'eve'], ['ככה הולכים בחופש', 'run'], ['לעמדה. ראש למטה', 'headdown'], ['ככה הם ייראו מחר', 'looks'], ['מחסנית חצי ריקה', 'halfmag'], ['רואה את הבור', 'pit'],
-  ['ועכשיו רימון שלהם', 'enemynade'], ['המא״ג המערבי. מחר', 'manmag'], ['יוסי גורר סירת גומי', 'dinghy'], ['השרשרת נגמרת', 'belt'], ['אזעקה! מטוסים', 'airraid'], ['נהג, קדימה לעמדה', 'driver'],
-  ['טנק, ימני', 'tank1'], ['פגיעה! טען', 'tank2'], ['אתה על ה־0.5', 'barrels'], ['מת. בתרגיל', 'dead'], ['בשטח פתוח המטוס', 'openfield'], ['שש מתוך שש', 'sixofsix'], ['שתי יריות', 'twohits'],
-  ['אחרי מה שעשינו', 'loader'], ['זהו. אתם מוכנים', 'ready'], ['המפקד, המודיעין', 'intel'], ['שקט מדי הלילה', 'quiet'], ['מחר יום כיפור', 'kippur'], ['שיירו', 'shmulik'],
-].map(([t, k]) => [voxNorm(t), k]);
+  ['כוננות ספיגה', 'alert', 'כוננות ספיגה! מטוסים מעל התעלה!'], ['הרעשה ארטילרית', 'barrage', 'הרעשה ארטילרית! כולם במחסה!'], ['סירות יוצאות מהרציף בפורט', 'portboats', 'סירות יוצאות מפורט תאופיק!'],
+  ['כשההרעשה נגמרת', 'barrage_end', 'כשההרעשה נגמרת, המא״ג המערבי שלך.'], ['סירות במים ממערב', 'boatsmag', 'סירות במים! למא״ג!'], ['השטח נקי', 'clear', 'השטח נקי. משלימים תחמושת.'],
+  ['הם בתוך המוצב', 'inside', 'הם בתוך המוצב! לנקות!'], ['הם עולים מצפון', 'north', 'הם עולים מצפון! ומהכביש קומנדו!'], ['תפוס את המא״ג המערבי', 'takemag', 'תפוס את המא״ג! עוד גל בדרך!'],
+  ['סירות על כל הקו', 'holddark', 'סירות על כל הקו! מחזיקים עד החשכה!'], ['עוד שורות יוצאות מהרציף', 'rows', 'עוד שורות מהרציף!'], ['דקה אחרונה', 'lastmin', 'דקה אחרונה! מחזיקים!'],
+  ['סירה עלתה על מוקש', 'mine', 'סירה עלתה על מוקש!'], ['מטוס בצלילה', 'dive', 'מטוס בצלילה! למקורה!'], ['מיגים מעל המעוז', 'dive', 'מטוס בצלילה! למקורה!'], ['סוחוי בצלילה', 'dive', 'מטוס בצלילה! למקורה!'],
+  ['הוא צולל ישר עליך', 'dive', 'מטוס בצלילה! למקורה!'], ['פגיעה! המטוס בוער', 'downed', 'הפלתם אותו!'], ['הפלתם אותו', 'downed', 'הפלתם אותו!'], ['הטייס ראה אותך', 'seenyou', 'הטייס ראה אותך! תרד מהמא״ג!'],
+  ['הם בתעלה', 'intrench', 'הם בתעלה!'], ['מצרים קפצו לתעלה', 'intrench', 'הם בתעלה!'], ['יש להם רגל בתעלה', 'intrench', 'הם בתעלה!'],
+  ['תצפית: הם כבר באמצע התעלה', 'dozens', 'עשרות סירות, שורה אחרי שורה!'], ['תצפית: מיראז׳ שלנו', 'mirage', 'מיראז׳ שלנו! מיג על הזנב שלו!'], ['תצפית: טיל! טיל באוויר', 'missile', 'טיל באוויר!'],
+  ['תצפית: פגיעה! הכנף נקרעה', 'wing', 'פגיעה! הכנף נקרעה!'], ['מ״פ: הטייס נטש', 'eject', 'הטייס נטש! יש מצנח!'], ['קשר: הם... הם חוזרים אחורה', 'retreat', 'הם… חוזרים אחורה!'],
+  ['ערב חג', 'eve', 'ערב חג, ועדיין מתאמנים. אליי, בתעלה.'], ['ככה הולכים בחופש', 'run', 'במלחמה רצים! עד העמדה הבאה!'], ['לעמדה. ראש למטה', 'headdown', 'ראש למטה, מאחורי השקים.'],
+  ['ככה הם ייראו מחר', 'looks', 'ככה הם ייראו מחר: רובאי, מקלען, צלף, אר־פי־ג׳י. אחד אחד.'], ['מחסנית חצי ריקה', 'halfmag', 'מחסנית חצי ריקה זו מחסנית ריקה. תחליף.'], ['רואה את הבור', 'pit', 'רימון לבור. מכוונים גבוה.'],
+  ['ועכשיו רימון שלהם', 'enemynade', 'רימון! תזוז!'], ['המא״ג המערבי. מחר', 'manmag', 'תאייש את המא״ג המערבי.'], ['יוסי גורר סירת גומי', 'dinghy', 'סירת גומי על חבל. צרורות קצרים.'],
+  ['השרשרת נגמרת', 'belt', 'השרשרת נגמרת ברגע הכי גרוע. תחליף.'], ['אזעקה! מטוסים', 'airraid', 'אזעקה! מטוסים! לקטע המקורה!'], ['נהג, קדימה לעמדה', 'driver', 'נהג, לעמדה. לאט… עצור. רק הצריח מעל הסוללה.'],
+  ['טנק, ימני', 'tank1', 'טנק ימני, אלף שמונה מאות. אש!'], ['פגיעה! טען', 'tank2', 'פגיעה! טנק שמאלי. אש!'], ['אתה על ה־0.5', 'barrels', 'אש מהמקום, אחר כך בתנועה. שלוש חביות.'],
+  ['מת. בתרגיל', 'dead', 'מת. בתרגיל, אבל מת. עוד פעם!'], ['בשטח פתוח המטוס', 'openfield', 'בשטח פתוח הוא היה קורע אותך. עוד סיבוב!'], ['שש מתוך שש', 'sixofsix', 'שש מתוך שש!'],
+  ['שתי יריות', 'twohits', 'שתי יריות, שתי פגיעות.'], ['אחרי מה שעשינו', 'loader', 'אחרי 67? הם לא יעזו לחצות.'], ['זהו. אתם מוכנים', 'ready', 'זהו. אתם מוכנים. ארוחת חג בשש.'],
+  ['המפקד, המודיעין', 'intel', 'המודיעין אומר "סבירות נמוכה".'], ['שקט מדי הלילה', 'quiet', 'שקט מדי הלילה.'], ['מחר יום כיפור', 'kippur', 'מחר כיפור, אצלם רמדאן. אף אחד לא יירה, נכון?'],
+  ['שיירו', 'shmulik', 'שיירו. יש לנו סוללה, טנקים וחיל אוויר.'],
+].map(([t, k, said]) => [voxNorm(t), k, said]);
+const BARK_SAID = { contact: 'מגע!', nade: 'רימון!', mag: 'מחליף מחסנית!', down: 'נפל!', fire: 'יורים עליי!', hit: 'נפגעתי!', behind: 'מצרי מאחוריך!', right: 'מצרי מימינך!', left: 'מצרי משמאלך!', rpg: 'אר־פי־ג׳י!' };
+function voxFind(text) { const n = voxNorm(text); for (const [t, k, said] of VOX_LINES) if (n.startsWith(t)) return { k, said }; return null; }
+function barkKey(text) {
+  const n = voxNorm(text);
+  return /^(מגע|אויב)/.test(n) ? 'contact' : /^רימון/.test(n) ? 'nade' : /^(מחליף|מחסנית|טוען)/.test(n) ? 'mag' : /^(נפל|חיסלתי|פגעתי|הואלמטה)/.test(n) ? 'down' : /^(יורים|אנימרותק|מרתקים|ראשיםלמטה)/.test(n) ? 'fire' : /^נפגעתי/.test(n) ? 'hit'
+    : n.includes('מצרי') ? (n.includes('מאחוריך') ? 'behind' : n.includes('מימינך') ? 'right' : n.includes('משמאלך') ? 'left' : null) : null;
+}
 function voxPlay(k, { radio = false, pos = null, vol = 0.95 } = {}) {
   const b = VOX.buf[k], ctx = AUD.ctx; if (!b || !ctx || AUD.muted) return false;
   if (pos) { vol *= Math.min(1, 14 / (camera.position.distanceTo(pos) + 6)); if (vol < 0.04) return false; }
@@ -88,15 +105,8 @@ function voxPlay(k, { radio = false, pos = null, vol = 0.95 } = {}) {
   const g = ctx.createGain(); g.gain.value = vol; n.connect(g); g.connect(AUD.master); s.start();
   if (radio) { VOX.cur = s; s.onended = () => { if (VOX.cur === s) VOX.cur = null; }; } return true;
 }
-function voxSay(text, near = false) {   // a radio line or a caption: its recording, if there is one
-  const n = voxNorm(text); for (const [t, k] of VOX_LINES) if (n.startsWith(t)) return voxPlay(k, { radio: !near });
-  return false;
-}
-function voxBark(f, text) {   // a squad man's shout, in his own voice (one of two), from where he is
-  const n = voxNorm(text), v = f && f.name && f.name.charCodeAt(0) % 2 ? 'I' : 'D';
-  const k = /^(מגע|אויב)/.test(n) ? 'contact' : /^רימון/.test(n) ? 'nade' : /^(מחליף|מחסנית|טוען)/.test(n) ? 'mag' : /^(נפל|חיסלתי|פגעתי|הואלמטה)/.test(n) ? 'down' : /^(יורים|אנימרותק|מרתקים|ראשיםלמטה)/.test(n) ? 'fire' : /^נפגעתי/.test(n) ? 'hit'
-    : n.includes('מצרי') ? (n.includes('מאחוריך') ? 'behind' : n.includes('מימינך') ? 'right' : n.includes('משמאלך') ? 'left' : null) : null;
-  if (!k) return false; const pos = f && f.unit ? f.unit.pos : null;
+function voxBark(f, k) {   // a squad man's shout, in his own voice (one of two), from where he is
+  const v = f && f.name && f.name.charCodeAt(0) % 2 ? 'I' : 'D', pos = f && f.unit ? f.unit.pos : null;
   return voxPlay('b_' + k + '_' + v, { pos }) || voxPlay('b_' + k + '_' + (v === 'I' ? 'D' : 'I'), { pos });
 }
 function clip(k, t, vol, { rate = 1, off = 0, dur = 0, lp = 0 } = {}) {
@@ -346,7 +356,7 @@ function woundFriend(f, killed = false, force = false) {
   { const c = u.chest(), o = V3(Math.sin(u.heading), 0, Math.cos(u.heading)); fxBlood(c, 12); bodyWound(u, c.clone().addScaledVector(o, 0.2).add(V3(rand(-0.08, 0.08), rand(-0.12, 0.06), 0))); }
   DIRQ.push({ at: GAME.t + 0.8, fn: () => { if (f.state === 'wounded' || f.state === 'kia') bloodPool(u, u.chest(), killed ? rand(0.95, 1.2) : rand(0.6, 0.8), f); } });
   if (killed) { f.state = 'kia'; feed(`${f.name} נהרג`, 'bad'); STATS.kia++; }
-  else if (MODE === 'mezach') { voxBark(f, 'נפגעתי!'); f.state = 'down'; DIRQ.push({ at: GAME.t + rand(3.5, 5), fn: () => { if (f.state === 'down') reviveFriend(f); } }); }   /* the user: no first aid in the stronghold */
+  else if (MODE === 'mezach') { voxBark(f, 'hit'); f.state = 'down'; DIRQ.push({ at: GAME.t + rand(3.5, 5), fn: () => { if (f.state === 'down') reviveFriend(f); } }); }   /* the user: no first aid in the stronghold */
   else { STATS.wounded++; f.state = 'wounded'; f.bleed = diff.bleed; feed(`${f.name} נפגע! ״חובש!״`, 'bad'); f.marker.visible = true; radio(f.name, 'נפגעתי! חובש!', 3); }
 }
 /* ================= the squad: how the men beside the player fight =================
@@ -364,7 +374,8 @@ function shout(f, text, dur = 1.9, force = false) {
   if (camera.position.distanceTo(f.unit.pos) > 60) return false;
   SQF.callT = GAME.t; f.shoutCd = GAME.t + 3.2;
   if (!f.say) { const el = document.createElement('div'); el.className = 'say'; f.say = new CSS2DObject(el); f.say.center.set(0.5, 1); scene.add(f.say); f.sayEl = el; }
-  f.sayEl.textContent = `${f.name}: ${text}`; voxBark(f, text); f.say.visible = true; f.sayT = dur; nsTalk(f.unit, Math.min(dur, 0.4 + text.length * 0.06), 'shout'); return true;
+  { const bk = barkKey(text); if (bk) { text = BARK_SAID[bk]; voxBark(f, bk); } }   /* what he shouts is what is heard */
+  f.sayEl.textContent = `${f.name}: ${text}`; f.say.visible = true; f.sayT = dur; nsTalk(f.unit, Math.min(dur, 0.4 + text.length * 0.06), 'shout'); return true;
 }
 function sqfLater(f, text, delay) { if (f) SQF.later.push({ f, text, at: GAME.t + delay }); }
 function sqfMate(f, R = 16) { let b = null, bd = R; for (const o of FRIENDS) { if (o === f || !o.unit.alive || (o.state !== 'follow' && o.state !== 'post')) continue; const d = o.unit.pos.distanceTo(f.unit.pos); if (d < bd) { bd = d; b = o; } } return b; }
@@ -656,7 +667,7 @@ function rpgFirst(e) { e.setKind('rpg'); e.rpgFirst = true; e.rpgCd = 0; e.cmdRp
 function rpgShoot(e, tp) {
   e.rpgCd = e.cmdRpg ? rand(4, 6) : rand(8, 12); e.rpgPause = e.cmdRpg ? 1.1 : 1.6; e.face(tp.x, tp.z); e.rig.shoulderT = GAME.t + 1.6;   // up to the shoulder, aim, and the shot 0.6 s later
   const ml = mzLv(), sp = ml ? ml.rpgSp : 1.4; e.rpgTp = tp.clone().add(V3(rand(-sp, sp), rand(-0.4, 0.7), rand(-sp, sp))); e.rpgFireAt = GAME.t + (ml ? Math.max(ml.rpgT, e.rpgFirst ? 0 : 0.6) : e.rpgFirst ? cmdSmart().rpg : 0.6);
-  if (ml && e.target && e.target.player && GAME.t - (D.rpgYell || -9) > 1.5) { D.rpgYell = GAME.t; feed('RPG!', 'bad'); sndShouts(e.pos, 0.5); voxPlay(Math.random() < 0.5 ? 'b_rpg_I' : 'b_rpg_D'); }   /* a warning the moment he shoulders it */
+  if (ml && e.target && e.target.player && GAME.t - (D.rpgYell || -9) > 1.5) { D.rpgYell = GAME.t; feed(BARK_SAID.rpg, 'bad'); sndShouts(e.pos, 0.5); voxPlay(Math.random() < 0.5 ? 'b_rpg_I' : 'b_rpg_D'); }   /* a warning the moment he shoulders it */
 }
 function rpgFireDue(e) {
   if (!e.rpgFireAt || GAME.t < e.rpgFireAt) return; e.rpgFireAt = 0; if (!e.alive || !e.rpgTp) return;
@@ -2012,7 +2023,8 @@ function updTutorial(dt) {
   if (TUT.cur) { TUT.curT -= dt; TUT.shown += dt; if (TUT.queue.length && TUT.shown > 4) TUT.curT = Math.min(TUT.curT, 0.4); if (TUT.curT <= 0) { TUT.cur = null; $('#hint').classList.remove('on'); } }
   if (!TUT.cur && TUT.queue.length) { TUT.cur = TUT.queue.shift(); TUT.curT = TUT.cur.dur; TUT.shown = 0; $('#hintText').innerHTML = TUT.cur.html; $('#hint').classList.add('on'); }
   TUT.radioT -= dt;
-  if (TUT.radioT <= 0) { if (TUT.radioQ.length) { const r = TUT.radioQ.shift(); $('#radioWho').textContent = r.who; $('#radioText').textContent = r.text; { const fr = FRIENDS.find((q) => q.name === r.who); if (!voxSay(r.text, r.quiet) && fr) voxBark(fr, r.text); } { const pk = portraitOf(r.who); if (pk) $('#radioPic').src = PORTRAITS[pk]; $('#radio').classList.toggle('nopic', !pk); } $('#radio').classList.add('on'); $('#radio').classList.toggle('near', !!r.quiet); TUT.radioT = r.dur; { const sp = FRIENDS.find((f) => f.name === r.who && f.unit.alive && f.unit.rig.root.visible); if (sp) nsTalk(sp.unit, Math.min(r.dur * 0.85, 0.6 + r.text.length * 0.065), /!$/.test(r.text) && r.text.length < 30 ? 'shout' : 'speak'); } if (!r.quiet) sndRadio(); } else $('#radio').classList.remove('on'); }
+  if (TUT.radioT <= 0) { if (TUT.radioQ.length) { const r = TUT.radioQ.shift(); $('#radioWho').textContent = r.who; { const m = voxFind(r.text), fr = FRIENDS.find((q) => q.name === r.who), bk = !m && fr ? barkKey(r.text) : null;   /* the screen shows only what is heard */
+    if (m) { r.text = m.said; voxPlay(m.k, { radio: !r.quiet }); } else if (bk) { r.text = BARK_SAID[bk]; voxBark(fr, bk); } } $('#radioText').textContent = r.text; { const pk = portraitOf(r.who); if (pk) $('#radioPic').src = PORTRAITS[pk]; $('#radio').classList.toggle('nopic', !pk); } $('#radio').classList.add('on'); $('#radio').classList.toggle('near', !!r.quiet); TUT.radioT = r.dur; { const sp = FRIENDS.find((f) => f.name === r.who && f.unit.alive && f.unit.rig.root.visible); if (sp) nsTalk(sp.unit, Math.min(r.dur * 0.85, 0.6 + r.text.length * 0.065), /!$/.test(r.text) && r.text.length < 30 ? 'shout' : 'speak'); } if (!r.quiet) sndRadio(); } else $('#radio').classList.remove('on'); }
   updObjective();
 }
 function tutorialTriggers() {
