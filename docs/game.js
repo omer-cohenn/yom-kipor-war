@@ -6490,7 +6490,7 @@ function northGroup(n, delay, kinds = [], i0 = 0, cmd = false) {   // i0: the fi
   for (let i = 0; i < n; i++) {
     const k = kinds[i] || 'rifle', j = i + i0;
     const r = rng(77 + j * 31), sap = SAPS.n[j % 2], go = () => { const sp = sapSpawn(sap, r), e = spawnEnemy(sp[0], sp[1], varyKind(k, j * 3.7, delay), null, null);   /* at the head of one of their saps, in the scrub */ if (!e) { DIRQ.push({ at: GAME.t + 1, spawn: true, fn: go }); return; } e.plan = cmd ? northRushPlan(e, j) : northPlan(e, j); e.state = 'plan'; cmdTune(e); if (i === 0 && rpgTurn()) rpgFirst(e); };
-    DIRQ.push({ at: GAME.t + delay + (cmd ? (i >> 1) * 0.6 : i * 1.7), spawn: true, fn: go });   /* out of the scrub one after another, a little apart */
+    DIRQ.push({ at: GAME.t + delay + (cmd ? i * 0.7 : i * 1.7), spawn: true, fn: go });   /* out of the scrub one after another, a little apart */
   }
 }
 /* the commando from the north comes in squads, one behind the other down the Lexicon road: far more men to stop than the one small group
@@ -6584,9 +6584,9 @@ function corridorHas(C, x, z) {
 const SCENES = [
   { title: 'סירות על המים', sub: 'שתיים אחרי הצהריים. מעבר לתעלה, מתוך העשן, יוצאות סירות עץ בשורה — עשרות חיילים בכל אחת, חותרים ישר אלינו. המא״ג המערבי הוא כל מה שעומד בינם לבין הסוללה.', goal: 'ירו בסירות מהמא״ג המערבי. מי שעלה לתעלה — הרגו אותו בתוכה', open: [136, 176], spawn: () => trenchAt(-1.0), face: 345, focus: w2Focus,
     entries: [-20, -14, -8, -2, 3, 8.5], radio: ['מ״פ', 'סירות במים ממערב! המא״ג המערבי שלך!'], cap: [1, 1, 2], start() { mzFirstWave(); } },
-  { title: 'הגל מצפון', sub: 'בקצה הסוללה, ליד עמדה 1, כבר מטפסים הראשונים שצלחו — ומכביש לכסיקון, מצפון, רץ כוח קומנדו אל התעלה הצפונית. עד שהאחרון שבהם לא נופל, אין מנוחה.', goal: 'נקו את הצפון: הצולחים ליד עמדה 1 וכל חוליות הקומנדו מהכביש', open: [0, 176], spawn: () => TR.pts[140], face: 0, focus: trFocus(-38, 'עמדה מערבית 1'),
+  { title: 'הגל מצפון', sub: 'בקצה הסוללה, ליד עמדה 1, כבר מטפסים הראשונים שצלחו — ומכביש לכסיקון, מצפון, רץ כוח קומנדו אל התעלה הצפונית. עד שהאחרון שבהם לא נופל, אין מנוחה.', goal: 'נקו את הצפון: הצולחים ליד עמדה 1 וכל חוליות הקומנדו מהכביש', open: [0, 176], spawn: () => TR.pts[140], face: 0, focus: () => (D.boatsDone && D.cmdWait ? postFocus('N1', 'עמדה צפונית')() : trFocus(-38, 'עמדה מערבית 1')()),
     entries: [-55, -50, -39.5, -27], radio: ['יוסי', 'סירות עלו עליי מצפון!'], cap: [2, 2, 2],
-    pre(len) { const nb = 2, men = 2; for (let i = 0; i < nb; i++) { const b = launchBoat(i ? -106 : -58, 0, men, i === 0 ? 1 : 0, 0, men, 30, 1);   /* half the men (the user), one boat where they were and one further north */ b.t = -1e6; b.nGo = (b.len - 14 - i * 5) / b.speed; b.north = true; } },   /* they wait at the far bank until the player reaches the yellow point (mzNorthStep) */   /* still some way out on the water, not on the sand */
+    pre(len) { const nb = 2, men = 2; for (let i = 0; i < nb; i++) { const b = launchBoat(i ? -106 : -58, 0, men, i === 0 ? 1 : 0, 0, men, 30, 1);   /* half the men (the user), one boat where they were and one further north */ b.t = (b.len - 14 - i * 5) / b.speed; } },   /* still some way out on the water, not on the sand */
     start() { D.cmdWait = true; } },   /* the boats' men first; the commando sets off only when they are all dead (mzNorthStep) */   // the breach and the commando are one stage now (the user): the men from the two beached boats first, the commando squads down the road from eight seconds on; the stage ends only when the last of them is dead
   { title: 'הגל האחרון', sub: 'לפנות ערב הם זורקים את הכול: סירות לכל אורך הסוללה המערבית, והשמש השוקעת מאחוריהם. צריך להחזיק עד רדת החשכה.', goal: 'להחזיק עד רדת החשכה', open: [0, 250], spawn: () => trenchAt(-2), face: 338, focus: w2Focus,
     entries: [-50, -27, -14, 8.5, 24, 46, 56, 68], radio: ['מ״פ', 'תפוס את המא״ג המערבי! הם מכינים עוד גל!'], waveRoom: [26, 26, 26], boatV: [0.58, 0.58, 0.58], quiet: true, survival: 120,
@@ -6627,15 +6627,14 @@ function medevacStart() {
 }
 function pendingSpawns() { let n = 0; for (const q of DIRQ) if (q.spawn) n++; return n; }
 function enemiesLeft() { let n = pendingSpawns() + rowsPending(); for (const e of UNITS.enemies) if (e.alive) n++; for (const b of BOATS) if (!b.dead && b.state !== 'sinking') n += b.seats.filter((s) => s.alive && !s.gone).length; return n; }
-function mzNorthStep() {   // the north stage: the boats push off when the player is at his place facing them; when they are done, the commando
-  const o = SCENES[D.scene].focus && SCENES[D.scene].focus(), at = !o || Math.hypot(P.pos.x - o[0], P.pos.z - o[2]) < 2;   /* on the point itself (the user), not near it */
-  if (at) for (const b of BOATS) if (b.north && b.nGo != null) { b.t = b.nGo; b.nGo = null; }
-  if (!at) return;
-  if (!D.cmdWait || D.phaseT < 6 || enemiesLeft() > 0) return;
-  D.cmdWait = false; radio('תצפית', 'קומנדו בכביש מצפון! רצים אלינו!', 3.4); DIRQ.push({ at: GAME.t + 3, spawn: true, fn: mzCommando });
+function mzNorthStep() {   // the north stage: the boats' men as before; when the last of them is dead the player is sent to the northern post, facing the scrub - and only when he stands there does the commando come out of it
+  if (!D.cmdWait || D.phaseT < 6) return;
+  if (!D.boatsDone) { if (enemiesLeft() > 0) return; D.boatsDone = true; radio('מ״פ', 'לעמדה הצפונית! הם יוצאים מהשיחים!', 3.6); return; }
+  const n = POSTP('N1'); if (Math.hypot(P.pos.x - n.stand[0], P.pos.z - n.stand[1]) > 2.2) return;   /* he has to be in the post itself (the user) */
+  D.cmdWait = false; radio('תצפית', 'קומנדו מהשיחים! רצים אלינו!', 3.4); DIRQ.push({ at: GAME.t + 2, spawn: true, fn: mzCommando });
 }
 function sceneClear() {
-  if (MODE === 'mezach') mzNorthStep(); if (D.cmdWait) return false;
+  if (MODE === 'mezach' && D.cmdWait) { mzNorthStep(); if (D.cmdWait) return false; }
   if (D.phaseT < 6 || enemiesLeft() > 0) return false;
   if (SCENES[D.scene].medevac && FRIENDS.some((f) => f.state === 'wounded' || f.state === 'stable' || f.state === 'carried')) return false;
   return true;
@@ -6643,7 +6642,7 @@ function sceneClear() {
 const CP = { scene: -1, friends: null, stats: null };
 function sceneAnnounce(i) { const S = SCENES[i]; toast(`שלב ${i + 1} מתוך ${SCENES.length} · ${S.title}`, S.sub); feed(`שלב ${i + 1}: ${S.title}`); radio(S.radio[0], S.radio[1], 4.5); }
 function introScene(i, len) {
-  D.scene = i; D.phase = 'intro'; D.phaseT = 0; D.introLen = len; D.objDone = false; D.cmdWait = false;
+  D.scene = i; D.phase = 'intro'; D.phaseT = 0; D.introLen = len; D.objDone = false; D.cmdWait = false; D.boatsDone = false;
   CP.scene = i; CP.friends = FRIENDS.map((f) => (f.state === 'kia' ? 'kia' : f.state === 'saved' ? 'saved' : 'post')); CP.stats = { ...STATS };
   applyBarricades(i);
   for (const f of FRIENDS) if ((f.state === 'wounded' || f.state === 'stable') && !corridorHas(scCorr(i), f.unit.pos.x, f.unit.pos.z)) { f.state = 'saved'; f.marker.visible = false; feed(`חובשים פינו את ${f.name} לתאג״ד`, 'good'); }
@@ -7546,7 +7545,7 @@ function govTick(real) {
   if (QUAL === 'low' || GAME.state !== 'play' || document.hidden || CINE.on) { GOV.acc = 0; GOV.n = 0; return; }
   GOV.acc += real; GOV.n++; GOV.cd -= real; if (GOV.acc < 2.5) return; const ft = GOV.acc / GOV.n, pr = renderer.getPixelRatio(); GOV.acc = 0; GOV.n = 0; if (GOV.cd > 0) return;
   if (ft > 0.03 && pr > 1.01) { govSet(Math.max(1, pr - 0.25)); GOV.cd = 3; }
-  else if (ft > 0.036 && sun.castShadow) { sun.castShadow = false; renderer.shadowMap.enabled = false; GOV.cd = 6; }
+  else if (ft > 0.036 && renderer.shadowMap.autoUpdate) { renderer.shadowMap.autoUpdate = false; renderer.shadowMap.needsUpdate = true; GOV.cd = 6; }   /* the shadows stop being redrawn, but stay switched on: turning them off recompiled every shader at once - the freeze on a phone */
   else if (ft < 0.019 && pr < GOV.cap - 0.01) { govSet(Math.min(GOV.cap, pr + 0.25)); GOV.cd = 10; }
 }
 function frameInner() {
