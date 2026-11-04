@@ -3576,6 +3576,7 @@ class Boat {
     onLayer1(this.g); this.hull.layers.enableAll(); scene.add(this.g); BOATS.push(this);
   }
   setLod(on) {
+    on = false;   /* never the far piece: the men in the boat are drawn in full at any distance (seatInstUpdate) */
     if (on === this.lodOn) return; this.lodOn = on; this.lod.visible = on; this.hull.visible = !on;
     for (const q of this.seats) { q.m.visible = !on && q.alive && !q.gone && !(q.rower && this.filmHide); if (q.oar) q.oar.visible = !on && !q.gone && !this.filmHide; }
   }
@@ -4593,13 +4594,13 @@ function nsMaterials() {
   if (NEWSOL.mats) return NEWSOL.mats;
   const T = SOLDIER_DATA.tex, std = (o) => new THREE.MeshStandardMaterial(Object.assign({ roughness: 0.9, metalness: 0 }, o));
   const cloth = (side, map, color) => { const m = rimMat(side === 'e' ? 0xff4020 : 0x5f9cff, side === 'e' ? 0 : 0.12); m.vertexColors = false; m.map = map; m.bumpMap = null; m.color.set(color); m.roughness = 0.95; m.customProgramCacheKey = () => 'nsRim' + side; return m; };
-  const uniF = nsCamo({ seed: 3, base: 0xac926a, layers: [[0xb49b72, 0.6, 3, 4], [0xa38a63, 0.62, 5, 6]] });   // the IDF's olive drill as the photographs of 1973 show it: khaki-olive, faded unevenly by the sun
+  const uniF = nsCamo({ seed: 3, base: 0x878159, layers: [[0x8f8960, 0.6, 3, 4], [0x7b7550, 0.62, 5, 6]] });   /* the IDF's olive drill (madei alef): olive green, faded unevenly by the sun (the user's photograph) */   // the IDF's olive drill as the photographs of 1973 show it: khaki-olive, faded unevenly by the sun
   NEWSOL.camo.eg = nsCamo(NS_CAMO.eg);
   const head = nsImage(T.head), headAr = nsImage(T.headAr || T.head), hands = nsImage(T.hands), eyes = nsImage(T.eyes), net = nsNet();
   const hidden = new THREE.MeshBasicMaterial({ visible: false });
   const skin = (map, tint) => std({ map, roughness: 0.6, color: tint, emissive: 0x1a120c, emissiveMap: map });   // a little light of their own: the face shows under the helmet's shadow
   const web = nsWebTex(), belt = (side, color) => nsBeltMat(cloth(side, web, color), side), waist = (m, side) => nsWrinkle(nsBindPaint(m, NS_WAIST + NS_POCKETS + NS_MADEI(side === 'f' ? 0.45 : 0.5) + (side === 'f' ? NS_OPEN_F : ''), 'waist' + side), side);
-  const f = [waist(cloth('f', uniF, 0xffffff), 'f'), belt('f', 0xf2dcb0), std({ color: 0x4a2c1c, roughness: 0.55 }), skin(head, 0xffffff), skin(hands, 0xffffff), std({ map: eyes, roughness: 0.15 }),
+  const f = [waist(cloth('f', uniF, 0xffffff), 'f'), belt('f', 0xc9c196), std({ color: 0x4a2c1c, roughness: 0.55 }), skin(head, 0xffffff), skin(hands, 0xffffff), std({ map: eyes, roughness: 0.15 }),
     nsHelmetMat(net), std({ color: 0x8a7856, roughness: 0.9 }), hidden];   // the chinstraps and liner in tan web
   const cov = NEWSOL.camo.eg.clone(); cov.repeat.set(0.5, 0.5); cov.needsUpdate = true;
   NEWSOL.helm = { cover: nsWrinkle(nsBindPaint(std({ map: cov, roughness: 0.96 }), NS_COVER, 'cover'), 'cv'), net: nsBindPaint(std({ color: 0xa8956c, roughness: 0.72 }), NS_SOVNET, 'sovnet'), sy: nsBindPaint(std({ color: 0x55553b, roughness: 0.62 }), NS_CHIP, 'chip') };
@@ -5187,7 +5188,8 @@ function sndLoad() {
 /* ================= voices =================
    the dubbed lines (vox.json, beside the page: recorded in ElevenLabs by the user, re-encoded small). A radio line or a film caption is
    matched to its recording by how its text begins; the squad's shouts by their first word, in one of two voices */
-const VOX = { buf: {}, loading: false, cur: null };
+const VOX = { buf: {}, loading: false, cur: null, last: {} };
+const VOX_DUR = {"airraid":2.95,"alert":2.85,"b_behind_D":1.59,"b_contact_D":1.25,"b_contact_I":1.15,"b_down_D":1.02,"b_down_I":0.99,"b_fire_D":1.1,"b_fire_I":0.91,"b_hit_D":1.04,"b_hit_I":1.02,"b_left_D":1.57,"b_left_I":1.46,"b_mag_D":1.46,"b_mag_I":1.54,"b_nade_D":1.07,"b_nade_I":0.91,"b_right_D":1.46,"b_right_I":1.41,"b_rpg_D":1.15,"b_rpg_I":1.1,"barrage":3.4,"barrage_end":3.19,"barrels":3.79,"belt":3.47,"boatsmag":2.14,"clear":2.56,"dead":3.71,"dinghy":2.98,"dive":2.66,"downed":1.1,"dozens":2.72,"driver":5.85,"eject":2.46,"enemynade":1.65,"eve":3.45,"halfmag":5.88,"headdown":1.99,"holddark":3.4,"inside":2.19,"intel":2.51,"intrench":1.36,"kippur":4.62,"lastmin":2.32,"loader":2.93,"looks":5.69,"manmag":1.59,"mine":1.65,"mirage":2.61,"missile":1.23,"north":2.87,"openfield":3.0,"pit":2.72,"portboats":2.35,"quiet":1.54,"ready":3.4,"retreat":2.01,"rows":1.62,"run":2.93,"seenyou":2.69,"shmulik":3.79,"sixofsix":1.52,"takemag":2.46,"tank1":2.93,"tank2":2.4,"twohits":2.59,"wing":2.09};   // seconds: a line stays on the screen at least this long
 function voxLoad() {
   if (VOX.loading || !AUD.ctx) return; VOX.loading = true;
   fetch('vox.json').then((r) => (r.ok ? r.json() : null)).then((d) => { if (!d) return; for (const k in d) { try {
@@ -5223,18 +5225,28 @@ function barkKey(text) {
   return /^(מגע|אויב)/.test(n) ? 'contact' : /^רימון/.test(n) ? 'nade' : /^(מחליף|מחסנית|טוען)/.test(n) ? 'mag' : /^(נפל|חיסלתי|פגעתי|הואלמטה)/.test(n) ? 'down' : /^(יורים|אנימרותק|מרתקים|ראשיםלמטה)/.test(n) ? 'fire' : /^נפגעתי/.test(n) ? 'hit'
     : n.includes('מצרי') ? (n.includes('מאחוריך') ? 'behind' : n.includes('מימינך') ? 'right' : n.includes('משמאלך') ? 'left' : null) : null;
 }
-function voxPlay(k, { radio = false, pos = null, vol = 0.95 } = {}) {
+function voxPlay(k, { radio = false, pos = null, vol = 1.25, line = true } = {}) {
   const b = VOX.buf[k], ctx = AUD.ctx; if (!b || !ctx || AUD.muted) return false;
+  const now = ctx.currentTime; if (now - (VOX.last[k] ?? -99) < (line ? 6 : 2.2)) return false; VOX.last[k] = now;   /* the same line twice in a row (two calls for one event): once */
+  if (k.startsWith('b_')) line = false;
   if (pos) { vol *= Math.min(1, 14 / (camera.position.distanceTo(pos) + 6)); if (vol < 0.04) return false; }
-  if (radio && VOX.cur) { try { VOX.cur.stop(); } catch (e) {} VOX.cur = null; }
+  if (line && VOX.cur) { try { VOX.cur.stop(); } catch (e) {} VOX.cur = null; }   /* one spoken line at a time: a new one cuts the last (shouts go on top) */
   const s = ctx.createBufferSource(); s.buffer = b; let n = s;
   if (radio) { const h = ctx.createBiquadFilter(); h.type = 'highpass'; h.frequency.value = 280; const l = ctx.createBiquadFilter(); l.type = 'lowpass'; l.frequency.value = 3600; n.connect(h); h.connect(l); n = l; }   // over the radio: thin
   const g = ctx.createGain(); g.gain.value = vol; n.connect(g); g.connect(AUD.master); s.start();
-  if (radio) { VOX.cur = s; s.onended = () => { if (VOX.cur === s) VOX.cur = null; }; } return true;
+  if (line) { VOX.cur = s; s.onended = () => { if (VOX.cur === s) VOX.cur = null; }; } return true;
 }
 function voxBark(f, k) {   // a squad man's shout, in his own voice (one of two), from where he is
   const v = f && f.name && f.name.charCodeAt(0) % 2 ? 'I' : 'D', pos = f && f.unit ? f.unit.pos : null;
   return voxPlay('b_' + k + '_' + v, { pos }) || voxPlay('b_' + k + '_' + (v === 'I' ? 'D' : 'I'), { pos });
+}
+/* the air-raid siren: the rising and falling wail of the stronghold's horn, for the aircraft warnings (not again within 20 s) */
+function sndSiren(dur = 7) {
+  const ctx = AUD.ctx; if (!ctx || AUD.muted || ctx.currentTime - (sndSiren.t ?? -99) < 20) return; sndSiren.t = ctx.currentTime; const t = ctx.currentTime;
+  const g = ctx.createGain(), lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 2200; g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.16, t + 0.8); g.gain.setValueAtTime(0.16, t + dur - 1.2); g.gain.linearRampToValueAtTime(0.0001, t + dur);
+  lp.connect(g); g.connect(AUD.master);
+  for (const [type, mul] of [['sawtooth', 1], ['square', 1.005]]) { const o = ctx.createOscillator(); o.type = type; const og = ctx.createGain(); og.gain.value = type === 'square' ? 0.35 : 0.6; o.connect(og); og.connect(lp);
+    o.frequency.setValueAtTime(260 * mul, t); for (let k = 0; k < dur / 3; k++) { o.frequency.linearRampToValueAtTime(720 * mul, t + k * 3 + 1.6); o.frequency.linearRampToValueAtTime(420 * mul, t + k * 3 + 3); } o.start(t); o.stop(t + dur + 0.1); }
 }
 function clip(k, t, vol, { rate = 1, off = 0, dur = 0, lp = 0 } = {}) {
   const b = SNDB[k], ctx = AUD.ctx; if (!b || !ctx || vol < 0.003) return null;
@@ -6441,8 +6453,40 @@ function sndRowing(dt) {
     for (let k = 0; k < 3; k++) nz(t + dl + 0.85 + k * rand(0.06, 0.12), 0.05, { f: rand(2200, 3600), q: 4, vol: 0.06 * v });   // drips off the blades
   }
 }
+/* the men in the boats, at full detail at any distance (the user): the new soldier, posed once sitting (with his rifle) and once at the oars,
+   baked into still meshes and drawn instanced - every seated man in every boat in a handful of draw calls. The old seated figures stay as
+   the boat's bookkeeping (where a man sits, whether he is alive) but draw nothing */
+const SEATI = { on: false, sets: [], hid: new THREE.MeshBasicMaterial({ visible: false }), m4: new THREE.Matrix4(), N: 640 };
+function seatBake(row) {
+  const R = new Rig('e', WGEO.rifle); nsShow(R, true); R.root.scale.setScalar(1); R.root.position.set(0, 0, 0); R.root.rotation.set(0, 0, 0);
+  R.snapNext = true; R.pose('idle', 0); const T = R.T;
+  const sit = (hk) => { T.hipsY = 0.36; T.hipsX = 0; T.hipsZ = 0; T.hipsYaw = 0; T.torsoX = row ? 0.32 : 0.14; T.torsoY = 0; T.torsoZ = 0; R.legs(hk, 1.5, hk, 1.5);
+    if (row) { T.ik = false; T.arms = [-1.25, -0.35, -1.25, -0.35, 0.08, -0.08]; } R.snapNext = true; R.apply('idle'); R.torso.scale.set(1, 1, 1); R.headP.rotation.set(row ? -0.2 : 0.05, 0, 0); R.root.updateMatrixWorld(true); };
+  sit(-1.5); { const k = V3(); R.kL.getWorldPosition(k); if (k.z < 0) sit(1.5); }   // the thighs forward, whichever sign the hinge takes
+  const inv = new THREE.Matrix4().copy(R.root.matrixWorld).invert(), out = [];
+  { const m = R.ns, g = m.geometry.clone(), P = g.attributes.position, v = V3(), mw = new THREE.Matrix4().multiplyMatrices(inv, m.matrixWorld);
+    for (let i = 0; i < P.count; i++) { v.fromBufferAttribute(P, i); m.applyBoneTransform(i, v); v.applyMatrix4(mw); P.setXYZ(i, v.x, v.y, v.z); }
+    g.deleteAttribute('skinIndex'); g.deleteAttribute('skinWeight'); g.deleteAttribute('normal'); g.computeVertexNormals(); g.computeBoundingSphere(); out.push([g, m.material]); }
+  if (!row) { const m = R.gun, g = m.geometry.clone(); g.applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv, m.matrixWorld)); out.push([g, m.material]); }
+  scene.remove(R.root); return out;
+}
+function seatInst() {
+  if (SEATI.on) return SEATI.sets.length > 0; SEATI.on = true;
+  try { for (const row of [false, true]) { const parts = seatBake(row).map(([g, mat]) => { const mesh = new THREE.InstancedMesh(g, Array.isArray(mat) ? mat.slice() : mat, SEATI.N); mesh.count = 0; mesh.frustumCulled = false; SH(mesh, true, false); onLayer1(mesh); scene.add(mesh); return mesh; }); SEATI.sets.push({ row, parts }); } }
+  catch (e) { console.error(e); SEATI.sets.length = 0; } return SEATI.sets.length > 0;
+}
+function seatInstUpdate() {
+  if (!BOATS.length && !SEATI.on) return; if (!seatInst()) return;
+  const n = [0, 0]; for (const bt of BOATS) { if (bt.dead || !bt.g.visible) continue; bt.lodOn = false;
+    for (const q of bt.seats) { const m = q.m; if (m.material !== SEATI.hid) { m.material = SEATI.hid; m.visible = q.alive && !q.gone; } if (!m.visible || !q.alive || q.gone || (q.rower && bt.filmHide)) continue;
+      const k = q.rower ? 1 : 0; if (n[k] >= SEATI.N) continue; m.updateWorldMatrix(true, false); SEATI.m4.copy(m.matrixWorld).multiply(SEAT_FIX[k]);
+      for (const p of SEATI.sets[k].parts) p.setMatrixAt(n[k], SEATI.m4); n[k]++; } }
+  for (let k = 0; k < 2; k++) for (const p of SEATI.sets[k].parts) { p.count = n[k]; p.instanceMatrix.needsUpdate = true; }
+}
+// from the old figure's frame (scaled to the boat, facing its way) to the baked soldier's: the same scale and facing (the rower's figure is turned)
+const SEAT_FIX = [new THREE.Matrix4(), new THREE.Matrix4()];
 function updBoats(dt) {
-  sndRowing(dt);
+  sndRowing(dt); seatInstUpdate();
   // counted before any boat moves this frame (a boat coming to the line must not count itself)
   let men = 0; if ((LANDCAP.n < 999 || LANDCAP.wave) && !CINE.on) { for (const e of UNITS.enemies) if (e.alive) men++; for (const bt of BOATS) if (!bt.dead && (bt.state === 'landed' || (bt.state === 'cross' && bt.t * bt.speed > bt.len - 25 + 0.01))) men += aboard(bt); }
   const load = 8 + (LITE ? 4 : 6), room = (LANDCAP.n + 0.3) * load;
@@ -7151,7 +7195,7 @@ function updTutorial(dt) {
   if (!TUT.cur && TUT.queue.length) { TUT.cur = TUT.queue.shift(); TUT.curT = TUT.cur.dur; TUT.shown = 0; $('#hintText').innerHTML = TUT.cur.html; $('#hint').classList.add('on'); }
   TUT.radioT -= dt;
   if (TUT.radioT <= 0) { if (TUT.radioQ.length) { const r = TUT.radioQ.shift(); $('#radioWho').textContent = r.who; { const m = voxFind(r.text), fr = FRIENDS.find((q) => q.name === r.who), bk = !m && fr ? barkKey(r.text) : null;   /* the screen shows only what is heard */
-    if (m) { r.text = m.said; voxPlay(m.k, { radio: !r.quiet }); } else if (bk) { r.text = BARK_SAID[bk]; voxBark(fr, bk); } } $('#radioText').textContent = r.text; { const pk = portraitOf(r.who); if (pk) $('#radioPic').src = PORTRAITS[pk]; $('#radio').classList.toggle('nopic', !pk); } $('#radio').classList.add('on'); $('#radio').classList.toggle('near', !!r.quiet); TUT.radioT = r.dur; { const sp = FRIENDS.find((f) => f.name === r.who && f.unit.alive && f.unit.rig.root.visible); if (sp) nsTalk(sp.unit, Math.min(r.dur * 0.85, 0.6 + r.text.length * 0.065), /!$/.test(r.text) && r.text.length < 30 ? 'shout' : 'speak'); } if (!r.quiet) sndRadio(); } else $('#radio').classList.remove('on'); }
+    if (m) { r.text = m.said; r.dur = Math.max(r.dur, (VOX_DUR[m.k] || 0) + 0.6); voxPlay(m.k, { radio: !r.quiet }); if (m.k === 'alert' || m.k === 'airraid' || m.k === 'dive') sndSiren(); } else if (bk) { r.text = BARK_SAID[bk]; voxBark(fr, bk); } } $('#radioText').textContent = r.text; { const pk = portraitOf(r.who); if (pk) $('#radioPic').src = PORTRAITS[pk]; $('#radio').classList.toggle('nopic', !pk); } $('#radio').classList.add('on'); $('#radio').classList.toggle('near', !!r.quiet); TUT.radioT = r.dur; { const sp = FRIENDS.find((f) => f.name === r.who && f.unit.alive && f.unit.rig.root.visible); if (sp) nsTalk(sp.unit, Math.min(r.dur * 0.85, 0.6 + r.text.length * 0.065), /!$/.test(r.text) && r.text.length < 30 ? 'shout' : 'speak'); } if (!r.quiet) sndRadio(); } else $('#radio').classList.remove('on'); }
   updObjective();
 }
 function tutorialTriggers() {
@@ -10189,7 +10233,7 @@ function updCine(dt) {
     else if (!v.ended) { if (v.paused) { const p = v.play(); if (p && p.catch) p.catch(() => {}); } dt = Math.max(0, v.currentTime + 1 / 24 - CINE.t); } }   // the picture leads: the film's clock follows the video's (frame i shows the film at (i+1)/24)
   CINE.t += dt; while (CINE.ev.length && CINE.ev[0][0] <= CINE.t) CINE.ev.shift()[1]();
   if (CINE.def.tick) CINE.def.tick(dt * CINE.slow);   // a film's own per-frame work (in game time), before its camera is placed
-  for (const c of CINE.caps) if (!c.shown && CINE.t >= c.t) { c.shown = true; { const m = voxFind(c.html); if (m) { const who = (c.html.match(/^\s*<b>[^<]*<\/b>\s*/) || [''])[0]; c.html = who + m.said; voxPlay(m.k, { radio: true }); } } $('#cineCap').innerHTML = c.html;   /* the caption: what the recording says */ CINE.capT = CINE.t + c.d; }
+  for (const c of CINE.caps) if (!c.shown && CINE.t >= c.t) { c.shown = true; { const m = voxFind(c.html); if (m) { const who = (c.html.match(/^\s*<b>[^<]*<\/b>\s*/) || [''])[0]; c.html = who + m.said; c.d = Math.max(c.d, (VOX_DUR[m.k] || 0) + 0.4); voxPlay(m.k, { radio: true }); } } $('#cineCap').innerHTML = c.html;   /* the caption: what the recording says */ CINE.capT = CINE.t + c.d; }
   if (CINE.capT && CINE.t > CINE.capT) { $('#cineCap').innerHTML = ''; CINE.capT = 0; }
   if (CINE.t > 3.5) $('#cineTitle').classList.remove('on');
   let t = CINE.t, shot = CINE.def.shots[CINE.def.shots.length - 1], u = 1; for (const s of CINE.def.shots) { if (t < s.d) { shot = s; u = t / s.d; break; } t -= s.d; }
@@ -10310,7 +10354,7 @@ function mzDroneFilm() {
   updBoats(0);
   const front = W.slice(0, per), vx = front.reduce((a, b) => a + b.speed * Math.sin(b.heading), 0) / front.length, zs = front.map((b) => b.g.position.z).sort((a, b) => a - b);
   let zA = zs[Math.min(1, zs.length - 1)] - 3, zB = zs[Math.max(0, zs.length - 2)] + 3; if (zB - zA > 33) { const m = (zA + zB) / 2; zA = m - 16.5; zB = m + 16.5; }   // a slow pass: some 33 m in 20 s
-  const zM = (zA + zB) / 2, F = Object.assign(bcrewMake(W), { t: 0, it: 0.3 }), XL = () => X0 + vx * F.t;
+  const zM = zs[Math.floor(zs.length / 2)] - 1.1, F =   /* on one boat of the front row */ Object.assign(bcrewMake(W), { t: 0, it: 0.3 }), XL = () => X0 + vx * F.t;
   const live = () => W.filter((b) => !b.dead && b.state === 'cross');
   const tick = (dt) => {
     F.t += dt; F.step(dt); const cam = camera.position;
@@ -10323,14 +10367,15 @@ function mzDroneFilm() {
   };
   const zAt = (u) => lerp(zA, zB, u * u * (3 - 2 * u));
   playCine({
-    vid: 'mz_drone',
     shots: [
-      // the pass: six and a half metres in front of the bows, a metre and a half over the gunwales, slowly, the game a little slowed with it
-      { d: 20.0, slow: 0.4, cam: (u) => { const z = zAt(u), x = XL(); return { p: V3(x + 6.5, 2.0 + 0.1 * Math.sin(F.t * 1.7), z), l: V3(x - 1, 1.05, z + 2.2), fov: 30 }; } },
-      { d: 5.0, slow: 0.6, cam: (u) => { const e = u * u * (3 - 2 * u), x = XL(); return { p: V3(x + 6.5 + 25 * e, 2.0 + 14 * e, zB + 6 * e), l: V3(x - 2 * (1 - e), lerp(1.05, 0.6, e), lerp(zB + 2.2, zM, e)), fov: lerp(30, 52, e) }; } },
+      // one boat, close and whole: in front of its bows, a metre and a half over the gunwales (the user: one boat, then the rest)
+      { d: 1.5, slow: 0.4, cam: (u) => { const x = XL(); return { p: V3(x + 6.5, 2.0 + 0.1 * Math.sin(F.t * 1.7), zM), l: V3(x - 1, 1.05, zM + 2.2), fov: 30 }; } },
+      // then back and up, all the way to the player on the rampart: the rows behind it come into view one after another
+      { d: 2.3, slow: 0.6, cam: (u) => { const e = u * u * (3 - 2 * u), x = XL(), pe = playerEye(), a = V3(x + 6.5, 2.0, zM), b = V3(pe.x + 1.5, pe.y + 2.2, pe.z + 1.5);
+        return { p: a.lerp(b, e), l: V3(x - 1, 1.05, zM + 2.2).lerp(V3(x - 60, 0.4, zM), e), fov: lerp(30, 56, e) }; } },
     ],
     tick,
-    caps: [[0.4, '<b>תצפית:</b> הם כבר באמצע התעלה! עשרות סירות, שורה אחרי שורה!', 4.6], [8.0, 'בכל סירה חיילים צפופים. הם יורים עלינו תוך כדי חתירה.', 5.0], [19.6, '<b>מ״פ:</b> אש על הסירות! לא נותנים להם להגיע לחוף!', 4.6]],
+    caps: [[0.1, '<b>תצפית:</b> הם כבר באמצע התעלה! עשרות סירות, שורה אחרי שורה!', 3.6]],   /* as long as its recording, and a second more */
     boatFilm: true, end: () => { F.off(); for (const b of BOATS) if (b.filmHide) filmRow(b, false); },
   });
 }

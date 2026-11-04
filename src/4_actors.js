@@ -859,6 +859,7 @@ class Boat {
     onLayer1(this.g); this.hull.layers.enableAll(); scene.add(this.g); BOATS.push(this);
   }
   setLod(on) {
+    on = false;   /* never the far piece: the men in the boat are drawn in full at any distance (seatInstUpdate) */
     if (on === this.lodOn) return; this.lodOn = on; this.lod.visible = on; this.hull.visible = !on;
     for (const q of this.seats) { q.m.visible = !on && q.alive && !q.gone && !(q.rower && this.filmHide); if (q.oar) q.oar.visible = !on && !q.gone && !this.filmHide; }
   }

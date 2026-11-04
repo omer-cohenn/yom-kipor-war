@@ -343,13 +343,13 @@ function nsMaterials() {
   if (NEWSOL.mats) return NEWSOL.mats;
   const T = SOLDIER_DATA.tex, std = (o) => new THREE.MeshStandardMaterial(Object.assign({ roughness: 0.9, metalness: 0 }, o));
   const cloth = (side, map, color) => { const m = rimMat(side === 'e' ? 0xff4020 : 0x5f9cff, side === 'e' ? 0 : 0.12); m.vertexColors = false; m.map = map; m.bumpMap = null; m.color.set(color); m.roughness = 0.95; m.customProgramCacheKey = () => 'nsRim' + side; return m; };
-  const uniF = nsCamo({ seed: 3, base: 0xac926a, layers: [[0xb49b72, 0.6, 3, 4], [0xa38a63, 0.62, 5, 6]] });   // the IDF's olive drill as the photographs of 1973 show it: khaki-olive, faded unevenly by the sun
+  const uniF = nsCamo({ seed: 3, base: 0x878159, layers: [[0x8f8960, 0.6, 3, 4], [0x7b7550, 0.62, 5, 6]] });   /* the IDF's olive drill (madei alef): olive green, faded unevenly by the sun (the user's photograph) */   // the IDF's olive drill as the photographs of 1973 show it: khaki-olive, faded unevenly by the sun
   NEWSOL.camo.eg = nsCamo(NS_CAMO.eg);
   const head = nsImage(T.head), headAr = nsImage(T.headAr || T.head), hands = nsImage(T.hands), eyes = nsImage(T.eyes), net = nsNet();
   const hidden = new THREE.MeshBasicMaterial({ visible: false });
   const skin = (map, tint) => std({ map, roughness: 0.6, color: tint, emissive: 0x1a120c, emissiveMap: map });   // a little light of their own: the face shows under the helmet's shadow
   const web = nsWebTex(), belt = (side, color) => nsBeltMat(cloth(side, web, color), side), waist = (m, side) => nsWrinkle(nsBindPaint(m, NS_WAIST + NS_POCKETS + NS_MADEI(side === 'f' ? 0.45 : 0.5) + (side === 'f' ? NS_OPEN_F : ''), 'waist' + side), side);
-  const f = [waist(cloth('f', uniF, 0xffffff), 'f'), belt('f', 0xf2dcb0), std({ color: 0x4a2c1c, roughness: 0.55 }), skin(head, 0xffffff), skin(hands, 0xffffff), std({ map: eyes, roughness: 0.15 }),
+  const f = [waist(cloth('f', uniF, 0xffffff), 'f'), belt('f', 0xc9c196), std({ color: 0x4a2c1c, roughness: 0.55 }), skin(head, 0xffffff), skin(hands, 0xffffff), std({ map: eyes, roughness: 0.15 }),
     nsHelmetMat(net), std({ color: 0x8a7856, roughness: 0.9 }), hidden];   // the chinstraps and liner in tan web
   const cov = NEWSOL.camo.eg.clone(); cov.repeat.set(0.5, 0.5); cov.needsUpdate = true;
   NEWSOL.helm = { cover: nsWrinkle(nsBindPaint(std({ map: cov, roughness: 0.96 }), NS_COVER, 'cover'), 'cv'), net: nsBindPaint(std({ color: 0xa8956c, roughness: 0.72 }), NS_SOVNET, 'sovnet'), sy: nsBindPaint(std({ color: 0x55553b, roughness: 0.62 }), NS_CHIP, 'chip') };

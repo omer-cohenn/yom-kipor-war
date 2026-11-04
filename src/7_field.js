@@ -774,7 +774,7 @@ function updCine(dt) {
     else if (!v.ended) { if (v.paused) { const p = v.play(); if (p && p.catch) p.catch(() => {}); } dt = Math.max(0, v.currentTime + 1 / 24 - CINE.t); } }   // the picture leads: the film's clock follows the video's (frame i shows the film at (i+1)/24)
   CINE.t += dt; while (CINE.ev.length && CINE.ev[0][0] <= CINE.t) CINE.ev.shift()[1]();
   if (CINE.def.tick) CINE.def.tick(dt * CINE.slow);   // a film's own per-frame work (in game time), before its camera is placed
-  for (const c of CINE.caps) if (!c.shown && CINE.t >= c.t) { c.shown = true; { const m = voxFind(c.html); if (m) { const who = (c.html.match(/^\s*<b>[^<]*<\/b>\s*/) || [''])[0]; c.html = who + m.said; voxPlay(m.k, { radio: true }); } } $('#cineCap').innerHTML = c.html;   /* the caption: what the recording says */ CINE.capT = CINE.t + c.d; }
+  for (const c of CINE.caps) if (!c.shown && CINE.t >= c.t) { c.shown = true; { const m = voxFind(c.html); if (m) { const who = (c.html.match(/^\s*<b>[^<]*<\/b>\s*/) || [''])[0]; c.html = who + m.said; c.d = Math.max(c.d, (VOX_DUR[m.k] || 0) + 0.4); voxPlay(m.k, { radio: true }); } } $('#cineCap').innerHTML = c.html;   /* the caption: what the recording says */ CINE.capT = CINE.t + c.d; }
   if (CINE.capT && CINE.t > CINE.capT) { $('#cineCap').innerHTML = ''; CINE.capT = 0; }
   if (CINE.t > 3.5) $('#cineTitle').classList.remove('on');
   let t = CINE.t, shot = CINE.def.shots[CINE.def.shots.length - 1], u = 1; for (const s of CINE.def.shots) { if (t < s.d) { shot = s; u = t / s.d; break; } t -= s.d; }
@@ -895,7 +895,7 @@ function mzDroneFilm() {
   updBoats(0);
   const front = W.slice(0, per), vx = front.reduce((a, b) => a + b.speed * Math.sin(b.heading), 0) / front.length, zs = front.map((b) => b.g.position.z).sort((a, b) => a - b);
   let zA = zs[Math.min(1, zs.length - 1)] - 3, zB = zs[Math.max(0, zs.length - 2)] + 3; if (zB - zA > 33) { const m = (zA + zB) / 2; zA = m - 16.5; zB = m + 16.5; }   // a slow pass: some 33 m in 20 s
-  const zM = (zA + zB) / 2, F = Object.assign(bcrewMake(W), { t: 0, it: 0.3 }), XL = () => X0 + vx * F.t;
+  const zM = zs[Math.floor(zs.length / 2)] - 1.1, F =   /* on one boat of the front row */ Object.assign(bcrewMake(W), { t: 0, it: 0.3 }), XL = () => X0 + vx * F.t;
   const live = () => W.filter((b) => !b.dead && b.state === 'cross');
   const tick = (dt) => {
     F.t += dt; F.step(dt); const cam = camera.position;
@@ -908,14 +908,15 @@ function mzDroneFilm() {
   };
   const zAt = (u) => lerp(zA, zB, u * u * (3 - 2 * u));
   playCine({
-    vid: 'mz_drone',
     shots: [
-      // the pass: six and a half metres in front of the bows, a metre and a half over the gunwales, slowly, the game a little slowed with it
-      { d: 20.0, slow: 0.4, cam: (u) => { const z = zAt(u), x = XL(); return { p: V3(x + 6.5, 2.0 + 0.1 * Math.sin(F.t * 1.7), z), l: V3(x - 1, 1.05, z + 2.2), fov: 30 }; } },
-      { d: 5.0, slow: 0.6, cam: (u) => { const e = u * u * (3 - 2 * u), x = XL(); return { p: V3(x + 6.5 + 25 * e, 2.0 + 14 * e, zB + 6 * e), l: V3(x - 2 * (1 - e), lerp(1.05, 0.6, e), lerp(zB + 2.2, zM, e)), fov: lerp(30, 52, e) }; } },
+      // one boat, close and whole: in front of its bows, a metre and a half over the gunwales (the user: one boat, then the rest)
+      { d: 1.5, slow: 0.4, cam: (u) => { const x = XL(); return { p: V3(x + 6.5, 2.0 + 0.1 * Math.sin(F.t * 1.7), zM), l: V3(x - 1, 1.05, zM + 2.2), fov: 30 }; } },
+      // then back and up, all the way to the player on the rampart: the rows behind it come into view one after another
+      { d: 2.3, slow: 0.6, cam: (u) => { const e = u * u * (3 - 2 * u), x = XL(), pe = playerEye(), a = V3(x + 6.5, 2.0, zM), b = V3(pe.x + 1.5, pe.y + 2.2, pe.z + 1.5);
+        return { p: a.lerp(b, e), l: V3(x - 1, 1.05, zM + 2.2).lerp(V3(x - 60, 0.4, zM), e), fov: lerp(30, 56, e) }; } },
     ],
     tick,
-    caps: [[0.4, '<b>תצפית:</b> הם כבר באמצע התעלה! עשרות סירות, שורה אחרי שורה!', 4.6], [8.0, 'בכל סירה חיילים צפופים. הם יורים עלינו תוך כדי חתירה.', 5.0], [19.6, '<b>מ״פ:</b> אש על הסירות! לא נותנים להם להגיע לחוף!', 4.6]],
+    caps: [[0.1, '<b>תצפית:</b> הם כבר באמצע התעלה! עשרות סירות, שורה אחרי שורה!', 3.6]],   /* as long as its recording, and a second more */
     boatFilm: true, end: () => { F.off(); for (const b of BOATS) if (b.filmHide) filmRow(b, false); },
   });
 }
