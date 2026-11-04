@@ -48,6 +48,7 @@ function initAudio() {
 /* recorded clips (4f_data_snd.js), decoded once the audio is unlocked; every sound falls back on the synthesised one until its clip is ready */
 const SNDB = {};
 function sndLoad() {
+  voxLoad();
   if (SNDB._on || typeof SND_DATA === 'undefined') return; SNDB._on = true;
   for (const k in SND_DATA) {
     try {
@@ -55,6 +56,48 @@ function sndLoad() {
       const ok = (b) => { SNDB[k] = b; }, r = AUD.ctx.decodeAudioData(u.buffer, ok, () => {}); if (r && r.catch) r.catch(() => {});
     } catch (e) {}
   }
+}
+/* ================= voices =================
+   the dubbed lines (vox.json, beside the page: recorded in ElevenLabs by the user, re-encoded small). A radio line or a film caption is
+   matched to its recording by how its text begins; the squad's shouts by their first word, in one of two voices */
+const VOX = { buf: {}, loading: false, cur: null };
+function voxLoad() {
+  if (VOX.loading || !AUD.ctx) return; VOX.loading = true;
+  fetch('vox.json').then((r) => (r.ok ? r.json() : null)).then((d) => { if (!d) return; for (const k in d) { try {
+    const bin = atob(d[k]), u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+    const r = AUD.ctx.decodeAudioData(u.buffer, (b) => { VOX.buf[k] = b; }, () => {}); if (r && r.catch) r.catch(() => {}); } catch (e) {} } }).catch(() => {});
+}
+const voxNorm = (t) => String(t).replace(/<[^>]*>/g, '').replace(/[^א-ת0-9]/g, '');
+const VOX_LINES = [
+  ['כוננות ספיגה', 'alert'], ['הרעשה ארטילרית', 'barrage'], ['סירות יוצאות מהרציף בפורט', 'portboats'], ['כשההרעשה נגמרת', 'barrage_end'], ['סירות במים ממערב', 'boatsmag'],
+  ['השטח נקי', 'clear'], ['הם בתוך המוצב', 'inside'], ['הם עולים מצפון', 'north'], ['תפוס את המא״ג המערבי', 'takemag'], ['סירות על כל הקו', 'holddark'], ['עוד שורות יוצאות מהרציף', 'rows'],
+  ['דקה אחרונה', 'lastmin'], ['סירה עלתה על מוקש', 'mine'], ['מטוס בצלילה', 'dive'], ['מיגים מעל המעוז', 'dive'], ['סוחוי בצלילה', 'dive'], ['הוא צולל ישר עליך', 'dive'],
+  ['פגיעה! המטוס בוער', 'downed'], ['הפלתם אותו', 'downed'], ['הטייס ראה אותך', 'seenyou'], ['הם בתעלה', 'intrench'], ['מצרים קפצו לתעלה', 'intrench'], ['יש להם רגל בתעלה', 'intrench'],
+  ['תצפית: הם כבר באמצע התעלה', 'dozens'], ['תצפית: מיראז׳ שלנו', 'mirage'], ['תצפית: טיל! טיל באוויר', 'missile'], ['תצפית: פגיעה! הכנף נקרעה', 'wing'], ['מ״פ: הטייס נטש', 'eject'], ['קשר: הם... הם חוזרים אחורה', 'retreat'],
+  ['ערב חג', 'eve'], ['ככה הולכים בחופש', 'run'], ['לעמדה. ראש למטה', 'headdown'], ['ככה הם ייראו מחר', 'looks'], ['מחסנית חצי ריקה', 'halfmag'], ['רואה את הבור', 'pit'],
+  ['ועכשיו רימון שלהם', 'enemynade'], ['המא״ג המערבי. מחר', 'manmag'], ['יוסי גורר סירת גומי', 'dinghy'], ['השרשרת נגמרת', 'belt'], ['אזעקה! מטוסים', 'airraid'], ['נהג, קדימה לעמדה', 'driver'],
+  ['טנק, ימני', 'tank1'], ['פגיעה! טען', 'tank2'], ['אתה על ה־0.5', 'barrels'], ['מת. בתרגיל', 'dead'], ['בשטח פתוח המטוס', 'openfield'], ['שש מתוך שש', 'sixofsix'], ['שתי יריות', 'twohits'],
+  ['אחרי מה שעשינו', 'loader'], ['זהו. אתם מוכנים', 'ready'], ['המפקד, המודיעין', 'intel'], ['שקט מדי הלילה', 'quiet'], ['מחר יום כיפור', 'kippur'], ['שיירו', 'shmulik'],
+].map(([t, k]) => [voxNorm(t), k]);
+function voxPlay(k, { radio = false, pos = null, vol = 0.95 } = {}) {
+  const b = VOX.buf[k], ctx = AUD.ctx; if (!b || !ctx || AUD.muted) return false;
+  if (pos) { vol *= Math.min(1, 14 / (camera.position.distanceTo(pos) + 6)); if (vol < 0.04) return false; }
+  if (radio && VOX.cur) { try { VOX.cur.stop(); } catch (e) {} VOX.cur = null; }
+  const s = ctx.createBufferSource(); s.buffer = b; let n = s;
+  if (radio) { const h = ctx.createBiquadFilter(); h.type = 'highpass'; h.frequency.value = 280; const l = ctx.createBiquadFilter(); l.type = 'lowpass'; l.frequency.value = 3600; n.connect(h); h.connect(l); n = l; }   // over the radio: thin
+  const g = ctx.createGain(); g.gain.value = vol; n.connect(g); g.connect(AUD.master); s.start();
+  if (radio) { VOX.cur = s; s.onended = () => { if (VOX.cur === s) VOX.cur = null; }; } return true;
+}
+function voxSay(text, near = false) {   // a radio line or a caption: its recording, if there is one
+  const n = voxNorm(text); for (const [t, k] of VOX_LINES) if (n.startsWith(t)) return voxPlay(k, { radio: !near });
+  return false;
+}
+function voxBark(f, text) {   // a squad man's shout, in his own voice (one of two), from where he is
+  const n = voxNorm(text), v = f && f.name && f.name.charCodeAt(0) % 2 ? 'I' : 'D';
+  const k = /^(מגע|אויב)/.test(n) ? 'contact' : /^רימון/.test(n) ? 'nade' : /^(מחליף|מחסנית|טוען)/.test(n) ? 'mag' : /^(נפל|חיסלתי|פגעתי|הואלמטה)/.test(n) ? 'down' : /^(יורים|אנימרותק|מרתקים|ראשיםלמטה)/.test(n) ? 'fire' : /^נפגעתי/.test(n) ? 'hit'
+    : n.includes('מצרי') ? (n.includes('מאחוריך') ? 'behind' : n.includes('מימינך') ? 'right' : n.includes('משמאלך') ? 'left' : null) : null;
+  if (!k) return false; const pos = f && f.unit ? f.unit.pos : null;
+  return voxPlay('b_' + k + '_' + v, { pos }) || voxPlay('b_' + k + '_' + (v === 'I' ? 'D' : 'I'), { pos });
 }
 function clip(k, t, vol, { rate = 1, off = 0, dur = 0, lp = 0 } = {}) {
   const b = SNDB[k], ctx = AUD.ctx; if (!b || !ctx || vol < 0.003) return null;
@@ -303,7 +346,7 @@ function woundFriend(f, killed = false, force = false) {
   { const c = u.chest(), o = V3(Math.sin(u.heading), 0, Math.cos(u.heading)); fxBlood(c, 12); bodyWound(u, c.clone().addScaledVector(o, 0.2).add(V3(rand(-0.08, 0.08), rand(-0.12, 0.06), 0))); }
   DIRQ.push({ at: GAME.t + 0.8, fn: () => { if (f.state === 'wounded' || f.state === 'kia') bloodPool(u, u.chest(), killed ? rand(0.95, 1.2) : rand(0.6, 0.8), f); } });
   if (killed) { f.state = 'kia'; feed(`${f.name} נהרג`, 'bad'); STATS.kia++; }
-  else if (MODE === 'mezach') { f.state = 'down'; DIRQ.push({ at: GAME.t + rand(3.5, 5), fn: () => { if (f.state === 'down') reviveFriend(f); } }); }   /* the user: no first aid in the stronghold */
+  else if (MODE === 'mezach') { voxBark(f, 'נפגעתי!'); f.state = 'down'; DIRQ.push({ at: GAME.t + rand(3.5, 5), fn: () => { if (f.state === 'down') reviveFriend(f); } }); }   /* the user: no first aid in the stronghold */
   else { STATS.wounded++; f.state = 'wounded'; f.bleed = diff.bleed; feed(`${f.name} נפגע! ״חובש!״`, 'bad'); f.marker.visible = true; radio(f.name, 'נפגעתי! חובש!', 3); }
 }
 /* ================= the squad: how the men beside the player fight =================
@@ -321,7 +364,7 @@ function shout(f, text, dur = 1.9, force = false) {
   if (camera.position.distanceTo(f.unit.pos) > 60) return false;
   SQF.callT = GAME.t; f.shoutCd = GAME.t + 3.2;
   if (!f.say) { const el = document.createElement('div'); el.className = 'say'; f.say = new CSS2DObject(el); f.say.center.set(0.5, 1); scene.add(f.say); f.sayEl = el; }
-  f.sayEl.textContent = `${f.name}: ${text}`; f.say.visible = true; f.sayT = dur; nsTalk(f.unit, Math.min(dur, 0.4 + text.length * 0.06), 'shout'); return true;
+  f.sayEl.textContent = `${f.name}: ${text}`; voxBark(f, text); f.say.visible = true; f.sayT = dur; nsTalk(f.unit, Math.min(dur, 0.4 + text.length * 0.06), 'shout'); return true;
 }
 function sqfLater(f, text, delay) { if (f) SQF.later.push({ f, text, at: GAME.t + delay }); }
 function sqfMate(f, R = 16) { let b = null, bd = R; for (const o of FRIENDS) { if (o === f || !o.unit.alive || (o.state !== 'follow' && o.state !== 'post')) continue; const d = o.unit.pos.distanceTo(f.unit.pos); if (d < bd) { bd = d; b = o; } } return b; }
@@ -613,7 +656,7 @@ function rpgFirst(e) { e.setKind('rpg'); e.rpgFirst = true; e.rpgCd = 0; e.cmdRp
 function rpgShoot(e, tp) {
   e.rpgCd = e.cmdRpg ? rand(4, 6) : rand(8, 12); e.rpgPause = e.cmdRpg ? 1.1 : 1.6; e.face(tp.x, tp.z); e.rig.shoulderT = GAME.t + 1.6;   // up to the shoulder, aim, and the shot 0.6 s later
   const ml = mzLv(), sp = ml ? ml.rpgSp : 1.4; e.rpgTp = tp.clone().add(V3(rand(-sp, sp), rand(-0.4, 0.7), rand(-sp, sp))); e.rpgFireAt = GAME.t + (ml ? Math.max(ml.rpgT, e.rpgFirst ? 0 : 0.6) : e.rpgFirst ? cmdSmart().rpg : 0.6);
-  if (ml && e.target && e.target.player && GAME.t - (D.rpgYell || -9) > 1.5) { D.rpgYell = GAME.t; feed('RPG!', 'bad'); sndShouts(e.pos, 0.5); }   /* a warning the moment he shoulders it */
+  if (ml && e.target && e.target.player && GAME.t - (D.rpgYell || -9) > 1.5) { D.rpgYell = GAME.t; feed('RPG!', 'bad'); sndShouts(e.pos, 0.5); voxPlay(Math.random() < 0.5 ? 'b_rpg_I' : 'b_rpg_D'); }   /* a warning the moment he shoulders it */
 }
 function rpgFireDue(e) {
   if (!e.rpgFireAt || GAME.t < e.rpgFireAt) return; e.rpgFireAt = 0; if (!e.alive || !e.rpgTp) return;
@@ -1377,10 +1420,11 @@ function mzSurvive() {
   if (D.retreat) return;
   if (D.lastWait != null) { if (P.mode !== 'mag' && GAME.t - D.lastWait < 45) return;   // not yet: the player is still on his way to the gun
     D.lastWait = null; const ctrl = GAME.t + (tongueWestX(20) - 4.5 - nearX(-400)) / boatSpd() - 4;   /* the first boat lands only after a whole crossing: they leave the quays now, not halfway over */ D.boatsFilm = true; rowsStart({ z0: -28, z1: 58,   /* the rows about 80 m along the beach */ total: 1e6, every: mzLv().every[0], ctrl, aLand: ctrl + 4 });
-    D.survT0 = GAME.t; D.survEnd = GAME.t + SCENES[D.scene].survival; radio('מ״פ', 'סירות! כל הקו המערבי! מחזיקים עד החשכה!', 4.5); }
+    D.survT0 = GAME.t; D.survEnd = GAME.t + SCENES[D.scene].survival; radio('מ״פ', 'סירות על כל הקו! מחזיקים עד החשכה!', 4.5); }
   const t = GAME.t - D.survT0;
   if (D.survLv < 1 && t > 40) { D.survLv = 1; ROWS.every = mzLv().every[1]; ROWS.rpgP = 0.25; radio('תצפית', 'עוד שורות יוצאות מהרציף!', 3.6); }   /* only boats from the west (the user) */
-  if (D.survLv < 2 && t > 80) { D.survLv = 2; ROWS.every = mzLv().every[2]; ROWS.rpgP = 0.35; radio('מ״פ', 'זו הדחיפה האחרונה שלהם! עוד קצת עד החשכה, מחזיקים!', 4.2); }
+  if (D.survLv < 2 && t > 80) { D.survLv = 2; ROWS.every = mzLv().every[2]; ROWS.rpgP = 0.35; }
+  if (!D.lastMin && D.survEnd && D.survEnd - GAME.t < 60) { D.lastMin = true; radio('מ״פ', 'דקה אחרונה! מחזיקים!', 3.2); }
   if (GAME.t >= D.survEnd) mzRetreat();
 }
 /* the film of the end: the boats on the water stop and back off, the men still on the sand run for the water, the line of boats draws away west
@@ -1503,7 +1547,7 @@ function pendingSpawns() { let n = 0; for (const q of DIRQ) if (q.spawn) n++; re
 function enemiesLeft() { let n = pendingSpawns() + rowsPending(); for (const e of UNITS.enemies) if (e.alive) n++; for (const b of BOATS) if (!b.dead && b.state !== 'sinking') n += b.seats.filter((s) => s.alive && !s.gone).length; return n; }
 function mzNorthStep() {   // the north stage: the boats' men as before; when the last of them is dead the player is sent to the northern post, facing the scrub - and only when he stands there does the commando come out of it
   if (!D.cmdWait || D.phaseT < 6) return;
-  if (!D.boatsDone) { if (enemiesLeft() > 0) return; D.boatsDone = true; radio('מ״פ', 'לעמדה הצפונית! הם יוצאים מהשיחים!', 3.6); return; }
+  if (!D.boatsDone) { if (enemiesLeft() > 0) return; D.boatsDone = true; radio('יוסי', 'הם עולים מצפון! ומהכביש קומנדו!', 3.6); radio('מ״פ', 'לעמדה הצפונית, מול השיחים!', 3.2); return; }
   const n = POSTP('N1'); if (Math.hypot(P.pos.x - n.stand[0], P.pos.z - n.stand[1]) > 2.2) return;   /* he has to be in the post itself (the user) */
   D.cmdWait = false; radio('תצפית', 'קומנדו מהשיחים! רצים אלינו!', 3.4); DIRQ.push({ at: GAME.t + 2, spawn: true, fn: mzCommando });
 }
@@ -1516,7 +1560,7 @@ function sceneClear() {
 const CP = { scene: -1, friends: null, stats: null };
 function sceneAnnounce(i) { const S = SCENES[i]; toast(`שלב ${i + 1} מתוך ${SCENES.length} · ${S.title}`, S.sub); feed(`שלב ${i + 1}: ${S.title}`); radio(S.radio[0], S.radio[1], 4.5); }
 function introScene(i, len) {
-  D.scene = i; D.phase = 'intro'; D.phaseT = 0; D.introLen = len; D.objDone = false; D.cmdWait = false; D.boatsDone = false;
+  D.scene = i; D.phase = 'intro'; D.phaseT = 0; D.introLen = len; D.objDone = false; D.cmdWait = false; D.boatsDone = false; D.lastMin = false;
   CP.scene = i; CP.friends = FRIENDS.map((f) => (f.state === 'kia' ? 'kia' : f.state === 'saved' ? 'saved' : 'post')); CP.stats = { ...STATS };
   applyBarricades(i);
   for (const f of FRIENDS) if ((f.state === 'wounded' || f.state === 'stable') && !corridorHas(scCorr(i), f.unit.pos.x, f.unit.pos.z)) { f.state = 'saved'; f.marker.visible = false; feed(`חובשים פינו את ${f.name} לתאג״ד`, 'good'); }
@@ -1968,7 +2012,7 @@ function updTutorial(dt) {
   if (TUT.cur) { TUT.curT -= dt; TUT.shown += dt; if (TUT.queue.length && TUT.shown > 4) TUT.curT = Math.min(TUT.curT, 0.4); if (TUT.curT <= 0) { TUT.cur = null; $('#hint').classList.remove('on'); } }
   if (!TUT.cur && TUT.queue.length) { TUT.cur = TUT.queue.shift(); TUT.curT = TUT.cur.dur; TUT.shown = 0; $('#hintText').innerHTML = TUT.cur.html; $('#hint').classList.add('on'); }
   TUT.radioT -= dt;
-  if (TUT.radioT <= 0) { if (TUT.radioQ.length) { const r = TUT.radioQ.shift(); $('#radioWho').textContent = r.who; $('#radioText').textContent = r.text; { const pk = portraitOf(r.who); if (pk) $('#radioPic').src = PORTRAITS[pk]; $('#radio').classList.toggle('nopic', !pk); } $('#radio').classList.add('on'); $('#radio').classList.toggle('near', !!r.quiet); TUT.radioT = r.dur; { const sp = FRIENDS.find((f) => f.name === r.who && f.unit.alive && f.unit.rig.root.visible); if (sp) nsTalk(sp.unit, Math.min(r.dur * 0.85, 0.6 + r.text.length * 0.065), /!$/.test(r.text) && r.text.length < 30 ? 'shout' : 'speak'); } if (!r.quiet) sndRadio(); } else $('#radio').classList.remove('on'); }
+  if (TUT.radioT <= 0) { if (TUT.radioQ.length) { const r = TUT.radioQ.shift(); $('#radioWho').textContent = r.who; $('#radioText').textContent = r.text; { const fr = FRIENDS.find((q) => q.name === r.who); if (!voxSay(r.text, r.quiet) && fr) voxBark(fr, r.text); } { const pk = portraitOf(r.who); if (pk) $('#radioPic').src = PORTRAITS[pk]; $('#radio').classList.toggle('nopic', !pk); } $('#radio').classList.add('on'); $('#radio').classList.toggle('near', !!r.quiet); TUT.radioT = r.dur; { const sp = FRIENDS.find((f) => f.name === r.who && f.unit.alive && f.unit.rig.root.visible); if (sp) nsTalk(sp.unit, Math.min(r.dur * 0.85, 0.6 + r.text.length * 0.065), /!$/.test(r.text) && r.text.length < 30 ? 'shout' : 'speak'); } if (!r.quiet) sndRadio(); } else $('#radio').classList.remove('on'); }
   updObjective();
 }
 function tutorialTriggers() {

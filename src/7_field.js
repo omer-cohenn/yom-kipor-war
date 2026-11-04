@@ -774,7 +774,7 @@ function updCine(dt) {
     else if (!v.ended) { if (v.paused) { const p = v.play(); if (p && p.catch) p.catch(() => {}); } dt = Math.max(0, v.currentTime + 1 / 24 - CINE.t); } }   // the picture leads: the film's clock follows the video's (frame i shows the film at (i+1)/24)
   CINE.t += dt; while (CINE.ev.length && CINE.ev[0][0] <= CINE.t) CINE.ev.shift()[1]();
   if (CINE.def.tick) CINE.def.tick(dt * CINE.slow);   // a film's own per-frame work (in game time), before its camera is placed
-  for (const c of CINE.caps) if (!c.shown && CINE.t >= c.t) { c.shown = true; $('#cineCap').innerHTML = c.html; CINE.capT = CINE.t + c.d; }
+  for (const c of CINE.caps) if (!c.shown && CINE.t >= c.t) { c.shown = true; $('#cineCap').innerHTML = c.html; voxSay(c.html); CINE.capT = CINE.t + c.d; }
   if (CINE.capT && CINE.t > CINE.capT) { $('#cineCap').innerHTML = ''; CINE.capT = 0; }
   if (CINE.t > 3.5) $('#cineTitle').classList.remove('on');
   let t = CINE.t, shot = CINE.def.shots[CINE.def.shots.length - 1], u = 1; for (const s of CINE.def.shots) { if (t < s.d) { shot = s; u = t / s.d; break; } t -= s.d; }
