@@ -5959,7 +5959,7 @@ function updEnemy(e, dt) {
     const u = clamp(e.t / e.jd, 0, 1), h = u * u * (3 - 2 * u); e.pos.lerpVectors(e.j0, e.j1, h); e.pos.y += Math.sin(u * Math.PI) * 0.7; e.face(e.j1.x + 1, e.j1.z);
     e.rig.pose('vault', u); e.sync(); if (u >= 1) { e.state = e.plan ? 'plan' : 'move'; e.t = 0; e.jd = 0; } return;
   }
-  if (e.state === 'retreat') { e.anim += dt * 10; if (moveAlong(e, dt, 5)) { const bt = e.retBoat; if (bt && !bt.dead && bt.state === 'landed') { e.alive = false; e.rig.root.visible = false; boardBack(e); } else if (bt) { e.retBoat = null; fxBlood(e.chest(), 10); killEnemy(e); return; } else { e.alive = false; e.rig.root.visible = false; } }   /* too late for his boat: a bullet, and he falls on the sand (the user) */ e.rig.pose('run', e.anim); e.sync(); return; }
+  if (e.state === 'retreat') { e.anim += dt * 10; if (moveAlong(e, dt, 5)) { const bt = e.retBoat; if (bt && !bt.dead && bt.state === 'landed') { e.alive = false; e.rig.root.visible = false; boardBack(e); } else { e.retBoat = null; fxBlood(e.chest(), 10); killEnemy(e); return; } }   /* too late for his boat: a bullet, and he falls on the sand (the user) */ e.rig.pose('run', e.anim); e.sync(); return; }
   // specials
   if (e.kind === 'rpg' && e.target && e.rpgCd <= 0 && (e.state === 'hold' || e.state === 'engage' || e.state === 'move')) {
     const tp = e.target.p; const d = e.pos.distanceTo(tp);
