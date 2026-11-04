@@ -6496,7 +6496,7 @@ function seatInstUpdate() {
 // from the old figure's frame (scaled to the boat, facing its way) to the baked soldier's: the same scale and facing (the rower's figure is turned)
 const SEAT_FIX = [new THREE.Matrix4(), new THREE.Matrix4()];
 function updBoats(dt) {
-  sndRowing(dt); seatInstUpdate(); nGuideUpd(); mzDetailUpd(dt);
+  sndRowing(dt); seatInstUpdate(); mzDetailUpd(dt);
   if (MODE === 'mezach' && !CINE.on && AUD.ctx && (D.boatCryT = (D.boatCryT ?? 2) - dt) <= 0) { D.boatCryT = rand(2.5, 4.5);   /* the boats chant as they come: 'Allahu akbar' over the water (the user: more of it) */
     /* from the whole width of the canal, muffled far off and clearer as they come: one cry at a time, the nearer boats more often */
     const near = BOATS.filter((b) => !b.dead && b.state === 'cross' && b.g.visible && camera.position.distanceTo(b.g.position) < 380).sort((a, c) => camera.position.distanceToSquared(a.g.position) - camera.position.distanceToSquared(c.g.position));
@@ -6780,7 +6780,7 @@ function nGuideUpd() {
 }
 function mzNorthStep() {   // the north stage: the boats' men as before; when the last of them is dead the player is sent to the northern post, facing the scrub - and only when he stands there does the commando come out of it
   if (!D.cmdWait || D.phaseT < 6) return;
-  if (!D.boatsDone) { if (enemiesLeft() > 0) return; D.boatsDone = true; radio('יוסי', 'הם עולים מצפון! ומהכביש קומנדו!', 3.6); radio('מ״פ', 'לעמדה הצפונית, מול השיחים!', 3.2); return; }
+  if (!D.boatsDone) { if (enemiesLeft() > 0) return; D.boatsDone = true; D.objDone = false; radio('יוסי', 'הם עולים מצפון! ומהכביש קומנדו!', 3.6); radio('מ״פ', 'לעמדה הצפונית, מול השיחים!', 3.2); return; }
   const n = POSTP('N1'); if (Math.hypot(P.pos.x - n.stand[0], P.pos.z - n.stand[1]) > 2.2) return;   /* he has to be in the post itself (the user) */
   D.cmdWait = false; radio('תצפית', 'קומנדו מהשיחים! רצים אלינו!', 3.4); DIRQ.push({ at: GAME.t + 2, spawn: true, fn: mzCommando });
 }
