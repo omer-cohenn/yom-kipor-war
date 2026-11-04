@@ -22,9 +22,9 @@ const MZ_EASE = [
 /* the stronghold's own rules (the user, Nov 2026): men in each boat of the first wave, boats in each row of the last wave, the RPG - the hit
    it costs the player, how long from seeing him to the rocket, how wide of him it may land */
 const MZ_LV = [
-  { seats: 4, every: [23, 19, 15], row: 5, rpgDmg: 45, rpgT: 1.5, rpgSp: 2.5 },
-  { seats: 5, every: [21, 17, 13], row: 6, rpgDmg: 50, rpgT: 1.2, rpgSp: 2.0 },
-  { seats: 5, every: [19, 15, 11], row: 7, rpgDmg: 60, rpgT: 0.9, rpgSp: 1.6 },
+  { seats: 4, every: [24, 20, 16], row: 5, rpgDmg: 45, rpgT: 1.5, rpgSp: 2.5 },
+  { seats: 5, every: [22, 18, 14], row: 6, rpgDmg: 50, rpgT: 1.2, rpgSp: 2.0 },
+  { seats: 5, every: [20, 16, 12], row: 7, rpgDmg: 60, rpgT: 0.9, rpgSp: 1.6 },
 ];
 const mzEase = () => (MODE === 'mezach' && !SURV.on ? MZ_EASE[Math.max(0, DIFF.indexOf(diff))] : null);
 const mzLv = () => (MODE === 'mezach' && !SURV.on ? MZ_LV[Math.max(0, DIFF.indexOf(diff))] : null);
@@ -1648,21 +1648,7 @@ function mzDetailBuild() {
   MZD.built = true; const grp = new THREE.Group(), std = (o) => new THREE.MeshStandardMaterial(Object.assign({ roughness: 0.85 }, o));
   const at = (k, side, b, h) => { const p = TR.pts[k], n = TR.n[k]; return V3(p[0] + n[0] * side * b, groundAt(p[0], p[1]) + h, p[1] + n[1] * side * b); };
   const put = (m, v, ry = 0) => { m.position.copy(v); m.rotation.y = ry; m.castShadow = true; grp.add(m); return m; };
-  // a tallit folded on a bag and an open prayer book beside it, by the command post; a transistor radio on a sandbag by the western gun
-  const kC = DUGOUTS.find((d) => d.id === 'cmd' || d.kind === 'cmd'), k1 = kC ? (kC.k ?? kC[0]) : 129;
-  const tc = canvas(128), tg = tc.getContext('2d'); tg.fillStyle = '#f2efe6'; tg.fillRect(0, 0, 128, 128); for (const y of [18, 26, 98, 106]) { tg.fillStyle = '#1f2a44'; tg.fillRect(0, y, 128, 5); }
-  const tt = new THREE.CanvasTexture(tc); tt.colorSpace = THREE.SRGBColorSpace;
-  put(new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.06, 0.3), std({ map: tt })), at(k1 + 2, 1, 0.75, 1.02), 0.4);
-  { const book = new THREE.Group(); for (const s of [-1, 1]) { const pg = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.015, 0.19), std({ color: 0xece4d0 })); pg.position.x = s * 0.067; pg.rotation.z = -s * 0.12; book.add(pg); }
-    const cov = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.01, 0.2), std({ color: 0x3a1e14 })); cov.position.y = -0.012; book.add(cov); put(book, at(k1 + 2, 1, 0.78, 1.08), 1.1); }
-  const W = POSTP('W2'); if (W) { const r = new THREE.Group(); const body = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.13, 0.07), std({ color: 0x2b2b28, roughness: 0.5 })); r.add(body);
-    const grill = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.09, 0.005), std({ color: 0x8c8a80, metalness: 0.4 })); grill.position.set(-0.04, 0, 0.037); r.add(grill);
-    const ant = new THREE.Mesh(new THREE.CylinderGeometry(0.003, 0.003, 0.4), std({ color: 0xbbbbbb, metalness: 0.8 })); ant.position.set(0.08, 0.26, 0); ant.rotation.z = -0.3; r.add(ant);
-    put(r, V3(W.x - W.fx * 1.2 + 0.5, W.g + 0.95, W.z - W.fz * 1.2), 0.6); MZD.radio = r.position.clone(); }
-  // a helmet and a tin mug left on a traverse; the sign
-  for (const [k, side] of [[60, 1], [150, -1]]) { if (!TR.pts[k]) continue; const hm = new THREE.Mesh(new THREE.SphereGeometry(0.14, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), std({ color: 0x4f5638 })); put(hm, at(k, side, 0.95, 1.18), k);
-    const mug = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.04, 0.09, 10), std({ color: 0x9a9a92, metalness: 0.6, roughness: 0.4 })); put(mug, at(k, side, 0.7, 1.2)); }
-  { const k = Math.min(TR.pts.length - 8, k1 + 6), sg = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 0.7), std({ map: mzSign('מעוז מזח'), side: THREE.DoubleSide })), v = at(k, -1, 1.05, 1.45); const n = TR.n[k]; put(sg, v, Math.atan2(n[0], n[1])); }
+  /* the things once left in the trench (tallit, prayer book, radio, helmet, mug, sign) are gone: they looked wrong (the user) */
   onLayer1(grp); scene.add(grp); MZD.grp = grp;
   // the battle's leavings: brass by the guns, dark marks where the shells fell (instanced, a few hundred at most)
   MZD.cas = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.006, 0.006, 0.045, 5), std({ color: 0xc9a043, metalness: 0.9, roughness: 0.35 }), 500); MZD.cas.count = 0; MZD.cas.frustumCulled = false; scene.add(MZD.cas);
@@ -1672,8 +1658,6 @@ function mzBrass(p) { if (!MZD.cas) return; const i = MZD.nc++ % 500; MZD.e.set(
 function mzScorch(p, r) { if (!MZD.scor || r < 2) return; const i = MZD.ns++ % 60, s = Math.min(3.2, r * 0.45); MZD.m4.compose(V3(p.x, groundAt(p.x, p.z) + 0.03, p.z), MZD.q.identity(), V3(s, 1, s)); MZD.scor.setMatrixAt(i, MZD.m4); MZD.scor.count = Math.min(60, MZD.ns); MZD.scor.instanceMatrix.needsUpdate = true; }
 function mzDetailUpd(dt) {
   if (MODE !== 'mezach' || SURV.on) { if (MZD.grp) MZD.grp.visible = false; return; } if (!MZD.built) mzDetailBuild(); MZD.grp.visible = true;
-  // the radio: a murmur of static now and then, from where it stands
-  if (MZD.radio && AUD.ctx && GAME.state === 'play' && (MZD.rt = (MZD.rt ?? 3) - dt) <= 0) { MZD.rt = rand(6, 12); const d = camera.position.distanceTo(MZD.radio); if (d < 25) nz(AUD.ctx.currentTime, rand(1.2, 2.2), { f: 1800, type: 'bandpass', q: 1.2, vol: 0.05 * Math.max(0, 1 - d / 25) }); }
   // the last wave: the sun goes down behind the boats, the light turns orange and long
   if (!MZD.sun0) MZD.sun0 = { c: sun.color.clone(), i: sun.intensity };
   const k = SCENES[D.scene] && SCENES[D.scene].survival && D.survEnd ? clamp(1 - (D.survEnd - GAME.t) / SCENES[D.scene].survival, 0, 1) : 0;
