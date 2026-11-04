@@ -5149,9 +5149,9 @@ const MZ_EASE = [
 /* the stronghold's own rules (the user, Nov 2026): men in each boat of the first wave, boats in each row of the last wave, the RPG - the hit
    it costs the player, how long from seeing him to the rocket, how wide of him it may land */
 const MZ_LV = [
-  { seats: 4, every: [22, 18, 14], row: 4, rpgDmg: 45, rpgT: 1.5, rpgSp: 2.5 },
-  { seats: 5, every: [20, 16, 12], row: 5, rpgDmg: 50, rpgT: 1.2, rpgSp: 2.0 },
-  { seats: 5, every: [18, 14, 10], row: 6, rpgDmg: 60, rpgT: 0.9, rpgSp: 1.6 },
+  { seats: 4, every: [19, 15, 11], row: 5, rpgDmg: 45, rpgT: 1.5, rpgSp: 2.5 },
+  { seats: 5, every: [17, 13, 9], row: 6, rpgDmg: 50, rpgT: 1.2, rpgSp: 2.0 },
+  { seats: 5, every: [15, 11, 7], row: 7, rpgDmg: 60, rpgT: 0.9, rpgSp: 1.6 },
 ];
 const mzEase = () => (MODE === 'mezach' && !SURV.on ? MZ_EASE[Math.max(0, DIFF.indexOf(diff))] : null);
 const mzLv = () => (MODE === 'mezach' && !SURV.on ? MZ_LV[Math.max(0, DIFF.indexOf(diff))] : null);
@@ -6460,7 +6460,8 @@ function rowsWave() {   // the next wave's boats: where each lands on the beach 
   else if (j === 1) { boat(ROWS.ctrl + 10, zc - d * 0.9); boat(ROWS.ctrl + 10.8, zc + d * 0.9); }
   else { const L = ROWS.nextL ?? ROWS.ctrl + 10 + ROWS.every * (j - 1); ROWS.nextL = L + ROWS.every; const c = zc + (r() - 0.5) * 8, sg = j % 2 ? 1 : -1;
     const nr = mzLv() ? mzLv().row : 6, fc = Math.ceil(nr / 2), bc = nr - fc, ks = (m) => (m === 1 ? [0] : Array.from({ length: m }, (_, q) => -1 + 2 * q / (m - 1)));   /* the row: 3 / 4 / 5 boats by level, the front line and a second behind it */
-    for (const k of ks(fc)) boat(L, c + k * d); if (bc) for (const k of ks(bc)) boat(L + 2.6, c + sg * d / 2 + k * d, true);
+    const hw = (ROWS.z1 - ROWS.z0) / 2 - 3;   /* the row spread across the whole beach (the user) */
+    for (const k of ks(fc)) boat(L, zc + k * hw); if (bc) for (const k of ks(bc)) boat(L + 2.6, zc + k * hw * (bc > 1 ? (bc - 1) / bc : 1) + sg * hw / Math.max(2, fc), true);
   }
   out.length = Math.min(out.length, Math.max(1, Math.ceil((ROWS.total - ROWS.men) / ROW_LOAD())));   /* the last wave: only what is left of the total */
   ROWS.men += out.length * ROW_LOAD(); ROWS.q.push(...out); ROWS.q.sort((a, b) => a.land - b.land);
@@ -6475,7 +6476,7 @@ function rowsUpd(dt) {
   for (;;) {
     if (!ROWS.q.length) { if (ROWS.men >= ROWS.total) break; rowsWave(); }
     const e = ROWS.q[0], land = e.land + ROWS.shift; if (land - cross > GAME.t + 1.5) break;   // not due to push off yet
-    ROWS.q.shift(); const b = launchBoat(e.z, 0, 8, e.rpg, e.flame, ROW_MEN, 6, ROW_OARS); b.wave = e.wave; b.back = e.back;   /* straight across, so a row stays a line */ b.t = (b.len - (land - GAME.t) * b.speed) / b.speed;
+    ROWS.q.shift(); const b = launchBoat(e.z, 0, 8, e.rpg, e.flame, ROW_MEN, 6, ROW_OARS); b.wave = e.wave; b.back = e.back;   /* straight across, so a row stays a line */ b.t = Math.min(0, (b.len - (land - GAME.t) * b.speed) / b.speed);   /* from the far quays, never popping up halfway over (the user) */
     if (CINE.on && CINE.def && CINE.def.boatFilm) filmRow(b, true); if (++out >= maxOut) break;
   }
   if (!ROWS.q.length && ROWS.men >= ROWS.total) ROWS.on = false;
@@ -6502,7 +6503,7 @@ function mzCommando() { let t = 4, i0 = 0; for (let k = 0; k < MZ_CMD[Math.max(0
 function mzSurvive() {
   if (D.retreat) return;
   if (D.lastWait != null) { if (P.mode !== 'mag' && GAME.t - D.lastWait < 45) return;   // not yet: the player is still on his way to the gun
-    D.lastWait = null; const ctrl = GAME.t + (tongueWestX(20) - 4.5 - nearX(-400)) / boatSpd() - 4;   /* the first boat lands only after a whole crossing: they leave the quays now, not halfway over */ D.boatsFilm = true; rowsStart({ z0: -25, z1: 63, total: 1e6, every: mzLv().every[0], ctrl, aLand: ctrl + 4 });
+    D.lastWait = null; const ctrl = GAME.t + (tongueWestX(20) - 4.5 - nearX(-400)) / boatSpd() - 4;   /* the first boat lands only after a whole crossing: they leave the quays now, not halfway over */ D.boatsFilm = true; rowsStart({ z0: -48, z1: 76, total: 1e6, every: mzLv().every[0], ctrl, aLand: ctrl + 4 });
     D.survT0 = GAME.t; D.survEnd = GAME.t + SCENES[D.scene].survival; radio('מ״פ', 'סירות! כל הקו המערבי! מחזיקים עד החשכה!', 4.5); }
   const t = GAME.t - D.survT0;
   if (D.survLv < 1 && t > 40) { D.survLv = 1; ROWS.every = mzLv().every[1]; ROWS.rpgP = 0.25; radio('תצפית', 'עוד שורות יוצאות מהרציף!', 3.6); }   /* only boats from the west (the user) */
