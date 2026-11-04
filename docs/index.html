@@ -826,6 +826,7 @@ button:focus-visible{outline:2px solid var(--sand);outline-offset:2px}
 #app.is-touch #radio b{font-size:13.5px}
 #app.is-touch #radio #radioPic{width:64px;height:64px}
 @media (orientation: portrait){ #app #radio,#app.is-touch #radio{top:auto;bottom:calc(214px + env(safe-area-inset-bottom,0px));width:calc(100% - 24px);max-width:none;font-size:16px} #app #radio #radioPic,#app.is-touch #radio #radioPic{width:68px;height:68px} }
+#dExp,#hExp{display:none!important}   /* the mission videos are gone */
 </style>
 
 <div id="app" dir="rtl" lang="he">
@@ -1043,7 +1044,7 @@ window.LD = (function () {
       fill.style.transition = 'none'; fill.style.transform = 'scaleX(0)'; void fill.offsetWidth;
       list.innerHTML = S.steps.map(function (s) { return '<li>' + s.label + '</li>'; }).join(''); list.style.setProperty('--rows', Math.ceil(S.steps.length / 2));   // two columns on a short screen, read down then across
       $('ldEye').textContent = o.eye || ''; $('ldTitle').textContent = o.title || 'מלחמת יום הכיפורים';
-      var want = o.clip && VX ? 'vid/' + o.clip + '.' + VX : ''; S.vt++; bg.style.backgroundImage = '';
+      var want = '';   /* no mission videos any more: the picture only (the user) */ S.vt++; bg.style.backgroundImage = '';
       if ((vid.getAttribute('src') || '') !== want) { vidStop(); bg.classList.remove('on'); if (want) { vid.src = want; try { var pl = vid.play(); if (pl && pl.catch) pl.catch(function () {}); } catch (e) {} } }   // the same clip already playing goes on
       else if (!want) bg.classList.remove('on');
       if (o.img) { var im = new Image(); im.onload = function () { bg.style.backgroundImage = 'url("' + o.img + '")'; bg.classList.add('on'); }; im.src = o.img; }
