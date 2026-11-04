@@ -754,6 +754,9 @@ function tacSees(e) {
 /* per frame for every live man: suppression wearing off, how long he has had the player in sight, what he remembers, his squad */
 function tacTick(e, dt) {
   tacFrame(); const K = tacK();
+  if (MODE === 'mezach' && e.side === 'e' && GAME.t - (e.faceCry ?? -99) > 8) {   /* face to face with one of ours: 'Allahu akbar!' (the user) */
+    let close = Math.hypot(P.pos.x - e.pos.x, P.pos.z - e.pos.z) < 7; if (!close) for (const f of FRIENDS) if ((f.state === 'post' || f.state === 'follow') && Math.hypot(f.unit.pos.x - e.pos.x, f.unit.pos.z - e.pos.z) < 5) { close = true; break; }
+    if (close) { e.faceCry = GAME.t; if (GAME.t - AR_LAST.t > 0.8 && voxPlay('ar_allah_' + (Math.random() < 0.5 ? 1 : 2), { pos: e.pos, vol: 1.3, line: false })) { AR_LAST.t = GAME.t; e.arT = GAME.t; } } }
   if (e.supp > 0) e.supp = Math.max(0, e.supp - K.sDecay * dt);
   const sees = !!(e.target && e.target.player); e.seeT = sees ? (e.seeT || 0) + dt : Math.max(0, (e.seeT || 0) - dt * 2.5);
   const s = sqOf(e);
