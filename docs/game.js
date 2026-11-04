@@ -5959,7 +5959,7 @@ function updEnemy(e, dt) {
     const u = clamp(e.t / e.jd, 0, 1), h = u * u * (3 - 2 * u); e.pos.lerpVectors(e.j0, e.j1, h); e.pos.y += Math.sin(u * Math.PI) * 0.7; e.face(e.j1.x + 1, e.j1.z);
     e.rig.pose('vault', u); e.sync(); if (u >= 1) { e.state = e.plan ? 'plan' : 'move'; e.t = 0; e.jd = 0; } return;
   }
-  if (e.state === 'retreat') { e.anim += dt * 10; if (moveAlong(e, dt, 5)) { e.alive = false; e.rig.root.visible = false; } e.rig.pose('run', e.anim); e.sync(); return; }
+  if (e.state === 'retreat') { e.anim += dt * 10; if (moveAlong(e, dt, 5)) { e.alive = false; e.rig.root.visible = false; boardBack(e); } e.rig.pose('run', e.anim); e.sync(); return; }
   // specials
   if (e.kind === 'rpg' && e.target && e.rpgCd <= 0 && (e.state === 'hold' || e.state === 'engage' || e.state === 'move')) {
     const tp = e.target.p; const d = e.pos.distanceTo(tp);
@@ -6629,10 +6629,19 @@ function mzSurvive() {
 }
 /* the film of the end: the boats on the water stop and back off, the men still on the sand run for the water, the line of boats draws away west
    in the dusk - and the little stronghold, smoking, holds */
+/* a man back at his boat on the sand takes a seat in it; a few seconds after the first one is in, the boat pushes off and rows back the way it came */
+function boardBack(e) {
+  const bt = e.retBoat; e.retBoat = null; if (!bt || bt.dead || bt.state !== 'landed') return;
+  const q = bt.seats.find((s) => s.gone && !s.rower) || bt.seats.find((s) => s.gone); if (q) { q.gone = false; q.alive = true; q.m.visible = true; if (q.oar) q.oar.visible = true; }
+  if (!bt.backAt) { bt.backAt = GAME.t; DIRQ.push({ at: GAME.t + 2.5, fn: () => { if (bt.dead || bt.state !== 'landed') return; for (const s of bt.seats) if (s.rower && s.gone) { s.gone = false; s.alive = true; s.m.visible = true; if (s.oar) s.oar.visible = true; }
+    bt.state = 'cross'; bt.retreat = true; bt.t = Math.min(bt.t, (bt.len - 0.5) / bt.speed); } }); }
+}
 function mzRetreat() {
   D.retreat = true; ROWS.on = false; ROWS.q.length = 0; for (let i = DIRQ.length - 1; i >= 0; i--) if (DIRQ[i].spawn) DIRQ.splice(i, 1);
   for (const b of BOATS) { if (b.dead) continue; if (b.state === 'wait') { b.dead = true; b.g.visible = false; } else if (b.state === 'cross') b.retreat = true; }
-  for (const e of UNITS.enemies) if (e.alive) { const x = tongueWestX(e.pos.z) - 2.5; e.plan = null; e.rush = false; e.target = null; e.state = 'retreat'; e.path = [[e.pos.x, e.pos.z], [x, e.pos.z + rand(-3, 3)]]; e.pi = 0; e.speed = 5.5; }
+  const beached = BOATS.filter((b) => !b.dead && b.state === 'landed');   /* the men still ashore run back to the boats on the sand, climb in, and the boats row away (the user) */
+  for (const e of UNITS.enemies) if (e.alive) { let bt = null, bd = 45; for (const b of beached) { const d = Math.hypot(b.g.position.x - e.pos.x, b.g.position.z - e.pos.z); if (d < bd) { bd = d; bt = b; } }
+    const x = bt ? bt.g.position.x : tongueWestX(e.pos.z) - 2.5, z = bt ? bt.g.position.z + rand(-0.8, 0.8) : e.pos.z + rand(-3, 3); e.retBoat = bt; e.plan = null; e.rush = false; e.target = null; e.state = 'retreat'; e.path = [[e.pos.x, e.pos.z], [x, z]]; e.pi = 0; e.speed = 5.5; }
   if (P.mode === 'mag') leaveMag();
   const zc = 20, cx = crestX(zc), bx = tongueWestX(zc);
   playCine({ title: 'מעוז המזח · 6 באוקטובר 1973 · רדת החשכה',
@@ -6641,7 +6650,7 @@ function mzRetreat() {
       { d: 4.5, cam: (u) => ({ p: V3(bx + 2.5, groundAt(bx + 2.5, zc + 14) + 1.3, zc + 14 - u * 3), l: V3(bx - 30, 1.0, zc - 4), fov: 50 }) },
       { d: 6.5, cam: (u) => { const e = u * u * (3 - 2 * u); return { p: V3(cx - 8 + e * 34, 4 + e * 38, zc + e * 22), l: V3(cx - 160 * (0.6 + 0.4 * e), 0, zc + 10), fov: lerp(48, 58, e) }; } },
     ],
-    caps: [[0.3, '<b>קשר:</b> הם... הם חוזרים אחורה!', 3.6], [4.8, 'הסירות נעצרות וחותרות לאחור. מי שעוד על החוף רץ בחזרה למים.', 4.2], [9.6, '<b>6 באוקטובר, לילה.</b> מעוז המזח מחזיק.', 5]],
+    caps: [[0.3, '<b>קשר:</b> הם... הם חוזרים אחורה!', 3.6], [4.8, 'הסירות נעצרות וחותרות לאחור. מי שעוד על החוף רץ בחזרה לסירות.', 4.2], [9.6, '<b>6 באוקטובר, לילה.</b> מעוז המזח מחזיק.', 5]],
     end: () => endGame(true) });
 }
 /* how cleverly the invaders fight, by level (the numbers are the same on all three): the first shot after seeing the player, the rocket of the
