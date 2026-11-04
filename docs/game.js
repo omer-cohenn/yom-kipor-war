@@ -16658,7 +16658,7 @@ const IMG = (k) => `img/${k}.jpg`;   // pictures from the game itself, one per m
 // and a few seconds of footage from each, rendered by the game: MP4 where the browser plays it, WebM otherwise
 const VEXT = (() => { try { const v = document.createElement('video'); return v.canPlayType('video/mp4; codecs="avc1.42E01E"') ? 'mp4' : v.canPlayType('video/webm; codecs="vp9"') ? 'webm' : ''; } catch (e) { return ''; } })();
 const VID = (k) => `vid/${k}.${VEXT}`;
-const USE_VID = (() => { try { return !!VEXT && !(navigator.connection && navigator.connection.saveData) && !matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } })();
+const USE_VID = false;   /* the main menu and the mission screen show the mission's picture, not its video (the user) */
 const PROG = { done: new Set(), last: null, sel: null, from: 'title', vb: [0, 0, 1000, 1000], anim: 0 };
 try { for (const k of JSON.parse(localStorage.getItem('yk73.done') || '[]')) PROG.done.add(k); PROG.last = localStorage.getItem('yk73.last'); } catch (e) { /* private window: progress lives only in memory */ }
 function markDone(m) { PROG.done.add(m); try { localStorage.setItem('yk73.done', JSON.stringify([...PROG.done])); } catch (e) {} }
