@@ -134,7 +134,7 @@ function survAirUpd(dt) {
 }
 
 /* ---------- the director ---------- */
-function survStart() {
+function survStart() { if (!DATAQ.done) return dataGate(survStart);
   for (const v of document.querySelectorAll('.menu video')) { v.pause(); v.removeAttribute('src'); try { v.load(); } catch (e) {} }
   MAT.clothE.color.setHex(0xffffff); TANK.goal = null; $('#app').classList.remove('armor');
   SURV.on = true; resetGame(); survShowGuns(true); setRim(MAT.clothE, 0);

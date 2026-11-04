@@ -7,13 +7,29 @@
 
 Between the source files the module pauses for a frame (a top-level await) so the loading screen can show how far the code has got;
 EST is roughly how long each file takes to run on a fast computer, in ms, and sets the steps of the bar."""
-import argparse, hashlib, os, shutil, sys
+import json, re, argparse, hashlib, os, shutil, sys
 
 ORDER = ['2_core.js', '4f_models.js', '4f_data_ground.js', '4f_data_props.js', '4f_data_furn.js', '4f_data_village.js', '4f_data_desert.js', '4f_data_bag.js', '4f_data_snd.js', '3_world.js', '16_props.js', '4b_assets.js', '4d_vehicles.js', '4j_jet_data.js', '4_actors.js', '4c_vm.js', '4e_soldier_data.js', '4e_soldier.js', '4g_maps.js', '4h_icons.js', '4i_portraits.js', '5_game.js', '6_suez.js', '7_field.js',
          '8_rescue.js', '9_cross.js', '10_army.js', '11_air.js', '12_armor.js', '13_hermon.js', '15_surv.js', '18_farm.js', '19_range.js', '20_prologue.js', '17_snap.js', '14_menu.js']
 EST = {'2_core.js': 320, '3_world.js': 230, '16_props.js': 80, '4_actors.js': 800, '4c_vm.js': 140, '4e_soldier_data.js': 40, '7_field.js': 180, '18_farm.js': 25, '14_menu.js': 190}
 PAUSE_AFTER = ['2_core.js', '16_props.js', '4_actors.js', '7_field.js']   # the long ones end a piece
 TOTAL = 2000   # LD_BOOT in 5_game.js: the last report, from main(), is TOTAL of TOTAL
+
+
+# the heavy data out of the code: whole files, and the data line of a file that also has code (loaded later, see dataLoad in 5_game.js)
+DEFER = {'4e_soldier_data.js': 'soldier', '4f_data_snd.js': 'snd', '4f_data_furn.js': 'furn', '4f_data_village.js': 'village', '4f_data_ground.js': 'ground', '4f_data_desert.js': 'desert'}
+DEFER_LINE = {'4d_vehicles.js': ('VEH_DATA', 'veh')}
+
+
+def data_files(src):
+    """{name: classic-script text} for the deferred data"""
+    out = {}
+    for f, n in DEFER.items():
+        t = open(os.path.join(src, f), encoding='utf-8').read()
+        out[n] = re.sub(r'^const ', 'var ', t, flags=re.M)
+    for f, (c, n) in DEFER_LINE.items():
+        t = open(os.path.join(src, f), encoding='utf-8').read(); m = re.search(r'^const ' + c + r' = .*$', t, re.M); out[n] = 'var' + m.group(0)[5:] + '\n'
+    return out
 
 
 def module(src):
@@ -29,10 +45,14 @@ def module(src):
     for i, p in enumerate(pieces):
         for f in p:
             if not os.path.exists(os.path.join(src, f)): continue   # a model data file not packed yet
-            out.append(open(os.path.join(src, f), encoding='utf-8').read().rstrip('\n') + '\n')
+            if f in DEFER: continue
+            t = open(os.path.join(src, f), encoding='utf-8').read()
+            if f in DEFER_LINE: t = re.sub(r'^const ' + DEFER_LINE[f][0] + r' = .*$', '', t, count=1, flags=re.M)
+            out.append(t.rstrip('\n') + '\n')
         done += cost[i]
         if i + 1 < len(pieces): out.append(f'await LD.mod({done}, {cost[i + 1]}, {TOTAL});\n')
-    return ''.join(out)
+    names = list(DEFER.values()) + [n for _, n in DEFER_LINE.values()]
+    return ''.join(out).replace('__DATA_FILES__', json.dumps(names))
 
 
 def shell(src):
@@ -74,8 +94,12 @@ def main():
         open(a.mjs, 'w', encoding='utf-8').write(''.join(l for l in code.splitlines(True) if not l.startswith('import ')))
     if a.single:
         open(a.single, 'w', encoding='utf-8').write(shell(src) + '<script type="module">\n' + code + '</script>\n')
+        dd = os.path.join(os.path.dirname(os.path.abspath(a.single)), 'data'); os.makedirs(dd, exist_ok=True)
+        for n, t in data_files(src).items(): open(os.path.join(dd, n + '.js'), 'w', encoding='utf-8').write(t)
         print('built', a.single, os.path.getsize(a.single), 'bytes'); return
     docs = os.path.join(root, 'docs'); shutil.rmtree(docs, ignore_errors=True); shutil.copytree(os.path.join(root, 'public'), docs)
+    os.makedirs(os.path.join(docs, 'data'), exist_ok=True)
+    for n, t in data_files(src).items(): open(os.path.join(docs, 'data', n + '.js'), 'w', encoding='utf-8').write(t)
     for dp, _, fs in os.walk(docs):
         for f in fs:
             if f == '.gitkeep': os.remove(os.path.join(dp, f))
