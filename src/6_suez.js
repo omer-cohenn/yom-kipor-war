@@ -534,7 +534,7 @@ function updTank(dt) {
 }
 function tankHit(p, big = false, dmg = null, from = null) {   // from: where the shot came from (the shooter), for the hit-direction mark
   fxExplosion(p, big ? 1.4 : camera.position.distanceTo(p) < 4.5 ? 0.4 : 0.9); sndBoom(p, big ? 1.4 : 0.9); FX.shake = Math.max(FX.shake, big ? 1.1 : 0.6);
-  if (!TANK.alive || GOD()) return; if (dmg == null && !big && MODE === 'rescue') dmg = rsLv('rpgDmg'); TANK.hp -= dmg ?? (big ? 60 : 11); if (P.mode === 'tank' && !P.crouch) hurtPlayer(rand(4, 9), from || p, true);
+  if (!TANK.alive || GOD()) return; if (dmg == null && !big && MODE === 'rescue') dmg = rsLv('rpgDmg'); if (MODE === 'rescue' && GAME.t - (RS.hitCallT || -9) > 6) { RS.hitCallT = GAME.t; DIRQ.push({ at: GAME.t + 0.5, fn: () => radio('תותחן', 'חטפנו!', 1.2) }); } TANK.hp -= dmg ?? (big ? 60 : 11); if (P.mode === 'tank' && !P.crouch) hurtPlayer(rand(4, 9), from || p, true);
   else if (P.mode === 'tank' && P.alive && GAME.state === 'play' && !CINE.on) { $('#flashHit').style.opacity = '0.5'; showDmgDir(from || p); }   // down in the turret he is not hurt, but he still sees the hit and where it came from
   radio('נהג', TANK.hp > 50 ? pick(['פגיעה בצד! ממשיכים!', 'אר־פי־ג׳י! לא חדר!']) : pick(['עוד פגיעה! המנוע מתחמם!', 'הטנק לא יחזיק עוד הרבה!']), 2.2);
   if (TANK.hp <= 0 && MODE !== 'suez') { TANK.hp = 0; TANK.alive = false; TANK.burning = true; endGame(false, 'tank'); }
@@ -1507,6 +1507,7 @@ function suezEnemyStep(e, dt, shoot, aimPitch) {
 }
 function szRpgCall(e, what = 'בזוקה') {
   if (P.mode !== 'tank' || GAME.t < (SZ.rpgCallT || 0)) return; SZ.rpgCallT = GAME.t + 3.5;
+  if (MODE === 'rescue' && TANK.g) { const [fx, fz] = rsFwd(), x = e.pos.x - TANK.g.position.x, z = e.pos.z - TANK.g.position.z; radio('תותחן', -x * fz + z * fx > 0 ? 'בזוקה מימין!' : 'בזוקה משמאל!', 1.6); return; }   /* the rescue: right or left, nothing more (the user) */
   const fwd = Math.atan2(-Math.sin(P.yaw), -Math.cos(P.yaw)), a = Math.atan2(e.pos.x - P.pos.x, e.pos.z - P.pos.z); let h = Math.round(-wrapPi(a - fwd) / (Math.PI / 6)); h = ((h % 12) + 12) % 12 || 12;
   radio('תותחן', `${what}! שעה ${h}${e.slot ? (e.slot.roof ? ', על הגג' : e.slot.f ? `, קומה ${e.slot.f}` : '') : MODE === 'suez' ? ', ברחוב' : ''}!`, 2.2);
 }
