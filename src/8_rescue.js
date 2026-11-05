@@ -28,7 +28,7 @@ function rsTrackZ(x) { const T = RS_TRACK; if (x >= T[0][0]) return T[0][1]; for
 const rsSideAt = (x) => (Math.floor((x + 2000) / 130) % 2 ? 1 : -1);
 function rsAmbDefs(stage) {
   return RS_AMBX[stage].map((x, i) => { const r = rng(7100 + stage * 100 + i), sd = rsSideAt(x) /* the stretch's side; only the stage's last from both (the user) */, kinds = RS_KINDS[(i + stage) % 4];
-    return { x, id: `a${stage}_${i}`, sh: kinds.map((k0, k) => { const kind = stage === 4 && k0 === 'atgm' && i % 2 ? 'rpg' : k0, side = i === RS_AMBX[stage].length - 1 && k % 2 ? -sd : sd, off = 24 + k * 3 + r() * 3, dx = (stage === 4 ? 1 : -1) * (off + 6 + k * 2.5 + r() * 4);   /* one team on one side, a few metres apart, and further ahead than out to the side: inside the 90 degrees in front (the user) */
+    return { x, id: `a${stage}_${i}`, sh: kinds.map((k0, k) => { const kind = stage === 4 && k0 === 'atgm' && i % 2 ? 'rpg' : k0, side = i === RS_AMBX[stage].length - 1 && k % 2 ? -sd : sd, off = 22 + k * 7 + r() * 4, dx = (stage === 4 ? 1 : -1) * (off + 6 + k * 7 + r() * 5);   /* spread out: some eight metres between holes (the user) */   /* one team on one side, a few metres apart, and further ahead than out to the side: inside the 90 degrees in front (the user) */
       return { dx, side, off, kind, how: kind === 'rifle' ? 'run' : 'pit' }; }) }; });
 }
 const RS_STAGES = [

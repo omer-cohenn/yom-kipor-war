@@ -1940,6 +1940,8 @@ function colNormal(k, p, dir) {
 function propsNear(p, R, dir) { if (typeof PROPS === 'undefined') return; for (const it of PROPS.items) { if (it.mode !== PROPS.cur) continue; const d = Math.hypot(it.x - p.x, it.y + it.L.h * 0.5 - p.y, it.z - p.z); if (d < R) propKick(it, dir, 1.6 * (1 - d / R) + 0.5); } }
 function applyHit(hit, dmg) {
   if (hit.o) suppressAlong(hit.o, hit.p, dmg > 120 ? 1.5 : 1);   // every round of ours pins the men it cracks past
+  /* the rescue: a man ducked down in his hole is behind the sand - most rounds kick up the parapet in front of him (the user) */
+  if (hit.kind === 'enemy' && MODE === 'rescue' && hit.u.sz === 'win' && !hit.u.peek && Math.random() < 0.8) { fxDust(hit.p.clone()); return; }
   if (hit.kind === 'enemy') { const e = hit.u; const dd = hit.head ? dmg * 2.5 : dmg; e.hp -= dd; const kill = e.hp <= 0; { const dr = hit.o ? hit.p.clone().sub(hit.o).normalize() : null; fxBlood(hit.p.clone(), hit.head ? 14 : 10, dr); if (!hit.head) bodyWound(e, hit.p.clone()); if (dr) { const g = hit.p.clone().addScaledVector(dr, rand(0.8, 1.6)); bloodPool({ rig: e.rig, alive: false }, g, rand(0.25, 0.4)); } } if (kill) killEnemy(e, hit.head); hitmark(kill); fxDust(hit.p.clone(), false); if (e.dormant || kill) wakeNear(e.pos, 9); }
   else if (hit.kind === 'seat') { killSeat(hit.boat, hit.seat); hitmark(true); }
   else if (hit.kind === 'boat') { hit.boat.hp -= dmg * 0.2; fxDust(hit.p.clone(), true); hitmark(false); }
