@@ -11344,6 +11344,7 @@ function rsMini(g, X, poly, dot, k) {
   miniField(g, X, poly, dot, k, { bg: 'rgba(96,104,128,.92)', lines: [[W(RS_TRACK), 5, 'rgba(70,66,56,.95)']] });
   const [a, b] = X(...RW(RS_MEET2[0], RS_MEET2[1])); g.fillStyle = '#ffcf73'; g.beginPath(); g.arc(a, b, 6, 0, 6.283); g.fill();
   
+  g.fillStyle = '#ff3b2e'; for (const e of UNITS.enemies) { if (!e.alive || !e.rig.root.visible || e.state === 'film' || e.noTag) continue; const [c, d] = X(e.pos.x, e.pos.z); g.beginPath(); g.arc(c, d, 3, 0, 6.283); g.fill(); }   /* the enemy on the map: red dots (the user) */
   if (RS.flare) { const [c, d] = X(RS.flare.x, RS.flare.z); g.fillStyle = '#6cff8a'; g.beginPath(); g.arc(c, d, 5 + 2 * Math.sin(GAME.t * 8), 0, 6.283); g.fill(); }
 }
 function rsEnd(win, why) {
