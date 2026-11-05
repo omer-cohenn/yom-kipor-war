@@ -114,8 +114,8 @@ function voxPlay(k, { radio = false, pos = null, vol = 1.25, line = true, reach 
    fire, 'watch your back' in the trench - from the man himself, one cry at a time across the field */
 const AR_LAST = { t: -99 };
 function arShout(e, kind, p = 1) {
-  if (!e || !AUD.ctx || Math.random() > p || GAME.t - AR_LAST.t < 1.4 || GAME.t - (e.arT ?? -99) < 6) return; if (Math.random() < 0.5) return;   /* half as many cries (the user) */ if (camera.position.distanceTo(e.pos) > 140) return;
-  if (voxPlay('ar_' + kind + '_' + (Math.random() < 0.5 ? 1 : 2), { pos: e.pos, vol: 1.1, line: false })) { AR_LAST.t = GAME.t; e.arT = GAME.t; }
+  if (!e || !AUD.ctx || Math.random() > p || GAME.t - AR_LAST.t < 1.4 || GAME.t - (e.arT ?? -99) < 6) return; const rs = MODE === 'rescue'; if (!rs && Math.random() < 0.5) return;   /* half as many cries (the user); all of them in the rescue */ if (camera.position.distanceTo(e.pos) > (rs ? 220 : 140)) return;
+  if (voxPlay('ar_' + kind + '_' + (Math.random() < 0.5 ? 1 : 2), { pos: e.pos, vol: rs ? 2.8 : 1.1, line: false, reach: rs ? 200 : undefined }))   /* the rescue's: loud, they carry across the dunes (the user) */ { AR_LAST.t = GAME.t; e.arT = GAME.t; }
 }
 function voxBark(f, k) {   // a squad man's shout, in his own voice (one of two), from where he is
   const V = ['I', 'D', 'N'], h = f && f.name ? [...f.name].reduce((a, c) => a + c.charCodeAt(0), 0) : 0, pos = f && f.unit ? f.unit.pos : null;   /* three voices among the squad */

@@ -43,8 +43,8 @@ const RS_LV = { off: [35, 25, 15], rise: [65, 50, 35], aim: [1.6, 1.0, 0.6], dow
 const rsLv = (k) => RS_LV[k][rsD()];
 function rsAmbDefs(stage) {
   return RS_ENC[stage].map(([x, sd, kinds, n, atgmLv = 2, last = false], i) => { const r = rng(7100 + stage * 100 + i), dir = stage === 4 ? 1 : -1;
-    return { x, id: `a${stage}_${i}`, n, last, sh: kinds.map((k0, k) => { const kind = k0 === 'atgm' && rsD() < atgmLv ? 'rifle' : k0, off = rsLv('off') + k * 6 + r() * 4, dx = dir * (k * 8 + r() * 5);   /* spread out, about eight metres between holes */
-      return { dx, side: sd, off, kind, how: 'pit' }; }) }; });
+    return { x, id: `a${stage}_${i}`, n, last, sh: kinds.map((k0, k) => { const kind = k0 === 'atgm' ? (rsD() < atgmLv ? 'rifle' : 'rpg') : k0, off = rsLv('off') + k * 6 + r() * 4, dx = dir * (k * 8 + r() * 5);   /* spread out, about eight metres between holes */
+      return { dx, side: sd, off, kind, how: 'run' }; }) }; });   /* no positions: they run in over the dune (the user) */
 }
 const RS_STAGES = [
   { title: 'כניסה ראשונה', sub: 'שלוש וארבעים לפנות בוקר. הטור יוצא מערבה בציר, בין דיונות שהירח צובע בכחול. פצצות תאורה נתלות מעל הדרך, ובשוחות משני צדיה כבר יושבים צוותי האר־פי־ג׳י עם האצבע על הידית. לוחמי פורקן אמורים לחכות בקצה.', goal: 'מערבה בציר עד נקודת המפגש. חסלו את צוותי האר־פי־ג׳י בשוחות לפני שהם יורים' },
@@ -95,10 +95,10 @@ const RS_GROUPS = {
 };
 function rsArc(x) { let best = 0, bd = 1e9, acc = 0; for (let i = 0; i < RS_TRACK.length - 1; i++) { const a = RS_TRACK[i], b = RS_TRACK[i + 1], L = Math.hypot(b[0] - a[0], b[1] - a[1]); for (let u = 0; u <= 1; u += 0.02) { const px = lerp(a[0], b[0], u); if (Math.abs(px - x) < bd) { bd = Math.abs(px - x); best = acc + L * u; } } acc += L; } return best; }
 function rsBuild() {
-  const C = CHAP.rescue; C.ground = makeGround({ x0: RS.o.x - 780, x1: RS.o.x + 760, z0: RS.o.z - 330, z1: RS.o.z + 330, step: 3.2, h: (x, z) => rsCarve(x, z, rsNat(x, z)), map: 'rescue', vegOk: () => false,   /* the map for its sand textures only: the heights are the dunes' */   /* dunes only: no plants, no stones (the user) */ grass: 'sand', sand: true }); GROUND = C.ground;
+  const C = CHAP.rescue; C.ground = makeGround({ x0: RS.o.x - 780, x1: RS.o.x + 760, z0: RS.o.z - 330, z1: RS.o.z + 330, step: 3.2, h: (x, z) => rsCarve(x, z, rsNat(x, z)), vegOk: () => false,   /* dunes only: no plants, no stones (the user) */ grass: 'sand', sand: true }); GROUND = C.ground; C.ground.mesh.material = rsSandMat();   /* the user's sand, hex-tiled */
   const BAGS = [], sv = BATCH.bag; BATCH.bag = BAGS; const k0 = COVER.length; C.slots = []; C.nestBush = []; C.fires = [];
   { const r = rng(4242); for (const id of ['A', 'B', 'C', 'D']) { const g = RS_GROUPS[id], cx = g.at ?? g.pts[0][0]; if (g.extra) continue; g.extra = true; for (let k = 0; k < 5; k++) { const sd = k % 2 ? 1 : -1; g.pts.push([cx + (r() - 0.5) * 200, sd * (70 + r() * 120)]); g.kinds.push(['rifle', 'rpg', 'rifle', 'rifle', 'atgm'][k]); } } }
-  for (const [id, g] of Object.entries(RS_GROUPS)) g.pts.forEach(([x0, z0], i) => { if ('ABCDN'.includes(id)) z0 = rsTrackZ(x0) + rsSideAt(x0) * Math.max(26, Math.abs(z0) * 0.5);   /* off the track itself, on the stretch's side, closer in */ const lane = id === 'W' ? RS_WEST : id === 'S' ? RS_SOUTH : RS_TRACK, [x, z] = corr(lane, x0, z0, 23, id === 'W' || id === 'S' ? 4 : 12); const [wx, wz] = RW(x, z); let tx = x, tz = 0; { let bd = 1e9; for (const p of id === 'W' || id === 'S' ? [RS_MEET2, [-560, -66]] : densify(RS_TRACK, 10)) { const d = Math.hypot(p[0] - x, p[1] - z); if (d < bd) { bd = d; tx = p[0]; tz = p[1]; } } } const dx = tx - x, dz = tz - z, l = Math.hypot(dx, dz) || 1; const s = foxhole(wx, wz, dx / l, dz / l, C.slots); s.grp = id; s.kind = g.kinds[i]; if (g.bush) for (let k = 0; k < 6; k++) { const a = Math.atan2(dx, dz) + rand(-2.4, 2.4), d = rand(1.6, 3.4); C.nestBush.push([wx + Math.sin(a) * d, wz + Math.cos(a) * d, rand(0.9, 1.6), rand(0, 6), greenBush(Math.random)]); } });
+  if (false) for (const [id, g] of Object.entries(RS_GROUPS)) g.pts.forEach(([x0, z0], i) => { if ('ABCDN'.includes(id)) z0 = rsTrackZ(x0) + rsSideAt(x0) * Math.max(26, Math.abs(z0) * 0.5);   /* off the track itself, on the stretch's side, closer in */ const lane = id === 'W' ? RS_WEST : id === 'S' ? RS_SOUTH : RS_TRACK, [x, z] = corr(lane, x0, z0, 23, id === 'W' || id === 'S' ? 4 : 12); const [wx, wz] = RW(x, z); let tx = x, tz = 0; { let bd = 1e9; for (const p of id === 'W' || id === 'S' ? [RS_MEET2, [-560, -66]] : densify(RS_TRACK, 10)) { const d = Math.hypot(p[0] - x, p[1] - z); if (d < bd) { bd = d; tx = p[0]; tz = p[1]; } } } const dx = tx - x, dz = tz - z, l = Math.hypot(dx, dz) || 1; const s = foxhole(wx, wz, dx / l, dz / l, C.slots); s.grp = id; s.kind = g.kinds[i]; if (g.bush) for (let k = 0; k < 6; k++) { const a = Math.atan2(dx, dz) + rand(-2.4, 2.4), d = rand(1.6, 3.4); C.nestBush.push([wx + Math.sin(a) * d, wz + Math.cos(a) * d, rand(0.9, 1.6), rand(0, 6), greenBush(Math.random)]); } });
   // the ambush positions of the three drives: a hole in the sand for each man who pops up, a short sandbag wall for each who runs up to fire
   C.amb = {}; C.ambW = []; for (const st of [0, 2, 4]) C.amb[st] = rsAmbDefs(st).map((a, i) => { const r = rng(7700 + st * 100 + i);
     a.sh.forEach((q) => { { const lx = a.x + q.dx, tz = rsTrackZ(lx), H = (x, z) => rsCarve(x + RS.o.x, z + RS.o.z, rsNat(x + RS.o.x, z + RS.o.z));
@@ -106,11 +106,10 @@ function rsBuild() {
         for (let n = 0; n < 8; n++) { const pz = tz + q.side * q.off, y0 = H(lx, tz) + 3.1, y1 = H(lx, pz) + 1.0; let ok = true; for (let k = 1; k < 10; k++) { const u = k / 10; if (H(lx, lerp(tz, pz, u)) > lerp(y0, y1, u) - 0.2) { ok = false; break; } } if (ok || q.off <= 13) break; q.off -= 3; } }
       const lx = a.x + q.dx, tz = rsTrackZ(lx), lz = tz + q.side * q.off, fz = Math.sign(tz - lz) || 1, [wx, wz] = RW(lx, lz);
       if (q.how === 'pit') { const sl = foxhole(wx, wz, 0, fz, C.slots); sl.grp = a.id; sl.kind = q.kind; q.slot = sl;  }
-      else { bagWall([[wx - 1.5, wz + fz * 0.9], [wx + 1.5, wz + fz * 0.9]], 4); q.dest = [wx, wz]; q.from = RW(lx + (r() - 0.5) * 12, lz - fz * 44); C.ambW.push([wx, wz]); } });
+      else { q.dest = [wx, wz]; q.from = RW(lx + (r() - 0.5) * 12, lz - fz * 44); C.ambW.push([wx, wz]); } });
     return a; });
   /* the dunes, the holes and the men (the user); of the battlefield of the day before only what still burns, and the far smoke */
-  for (const [x, z, b, fire] of [[120, -44, 70, true], [-330, 58, 110, true]]) { const [wx, wz] = RW(x, z); placeTank(wx, wz, b, TANK_BURNT); if (fire) rsFire(wx, wz, 2.2); }
-  for (const [x, z, r, fire] of [[-20, 70, 2.2, true]]) { const [wx, wz] = RW(x, z); rsJeepWreck(wx, wz, r, x > 0 ? 'f' : 'e'); if (fire) rsFire(wx, wz, 1.6); }
+  for (const [x, z, b, fire] of [[-330, 58, 110, true]]) { const [wx, wz] = RW(x, z); placeTank(wx, wz, b, TANK_BURNT); if (fire) rsFire(wx, wz, 2.2); }
   for (const [x, z, s] of [[-1300, -400, 40], [-1500, 300, 60], [-900, 900, 30], [200, -1200, 26]]) { const [wx, wz] = RW(x, z); smokeColumn(wx, wz, s, s > 35); }
   { const L = (x, z) => [x - RS.o.x, z - RS.o.z], okW = (x, z) => { const [lx, lz] = L(x, z); return distPolyline(lx, lz, RS_TRACK) > 9 && Math.hypot(lx - RS_MEET[0], lz - RS_MEET[1]) > 22 && Math.hypot(lx - RS_MEET2[0], lz - RS_MEET2[1]) > 16 && Math.hypot(lx - RS_HILL[0], lz - RS_HILL[1]) > 30 && !C.slots.some((s) => Math.hypot(s.x - x, s.z - z) < 4) && !C.ambW.some((w) => Math.hypot(w[0] - x, w[1] - z) < 4); };
     const X0 = RS.o.x - 770, X1 = RS.o.x + 750, Z0 = RS.o.z - 320, Z1 = RS.o.z + 320;
@@ -265,7 +264,7 @@ function rsStage(i) {
   }
   if (i === 2 && RS.hillCp) { RS.msgs.h1 = RS.msgs.h2 = RS.msgs.h3 = RS.msgs.c2 = true; for (const k of [0, 1, 3]) vehDestroy(C.apc[k], true); radio('מח״ט', 'שאול, עצור. קבוצת חיילים יורדת מהגבעה אליכם — אל תירו עד שמזהים.', 4); }
   else if (i === 2) { radio('מח״ט', 'אני נכנס איתכם, הטנק שלי משמאל. חטיבה 421 מגבירה אש. כולם — גז, לא עוצרים!', 4.5); }
-  if (i === 3) { radio('שאול', 'אני בנקודת המפגש! הם רצים אליי מאחורי הדיונה. תחפה עליי מהגבעה — האר־פי־ג׳י יחפשו אותי עכשיו.', 5); rsGroupSpawn('W', 10, 9, [3, 4, 5][rsD()]); for (const v of C.t55.slice(3)) { v.shown = true; v.g.visible = true; v.shoots = true; } if (C.shaul.path && !C.shaul.ended && C.shaul.s < 1) C.shaul.onEnd = () => rsBoardStart(); else rsBoardStart(); hint('rs-cover', 'הטנק של שאול עומד במקום עד ש־33 איש עולים עליו. סימון צהוב מהבהב = מפעיל אר־פי־ג׳י מכוון אליו: הרגו אותו לפני שהטיל מגיע. טנק מצרי — פגז (G).', 10); }
+  if (i === 3) { radio('שאול', 'אני בנקודת המפגש! הם רצים אליי מאחורי הדיונה. תחפה עליי מהגבעה — האר־פי־ג׳י יחפשו אותי עכשיו.', 5); rsRunners([3, 4, 5][rsD()], [-790, 30], [-660, 20], 40, ['rpg', 'rifle', 'rpg', 'rifle', 'rifle']); for (const v of C.t55.slice(3)) { v.shown = true; v.g.visible = true; v.shoots = true; } if (C.shaul.path && !C.shaul.ended && C.shaul.s < 1) C.shaul.onEnd = () => rsBoardStart(); else rsBoardStart(); hint('rs-cover', 'הטנק של שאול עומד במקום עד ש־33 איש עולים עליו. סימון צהוב מהבהב = מפעיל אר־פי־ג׳י מכוון אליו: הרגו אותו לפני שהטיל מגיע. טנק מצרי — פגז (G).', 10); }
   if (i === 4) { radio('שאול', 'כולם עליי! שלושים ושלושה. אני זז מזרחה — תישאר צמוד אליי.', 4); DIRQ.push({ at: GAME.t + 6, fn: () => radio('מח״ט', 'כל הדרך הביתה הם יחכו לכם בשוחות. מי שמרים ראש — מקבל.', 3.5) }); }
 }
 function rsSquad(id, n) { const C = CHAP.rescue, sl = C.slots.filter((q) => q.grp === id), r = rng(5300 + id.charCodeAt(0) * 31 + n); n = Math.round(n * [0.6, 1, 1.25][rsD()]); for (let k = 0; k < n && sl.length; k++) { const s = sl[k % sl.length], [lx, lz] = corr(RS_TRACK, s.x - RS.o.x + (r() - 0.5) * 50, s.z - RS.o.z + (r() - 0.5) * 12, 24, 10), [mx, mz] = corr(RS_TRACK, lx + (r() - 0.5) * 20, lz * 0.5, 14, 4), [x, z] = RW(lx, lz), [tx, tz] = RW(mx, mz); const e = fSpawnStreet0(x, z, [[tx, tz]], k % 4 === 3 ? 'rpg' : 'rifle'); if (e) { e.sq = id; e.tac = k % 4 < [1, 2, 3][rsD()] ? 'storm' : 'hold'; e.rpgMiss = rsD() === 0 || (rsD() === 1 && k % 8 === 3); } } }
@@ -280,7 +279,7 @@ function rsAmbSpawn(a) {
     if (q.how === 'pit') { e = fSlotSpawn(q.kind === 'atgm' && rsD() < 2 ? 'rpg' : q.kind, (sl) => sl === q.slot, 'am'); if (e) { e.peek = false; e.cyc = 1.3; e.rpgCd = e.atgm ? 8 + k * 1.5 : 2.5 + k; e.rpgMiss = e.kind === 'rpg' && (easy || (rsD() === 1 ? k > 0 || RS.ambN % 3 > 0 || RS.stage === 2 : k % 2 === 1)); e.wild = rsD() < 2; } }
     else { e = fSpawnStreet0(q.from[0], q.from[1], [q.dest], q.kind); if (e) { e.sq = 'am'; e.tac = 'hold'; e.rpgMiss = easy; } }
     if (e) { e.ambId = a.id; e.gi = k; e.ambLast = a.last; if (e.kind === 'rpg') e.rpgMiss = Math.random() > rsLv('rpgHit'); if (q.side * dir > 0) right++; else left++; } });
-  { const m = UNITS.enemies.filter((e) => e.alive && e.ambId === a.id); if (m.length) { const x = m.reduce((s, e) => s + e.pos.x, 0) / m.length, z = m.reduce((s, e) => s + e.pos.z, 0) / m.length; spawnFlare(x, z, 150, 26, 24, 0.2); } }   /* our guns light every ambush as it comes up (the user) */
+  { const m = UNITS.enemies.filter((e) => e.alive && e.ambId === a.id); if (m.length) { arShout(m[0], 'yalla', 1); if (m[1]) DIRQ.push({ at: GAME.t + 2.6, fn: () => arShout(m[1], 'allah', 1) }); const x = m.reduce((s, e) => s + e.pos.x, 0) / m.length, z = m.reduce((s, e) => s + e.pos.z, 0) / m.length; spawnFlare(x, z, 150, 26, 24, 0.2); } }   /* our guns light every ambush as it comes up (the user) */
   const n0 = RS.ambN++; if (n0 % 2 === 0) radio('תותחן', right && left ? ['מארב משני צדי הציר!', 'יורים עלינו משני הצדדים!', 'שוחות מימין ומשמאל!'][n0 / 2 % 3] : right ? ['שוחות מימין!', 'מארב מימין, על הדיונה!'][n0 / 2 % 2] : ['שוחות משמאל!', 'מארב משמאל, בין השיחים!'][n0 / 2 % 2], 2);
 }
 /* each drive: the next ambush comes up 125 m before the column reaches it - or up to 260 m before, as soon as fewer than two of the ambushes
@@ -295,6 +294,10 @@ function rsAmbUpd(dt) {
   for (const e of UNITS.enemies) if (e.alive && e.sz && (e.sq === 'am' || 'ABCN'.includes(e.sq || '#')) && (e.pos.x - RS.o.x - tx) * dir < -140 && !fieldSees(e, 110)) { e.alive = false; e.rig.root.visible = false; e.tag.visible = false; if (e.slot) { e.slot.used = false; e.slot = null; } }
 }
 // (below the hard level every other RPG of a position lands short: the column now meets far more of them on every drive)
+/* men running in over the dunes from behind a crest to their place on the near slope (no positions in the rescue: the user) */
+function rsRunners(n, from, to, spread, kinds) { const r = rng(9100 + Math.round(from[0] + from[1])); let k = 0;
+  for (let i = 0; i < n; i++) { const [fx, fz] = RW(from[0] + (r() - 0.5) * spread, from[1] + (r() - 0.5) * spread), [tx, tz] = RW(to[0] + (r() - 0.5) * spread, to[1] + (r() - 0.5) * spread);
+    const e = fSpawnStreet0(fx, fz, [[tx, tz]], kinds[i % kinds.length]); if (e) { e.sq = 'W'; e.tac = 'hold'; if (e.kind === 'rpg') e.rpgMiss = Math.random() > rsLv('rpgHit'); if (k++ === 0) arShout(e, 'yalla', 1); } } }
 function rsGroupSpawn(id, first = 9, gap = 8, max = 99) { const C = CHAP.rescue; let k = 0, r = 0, m = 0; for (const s of C.slots) if (s.grp === id && !s.used && m++ < max) { const e = fSlotSpawn(s.kind, (q) => q === s, id); if (e && e.atgm) { e.rpgCd = first + (k++) * gap; } else if (e && e.kind === 'rpg') e.rpgMiss = rsD() === 0 || (rsD() === 1 && r++ % 2 === 0); } return k; }
 /* the thirty Egyptians on the hill: they stand in the open, unmarked, until the tank is a hundred metres away */
 function rsHillGroup() {
@@ -410,7 +413,7 @@ function rsUpd(dt) {
   } else if (RS.stage === 3) {
     RS.boardT += dt;
     if (RS.boarded >= 33 && !RS.msgs.full) { RS.msgs.full = true; DIRQ.push({ at: GAME.t + 2.5, fn: () => rsCut(() => rsSetup(4)) }); }
-    if (RS.boardT > 25 && !RS.msgs.w2) { RS.msgs.w2 = true; rsGroupSpawn('S', 6, 8, [3, 4, 5][rsD()]); for (let k = 0; k < [3, 4, 5][rsD()]; k++) { const sd = k % 2 ? 1 : -1, [x, z] = RW(...corr(RS_WEST, -760 + rand(-30, 30), -64 + sd * rand(2, 22), 23)), [tx, tz] = RW(...corr(RS_WEST, -640 + rand(-20, 20), -64 + sd * rand(2, 20), 22)); fSpawnStreet(x, z, [[tx, tz]], k === 2 ? 'rpg' : 'rifle'); } radio('תצפית', 'חי״ר מצרי מתקרב לטנק של שאול ממערב!', 2.6); }
+    if (RS.boardT > 25 && !RS.msgs.w2) { RS.msgs.w2 = true; rsRunners([3, 4, 5][rsD()], [-610, -270], [-600, -175], 50, ['rifle', 'rpg', 'rifle', 'rpg', 'rifle']); for (let k = 0; k < [3, 4, 5][rsD()]; k++) { const sd = k % 2 ? 1 : -1, [x, z] = RW(...corr(RS_WEST, -760 + rand(-30, 30), -64 + sd * rand(2, 22), 23)), [tx, tz] = RW(...corr(RS_WEST, -640 + rand(-20, 20), -64 + sd * rand(2, 20), 22)); fSpawnStreet(x, z, [[tx, tz]], k === 2 ? 'rpg' : 'rifle'); } radio('תצפית', 'חי״ר מצרי מתקרב לטנק של שאול ממערב!', 2.6); }
   } else if (RS.stage === 4) {
     if (!RS.msgs.join && Math.hypot(TANK.g.position.x - C.shaul.g.position.x, TANK.g.position.z - C.shaul.g.position.z) < 70) { RS.msgs.join = true; radio('מח״ט', 'אני מאחוריך, שאול. סע, אני מחפה.', 2.5); }
     // the last stretch to our line is the film's: once Shaul is past the burning wrecks at the middle of the track, the column is home
