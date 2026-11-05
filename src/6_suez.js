@@ -1507,6 +1507,7 @@ function suezEnemyStep(e, dt, shoot, aimPitch) {
 }
 function szRpgCall(e, what = 'בזוקה') {
   if (P.mode !== 'tank' || GAME.t < (SZ.rpgCallT || 0)) return; SZ.rpgCallT = GAME.t + 3.5;
+  if (MODE === 'rescue' && !e.rpgShot) { SZ.rpgCallT = 0; return; }   /* the rescue: only once the rocket is on its way (the user) */
   if (MODE === 'rescue' && TANK.g) { const [fx, fz] = rsFwd(), x = e.pos.x - TANK.g.position.x, z = e.pos.z - TANK.g.position.z; radio('תותחן', -x * fz + z * fx > 0 ? 'בזוקה מימין!' : 'בזוקה משמאל!', 1.6); return; }   /* the rescue: right or left, nothing more (the user) */
   const fwd = Math.atan2(-Math.sin(P.yaw), -Math.cos(P.yaw)), a = Math.atan2(e.pos.x - P.pos.x, e.pos.z - P.pos.z); let h = Math.round(-wrapPi(a - fwd) / (Math.PI / 6)); h = ((h % 12) + 12) % 12 || 12;
   radio('תותחן', `${what}! שעה ${h}${e.slot ? (e.slot.roof ? ', על הגג' : e.slot.f ? `, קומה ${e.slot.f}` : '') : MODE === 'suez' ? ', ברחוב' : ''}!`, 2.2);
