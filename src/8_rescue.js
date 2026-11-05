@@ -342,8 +342,10 @@ function rsHillGroup() {
   const r = rng(777); RS.hill = []; const t = TANK.g.position, hd = TANK.hdV ?? 0, fx = Math.sin(hd), fz = Math.cos(hd), [hx, hz] = RW(RS_HILL[0], RS_HILL[1]);
   const sx = Math.sign((hx - t.x) * fz - (hz - t.z) * fx) || 1;   // which side the hill is on
   for (let k = 0; k < [20, 30, 30][rsD()]; k++) {
-    const ahead = 20 + (k % 5) * 3.5 + r() * 2, side = (k % 2 ? 1 : -1) * (2 + Math.floor(k / 2) % 6 * 2.2 + r()), gx = t.x + fx * ahead - fz * side, gz = t.z + fz * ahead + fx * side;   // where he stops
-    const back = 30 + k * 0.8 + r() * 4, lat = (r() - 0.5) * 10, x = gx - fz * sx * back + fx * lat, z = gz + fx * sx * back + fz * lat;   // where he starts: in a file coming down from the hill side
+    /* from the top of the hill all the way down (the user), to a place of his own some 45 m from the tank, toward the hill */
+    const hl = Math.hypot(hx - t.x, hz - t.z) || 1, ux = (hx - t.x) / hl, uz = (hz - t.z) / hl, near = 44 + (k % 5) * 3.5 + r() * 2, side = (k % 2 ? 1 : -1) * (2 + Math.floor(k / 2) % 6 * 2.6 + r());
+    const gx = t.x + ux * near - uz * side, gz = t.z + uz * near + ux * side;   // where he stops
+    const x = hx + (r() - 0.5) * 26 - uz * side * 0.5, z = hz + (r() - 0.5) * 26 + ux * side * 0.5;   // where he starts: on the crest
     const e = spawnEnemy(x, z, k % 5 === 0 ? 'rpg' : k % 5 === 2 ? 'smg' : 'rifle', null, null); if (!e) continue;
     e.state = 'film'; e.sq = 'H'; e.noTag = true; e.stance = 'stand'; e.hg = [gx, gz]; e.hw = 2.6 + r() * 0.7; e.heading = Math.atan2(gx - x, gz - z); e.rig.pose('walk', k); e.sync(); RS.hill.push(e);
   }
@@ -355,11 +357,11 @@ function rsHillApproach(dt) {
   if (!RS.msgs.h10 && RS.hillT > 5) { RS.msgs.h10 = true; radio('תותחן', 'הם הולכים ישר אלינו... שלושים איש לפחות. אני לא מזהה מדים.', 3.5); }
   if (!RS.msgs.h20 && RS.hillT > 11) { RS.msgs.h20 = true; radio('מח״ט', 'שאול, אל תירו! אם זה פורקן ואנחנו פותחים עליהם — אין לנו חיים.', 3.5); }
   // the moment: twenty metres, a dead man among them, or the player's patience - and they open up
-  if (near < 24 || RS.hill.some((e) => !e.alive) || RS.hillT > 22) rsHillWake();
+  if (near < 47 || RS.hill.some((e) => !e.alive) || RS.hillT > 32) rsHillWake();
 }
 function rsHillWake() {
   RS.ided = true; const t = TANK.g.position; let k = 0;
-  for (const e of RS.hill) if (e.alive) { e.noTag = false; e.state = 'sz'; e.sz = 'street'; e.path = []; e.pi = 0; e.cov = null; e.patience = 0; e.cyc = 1; e.peek = false; e.meleeCd = 0.5; e.wild = true; e.rpgMiss = true; e.rpgCd = 0.4 + (k++ % 6) * 1.1; e.fireCd = rand(0.1, 0.9); e.face(t.x, t.z); }
+  for (const e of RS.hill) if (e.alive) { e.noTag = false; e.state = 'sz'; e.sz = 'street'; e.path = []; e.pi = 0; e.cov = null; e.patience = 0; e.cyc = 1; e.peek = false; e.meleeCd = 0.5; e.wild = true; e.rpgMiss = true; e.rpgCd = 2 + (k++ % 6) * 1.6; e.fireCd = rand(1.2, 3.5); e.blindK = 0.35;   /* from 45 m, slower and wilder: no more killing the player in a second (the user) */ e.face(t.x, t.z); }
   radio('מח״ט', 'מצרים!! אלה מצרים! אש! אש!', 3); feed('קבוצת החיילים מהגבעה — מצרים! הם פותחים באש!', 'bad'); FX.shake = Math.max(FX.shake, 0.5);
   hint('rs-hill2', `<b>מטווח אפס!</b> מקלע 0.5 (${TOUCH ? 'אש' : 'לחיצה ממושכת'}) ופגז (${TOUCH ? 'רימון' : 'G'}) לתוך הקבוצה. אם האש כבדה מדי — לתוך הצריח (${TOUCH ? 'כפתור צריח' : 'C'}) וממשיכים לירות משם.`, 8);
 }

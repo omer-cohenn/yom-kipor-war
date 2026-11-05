@@ -890,7 +890,7 @@ function updEnemy(e, dt) {
     }
   }
   if (e.throwT > 0) { e.throwT -= dt; if (e.target) e.face(e.target.p.x, e.target.p.z); e.rig.pose('throw', 1 - e.throwT / 0.5); e.sync(); return; }
-  const shoot = () => { if (!e.target) return; e.face(e.target.p.x, e.target.p.z); e.fireCd -= dt; if (e.fireCd <= 0) { if (e.burst <= 0) e.burst = wBurst(e); e.burst--; e.fireCd = e.burst > 0 ? wGap(e) : wPause(e); enemyFire(e); } };
+  const shoot = () => { if (!e.target) return; e.face(e.target.p.x, e.target.p.z); e.fireCd -= dt; if (e.fireCd <= 0) { if (e.burst <= 0) e.burst = wBurst(e); e.burst--; e.fireCd = (e.burst > 0 ? wGap(e) : wPause(e)) * (e.sq === 'H' && MODE === 'rescue' ? 2.5 : 1); enemyFire(e); } };   /* the hill's men fire slower */
   const aimPitch = () => e.target ? Math.atan2(e.target.p.y - e.eye().y, Math.hypot(e.target.p.x - e.pos.x, e.target.p.z - e.pos.z)) : 0;
   if (e.state === 'sz') { suezEnemyStep(e, dt, shoot, aimPitch); e.sync(); return; }
   if (e.state === 'plan') { planStep(e, dt, shoot, aimPitch); e.sync(); return; }
