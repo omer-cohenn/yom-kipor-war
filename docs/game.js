@@ -16882,7 +16882,7 @@ const PROG = { done: new Set(), last: null, sel: null, from: 'title', vb: [0, 0,
 try { for (const k of JSON.parse(localStorage.getItem('yk73.done') || '[]')) PROG.done.add(k); PROG.last = localStorage.getItem('yk73.last'); } catch (e) { /* private window: progress lives only in memory */ }
 function markDone(m) { PROG.done.add(m); try { localStorage.setItem('yk73.done', JSON.stringify([...PROG.done])); } catch (e) {} }
 function markLast(m) { PROG.last = m; try { localStorage.setItem('yk73.last', m); } catch (e) {} }
-const nextChapter = () => CH_ORDER.find((k) => !PROG.done.has(k)) || PROG.last || CH_ORDER[0];
+const nextChapter = () => CH_ORDER.find((k) => !PROG.done.has(k)) || (CH_ORDER.includes(PROG.last) ? PROG.last : null) || CH_ORDER[0];
 const REDUCED_M = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 /* ---------- the map of the front ---------- */
