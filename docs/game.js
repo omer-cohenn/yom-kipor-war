@@ -7701,6 +7701,7 @@ function frame() {
   if (firstFrame) { firstFrame = false; window.__gameReady = true; setTimeout(() => dataLoad(), 400); clearTimeout(window.__gameTimer); LD.finish(); LD.hide(); showTitle(); GAME.state = 'menu'; /* no face painting in the menu (it made the menu stutter on a phone): the faces are painted while a mission loads */ if (HM_SANDBOX) setTimeout(() => startChapter('hermon'), 50); return; }   /* the building alone goes straight in */
   try { frameInner(); } catch (err) { if (!frame.err) { frame.err = true; console.error(err); } }
 }
+let FRAMEN = 0;
 const SLOW = { k: 1, left: 0, fade: 0.8, look: null };
 function slowMo(dur, k = 0.25, lookAt = null) { SLOW.left = dur; SLOW.k0 = k; SLOW.k = k; SLOW.look = lookAt; }
 function slowStep(real) { if (SLOW.left > 0) { SLOW.left -= real; const u = clamp(SLOW.left / SLOW.fade, 0, 1); SLOW.k = SLOW.left > 0 ? lerp(1, SLOW.k0, u) : 1; if (SLOW.left <= 0) SLOW.look = null; } else SLOW.k = 1;
@@ -7727,6 +7728,7 @@ function frameInner() {
   updFarSmoke(dt, time); wreckUpd(dt); for (const u of DUG_UNITS) if (_shown(u.rig.root)) nsDecide(u); animateWater(dt); waveFlags(time);
   if (HM_PANO) HM_PANO.visible = MODE === 'hermon';   // the view from the Hermon is drawn only there
   if (UNI_E.mode !== MODE) { UNI_E.mode = MODE; uniformFor(MODE); }   // Syrian uniforms on the Hermon, Egyptian everywhere else
+  if (!renderer.shadowMap.autoUpdate && (FRAMEN = (FRAMEN || 0) + 1) % 4 === 0) renderer.shadowMap.needsUpdate = true;   /* shadows slowed by the governor still follow the camera (a frozen map left big black squares) */
   sky.position.copy(camera.position); if (NSKY.g.visible) NSKY.g.position.copy(camera.position); camera.getWorldDirection(_fwd); followSun(camera.position.x + _fwd.x * 40, camera.position.z + _fwd.z * 40); updateVmLight();
   if (GAME.state === 'play') updHUD(dt);
   if (CVID.on) { if (GAME.state !== 'play' && !CVID.el.paused) CVID.el.pause(); return; }   // a film on video: its picture covers the view, nothing to draw under it (paused with the game)
