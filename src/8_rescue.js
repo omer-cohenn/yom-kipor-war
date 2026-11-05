@@ -55,14 +55,25 @@ const RS_STAGES = [
 ];
 const RS_TOD = [3 * 60 + 40, 4 * 60 + 20, 4 * 60 + 48, 5 * 60 + 22, 5 * 60 + 48];   // the clock at the start of each stage: a night that turns into first light
 const RS_NAMES = ['מאירק׳ה', 'שמעון', 'יצחק', 'רוני', 'אליהו', 'דני', 'זאב', 'יעקב', 'חנן', 'מנחם', 'עזרא', 'פנחס'];
+const RS_DUNE = (() => { const s = atob(RS_DUNE_B64), a = new Float32Array(s.length); for (let i = 0; i < s.length; i++) a[i] = s.charCodeAt(i) / 255; return a; })();
+function rsDuneP(lx, lz) { const S = 1160, f = (t) => { t = ((t / S) % 2 + 2) % 2; return (t > 1 ? 2 - t : t) * 127; }, u = f(lx + 770), v = f(lz + 320), i = Math.min(126, u | 0), j = Math.min(126, v | 0), a = u - i, b = v - j, D = RS_DUNE;
+  return (D[j * 128 + i] * (1 - a) + D[j * 128 + i + 1] * a) * (1 - b) + (D[(j + 1) * 128 + i] * (1 - a) + D[(j + 1) * 128 + i + 1] * a) * b; }
+function rsTrackH(lx) { return 9 + 0.7 * Math.sin(lx / 90) + 0.3 * Math.sin(lx / 37 + 1); }   // the track rises and falls a metre: the feel of driving
+/* which side is the low one at a point of the track: the first drive's encounters, each pulling its side toward it over some 45 m */
+function rsLowSide(lx) { let s = 0, w = 0; for (const t of RS_ENC[0]) { if (t[5]) continue; const k = Math.exp(-(((t[0] - lx) / 45) ** 2)); s += t[1] * k; w += k; } return w > 1e-3 ? s / w : 0; }
 function rsNat(x, z) {
   const lx = x - RS.o.x, lz = z - RS.o.z;
-  const base = 9 + 4 * fbm(lx / 420, lz / 420, 3); let h = base;
-  const w = fbm(lx / 160, lz / 260, 2), r = 1 - Math.abs(noise(lx / 95 + w * 1.4, lz / 210)); h += 6.5 * r * r * r;
-  { const d = Math.hypot(lx - RS_MEET[0], lz - RS_MEET[1]); h += 8 * (1 - smooth(8, 85, d)); }
-  { const d = Math.hypot(lx - RS_HILL[0], lz - RS_HILL[1]); h += 9 * (1 - smooth(12, 62, d)); }   // the hill the Egyptians stood on
+  const w = fbm(lx / 160, lz / 260, 2), r = 1 - Math.abs(noise(lx / 95 + w * 1.4, lz / 210));
+  /* the dune field (the user's model): flat along the track, the slope rising from 12 to 52 m out, then the dunes - 6 to 14 m, lower on
+     the side the stretch's ambush is on (the holes stand out against the slope), higher on the other; past 200 m the horizon's, to 16 m */
+  const th = rsTrackH(lx), tz = rsTrackZ(lx), dt = Math.abs(lz - tz), sd = Math.sign(lz - tz) || 1, lowK = clamp(0.5 + 0.5 * sd * rsLowSide(lx), 0, 1);
+  let amp = lerp(12.5, 7, lowK) * (0.8 + 0.4 * (0.5 + 0.5 * fbm(lx / 600 + 3, lz / 600, 2))); amp = lerp(amp, 16, smooth(200, 300, dt));
+  let h = th + smooth(12, 52, dt) * amp * rsDuneP(lx, lz);
+  { const d = Math.hypot(lx - RS_MEET[0], lz - RS_MEET[1]); h = Math.max(h, th + 14 * (1 - smooth(10, 95, d))); }   // the meeting point's dune: Shaul's tank climbs it
+  { const d = Math.hypot(lx - RS_HILL[0], lz - RS_HILL[1]); h = Math.max(h, th + 12 * (1 - smooth(12, 70, d))); }   // the hill the Egyptians stood on
+  { const d = Math.hypot(lx + 720, lz - 170); h = Math.max(h, th + 20 * (1 - smooth(30, 150, d))); }   // the big dune in the west, seen from the whole stage
   mix3(PAL.sandL, PAL.sandD, smooth(-0.35, 0.45, fbm(lx / 140, lz / 140, 3) + 0.5 * fbm(lx / 22, lz / 22, 2))); mixIn(PAL.sandR, 0.3 * smooth(0.1, 0.5, noise(lx / 700, lz / 700))); mixIn(PAL.fresh, 0.35 * r * r);
-  { const belt = smooth(-330, -440, lx); if (belt > 0) { h -= belt * r * r * r * 4; const f = noise(Math.floor((lx + 2000) / 45) * 1.9, Math.floor((lz + 2000) / 60) * 1.3); mixIn(f > 0 ? [0.42, 0.44, 0.27] : [0.52, 0.43, 0.3], belt * 0.65); } }
+  { const belt = smooth(-330, -440, lx); if (belt > 0) { const f = noise(Math.floor((lx + 2000) / 45) * 1.9, Math.floor((lz + 2000) / 60) * 1.3); mixIn(f > 0 ? [0.42, 0.44, 0.27] : [0.52, 0.43, 0.3], belt * 0.65); } }
   return h;
 }
 // the track the column drives: levelled (the map comes levelled already) and rutted
@@ -70,7 +81,7 @@ function rsCarve(x, z, h) {
   const lx = x - RS.o.x, lz = z - RS.o.z;
   // the sand sea past the ambushes' ground (every pit and every group is within 220 m of the track): dunes, bigger out past the box
   { const dt = Math.abs(lz - rsTrackZ(lx)), k = smooth(235, 330, dt); if (k > 0) h += dunes(x, z, k, Math.max(0, Math.abs(lz) - 330, lx - 760, -780 - lx)); }
-  if (Math.abs(lz) < 90 && lx > -560 && lx < 680) { const d = distPolyline(lx, lz, RS_TRACK_S); if (d < 14) { if (!MAPS.rescue) { const k = 1 - smooth(4, 13, d); h = lerp(h, 9 + 4 * fbm(lx / 420, lz / 420, 3) + 1.2, k); } mixIn(PAL.sandD, 0.5 * (1 - smooth(1.2, 4.5, d))); if (d > 1.0 && d < 2.6) mixIn([0.45, 0.39, 0.31], 0.45); } }
+  if (Math.abs(lz) < 90 && lx > -560 && lx < 680) { const d = distPolyline(lx, lz, RS_TRACK_S); if (d < 14) { { const k = 1 - smooth(4, 13, d); h = lerp(h, rsTrackH(lx), k); } mixIn(PAL.sandD, 0.5 * (1 - smooth(1.2, 4.5, d))); if (d > 1.0 && d < 2.6) mixIn([0.45, 0.39, 0.31], 0.45); } }
   return h;
 }
 const RS_GROUPS = {
@@ -84,42 +95,24 @@ const RS_GROUPS = {
 };
 function rsArc(x) { let best = 0, bd = 1e9, acc = 0; for (let i = 0; i < RS_TRACK.length - 1; i++) { const a = RS_TRACK[i], b = RS_TRACK[i + 1], L = Math.hypot(b[0] - a[0], b[1] - a[1]); for (let u = 0; u <= 1; u += 0.02) { const px = lerp(a[0], b[0], u); if (Math.abs(px - x) < bd) { bd = Math.abs(px - x); best = acc + L * u; } } acc += L; } return best; }
 function rsBuild() {
-  const C = CHAP.rescue; C.ground = makeGround({ x0: RS.o.x - 780, x1: RS.o.x + 760, z0: RS.o.z - 330, z1: RS.o.z + 330, step: 3.2, h: mapH('rescue', rsNat, rsCarve), map: 'rescue', vegOk: (x, z) => distPolyline(x - RS.o.x, z - RS.o.z, RS_TRACK_S) > 7 && ((Math.sin(x * 12.9898 + z * 78.233) * 43758.5453) % 1 + 1) % 1 < 0.35, grass: 'sand', sand: true }); GROUND = C.ground;
+  const C = CHAP.rescue; C.ground = makeGround({ x0: RS.o.x - 780, x1: RS.o.x + 760, z0: RS.o.z - 330, z1: RS.o.z + 330, step: 3.2, h: (x, z) => rsCarve(x, z, rsNat(x, z)), vegOk: () => false,   /* dunes only: no plants, no stones (the user) */ grass: 'sand', sand: true }); GROUND = C.ground;
   const BAGS = [], sv = BATCH.bag; BATCH.bag = BAGS; const k0 = COVER.length; C.slots = []; C.nestBush = []; C.fires = [];
   { const r = rng(4242); for (const id of ['A', 'B', 'C', 'D']) { const g = RS_GROUPS[id], cx = g.at ?? g.pts[0][0]; if (g.extra) continue; g.extra = true; for (let k = 0; k < 5; k++) { const sd = k % 2 ? 1 : -1; g.pts.push([cx + (r() - 0.5) * 200, sd * (70 + r() * 120)]); g.kinds.push(['rifle', 'rpg', 'rifle', 'rifle', 'atgm'][k]); } } }
   for (const [id, g] of Object.entries(RS_GROUPS)) g.pts.forEach(([x0, z0], i) => { if ('ABCDN'.includes(id)) z0 = rsTrackZ(x0) + rsSideAt(x0) * Math.max(26, Math.abs(z0) * 0.5);   /* off the track itself, on the stretch's side, closer in */ const lane = id === 'W' ? RS_WEST : id === 'S' ? RS_SOUTH : RS_TRACK, [x, z] = corr(lane, x0, z0, 23, id === 'W' || id === 'S' ? 4 : 12); const [wx, wz] = RW(x, z); let tx = x, tz = 0; { let bd = 1e9; for (const p of id === 'W' || id === 'S' ? [RS_MEET2, [-560, -66]] : densify(RS_TRACK, 10)) { const d = Math.hypot(p[0] - x, p[1] - z); if (d < bd) { bd = d; tx = p[0]; tz = p[1]; } } } const dx = tx - x, dz = tz - z, l = Math.hypot(dx, dz) || 1; const s = foxhole(wx, wz, dx / l, dz / l, C.slots); s.grp = id; s.kind = g.kinds[i]; if (g.bush) for (let k = 0; k < 6; k++) { const a = Math.atan2(dx, dz) + rand(-2.4, 2.4), d = rand(1.6, 3.4); C.nestBush.push([wx + Math.sin(a) * d, wz + Math.cos(a) * d, rand(0.9, 1.6), rand(0, 6), greenBush(Math.random)]); } });
   // the ambush positions of the three drives: a hole in the sand for each man who pops up, a short sandbag wall for each who runs up to fire
   C.amb = {}; C.ambW = []; for (const st of [0, 2, 4]) C.amb[st] = rsAmbDefs(st).map((a, i) => { const r = rng(7700 + st * 100 + i);
-    a.sh.forEach((q) => { const lx = a.x + q.dx, tz = rsTrackZ(lx), lz = tz + q.side * q.off, fz = Math.sign(tz - lz) || 1, [wx, wz] = RW(lx, lz);
-      if (q.how === 'pit') { const sl = foxhole(wx, wz, 0, fz, C.slots); sl.grp = a.id; sl.kind = q.kind; q.slot = sl; for (let k = 0; k < 4; k++) { const an = (r() - 0.5) * 4.6 + (fz > 0 ? Math.PI : 0), d = 1.7 + r() * 1.6; C.nestBush.push([wx + Math.sin(an) * d, wz - Math.cos(an) * d, 0.8 + r() * 0.6, r() * 6, dryBush(r)]); } }
+    a.sh.forEach((q) => { { const lx = a.x + q.dx, tz = rsTrackZ(lx), H = (x, z) => rsCarve(x + RS.o.x, z + RS.o.z, rsNat(x + RS.o.x, z + RS.o.z));
+        /* the tank's MG must see every hole from the track: a hole a dune hides comes in closer, three metres at a time */
+        for (let n = 0; n < 8; n++) { const pz = tz + q.side * q.off, y0 = H(lx, tz) + 3.1, y1 = H(lx, pz) + 1.0; let ok = true; for (let k = 1; k < 10; k++) { const u = k / 10; if (H(lx, lerp(tz, pz, u)) > lerp(y0, y1, u) - 0.2) { ok = false; break; } } if (ok || q.off <= 13) break; q.off -= 3; } }
+      const lx = a.x + q.dx, tz = rsTrackZ(lx), lz = tz + q.side * q.off, fz = Math.sign(tz - lz) || 1, [wx, wz] = RW(lx, lz);
+      if (q.how === 'pit') { const sl = foxhole(wx, wz, 0, fz, C.slots); sl.grp = a.id; sl.kind = q.kind; q.slot = sl;  }
       else { bagWall([[wx - 1.5, wz + fz * 0.9], [wx + 1.5, wz + fz * 0.9]], 4); q.dest = [wx, wz]; q.from = RW(lx + (r() - 0.5) * 12, lz - fz * 44); C.ambW.push([wx, wz]); } });
     return a; });
-  // the battlefield of the day before: burnt tanks and trucks along the track. At night three of them still burn, and light the road
-  for (const [x, z, b, fire] of [[120, -44, 70, true], [-330, 58, 110, true], [-610, 30, 200, false], [505, -40, 20, false]]) { const [wx, wz] = RW(x, z); placeTank(wx, wz, b, TANK_BURNT); if (fire) rsFire(wx, wz, 2.2); }
-  for (const [x, z, r, fire] of [[430, 62, 0.4, false], [-640, -50, 1.2, false], [-20, 70, 2.2, true], [-600, 80, 2.6, false]]) { const [wx, wz] = RW(x, z); rsJeepWreck(wx, wz, r, x > 0 ? 'f' : 'e'); if (fire) rsFire(wx, wz, 1.6); }
-  for (const [x, z, s] of [[-1300, -400, 40], [-1500, 300, 60], [-900, 900, 30], [200, -1200, 26]]) { const [wx, wz] = RW(x, z); smokeColumn(wx, wz, s, s > 35); }
+  /* nothing but the dunes, the holes and the men (the user): no wrecks, no plants, no stones, no huts */
   { const L = (x, z) => [x - RS.o.x, z - RS.o.z], okW = (x, z) => { const [lx, lz] = L(x, z); return distPolyline(lx, lz, RS_TRACK) > 9 && Math.hypot(lx - RS_MEET[0], lz - RS_MEET[1]) > 22 && Math.hypot(lx - RS_MEET2[0], lz - RS_MEET2[1]) > 16 && Math.hypot(lx - RS_HILL[0], lz - RS_HILL[1]) > 30 && !C.slots.some((s) => Math.hypot(s.x - x, s.z - z) < 4) && !C.ambW.some((w) => Math.hypot(w[0] - x, w[1] - z) < 4); };
     const X0 = RS.o.x - 770, X1 = RS.o.x + 750, Z0 = RS.o.z - 320, Z1 = RS.o.z + 320;
     const TW = RS_TRACK.map(([x, z]) => RW(x, z));
-    concealPatches([...patchesNear(TW, 60, 12, 120, 990, okW, 4, 9), ...patchesIn(70, X0, RS.o.x - 330, Z0, Z1, 991, okW, 5, 12)], C, 992, 0.5);
-    dressRoute(TW, okW, 900, 0.18, 0.15); dressArea(X0, X1, Z0, Z1, okW, 950, 0.15, 0.1); dressArea(X0, RS.o.x - 330, Z0, Z1, okW, 980, 0.12, 0.85);   /* half: millions of triangles of pebbles and tufts (the black squares on a full screen) */
-    instScatter(ROCK_G, scatterIn(LITE ? 60 : 140, X0, X1, Z0, Z1, 301, okW, (x, z, r) => [x, z, 0.22 + r() ** 3 * 1.1, r() * 6, rockCol(r), 0.2, 0.55]).concat(scatterNear(TW, LITE ? 80 : 210, 9, 140, 311, okW, (x, z, r) => [x, z, 0.18 + r() ** 3 * 1.3, r() * 6, rockCol(r), 0.2, 0.55])));
-    instScatter(BUSH_G, scatterNear(TW, LITE ? 66 : 170, 10, 150, 312, okW, (x, z, r) => [x, z, 0.5 + r() * 1.0, r() * 6, r() < 0.25 ? greenBush(r) : dryBush(r), 0, 0.8]));
-    { const bl2 = scatterNear(TW, LITE ? 5 : 10, 18, 110, 313, okW, (x, z, r) => [x, z, 1.2 + r() * 1.8, r() * 6, rockCol(r), 0.3, 0.72]); instScatter(BOULDER_G, bl2); boulders(bl2); }
-    const bl = scatterIn(LITE ? 3 : 5, X0, X1, Z0, Z1, 303, okW, (x, z, r) => [x, z, 1.3 + r() * 1.5, r() * 6, rockCol(r), 0.3, 0.72]); instScatter(BOULDER_G, bl); boulders(bl);
-    desertFlora(X0, X1, Z0, Z1, 3200, okW, 0.1, TW);   /* a third of the plants and rocks: the enemy has to stand out (the user) */   // agaves, cacti, saguaros and hawks (3_world.js)
-    instScatter(BUSH_G, scatterIn(LITE ? 20 : 50, X0, RS.o.x - 300, Z0, Z1, 304, okW, (x, z, r) => [x, z, 0.55 + r() * 0.35, r() * 6, dryBush(r), 0, 0.75]).concat(scatterIn(LITE ? 36 : 80, RS.o.x - 300, X1, Z0, Z1, 305, okW, (x, z, r) => [x, z, 0.35 + r() * 0.5, r() * 6, dryBush(r), 0, 0.7])));
-    // the green belt toward the canal: fields and thick scrub where the tank hunters wait
-    instScatter(BUSH_G, scatterIn(LITE ? 30 : 75, X0, RS.o.x - 340, Z0, Z1, 306, okW, (x, z, r) => [x, z, 0.55 + r() * 0.75, r() * 6, greenBush(r), 0, 0.9]).concat(C.nestBush));
-    for (let i = 0; i < 70; i++) { const r = rng(400 + i); const [x, z] = [X0 + r() * 420, Z0 + r() * 640]; if (okW(x, z)) addCover(x + 1.2, z, -1, 0, 1.1); }
-    palms(scatterIn(26, X0, RS.o.x - 520, Z0, Z1, 307, okW, (x, z, r) => [x, z, 0.8 + r() * 0.3, r() * 6]));
-    powerLine(densify(RS_TRACK, 40).filter(([x]) => x > -420).map(([x, z]) => RW(x, z - 30)), 46);
-    roadRibbon(RS_TRACK.map(([x, z]) => RW(x, z)), 6.5, 'dirt'); roadRibbon(RS_BACK.slice(0, 5).map(([x, z]) => RW(x, z)), 5.5, 'dirt'); rsRoadWrecks(RS_TRACK.map(([x, z]) => RW(x, z)), 5, 8113, 7);
-    roadPoles(RS_TRACK.filter(([x]) => x > -480).map(([x, z]) => RW(x, z)), 30, 5.5);
-    { const [a, b] = RW(626, 16); fieldSign(a, b, 'ציר טליסמן', -Math.PI / 2, 1.2); const [c, d] = RW(612, -14); fieldSign(c, d, 'אזור אש · נוסעים בטור', -Math.PI / 2, 1.6); }
-    for (const [x, z, w, d, h, ru] of [[660, -40, 6, 4, 2.6, 0], [672, 46, 5, 4, 2.4, 0], [262, 48, 5, 4, 2.4, 1], [-150, -44, 6, 5, 2.6, 1], [-36, 58, 4, 4, 2.2, 1]]) { const [wx, wz] = RW(x, z); smallHut(wx, wz, w, d, h, '#cbb68e', 0x7d6e58, !!ru); }
-    wireFence([[690, -80], [600, -80], [600, -30]].map(([x, z]) => RW(x, z))); wireFence([[600, 40], [600, 80], [690, 80]].map(([x, z]) => RW(x, z)));
-    for (const [x, z] of [[640, 28], [-470, 60]]) { const [wx, wz] = RW(x, z); fieldDrums(wx, wz, 5); }
+    roadRibbon(RS_TRACK.map(([x, z]) => RW(x, z)), 6.5, 'dirt'); roadRibbon(RS_BACK.slice(0, 5).map(([x, z]) => RW(x, z)), 5.5, 'dirt');
   }
   BATCH.bag = sv; if (BAGS.length) scene.add(bagMesh(BAGS)); C.covers = COVER.slice(k0); for (const c of C.covers) c.y = groundAt(c.x, c.z);
   // the rescue force: Shaul's tank (the battalion commander), the artillery liaison officer's tank, and the four light vehicles of company Yod behind (jeeps: the only light vehicle model in the game)
@@ -237,7 +230,8 @@ function rsSetup(stage) {
     rsHillPark(); for (const i of [0, 1, 3]) { vehDestroy(C.apc[i], true); C.apc[i].follow = null; const [x, z] = RW(RS_HILL[0] + 70 + i * 30, RS_HILL[1] - 60 + i * 15); vehPose(C.apc[i], x, z, -Math.PI / 2); }
     C.apc[2].follow = null; { const [x, z] = RW(RS_HILL[0] + 40, RS_HILL[1] + 25); vehPose(C.apc[2], x, z, -Math.PI / 2); }
     C.ksha.follow = null; { const [x, z] = RW(RS_HILL[0] + 22, RS_HILL[1] - 18); vehPose(C.ksha, x, z, -Math.PI / 2); }
-    C.shaul.follow = null; { const [x, z] = RW(RS_MEET2[0], RS_MEET2[1]); C.shaul.hdV = -Math.PI * 0.6; vehPose(C.shaul, x, z, -Math.PI * 0.6); }
+    // Shaul's tank climbs the meeting point's dune from the end of the track; the garrison comes up to him on top
+    C.shaul.follow = null; C.shaul.path = [RW(-520, -10), RW(RS_MEET2[0], RS_MEET2[1])]; C.shaul.s = 0; C.shaul.speed = 0; C.shaul.vmax = 3.5; C.shaul.stop = undefined; C.shaul.ended = false; C.shaul.hdV = null; C.shaul.onEnd = null;
     rsGarrison('wait');
   } else {
     // the way home: Shaul leads on his own path with the garrison on his deck, the player's tank joins behind him, the liaison tank and the last half-track follow
@@ -265,7 +259,7 @@ function rsStage(i) {
   }
   if (i === 2 && RS.hillCp) { RS.msgs.h1 = RS.msgs.h2 = RS.msgs.h3 = RS.msgs.c2 = true; for (const k of [0, 1, 3]) vehDestroy(C.apc[k], true); radio('מח״ט', 'שאול, עצור. קבוצת חיילים יורדת מהגבעה אליכם — אל תירו עד שמזהים.', 4); }
   else if (i === 2) { radio('מח״ט', 'אני נכנס איתכם, הטנק שלי משמאל. חטיבה 421 מגבירה אש. כולם — גז, לא עוצרים!', 4.5); }
-  if (i === 3) { radio('שאול', 'אני בנקודת המפגש! הם רצים אליי מאחורי הדיונה. תחפה עליי מהגבעה — האר־פי־ג׳י יחפשו אותי עכשיו.', 5); rsGroupSpawn('W', 10, 9, [3, 4, 5][rsD()]); for (const v of C.t55.slice(3)) { v.shown = true; v.g.visible = true; v.shoots = true; } rsBoardStart(); hint('rs-cover', 'הטנק של שאול עומד במקום עד ש־33 איש עולים עליו. סימון צהוב מהבהב = מפעיל אר־פי־ג׳י מכוון אליו: הרגו אותו לפני שהטיל מגיע. טנק מצרי — פגז (G).', 10); }
+  if (i === 3) { radio('שאול', 'אני בנקודת המפגש! הם רצים אליי מאחורי הדיונה. תחפה עליי מהגבעה — האר־פי־ג׳י יחפשו אותי עכשיו.', 5); rsGroupSpawn('W', 10, 9, [3, 4, 5][rsD()]); for (const v of C.t55.slice(3)) { v.shown = true; v.g.visible = true; v.shoots = true; } if (C.shaul.path && !C.shaul.ended && C.shaul.s < 1) C.shaul.onEnd = () => rsBoardStart(); else rsBoardStart(); hint('rs-cover', 'הטנק של שאול עומד במקום עד ש־33 איש עולים עליו. סימון צהוב מהבהב = מפעיל אר־פי־ג׳י מכוון אליו: הרגו אותו לפני שהטיל מגיע. טנק מצרי — פגז (G).', 10); }
   if (i === 4) { radio('שאול', 'כולם עליי! שלושים ושלושה. אני זז מזרחה — תישאר צמוד אליי.', 4); DIRQ.push({ at: GAME.t + 6, fn: () => radio('מח״ט', 'כל הדרך הביתה הם יחכו לכם בשוחות. מי שמרים ראש — מקבל.', 3.5) }); }
 }
 function rsSquad(id, n) { const C = CHAP.rescue, sl = C.slots.filter((q) => q.grp === id), r = rng(5300 + id.charCodeAt(0) * 31 + n); n = Math.round(n * [0.6, 1, 1.25][rsD()]); for (let k = 0; k < n && sl.length; k++) { const s = sl[k % sl.length], [lx, lz] = corr(RS_TRACK, s.x - RS.o.x + (r() - 0.5) * 50, s.z - RS.o.z + (r() - 0.5) * 12, 24, 10), [mx, mz] = corr(RS_TRACK, lx + (r() - 0.5) * 20, lz * 0.5, 14, 4), [x, z] = RW(lx, lz), [tx, tz] = RW(mx, mz); const e = fSpawnStreet0(x, z, [[tx, tz]], k % 4 === 3 ? 'rpg' : 'rifle'); if (e) { e.sq = id; e.tac = k % 4 < [1, 2, 3][rsD()] ? 'storm' : 'hold'; e.rpgMiss = rsD() === 0 || (rsD() === 1 && k % 8 === 3); } } }
