@@ -2558,6 +2558,8 @@ function fitBuffer(w, h) {
   if (k < 0.999) { const np = Math.max(1, Math.floor(pr * k * 20) / 20); renderer.setPixelRatio(np); renderer.setSize(w, h); GOV.cap = Math.min(GOV.cap, np); if (composer) composer.setPixelRatio(np); }
 }
 window.addEventListener('resize', resize);
+/* the browser may also shrink the drawing buffer later, under memory pressure (a phone, after a mission's data comes in): then part of the screen stays black. Checked twice a second, and the size asked for again */
+setInterval(() => { try { const gl = renderer.getContext(), c = renderer.domElement; if (gl.drawingBufferWidth < c.width - 1 || gl.drawingBufferHeight < c.height - 1) resize(); } catch (e) {} }, 500);
 function update(dt, time) {
   const rdt = dt; if (CINE.on) dt *= CINE.slow; FDT = dt;
   GAME.t += dt; GAME.gCd -= dt;
