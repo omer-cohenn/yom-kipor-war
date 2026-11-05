@@ -342,7 +342,7 @@ function nsFaceMat(m, V) {   // m: a skin material over the head's photograph
 function nsMaterials() {
   if (NEWSOL.mats) return NEWSOL.mats;
   const T = SOLDIER_DATA.tex, std = (o) => new THREE.MeshStandardMaterial(Object.assign({ roughness: 0.9, metalness: 0 }, o));
-  const cloth = (side, map, color) => { const m = rimMat(side === 'e' ? 0xff4020 : 0x5f9cff, side === 'e' ? 0 : 0.12); m.vertexColors = false; m.map = map; m.bumpMap = null; m.color.set(color); m.roughness = 0.95; m.customProgramCacheKey = () => 'nsRim' + side; return m; };
+  const cloth = (side, map, color) => { const m = rimMat(side === 'e' ? 0xff4020 : 0x5f9cff, 0);   /* no blue rim on ours: at night it turned the olive uniform blue (the user) */ m.vertexColors = false; m.map = map; m.bumpMap = null; m.color.set(color); m.roughness = 0.95; m.customProgramCacheKey = () => 'nsRim' + side; return m; };
   const uniF = nsCamo({ seed: 3, base: 0x878159, layers: [[0x8f8960, 0.6, 3, 4], [0x7b7550, 0.62, 5, 6]] });   /* the IDF's olive drill (madei alef): olive green, faded unevenly by the sun (the user's photograph) */   // the IDF's olive drill as the photographs of 1973 show it: khaki-olive, faded unevenly by the sun
   NEWSOL.camo.eg = nsCamo(NS_CAMO.eg);
   const head = nsImage(T.head), headAr = nsImage(T.headAr || T.head), hands = nsImage(T.hands), eyes = nsImage(T.eyes), net = nsNet();

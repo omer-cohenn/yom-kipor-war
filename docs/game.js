@@ -3155,7 +3155,7 @@ function rimMat(hex, k) {
   m.customProgramCacheKey = () => 'rim' + hex; m.userData.rim = col; m.userData.rimHex = hex; return m;
 }
 function setRim(m, k) { m.userData.rim.setHex(m.userData.rimHex).multiplyScalar(k); }
-MAT.clothE = rimMat(0xff4020, 0); MAT.clothF = rimMat(0x5f9cff, 0.22);   // no red outline on the enemy: the mark over his head is enough
+MAT.clothE = rimMat(0xff4020, 0); MAT.clothF = rimMat(0x5f9cff, 0);   // no red outline on the enemy: the mark over his head is enough
 /* the uniform's cloth, close up: mottled - irregular patches in three shades of the side's colour at two sizes, flecks, a twill weave, wear
    and grime - tiling, about 40 cm a repeat; the weave and the patches' edges also give the light a little relief */
 function camoTex(side) {
@@ -3177,7 +3177,7 @@ function camoTex(side) {
   return { map: t, bump: bt };
 }
 MAT.uni = {};
-for (const [side, hex, k] of [['f', 0x5f9cff, 0.22], ['e', 0xff4020, 0]]) { const m = rimMat(hex, k), t = camoTex(side); m.map = t.map; m.bumpMap = t.bump; m.bumpScale = 0.9; m.roughness = 0.96; m.customProgramCacheKey = () => 'rimU' + hex; MAT.uni[side] = m; }
+for (const [side, hex, k] of [['f', 0x5f9cff, 0], ['e', 0xff4020, 0]]) { const m = rimMat(hex, k), t = camoTex(side); m.map = t.map; m.bumpMap = t.bump; m.bumpScale = 0.9; m.roughness = 0.96; m.customProgramCacheKey = () => 'rimU' + hex; MAT.uni[side] = m; }
 MAT.uni.e.color = MAT.clothE.color;   // the chapters tint the enemy's uniform through the cloth colour
 // the Syrians on the Hermon: not the Egyptians' sand blotches but their own - khaki-olive drill with short dark vertical 'lizard' stripes
 function camoTexSy() {
@@ -4573,7 +4573,7 @@ function nsFaceMat(m, V) {   // m: a skin material over the head's photograph
 function nsMaterials() {
   if (NEWSOL.mats) return NEWSOL.mats;
   const T = SOLDIER_DATA.tex, std = (o) => new THREE.MeshStandardMaterial(Object.assign({ roughness: 0.9, metalness: 0 }, o));
-  const cloth = (side, map, color) => { const m = rimMat(side === 'e' ? 0xff4020 : 0x5f9cff, side === 'e' ? 0 : 0.12); m.vertexColors = false; m.map = map; m.bumpMap = null; m.color.set(color); m.roughness = 0.95; m.customProgramCacheKey = () => 'nsRim' + side; return m; };
+  const cloth = (side, map, color) => { const m = rimMat(side === 'e' ? 0xff4020 : 0x5f9cff, 0);   /* no blue rim on ours: at night it turned the olive uniform blue (the user) */ m.vertexColors = false; m.map = map; m.bumpMap = null; m.color.set(color); m.roughness = 0.95; m.customProgramCacheKey = () => 'nsRim' + side; return m; };
   const uniF = nsCamo({ seed: 3, base: 0x878159, layers: [[0x8f8960, 0.6, 3, 4], [0x7b7550, 0.62, 5, 6]] });   /* the IDF's olive drill (madei alef): olive green, faded unevenly by the sun (the user's photograph) */   // the IDF's olive drill as the photographs of 1973 show it: khaki-olive, faded unevenly by the sun
   NEWSOL.camo.eg = nsCamo(NS_CAMO.eg);
   const head = nsImage(T.head), headAr = nsImage(T.headAr || T.head), hands = nsImage(T.hands), eyes = nsImage(T.eyes), net = nsNet();

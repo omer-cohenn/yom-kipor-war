@@ -456,7 +456,7 @@ function rimMat(hex, k) {
   m.customProgramCacheKey = () => 'rim' + hex; m.userData.rim = col; m.userData.rimHex = hex; return m;
 }
 function setRim(m, k) { m.userData.rim.setHex(m.userData.rimHex).multiplyScalar(k); }
-MAT.clothE = rimMat(0xff4020, 0); MAT.clothF = rimMat(0x5f9cff, 0.22);   // no red outline on the enemy: the mark over his head is enough
+MAT.clothE = rimMat(0xff4020, 0); MAT.clothF = rimMat(0x5f9cff, 0);   // no red outline on the enemy: the mark over his head is enough
 /* the uniform's cloth, close up: mottled - irregular patches in three shades of the side's colour at two sizes, flecks, a twill weave, wear
    and grime - tiling, about 40 cm a repeat; the weave and the patches' edges also give the light a little relief */
 function camoTex(side) {
@@ -478,7 +478,7 @@ function camoTex(side) {
   return { map: t, bump: bt };
 }
 MAT.uni = {};
-for (const [side, hex, k] of [['f', 0x5f9cff, 0.22], ['e', 0xff4020, 0]]) { const m = rimMat(hex, k), t = camoTex(side); m.map = t.map; m.bumpMap = t.bump; m.bumpScale = 0.9; m.roughness = 0.96; m.customProgramCacheKey = () => 'rimU' + hex; MAT.uni[side] = m; }
+for (const [side, hex, k] of [['f', 0x5f9cff, 0], ['e', 0xff4020, 0]]) { const m = rimMat(hex, k), t = camoTex(side); m.map = t.map; m.bumpMap = t.bump; m.bumpScale = 0.9; m.roughness = 0.96; m.customProgramCacheKey = () => 'rimU' + hex; MAT.uni[side] = m; }
 MAT.uni.e.color = MAT.clothE.color;   // the chapters tint the enemy's uniform through the cloth colour
 // the Syrians on the Hermon: not the Egyptians' sand blotches but their own - khaki-olive drill with short dark vertical 'lizard' stripes
 function camoTexSy() {
