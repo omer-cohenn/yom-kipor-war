@@ -4616,7 +4616,7 @@ function nsUniformFor(mode) {
   for (const [list, net] of [[M.ev, false], [M.e2v, true]]) for (const a of list) {   /* every face: the Syrians a shade fairer; their helmets painted */
     const V = a[3].userData.face; a[3].color.set(sy ? 0xf2dac2 : 0xf0d5ba); if (V) a[3].color.multiply(new THREE.Color(V[0][0], V[0][1], V[0][2])); a[4].color.copy(a[3].color); a[8] = sy ? Hm.sy : net ? Hm.net : Hm.cover; }
   for (const m of [E[0], E[1]]) m.needsUpdate = true;
-  if (E[0].userData.rim) { E[0].userData.rimHex = 0xb5a072; setRim(E[0], mode === 'rescue' ? 0.3 : 0); }   /* a faint glow of their khaki round the Egyptians' edges in the rescue's dark (the user) */
+  if (E[0].userData.rim) { E[0].userData.rimHex = 0xb5a072; setRim(E[0], mode === 'rescue' ? 2.2 : 0); }   /* a faint glow of their khaki round the Egyptians' edges in the rescue's dark (the user) */
   for (const [own, base] of NEWSOL.own || []) { for (let k = 0; k < base.length; k++) if (k !== 3) own[k] = base[k]; own[3].color.copy(base[3].color); }   /* each man's own copy: all but his face follow the set */
 }
 { const _uf = uniformFor; uniformFor = function (mode) { _uf(mode); nsUniformFor(mode); nsRefresh(); }; }   /* reassigns the declaration in 4_actors.js (one module) */
@@ -10888,8 +10888,8 @@ const rsD = () => Math.max(0, DIFF.indexOf(diff));
 function rsTrackZ(x) { const T = RS_TRACK; if (x >= T[0][0]) return T[0][1]; for (let i = 0; i < T.length - 1; i++) if (x <= T[i][0] && x >= T[i + 1][0]) return lerp(T[i][1], T[i + 1][1], (T[i][0] - x) / (T[i][0] - T[i + 1][0])); return T[T.length - 1][1]; }
 // the ambushes of one leg: their places are fixed (seeded), the same in every game
 function rsAmbDefs(stage) {
-  return RS_AMBX[stage].map((x, i) => { const r = rng(7100 + stage * 100 + i), sd = i % 2 ? 1 : -1, kinds = RS_KINDS[(i + stage) % 4];
-    return { x, id: `a${stage}_${i}`, sh: kinds.map((k0, k) => { const kind = stage === 4 && k0 === 'atgm' && i % 2 ? 'rpg' : k0, side = sd, off = 42 + k * 3.5 + r() * 3, dx = (stage === 4 ? 1 : -1) * (off + 10 + k * 3 + r() * 6);   /* one team on one side, a few metres apart, and further ahead than out to the side: inside the 90 degrees in front (the user) */
+  return RS_AMBX[stage].map((x, i) => { const r = rng(7100 + stage * 100 + i), sd = i % 2 ? 1 : -1 /* each ambush from the other side; only the stage's last from both (the user) */, kinds = RS_KINDS[(i + stage) % 4];
+    return { x, id: `a${stage}_${i}`, sh: kinds.map((k0, k) => { const kind = stage === 4 && k0 === 'atgm' && i % 2 ? 'rpg' : k0, side = i === RS_AMBX[stage].length - 1 && k % 2 ? -sd : sd, off = 42 + k * 3.5 + r() * 3, dx = (stage === 4 ? 1 : -1) * (off + 10 + k * 3 + r() * 6);   /* one team on one side, a few metres apart, and further ahead than out to the side: inside the 90 degrees in front (the user) */
       return { dx, side, off, kind, how: kind === 'rifle' ? 'run' : 'pit' }; }) }; });
 }
 const RS_STAGES = [
@@ -11283,7 +11283,8 @@ function rsIntroFilm() {
       // through night-vision green: low on the sand in front of the file, the men walking up out of the dark against the stars; then from above
       { d: 5.2, cam: (u) => ({ p: lead().add(V3(dx * (7 - u * 2) + dz * 1.4, 0.35, dz * (7 - u * 2) - dx * 1.4)), l: mid().add(V3(0, 2.4, 0)), fov: 40 }) },
       { d: 4.6, cam: (u) => ({ p: mid().add(V3(-dz * 6, 24 - u * 4, dx * 6)).add(V3(dx * (u * 8 - 4), 0, dz * (u * 8 - 4))), l: mid().add(V3(dx * 4, 0, dz * 4)), fov: 50 }) },
-      { d: 5.0, cam: camLerp(() => line.clone().add(V3(40, 3.5, 30)), () => line.clone().add(V3(22, 2.6, 18)), () => line.clone().add(V3(-20, 2, 0)), () => line.clone().add(V3(-30, 2, 0)), 48) },
+      // the rescue column: in front of the tanks, low, looking back down the file of tanks and jeeps
+      { d: 5.0, cam: (u) => { const t = TANK.g.position, [fx, fz] = rsFwd(), a = 30 - u * 10; return { p: V3(t.x + fx * a + fz * 9, t.y + 2.2 + u * 0.8, t.z + fz * a - fx * 9), l: V3(t.x - fx * 35, t.y + 1.2, t.z - fz * 35), fov: 44 }; } },
     ],
     ev: [[0, () => $('#app').classList.add('nv')], [9.6, () => { RS.walk = null; for (const q of units) { q.u.rig.root.visible = false; if (q.r) q.r.state = 'hide'; } }]],
     caps: [[0.3, '<b>8 באוקטובר, בערב.</b> מאירק׳ה, מפקד פורקן, בקשר: "יש בכוונתי להיחלץ רגלית." דיוויזיה מצרית שלמה בינו לבין כוחותינו.', 4.6], [5.3, 'בשתיים וחצי, אחרי שקיעת הירח, יוצאים 33 לוחמים דרומה, לאורך ציר טליסמן. עשרה קילומטרים ברגל, בין העמדות המצריות.', 4.4], [10.0, '<b>לפנות בוקר.</b> חטיבה 14 מקבלת את החילוץ. הכוח: שני טנקים, ארבעה ג׳יפים ורופא. המח״ט עולה לתצפית ומשגיח מקרוב.', 4.8]],
