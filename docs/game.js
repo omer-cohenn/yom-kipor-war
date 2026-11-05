@@ -3152,8 +3152,8 @@ function facesIdle() { if (!FACEQ.length) return; if (!LD.busy && !document.hidd
 const US = 1.14;
 function rimMat(hex, k) {
   const m = MAT.cloth.clone(); const col = new THREE.Color(hex).multiplyScalar(k);
-  m.onBeforeCompile = (sh) => { sh.uniforms.uRim = { value: col }; sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform vec3 uRim;').replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n  { float rr = 1.0 - clamp(abs(dot(normalize(vNormal), normalize(vViewPosition))), 0.0, 1.0); totalEmissiveRadiance += uRim * rr * rr * rr * rr; }'); };
-  m.customProgramCacheKey = () => 'rim' + hex; m.userData.rim = col; m.userData.rimHex = hex; return m;
+  m.onBeforeCompile = (sh) => { sh.uniforms.uRim = { value: col }; sh.uniforms.uRimP = m.userData.rimP; sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform vec3 uRim; uniform float uRimP;').replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n  { float rr = 1.0 - clamp(abs(dot(normalize(vNormal), normalize(vViewPosition))), 0.0, 1.0); totalEmissiveRadiance += uRim * pow(rr, uRimP); }'); };
+  m.customProgramCacheKey = () => 'rim' + hex; m.userData.rim = col; m.userData.rimP = { value: 4 }; m.userData.rimHex = hex; return m;
 }
 function setRim(m, k) { m.userData.rim.setHex(m.userData.rimHex).multiplyScalar(k); }
 MAT.clothE = rimMat(0xff4020, 0); MAT.clothF = rimMat(0x5f9cff, 0);   // no red outline on the enemy: the mark over his head is enough
@@ -4616,7 +4616,7 @@ function nsUniformFor(mode) {
   for (const [list, net] of [[M.ev, false], [M.e2v, true]]) for (const a of list) {   /* every face: the Syrians a shade fairer; their helmets painted */
     const V = a[3].userData.face; a[3].color.set(sy ? 0xf2dac2 : 0xf0d5ba); if (V) a[3].color.multiply(new THREE.Color(V[0][0], V[0][1], V[0][2])); a[4].color.copy(a[3].color); a[8] = sy ? Hm.sy : net ? Hm.net : Hm.cover; }
   for (const m of [E[0], E[1]]) m.needsUpdate = true;
-  if (E[0].userData.rim) { E[0].userData.rimHex = 0xb5a072; setRim(E[0], mode === 'rescue' ? 2.2 : 0); }   /* a faint glow of their khaki round the Egyptians' edges in the rescue's dark (the user) */
+  if (E[0].userData.rim) { E[0].userData.rimHex = 0xb5a072; setRim(E[0], mode === 'rescue' ? 1.6 : 0); if (E[0].userData.rimP) E[0].userData.rimP.value = mode === 'rescue' ? 1.7 : 4; }   /* a wider ring */   /* a faint glow of their khaki round the Egyptians' edges in the rescue's dark (the user) */
   for (const [own, base] of NEWSOL.own || []) { for (let k = 0; k < base.length; k++) if (k !== 3) own[k] = base[k]; own[3].color.copy(base[3].color); }   /* each man's own copy: all but his face follow the set */
 }
 { const _uf = uniformFor; uniformFor = function (mode) { _uf(mode); nsUniformFor(mode); nsRefresh(); }; }   /* reassigns the declaration in 4_actors.js (one module) */
@@ -9273,6 +9273,7 @@ function suezEnemyStep(e, dt, shoot, aimPitch) {
     if (e.peek && aimed) { e.aimT += dt; if (e.aimT > (P.mode === 'tank' ? 1.4 : 0.8) && e.kind !== 'rpg') e.cyc = Math.min(e.cyc, 0); } else e.aimT = 0;
     if (e.cyc <= 0) { e.peek = !e.peek; if (e.peek && (pin || (aimed && Math.random() < 0.6))) e.peek = false; e.cyc = e.peek ? (e.kind === 'rpg' ? 2.6 : rand(1.2, 3.0)) : rand(0.9, 2.8); if (e.peek) { e.scanCd = 0; e.burst = 0; e.fireCd = rand(0.3, 0.6); e.rpgAim = 0; } }
     if (MODE === 'rescue' && e.ambId && e.kind !== 'rpg' && !e.atgm) rsSyncPeek(e);
+    if (MODE === 'rescue' && e.rsFar) e.peek = false;
     if (!e.peek && pin && tacKnows(e, 4)) { e.blindCd = (e.blindCd ?? rand(0.8, 1.6)) - dt; if (e.blindCd <= 0) { e.blindCd = rand(1.6, 3.2); tacFireAt(e, 0.1); } }
     const tg = e.peek ? s.p : s.h, k = 1 - Math.exp(-dt * 7); e.pos.x += (tg[0] - e.pos.x) * k; e.pos.z += (tg[1] - e.pos.z) * k; e.pos.y = s.y;
     if (e.peek) {
@@ -10892,7 +10893,7 @@ function rsTrackZ(x) { const T = RS_TRACK; if (x >= T[0][0]) return T[0][1]; for
 const rsSideAt = (x) => (Math.floor((x + 2000) / 130) % 2 ? 1 : -1);
 function rsAmbDefs(stage) {
   return RS_AMBX[stage].map((x, i) => { const r = rng(7100 + stage * 100 + i), sd = rsSideAt(x) /* the stretch's side; only the stage's last from both (the user) */, kinds = RS_KINDS[(i + stage) % 4];
-    return { x, id: `a${stage}_${i}`, sh: kinds.map((k0, k) => { const kind = stage === 4 && k0 === 'atgm' && i % 2 ? 'rpg' : k0, side = i === RS_AMBX[stage].length - 1 && k % 2 ? -sd : sd, off = 42 + k * 3.5 + r() * 3, dx = (stage === 4 ? 1 : -1) * (off + 10 + k * 3 + r() * 6);   /* one team on one side, a few metres apart, and further ahead than out to the side: inside the 90 degrees in front (the user) */
+    return { x, id: `a${stage}_${i}`, sh: kinds.map((k0, k) => { const kind = stage === 4 && k0 === 'atgm' && i % 2 ? 'rpg' : k0, side = i === RS_AMBX[stage].length - 1 && k % 2 ? -sd : sd, off = 24 + k * 3 + r() * 3, dx = (stage === 4 ? 1 : -1) * (off + 6 + k * 2.5 + r() * 4);   /* one team on one side, a few metres apart, and further ahead than out to the side: inside the 90 degrees in front (the user) */
       return { dx, side, off, kind, how: kind === 'rifle' ? 'run' : 'pit' }; }) }; });
 }
 const RS_STAGES = [
@@ -10936,7 +10937,7 @@ function rsBuild() {
   const C = CHAP.rescue; C.ground = makeGround({ x0: RS.o.x - 780, x1: RS.o.x + 760, z0: RS.o.z - 330, z1: RS.o.z + 330, step: 3.2, h: mapH('rescue', rsNat, rsCarve), map: 'rescue', vegOk: (x, z) => distPolyline(x - RS.o.x, z - RS.o.z, RS_TRACK_S) > 7 && ((Math.sin(x * 12.9898 + z * 78.233) * 43758.5453) % 1 + 1) % 1 < 0.35, grass: 'sand', sand: true }); GROUND = C.ground;
   const BAGS = [], sv = BATCH.bag; BATCH.bag = BAGS; const k0 = COVER.length; C.slots = []; C.nestBush = []; C.fires = [];
   { const r = rng(4242); for (const id of ['A', 'B', 'C', 'D']) { const g = RS_GROUPS[id], cx = g.at ?? g.pts[0][0]; if (g.extra) continue; g.extra = true; for (let k = 0; k < 5; k++) { const sd = k % 2 ? 1 : -1; g.pts.push([cx + (r() - 0.5) * 200, sd * (70 + r() * 120)]); g.kinds.push(['rifle', 'rpg', 'rifle', 'rifle', 'atgm'][k]); } } }
-  for (const [id, g] of Object.entries(RS_GROUPS)) g.pts.forEach(([x0, z0], i) => { if ('ABCDN'.includes(id)) z0 = rsSideAt(x0) * Math.abs(z0); const lane = id === 'W' ? RS_WEST : id === 'S' ? RS_SOUTH : RS_TRACK, [x, z] = corr(lane, x0, z0, 23, id === 'W' || id === 'S' ? 4 : 12); const [wx, wz] = RW(x, z); let tx = x, tz = 0; { let bd = 1e9; for (const p of id === 'W' || id === 'S' ? [RS_MEET2, [-560, -66]] : densify(RS_TRACK, 10)) { const d = Math.hypot(p[0] - x, p[1] - z); if (d < bd) { bd = d; tx = p[0]; tz = p[1]; } } } const dx = tx - x, dz = tz - z, l = Math.hypot(dx, dz) || 1; const s = foxhole(wx, wz, dx / l, dz / l, C.slots); s.grp = id; s.kind = g.kinds[i]; if (g.bush) for (let k = 0; k < 6; k++) { const a = Math.atan2(dx, dz) + rand(-2.4, 2.4), d = rand(1.6, 3.4); C.nestBush.push([wx + Math.sin(a) * d, wz + Math.cos(a) * d, rand(0.9, 1.6), rand(0, 6), greenBush(Math.random)]); } });
+  for (const [id, g] of Object.entries(RS_GROUPS)) g.pts.forEach(([x0, z0], i) => { if ('ABCDN'.includes(id)) z0 = rsTrackZ(x0) + rsSideAt(x0) * Math.max(26, Math.abs(z0) * 0.5);   /* off the track itself, on the stretch's side, closer in */ const lane = id === 'W' ? RS_WEST : id === 'S' ? RS_SOUTH : RS_TRACK, [x, z] = corr(lane, x0, z0, 23, id === 'W' || id === 'S' ? 4 : 12); const [wx, wz] = RW(x, z); let tx = x, tz = 0; { let bd = 1e9; for (const p of id === 'W' || id === 'S' ? [RS_MEET2, [-560, -66]] : densify(RS_TRACK, 10)) { const d = Math.hypot(p[0] - x, p[1] - z); if (d < bd) { bd = d; tx = p[0]; tz = p[1]; } } } const dx = tx - x, dz = tz - z, l = Math.hypot(dx, dz) || 1; const s = foxhole(wx, wz, dx / l, dz / l, C.slots); s.grp = id; s.kind = g.kinds[i]; if (g.bush) for (let k = 0; k < 6; k++) { const a = Math.atan2(dx, dz) + rand(-2.4, 2.4), d = rand(1.6, 3.4); C.nestBush.push([wx + Math.sin(a) * d, wz + Math.cos(a) * d, rand(0.9, 1.6), rand(0, 6), greenBush(Math.random)]); } });
   // the ambush positions of the three drives: a hole in the sand for each man who pops up, a short sandbag wall for each who runs up to fire
   C.amb = {}; C.ambW = []; for (const st of [0, 2, 4]) C.amb[st] = rsAmbDefs(st).map((a, i) => { const r = rng(7700 + st * 100 + i);
     a.sh.forEach((q) => { const lx = a.x + q.dx, tz = rsTrackZ(lx), lz = tz + q.side * q.off, fz = Math.sign(tz - lz) || 1, [wx, wz] = RW(lx, lz);
@@ -10951,15 +10952,15 @@ function rsBuild() {
     const X0 = RS.o.x - 770, X1 = RS.o.x + 750, Z0 = RS.o.z - 320, Z1 = RS.o.z + 320;
     const TW = RS_TRACK.map(([x, z]) => RW(x, z));
     concealPatches([...patchesNear(TW, 60, 12, 120, 990, okW, 4, 9), ...patchesIn(70, X0, RS.o.x - 330, Z0, Z1, 991, okW, 5, 12)], C, 992, 0.5);
-    dressRoute(TW, okW, 900, 0.6, 0.15); dressArea(X0, X1, Z0, Z1, okW, 950, 0.5, 0.1); dressArea(X0, RS.o.x - 330, Z0, Z1, okW, 980, 0.4, 0.85);   /* half: millions of triangles of pebbles and tufts (the black squares on a full screen) */
-    instScatter(ROCK_G, scatterIn(LITE ? 200 : 460, X0, X1, Z0, Z1, 301, okW, (x, z, r) => [x, z, 0.22 + r() ** 3 * 1.1, r() * 6, rockCol(r), 0.2, 0.55]).concat(scatterNear(TW, LITE ? 260 : 700, 9, 140, 311, okW, (x, z, r) => [x, z, 0.18 + r() ** 3 * 1.3, r() * 6, rockCol(r), 0.2, 0.55])));
-    instScatter(BUSH_G, scatterNear(TW, LITE ? 220 : 560, 10, 150, 312, okW, (x, z, r) => [x, z, 0.5 + r() * 1.0, r() * 6, r() < 0.25 ? greenBush(r) : dryBush(r), 0, 0.8]));
+    dressRoute(TW, okW, 900, 0.18, 0.15); dressArea(X0, X1, Z0, Z1, okW, 950, 0.15, 0.1); dressArea(X0, RS.o.x - 330, Z0, Z1, okW, 980, 0.12, 0.85);   /* half: millions of triangles of pebbles and tufts (the black squares on a full screen) */
+    instScatter(ROCK_G, scatterIn(LITE ? 60 : 140, X0, X1, Z0, Z1, 301, okW, (x, z, r) => [x, z, 0.22 + r() ** 3 * 1.1, r() * 6, rockCol(r), 0.2, 0.55]).concat(scatterNear(TW, LITE ? 80 : 210, 9, 140, 311, okW, (x, z, r) => [x, z, 0.18 + r() ** 3 * 1.3, r() * 6, rockCol(r), 0.2, 0.55])));
+    instScatter(BUSH_G, scatterNear(TW, LITE ? 66 : 170, 10, 150, 312, okW, (x, z, r) => [x, z, 0.5 + r() * 1.0, r() * 6, r() < 0.25 ? greenBush(r) : dryBush(r), 0, 0.8]));
     { const bl2 = scatterNear(TW, LITE ? 5 : 10, 18, 110, 313, okW, (x, z, r) => [x, z, 1.2 + r() * 1.8, r() * 6, rockCol(r), 0.3, 0.72]); instScatter(BOULDER_G, bl2); boulders(bl2); }
-    const bl = scatterIn(LITE ? 10 : 15, X0, X1, Z0, Z1, 303, okW, (x, z, r) => [x, z, 1.3 + r() * 1.5, r() * 6, rockCol(r), 0.3, 0.72]); instScatter(BOULDER_G, bl); boulders(bl);
-    desertFlora(X0, X1, Z0, Z1, 3200, okW, 0.35, TW);   /* a third of the plants and rocks: the enemy has to stand out (the user) */   // agaves, cacti, saguaros and hawks (3_world.js)
-    instScatter(BUSH_G, scatterIn(LITE ? 70 : 170, X0, RS.o.x - 300, Z0, Z1, 304, okW, (x, z, r) => [x, z, 0.55 + r() * 0.35, r() * 6, dryBush(r), 0, 0.75]).concat(scatterIn(LITE ? 120 : 260, RS.o.x - 300, X1, Z0, Z1, 305, okW, (x, z, r) => [x, z, 0.35 + r() * 0.5, r() * 6, dryBush(r), 0, 0.7])));
+    const bl = scatterIn(LITE ? 3 : 5, X0, X1, Z0, Z1, 303, okW, (x, z, r) => [x, z, 1.3 + r() * 1.5, r() * 6, rockCol(r), 0.3, 0.72]); instScatter(BOULDER_G, bl); boulders(bl);
+    desertFlora(X0, X1, Z0, Z1, 3200, okW, 0.1, TW);   /* a third of the plants and rocks: the enemy has to stand out (the user) */   // agaves, cacti, saguaros and hawks (3_world.js)
+    instScatter(BUSH_G, scatterIn(LITE ? 20 : 50, X0, RS.o.x - 300, Z0, Z1, 304, okW, (x, z, r) => [x, z, 0.55 + r() * 0.35, r() * 6, dryBush(r), 0, 0.75]).concat(scatterIn(LITE ? 36 : 80, RS.o.x - 300, X1, Z0, Z1, 305, okW, (x, z, r) => [x, z, 0.35 + r() * 0.5, r() * 6, dryBush(r), 0, 0.7])));
     // the green belt toward the canal: fields and thick scrub where the tank hunters wait
-    instScatter(BUSH_G, scatterIn(LITE ? 100 : 250, X0, RS.o.x - 340, Z0, Z1, 306, okW, (x, z, r) => [x, z, 0.55 + r() * 0.75, r() * 6, greenBush(r), 0, 0.9]).concat(C.nestBush));
+    instScatter(BUSH_G, scatterIn(LITE ? 30 : 75, X0, RS.o.x - 340, Z0, Z1, 306, okW, (x, z, r) => [x, z, 0.55 + r() * 0.75, r() * 6, greenBush(r), 0, 0.9]).concat(C.nestBush));
     for (let i = 0; i < 70; i++) { const r = rng(400 + i); const [x, z] = [X0 + r() * 420, Z0 + r() * 640]; if (okW(x, z)) addCover(x + 1.2, z, -1, 0, 1.1); }
     palms(scatterIn(26, X0, RS.o.x - 520, Z0, Z1, 307, okW, (x, z, r) => [x, z, 0.8 + r() * 0.3, r() * 6]));
     powerLine(densify(RS_TRACK, 40).filter(([x]) => x > -420).map(([x, z]) => RW(x, z - 30)), 46);
@@ -11138,8 +11139,8 @@ function rsAmbUpd(dt) {
   const C = CHAP.rescue, L = C.amb[RS.stage]; if (!L || CINE.on) return; const dir = RS.stage === 4 ? 1 : -1, tx = TANK.g.position.x - RS.o.x;
   RS.ambT += dt; if (RS.ambT < 6) return;   // the first seconds of a drive belong to the positions astride the track: the ambushes start after them
   const lead = RS.stage === 4 && C.shaul.alive ? Math.max(C.shaul.g.position.x - RS.o.x, tx) : tx;
-  if (!(RS.stage === 2 && RS.hillOn)) { while (RS.ambI < L.length && (L[RS.ambI].x - lead) * dir < 125) rsAmbSpawn(L[RS.ambI++]);
-    if (RS.ambI < L.length && (L[RS.ambI].x - lead) * dir < 260) { const live = new Set(); for (const e of UNITS.enemies) if (e.alive && e.sq === 'am' && e.ambId && Math.hypot(e.pos.x - TANK.g.position.x, e.pos.z - TANK.g.position.z) < 300) live.add(e.ambId); if (live.size < 2) rsAmbSpawn(L[RS.ambI++]); } }
+  if (!(RS.stage === 2 && RS.hillOn)) { while (RS.ambI < L.length && (L[RS.ambI].x - lead) * dir < 90) rsAmbSpawn(L[RS.ambI++]);
+    if (RS.ambI < L.length && (L[RS.ambI].x - lead) * dir < 120) { const live = new Set(); for (const e of UNITS.enemies) if (e.alive && e.sq === 'am' && e.ambId && Math.hypot(e.pos.x - TANK.g.position.x, e.pos.z - TANK.g.position.z) < 300) live.add(e.ambId); if (live.size < 2) rsAmbSpawn(L[RS.ambI++]); } }
   RS.ambCk -= dt; if (RS.ambCk > 0) return; RS.ambCk = 0.5;
   for (const e of UNITS.enemies) if (e.alive && e.sz && (e.sq === 'am' || 'ABCN'.includes(e.sq || '#')) && (e.pos.x - RS.o.x - tx) * dir < -140 && !fieldSees(e, 110)) { e.alive = false; e.rig.root.visible = false; e.tag.visible = false; if (e.slot) { e.slot.used = false; e.slot = null; } }
 }
@@ -11201,21 +11202,24 @@ function rsArcCull(dt) {
   RS.cullT = (RS.cullT || 0) - dt; if (RS.cullT > 0 || CINE.on || !TANK.g) return; RS.cullT = 0.25;
   const t = TANK.g.position, [fx, fz] = rsFwd();
   for (const e of UNITS.enemies) { if (!e.alive || e.state === 'film' || e.sq === 'H') continue; const dx = e.pos.x - t.x, dz = e.pos.z - t.z, d = Math.hypot(dx, dz) || 1;
-    if ((dx * fx + dz * fz) / d < RS_ARC_OUT) { e.alive = false; e.rig.root.visible = false; if (e.tag) e.tag.visible = false; if (e.slot) { e.slot.used = false; e.slot = null; } } }
+    const lx = e.pos.x - RS.o.x, side = Math.sign(e.pos.z - RS.o.z - rsTrackZ(lx)), last = RS_AMBX[RS.stage] && e.ambId === `a${RS.stage}_${RS_AMBX[RS.stage].length - 1}`;
+    e.rsFar = d > 55;   /* up to fire only from 50 m (the user) */
+    const wrong = rsDriving() && !last && side !== rsSideAt(lx);   /* one side of the track at a time: a man on the other side of this stretch is never there */
+    if (wrong || (dx * fx + dz * fz) / d < RS_ARC_OUT) { e.alive = false; e.rig.root.visible = false; if (e.tag) e.tag.visible = false; if (e.slot) { e.slot.used = false; e.slot = null; } } }
 }
 function rsHold(dt) {
   RS.holdCk = (RS.holdCk || 0) - dt; if (RS.holdCk > 0) return; dt = 0.25; RS.holdCk = 0.25;   /* four times a second is enough (the sight lines cost) */
   if (!rsDriving()) { if (RS.held) { RS.held = false; TANK.vmax = RS.vmax0 ?? TANK.vmax; } return; }
   if (RS.vmax0 === undefined || (!RS.held && TANK.vmax > 0)) RS.vmax0 = TANK.vmax;
   const t = TANK.g.position; let block = false;
-  for (const e of UNITS.enemies) { if (!e.alive || !e.rig.root.visible || e.state === 'film') continue; const d = Math.hypot(e.pos.x - t.x, e.pos.z - t.z); if (d > 130 || !rsArcOK(e)) continue;
+  for (const e of UNITS.enemies) { if (!e.alive || !e.rig.root.visible || e.state === 'film') continue; const d = Math.hypot(e.pos.x - t.x, e.pos.z - t.z); if (d > 55 || !rsArcOK(e)) continue;
     if (rsMgSees(e)) { e.blindT = 0; block = true; continue; }
     e.blindT = (e.blindT || 0) + dt; if (RS.held && e.blindT > 6 && !e.peek) { e.alive = false; e.rig.root.visible = false; if (e.tag) e.tag.visible = false; if (e.slot) { e.slot.used = false; e.slot = null; } continue; }
     block = true; }
   /* never stuck: held twenty seconds with nobody killed, the column drives on and the men it could not reach are taken off */
   const kills = STATS.kills || 0; if (!RS.held || kills !== RS.holdK) { RS.holdK = kills; RS.holdT = 0; } else RS.holdT += dt;
   if (RS.held && RS.holdT > 20) { for (const e of UNITS.enemies) if (e.alive && rsArcOK(e) && Math.hypot(e.pos.x - t.x, e.pos.z - t.z) < 130) { e.alive = false; e.rig.root.visible = false; if (e.tag) e.tag.visible = false; if (e.slot) { e.slot.used = false; e.slot = null; } } block = false; RS.holdT = 0; }
-  if (block && !RS.held) { RS.held = true; TANK.vmax = 0; } else if (!block && RS.held) { RS.held = false; TANK.vmax = RS.vmax0; }
+  if (block && !RS.held) { RS.held = true; TANK.vmax = RS.vmax0 * 0.5; }   /* never a stop: half speed past an ambush, always moving (the user) */ else if (!block && RS.held) { RS.held = false; TANK.vmax = RS.vmax0; }
 }
 function rsUpd(dt) {
   const C = CHAP.rescue; C.t += dt; RS.t += dt; if (Math.floor(RS.t * 2) !== Math.floor((RS.t - dt) * 2)) szEnemyCleanup();

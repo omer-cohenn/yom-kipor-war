@@ -1426,6 +1426,7 @@ function suezEnemyStep(e, dt, shoot, aimPitch) {
     if (e.peek && aimed) { e.aimT += dt; if (e.aimT > (P.mode === 'tank' ? 1.4 : 0.8) && e.kind !== 'rpg') e.cyc = Math.min(e.cyc, 0); } else e.aimT = 0;
     if (e.cyc <= 0) { e.peek = !e.peek; if (e.peek && (pin || (aimed && Math.random() < 0.6))) e.peek = false; e.cyc = e.peek ? (e.kind === 'rpg' ? 2.6 : rand(1.2, 3.0)) : rand(0.9, 2.8); if (e.peek) { e.scanCd = 0; e.burst = 0; e.fireCd = rand(0.3, 0.6); e.rpgAim = 0; } }
     if (MODE === 'rescue' && e.ambId && e.kind !== 'rpg' && !e.atgm) rsSyncPeek(e);
+    if (MODE === 'rescue' && e.rsFar) e.peek = false;
     if (!e.peek && pin && tacKnows(e, 4)) { e.blindCd = (e.blindCd ?? rand(0.8, 1.6)) - dt; if (e.blindCd <= 0) { e.blindCd = rand(1.6, 3.2); tacFireAt(e, 0.1); } }
     const tg = e.peek ? s.p : s.h, k = 1 - Math.exp(-dt * 7); e.pos.x += (tg[0] - e.pos.x) * k; e.pos.z += (tg[1] - e.pos.z) * k; e.pos.y = s.y;
     if (e.peek) {

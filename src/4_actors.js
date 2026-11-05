@@ -452,8 +452,8 @@ function facesIdle() { if (!FACEQ.length) return; if (!LD.busy && !document.hidd
 const US = 1.14;
 function rimMat(hex, k) {
   const m = MAT.cloth.clone(); const col = new THREE.Color(hex).multiplyScalar(k);
-  m.onBeforeCompile = (sh) => { sh.uniforms.uRim = { value: col }; sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform vec3 uRim;').replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n  { float rr = 1.0 - clamp(abs(dot(normalize(vNormal), normalize(vViewPosition))), 0.0, 1.0); totalEmissiveRadiance += uRim * rr * rr * rr * rr; }'); };
-  m.customProgramCacheKey = () => 'rim' + hex; m.userData.rim = col; m.userData.rimHex = hex; return m;
+  m.onBeforeCompile = (sh) => { sh.uniforms.uRim = { value: col }; sh.uniforms.uRimP = m.userData.rimP; sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform vec3 uRim; uniform float uRimP;').replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n  { float rr = 1.0 - clamp(abs(dot(normalize(vNormal), normalize(vViewPosition))), 0.0, 1.0); totalEmissiveRadiance += uRim * pow(rr, uRimP); }'); };
+  m.customProgramCacheKey = () => 'rim' + hex; m.userData.rim = col; m.userData.rimP = { value: 4 }; m.userData.rimHex = hex; return m;
 }
 function setRim(m, k) { m.userData.rim.setHex(m.userData.rimHex).multiplyScalar(k); }
 MAT.clothE = rimMat(0xff4020, 0); MAT.clothF = rimMat(0x5f9cff, 0);   // no red outline on the enemy: the mark over his head is enough
