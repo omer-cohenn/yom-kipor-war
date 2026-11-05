@@ -335,7 +335,7 @@ function jeepMgFire(v, dt) {
 }
 function clockOf(p) { const fwd = Math.atan2(-Math.sin(P.yaw), -Math.cos(P.yaw)), a = Math.atan2(p.x - P.pos.x, p.z - P.pos.z); let h = Math.round(-wrapPi(a - fwd) / (Math.PI / 6)); h = ((h % 12) + 12) % 12 || 12; return `שעה ${h}`; }
 function vehTagTick(v) {   // the enemy vehicle's mark: over it while it is alive and in view, larger and flashing just before it fires
-  if (!v.tag) return; const on = v.alive && v.mode === MODE && v.g.visible && !CINE.on && v.g.position.distanceTo(camera.position) > 14; v.tag.visible = on; if (!on) return;
+  if (!v.tag) return; const on = v.alive && v.mode === MODE && v.g.visible && !CINE.on && v.g.position.distanceTo(camera.position) > 14 && !(MODE === 'rescue' && v.g.position.distanceTo(camera.position) > 400);   /* the far tanks out of reach: no mark */ v.tag.visible = on; if (!on) return;
   v.tag.position.set(v.g.position.x, v.g.position.y + (v.kind === 'atgun' ? 2.4 : 3.9), v.g.position.z); const warn = v.shoots && v.fireCd < 1.4;
   v.tag.material = warn ? TAGM.fire : TAGM.e; v.tag.scale.setScalar(warn ? 0.06 + 0.012 * Math.sin(GAME.t * 16) : 0.05);
 }

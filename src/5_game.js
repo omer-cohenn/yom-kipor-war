@@ -2242,6 +2242,7 @@ function clockText() { const m = START_MIN + Math.floor(FIELDM() ? CH().tod() : 
 /* which enemies carry their red mark, and when: the ones that matter now - firing, aiming a bazooka, or with the player in their sight. On
    the easy level also every man who knows we are here; on the hard one only those shooting */
 function tagWanted(e) {
+  if (MODE === 'rescue' && TANK.g) { const t = TANK.g.position; if (Math.hypot(e.pos.x - t.x, e.pos.z - t.z) > 175) return false; if ((e.mgCk ?? 0) < GAME.t) { e.mgCk = GAME.t + 0.3; e.mgSee = rsMgSees(e) && rsArcOK(e); } if (!e.mgSee) return false; }   /* no mark on a man the MG cannot hit (the user) */
   const lv = Math.max(0, DIFF.indexOf(diff)), fired = GAME.t - (e.shotT ?? -9) < 2.6, aim = (e.rpgAim > 0.1 && e.peek) || !!e.guide;
   if (fired || aim) return true; if (lv === 2) return false; if ((e.seeT || 0) > 0.3) return true; return lv === 0 && !!e.alert;
 }
@@ -2560,7 +2561,8 @@ window.addEventListener('resize', resize);
 function update(dt, time) {
   const rdt = dt; if (CINE.on) dt *= CINE.slow; FDT = dt;
   GAME.t += dt; GAME.gCd -= dt;
-  for (const v of VEH) if (v.tag && v.tag.visible && (v.mode !== MODE || !FIELDM())) v.tag.visible = false;   // marks of another chapter's vehicles
+  for (const v of VEH) if (v.tag && v.tag.visible && (v.mode !== MODE || !FIELDM())) v.tag.visible = false;
+  { const b = $('#tact'); if (b) b.style.visibility = MODE === 'rescue' && P.mode === 'tank' ? 'hidden' : ''; }   /* no duck button in the rescue's tank (the user) */   // marks of another chapter's vehicles
   if (FIELDM()) { CH().upd(dt); if (GAME.state !== 'play') return; updTank(dt); updVeh(dt); } else { if (SURV.on) survUpd(dt); else updDirector(dt); if (GAME.state !== 'play') return; updBoats(dt); flotUpd(dt, BOATS.some((b) => !b.dead && (b.state === 'cross' || b.state === 'landed'))); }
   updJets(dt); if (FILMW.length) filmWalk(dt);
   for (const e of UNITS.enemies) if (e.rig.root.visible) updEnemy(e, dt);

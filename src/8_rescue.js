@@ -169,7 +169,7 @@ function rsNightUpd(dt) {
   const C = CHAP.rescue;
   // illumination rounds from our guns hang over the ground the column fights on
   // a round every 14-19 s, over the ground the column is about to drive into: each one comes down on its parachute to the sand and dies there
-  if (RS.stage !== 1 && !CINE.on) { RS.illumT -= dt; if (RS.illumT <= 0) { const n = RS.illumN = (RS.illumN || 0) + 1; RS.illumT = 14 + (n % 3) * 2.5; const [tx, tz] = TANK.g ? [TANK.g.position.x, TANK.g.position.z] : RW(0, 0), ahead = RS.stage === 4 ? 1 : -1; spawnFlare(tx + ahead * (95 + (n % 3) * 40), tz + [-55, 35, 75][n % 3], 205 + (n % 2) * 15, 30, 28, 0.45); if (n % 2) radio('תצפית', n % 4 === 1 ? 'תאורה מעל הציר!' : 'פצצת תאורה באוויר, עיניים לדיונות!', 2); } }
+  if (RS.stage !== 1 && !CINE.on) { RS.illumT -= dt; if (RS.illumT <= 0) { const n = RS.illumN = (RS.illumN || 0) + 1; RS.illumT = 30 + (n % 3) * 4;   /* half as often (the user) */ const [tx, tz] = TANK.g ? [TANK.g.position.x, TANK.g.position.z] : RW(0, 0), ahead = RS.stage === 4 ? 1 : -1; spawnFlare(tx + ahead * (95 + (n % 3) * 40), tz + [-55, 35, 75][n % 3], 205 + (n % 2) * 15, 30, 28, 0.45); if (n % 2) radio('תצפית', n % 4 === 1 ? 'תאורה מעל הציר!' : 'פצצת תאורה באוויר, עיניים לדיונות!', 2); } }
   // how much an illumination round overhead lights the ground round the player (the global brightening in setTimeOfDay)
   FLARE_LIGHT = flareAmb(P.pos.x, P.pos.z);
   // the burning wrecks flicker
@@ -456,6 +456,6 @@ function rsEnd(win, why) {
   if (why === 'shaul') return ['הטנק של שאול נפגע', 'הטנק עם לוחמי פורקן על הסיפון הוא המטרה של כל אר־פי־ג׳י וכל טנק בגזרה. הישארו מולו, חפשו את הסימונים הצהובים ברגע שהם מופיעים, ותנו פגז לכל טנק מצרי שמציץ מהדיונות.', stats];
   return ['נפגעת', 'המפקד חשוף בצריח. כשהאש כבדה, היכנסו לצריח וירו בכוונת התותחן.', stats];
 }
-CHAP.rescue = { nightLook: Object.assign({}, NIGHT_LOOK, { moonI: 0.42, hemiI: 0.2 }), flareK: 1.6, stages: RS_STAGES, st: () => RS.stage, cp: () => CHAP.rescue.cpN || 0, upd: rsUpd, obj: rsObj, hints: rsHints, items: rsItems, mini: rsMini, restore: fieldRestore, tod: () => RS_TOD[RS.stage] - START_MIN + CHAP.rescue.t / 8, end: rsEnd, tank: true, dry: true, night: true, tracers: 0.75, burnLong: true, hitK: () => 0.75, hard: 0.4,
+CHAP.rescue = { nightLook: Object.assign({}, NIGHT_LOOK, { moonI: 0.42, hemiI: 0.2, exp: 0.5 }), forceNight: true, flareK: 0.8, stages: RS_STAGES, st: () => RS.stage, cp: () => CHAP.rescue.cpN || 0, upd: rsUpd, obj: rsObj, hints: rsHints, items: rsItems, mini: rsMini, restore: fieldRestore, tod: () => RS_TOD[RS.stage] - START_MIN + CHAP.rescue.t / 8, end: rsEnd, tank: true, dry: true, night: true, tracers: 0.75, burnLong: true, hitK: () => 0.75, hard: 0.4,
   atgmTarget: (e) => (RS.stage >= 3 && CHAP.rescue.shaul.alive && Math.random() < 0.6 ? () => CHAP.rescue.shaul.g.position.clone().add(V3(0, 1.6, 0)) : null),
   build: () => chapterBuild(CHAP.rescue, rsBuild), setup: rsSetup, clock: '9.10.1973 · ציר טליסמן', toast: ['הלילה שבין 8 ל־9 באוקטובר 1973 · 03:40', 'כוח חילוץ יוצא בלילה לאסוף את לוחמי מעוז פורקן'], start: () => fieldStart('rescue') };

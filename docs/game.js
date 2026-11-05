@@ -725,7 +725,7 @@ function setTimeOfDay(min) {
   const d = sunVec(START_MIN + min), day = smooth(-0.05, 0.1, d.y), dusk = 1 - smooth(0.0, 0.16, d.y), sunI = 3.1 * smooth(-0.02, 0.12, d.y), moonI = 1.75 * dusk;
   const useSun = sunI >= moonI; SUN.dir.copy(useSun ? d : MOON); sun.intensity = Math.max(sunI, moonI, 1.2); sun.color.setHex(useSun ? 0xfff0da : 0xd6e0f4);
   hemi.intensity = lerp(0.42, 0.78, dusk); hemi.color.copy(HEMI_DAY[0]).lerp(HEMI_NIGHT[0], dusk); hemi.groundColor.copy(HEMI_DAY[1]).lerp(HEMI_NIGHT[1], dusk); scene.fog.color.copy(FOG_DAY).lerp(FOG_NIGHT, dusk); renderer.toneMappingExposure = lerp(0.5, 0.72, dusk) + 0.08 * (1 - day) * (1 - dusk);
-  const N = (CHAP[MODE] && CHAP[MODE].nightLook) || NIGHT_LOOK, C0 = CHAP[MODE], deep = NIGHT_DEEP = C0 && C0.night && MODE !== 'mezach' ? 1 - smooth(N.from, N.to, d.y) : 0; let skyMin = 0.03;
+  const N = (CHAP[MODE] && CHAP[MODE].nightLook) || NIGHT_LOOK, C0 = CHAP[MODE], deep = NIGHT_DEEP = C0 && C0.night && MODE !== 'mezach' ? (C0.forceNight ? 1 : 1 - smooth(N.from, N.to, d.y)) : 0; let skyMin = 0.03;
   if (deep > 0) { sun.intensity = lerp(sun.intensity, N.moonI, deep); sun.color.lerp(_nc.setHex(N.moonCol), deep); hemi.intensity = lerp(hemi.intensity, N.hemiI, deep); hemi.color.lerp(_nc.setHex(N.hemiSky), deep); hemi.groundColor.lerp(_nc.setHex(N.hemiGnd), deep); scene.fog.color.lerp(_nc.setHex(N.fog), deep); renderer.toneMappingExposure = lerp(renderer.toneMappingExposure, N.exp, deep); skyMin = lerp(0.03, N.skyY, deep); }
   if (scene.fog.isFogExp2) scene.fog.density = 0.00013 * lerp(1, N.fogK, deep) * (MODE === 'hermon' ? 0.15 : 1);   // the Hermon's clear mountain air nightSkySet(deep);
   // the Mezach: dust and smoke over the canal at Port Tewfik - a pale sand-grey haze that softens the far bank and swallows the city behind it
@@ -7347,6 +7347,7 @@ function clockText() { const m = START_MIN + Math.floor(FIELDM() ? CH().tod() : 
 /* which enemies carry their red mark, and when: the ones that matter now - firing, aiming a bazooka, or with the player in their sight. On
    the easy level also every man who knows we are here; on the hard one only those shooting */
 function tagWanted(e) {
+  if (MODE === 'rescue' && TANK.g) { const t = TANK.g.position; if (Math.hypot(e.pos.x - t.x, e.pos.z - t.z) > 175) return false; if ((e.mgCk ?? 0) < GAME.t) { e.mgCk = GAME.t + 0.3; e.mgSee = rsMgSees(e) && rsArcOK(e); } if (!e.mgSee) return false; }   /* no mark on a man the MG cannot hit (the user) */
   const lv = Math.max(0, DIFF.indexOf(diff)), fired = GAME.t - (e.shotT ?? -9) < 2.6, aim = (e.rpgAim > 0.1 && e.peek) || !!e.guide;
   if (fired || aim) return true; if (lv === 2) return false; if ((e.seeT || 0) > 0.3) return true; return lv === 0 && !!e.alert;
 }
@@ -7665,7 +7666,8 @@ window.addEventListener('resize', resize);
 function update(dt, time) {
   const rdt = dt; if (CINE.on) dt *= CINE.slow; FDT = dt;
   GAME.t += dt; GAME.gCd -= dt;
-  for (const v of VEH) if (v.tag && v.tag.visible && (v.mode !== MODE || !FIELDM())) v.tag.visible = false;   // marks of another chapter's vehicles
+  for (const v of VEH) if (v.tag && v.tag.visible && (v.mode !== MODE || !FIELDM())) v.tag.visible = false;
+  { const b = $('#tact'); if (b) b.style.visibility = MODE === 'rescue' && P.mode === 'tank' ? 'hidden' : ''; }   /* no duck button in the rescue's tank (the user) */   // marks of another chapter's vehicles
   if (FIELDM()) { CH().upd(dt); if (GAME.state !== 'play') return; updTank(dt); updVeh(dt); } else { if (SURV.on) survUpd(dt); else updDirector(dt); if (GAME.state !== 'play') return; updBoats(dt); flotUpd(dt, BOATS.some((b) => !b.dead && (b.state === 'cross' || b.state === 'landed'))); }
   updJets(dt); if (FILMW.length) filmWalk(dt);
   for (const e of UNITS.enemies) if (e.rig.root.visible) updEnemy(e, dt);
@@ -9873,7 +9875,7 @@ function jeepMgFire(v, dt) {
 }
 function clockOf(p) { const fwd = Math.atan2(-Math.sin(P.yaw), -Math.cos(P.yaw)), a = Math.atan2(p.x - P.pos.x, p.z - P.pos.z); let h = Math.round(-wrapPi(a - fwd) / (Math.PI / 6)); h = ((h % 12) + 12) % 12 || 12; return `שעה ${h}`; }
 function vehTagTick(v) {   // the enemy vehicle's mark: over it while it is alive and in view, larger and flashing just before it fires
-  if (!v.tag) return; const on = v.alive && v.mode === MODE && v.g.visible && !CINE.on && v.g.position.distanceTo(camera.position) > 14; v.tag.visible = on; if (!on) return;
+  if (!v.tag) return; const on = v.alive && v.mode === MODE && v.g.visible && !CINE.on && v.g.position.distanceTo(camera.position) > 14 && !(MODE === 'rescue' && v.g.position.distanceTo(camera.position) > 400);   /* the far tanks out of reach: no mark */ v.tag.visible = on; if (!on) return;
   v.tag.position.set(v.g.position.x, v.g.position.y + (v.kind === 'atgun' ? 2.4 : 3.9), v.g.position.z); const warn = v.shoots && v.fireCd < 1.4;
   v.tag.material = warn ? TAGM.fire : TAGM.e; v.tag.scale.setScalar(warn ? 0.06 + 0.012 * Math.sin(GAME.t * 16) : 0.05);
 }
@@ -11006,7 +11008,7 @@ function rsNightUpd(dt) {
   const C = CHAP.rescue;
   // illumination rounds from our guns hang over the ground the column fights on
   // a round every 14-19 s, over the ground the column is about to drive into: each one comes down on its parachute to the sand and dies there
-  if (RS.stage !== 1 && !CINE.on) { RS.illumT -= dt; if (RS.illumT <= 0) { const n = RS.illumN = (RS.illumN || 0) + 1; RS.illumT = 14 + (n % 3) * 2.5; const [tx, tz] = TANK.g ? [TANK.g.position.x, TANK.g.position.z] : RW(0, 0), ahead = RS.stage === 4 ? 1 : -1; spawnFlare(tx + ahead * (95 + (n % 3) * 40), tz + [-55, 35, 75][n % 3], 205 + (n % 2) * 15, 30, 28, 0.45); if (n % 2) radio('תצפית', n % 4 === 1 ? 'תאורה מעל הציר!' : 'פצצת תאורה באוויר, עיניים לדיונות!', 2); } }
+  if (RS.stage !== 1 && !CINE.on) { RS.illumT -= dt; if (RS.illumT <= 0) { const n = RS.illumN = (RS.illumN || 0) + 1; RS.illumT = 30 + (n % 3) * 4;   /* half as often (the user) */ const [tx, tz] = TANK.g ? [TANK.g.position.x, TANK.g.position.z] : RW(0, 0), ahead = RS.stage === 4 ? 1 : -1; spawnFlare(tx + ahead * (95 + (n % 3) * 40), tz + [-55, 35, 75][n % 3], 205 + (n % 2) * 15, 30, 28, 0.45); if (n % 2) radio('תצפית', n % 4 === 1 ? 'תאורה מעל הציר!' : 'פצצת תאורה באוויר, עיניים לדיונות!', 2); } }
   // how much an illumination round overhead lights the ground round the player (the global brightening in setTimeOfDay)
   FLARE_LIGHT = flareAmb(P.pos.x, P.pos.z);
   // the burning wrecks flicker
@@ -11293,7 +11295,7 @@ function rsEnd(win, why) {
   if (why === 'shaul') return ['הטנק של שאול נפגע', 'הטנק עם לוחמי פורקן על הסיפון הוא המטרה של כל אר־פי־ג׳י וכל טנק בגזרה. הישארו מולו, חפשו את הסימונים הצהובים ברגע שהם מופיעים, ותנו פגז לכל טנק מצרי שמציץ מהדיונות.', stats];
   return ['נפגעת', 'המפקד חשוף בצריח. כשהאש כבדה, היכנסו לצריח וירו בכוונת התותחן.', stats];
 }
-CHAP.rescue = { nightLook: Object.assign({}, NIGHT_LOOK, { moonI: 0.42, hemiI: 0.2 }), flareK: 1.6, stages: RS_STAGES, st: () => RS.stage, cp: () => CHAP.rescue.cpN || 0, upd: rsUpd, obj: rsObj, hints: rsHints, items: rsItems, mini: rsMini, restore: fieldRestore, tod: () => RS_TOD[RS.stage] - START_MIN + CHAP.rescue.t / 8, end: rsEnd, tank: true, dry: true, night: true, tracers: 0.75, burnLong: true, hitK: () => 0.75, hard: 0.4,
+CHAP.rescue = { nightLook: Object.assign({}, NIGHT_LOOK, { moonI: 0.42, hemiI: 0.2, exp: 0.5 }), forceNight: true, flareK: 0.8, stages: RS_STAGES, st: () => RS.stage, cp: () => CHAP.rescue.cpN || 0, upd: rsUpd, obj: rsObj, hints: rsHints, items: rsItems, mini: rsMini, restore: fieldRestore, tod: () => RS_TOD[RS.stage] - START_MIN + CHAP.rescue.t / 8, end: rsEnd, tank: true, dry: true, night: true, tracers: 0.75, burnLong: true, hitK: () => 0.75, hard: 0.4,
   atgmTarget: (e) => (RS.stage >= 3 && CHAP.rescue.shaul.alive && Math.random() < 0.6 ? () => CHAP.rescue.shaul.g.position.clone().add(V3(0, 1.6, 0)) : null),
   build: () => chapterBuild(CHAP.rescue, rsBuild), setup: rsSetup, clock: '9.10.1973 · ציר טליסמן', toast: ['הלילה שבין 8 ל־9 באוקטובר 1973 · 03:40', 'כוח חילוץ יוצא בלילה לאסוף את לוחמי מעוז פורקן'], start: () => fieldStart('rescue') };
 
