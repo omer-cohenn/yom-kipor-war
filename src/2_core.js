@@ -638,7 +638,7 @@ const NSKY = (() => {
 })();
 function nightSkySet(deep) {
   NSKY.g.visible = deep > 0.02; if (!NSKY.g.visible) return;
-  NSKY.dome.material.opacity = deep; NSKY.stars.material.opacity = deep * 0.95; NSKY.moon.material.opacity = deep; NSKY.halo.material.opacity = deep * 0.55;
+  const fN = CHAP[MODE] && CHAP[MODE].forceNight; NSKY.dome.material.opacity = deep; NSKY.stars.material.opacity = deep * (fN ? 1 : 0.95); NSKY.stars.material.size = fN ? 8.5 : 6;   /* a sky full of stars on the deep night */ NSKY.moon.material.opacity = deep; NSKY.halo.material.opacity = deep * 0.55;
   if (!NSKY.halo.material.map && typeof FXT !== 'undefined' && FXT.flare) { NSKY.halo.material.map = FXT.flare; NSKY.halo.material.needsUpdate = true; }
   const d = MOON, R = NSKY.R * 0.97; NSKY.moon.position.set(d.x * R, d.y * R, d.z * R); NSKY.halo.position.copy(NSKY.moon.position);
 }
@@ -735,7 +735,7 @@ function setTimeOfDay(min) {
   if (deep > 0 || hz > 0 || SKYU.rayleigh.value !== SKY_DAY.ray) for (const [k, u] of [['ray', 'rayleigh'], ['turb', 'turbidity'], ['mie', 'mieCoefficient']]) { const v = lerp(lerp(SKY_DAY[k], N[k], deep), SKY_HAZE[k], 0.92 * hz); if (SKYU[u].value !== v) { SKYU[u].value = v; envSky.material.uniforms[u].value = v; } }
   vmKey.intensity = 1.15 / renderer.toneMappingExposure; vmHemi.intensity = 0.275 / renderer.toneMappingExposure; vmKey.color.copy(sun.color); vmHemi.color.copy(hemi.color);
   // the sky never goes black: its sun is held just above the horizon, so night is a deep, glowing blue and the reflections keep some light (a real night holds it a touch below)
-  _skyV.copy(d); if (_skyV.y < skyMin) { _skyV.y = skyMin; _skyV.normalize(); }
+  _skyV.copy(d); if (C0 && C0.forceNight) { _skyV.set(-d.x, -0.35, -d.z).normalize(); } else if (_skyV.y < skyMin) { _skyV.y = skyMin; _skyV.normalize(); }   /* a deep night: the sky's sun well under the horizon, no dawn glow anywhere (the user) */
   SKYU.sunPosition.value.copy(_skyV); envSky.material.uniforms.sunPosition.value.copy(_skyV);
   sun.position.copy(SUN.dir).multiplyScalar(400).add(sun.target.position);
   if (water.material.uniforms) water.material.uniforms.sunDirection.value.copy(d);
