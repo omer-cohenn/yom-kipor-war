@@ -7,6 +7,7 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
 
 const QS = new URLSearchParams(location.search);
@@ -282,7 +283,7 @@ function terrainAt0(x, z) {
 /* ================= renderer / scene / cameras ================= */
 const stage = $('#stage');
 const renderer = new THREE.WebGLRenderer({ antialias: QUAL !== 'low' && !QS.has('noaa'), powerPreference: LITE ? 'default' : 'high-performance', logarithmicDepthBuffer: !LITE });
-renderer.setPixelRatio(QUAL === 'low' ? 1 : Math.min(window.devicePixelRatio || 1, QUAL === 'high' ? (PHONE ? 2 : 3) : 2));   // a phone: two device pixels to one
+renderer.setPixelRatio(QUAL === 'low' ? 1 : Math.min(window.devicePixelRatio || 1, QUAL === 'high' ? (PHONE ? 2 : 1.5) : 1.5));   /* no more: past it the GPU gave fewer pixels and half the screen went black */   // a phone: two device pixels to one
 renderer.domElement.addEventListener('webglcontextlost', (e) => { e.preventDefault(); const l = $('#loading'); l.classList.remove('done'); $('#loadMsg').textContent = 'הזיכרון הגרפי של המכשיר נגמר והמשחק נעצר. סגרו לשוניות ואפליקציות אחרות ורעננו, או שחקו במחשב.'; });
 renderer.setSize(stage.clientWidth, stage.clientHeight);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;

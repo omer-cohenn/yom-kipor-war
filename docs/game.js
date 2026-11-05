@@ -8,6 +8,7 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
 
 const QS = new URLSearchParams(location.search);
@@ -283,7 +284,7 @@ function terrainAt0(x, z) {
 /* ================= renderer / scene / cameras ================= */
 const stage = $('#stage');
 const renderer = new THREE.WebGLRenderer({ antialias: QUAL !== 'low' && !QS.has('noaa'), powerPreference: LITE ? 'default' : 'high-performance', logarithmicDepthBuffer: !LITE });
-renderer.setPixelRatio(QUAL === 'low' ? 1 : Math.min(window.devicePixelRatio || 1, QUAL === 'high' ? (PHONE ? 2 : 3) : 2));   // a phone: two device pixels to one
+renderer.setPixelRatio(QUAL === 'low' ? 1 : Math.min(window.devicePixelRatio || 1, QUAL === 'high' ? (PHONE ? 2 : 1.5) : 1.5));   /* no more: past it the GPU gave fewer pixels and half the screen went black */   // a phone: two device pixels to one
 renderer.domElement.addEventListener('webglcontextlost', (e) => { e.preventDefault(); const l = $('#loading'); l.classList.remove('done'); $('#loadMsg').textContent = 'הזיכרון הגרפי של המכשיר נגמר והמשחק נעצר. סגרו לשוניות ואפליקציות אחרות ורעננו, או שחקו במחשב.'; });
 renderer.setSize(stage.clientWidth, stage.clientHeight);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -7644,7 +7645,7 @@ function setQual(q, live) {
   for (const x of document.querySelectorAll('#qual button')) x.setAttribute('aria-pressed', String(x.dataset.q === q)); if (!live) return;
   try { localStorage.setItem('yk73.q2', q); } catch (e) {}
   const L = { high: [48, 144], med: [27, 90], low: [0, 45] }[q]; QLOD[0] = L[0]; QLOD[1] = L[1];
-  const dpr = window.devicePixelRatio || 1; renderer.setPixelRatio(q === 'low' ? 1 : Math.min(dpr, q === 'high' ? (PHONE ? 2 : 3) : 2)); GOV.cap = renderer.getPixelRatio(); window.dispatchEvent(new Event('resize'));
+  const dpr = window.devicePixelRatio || 1; renderer.setPixelRatio(q === 'low' ? 1 : Math.min(dpr, q === 'high' ? (PHONE ? 2 : 1.5) : 1.5)); GOV.cap = renderer.getPixelRatio(); window.dispatchEvent(new Event('resize'));
   const n = $('#qualNote'); if (n) n.hidden = q === QUAL;
 }
 { const el = $('#qual'); if (el) el.addEventListener('click', (e) => { const b = e.target.closest('button'); if (b && b.dataset.q) setQual(b.dataset.q, true); }); setQual(QUAL, false);
@@ -7660,6 +7661,10 @@ function setupComposer() {
     composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(w, h, { type: THREE.HalfFloatType }));
     composer.addPass(new RenderPass(scene, camera));
     vmPass = new RenderPass(vmScene, vmCamera); vmPass.clear = false; vmPass.clearDepth = true; composer.addPass(vmPass);
+    /* one broken pixel (not a number, or infinitely bright) is smeared by the glow's blur into black squares that flicker over half the
+       screen: such pixels are made black, and the brightest clipped, before the glow */
+    composer.addPass(new ShaderPass({ uniforms: { tDiffuse: { value: null } }, vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+      fragmentShader: 'uniform sampler2D tDiffuse; varying vec2 vUv; void main(){ vec4 c = texture2D(tDiffuse, vUv); if (!(c.r == c.r && c.g == c.g && c.b == c.b && c.a == c.a)) c = vec4(0.0, 0.0, 0.0, 1.0); gl_FragColor = vec4(clamp(c.rgb, 0.0, 64.0), clamp(c.a, 0.0, 1.0)); }' }));
     composer.addPass(new UnrealBloomPass(new THREE.Vector2(w, h), 0.28, 0.55, 1.3));
     composer.addPass(new OutputPass());
     composer.addPass(new SMAAPass(w * renderer.getPixelRatio(), h * renderer.getPixelRatio()));
@@ -7673,11 +7678,11 @@ function resize() { const w = stage.clientWidth, h = stage.clientHeight; rendere
 function fitBuffer(w, h) {
   const gl = renderer.getContext(), pr = renderer.getPixelRatio(), lim = Math.min(gl.getParameter(gl.MAX_TEXTURE_SIZE), gl.getParameter(gl.MAX_RENDERBUFFER_SIZE), ...gl.getParameter(gl.MAX_VIEWPORT_DIMS));
   let k = Math.min(1, lim / Math.max(1, w * pr, h * pr)); const c = renderer.domElement; if (gl.drawingBufferWidth < c.width - 1 || gl.drawingBufferHeight < c.height - 1) k = Math.min(k, gl.drawingBufferWidth / c.width, gl.drawingBufferHeight / c.height);
-  if (k < 0.999) { const np = Math.max(1, Math.floor(pr * k * 20) / 20); renderer.setPixelRatio(np); renderer.setSize(w, h); GOV.cap = Math.min(GOV.cap, np); if (composer) composer.setPixelRatio(np); }
+  if (k < 0.999) { const np = Math.max(0.5, Math.floor(pr * k * 0.9 * 20) / 20); renderer.setPixelRatio(np); renderer.setSize(w, h); GOV.cap = Math.min(GOV.cap, np); if (composer) composer.setPixelRatio(np); }
 }
 window.addEventListener('resize', resize);
 /* the browser may also shrink the drawing buffer later, under memory pressure (a phone, after a mission's data comes in): then part of the screen stays black. Checked twice a second, and the size asked for again */
-setInterval(() => { try { const gl = renderer.getContext(), c = renderer.domElement; if (gl.drawingBufferWidth < c.width - 1 || gl.drawingBufferHeight < c.height - 1) resize(); } catch (e) {} }, 500);
+setInterval(() => { try { const gl = renderer.getContext(), c = renderer.domElement; if (gl.drawingBufferWidth < c.width - 1 || gl.drawingBufferHeight < c.height - 1) { const np = Math.max(0.5, renderer.getPixelRatio() * 0.75); GOV.cap = Math.min(GOV.cap, np); govSet(np); } } catch (e) {} }, 500);   /* each time: a quarter fewer pixels, until it gives them all */
 function update(dt, time) {
   const rdt = dt; if (CINE.on) dt *= CINE.slow; FDT = dt;
   GAME.t += dt; GAME.gCd -= dt;
