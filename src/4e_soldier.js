@@ -440,7 +440,7 @@ function nsDecide(u) {
   if (near && !R.root.visible) near = false;   /* a man not drawn takes no one's place */
   if (near) { camera.getWorldDirection(_nsF); const bx = u.pos.x - camera.position.x, by = u.pos.y + 1 - camera.position.y, bz = u.pos.z - camera.position.z, ahead = (bx * _nsF.x + by * _nsF.y + bz * _nsF.z) / Math.max(0.1, far);
     // the men in front of the camera first: one behind it, or far off to the side, only fills a place nobody in view needs
-    u.nsRank = eff * (R.nsOn ? 0.85 : 1) * (u.alive ? 1 : 1.6) * (ahead > 0.55 || far < 4 ? 1 : 6); NSB.cand.push(u); }
+    u.nsRank = eff * (R.nsOn ? 0.85 : 1) * (R.nsLod === 0 ? 0.75 : 1)   /* the whole figure kept a little: no swapping back and forth */ * (u.alive ? 1 : 1.6) * (ahead > 0.55 || far < 4 ? 1 : 6); NSB.cand.push(u); }
   const w = near && (R.root.visible || R.nsOn); if (w !== !!R.nsOn) nsShow(R, w);
   if (w && R.talkU) nsJaw(u, R);
   if (w && R.ns && NEWSOL.geos && NEWSOL.geos.length > 1) {

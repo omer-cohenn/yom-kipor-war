@@ -2629,7 +2629,7 @@ function frameInner() {
   updFarSmoke(dt, time); wreckUpd(dt); for (const u of DUG_UNITS) if (_shown(u.rig.root)) nsDecide(u); animateWater(dt); waveFlags(time);
   if (HM_PANO) HM_PANO.visible = MODE === 'hermon';   // the view from the Hermon is drawn only there
   if (UNI_E.mode !== MODE) { UNI_E.mode = MODE; uniformFor(MODE); }   // Syrian uniforms on the Hermon, Egyptian everywhere else
-  if (!renderer.shadowMap.autoUpdate && (FRAMEN = (FRAMEN || 0) + 1) % 4 === 0) renderer.shadowMap.needsUpdate = true;   /* shadows slowed by the governor still follow the camera (a frozen map left big black squares) */
+  if (!renderer.shadowMap.autoUpdate && ((FRAMEN = (FRAMEN || 0) + 1) % 4 === 0 || (P.mode === 'tank' && Math.abs(TANK.speed || 0) > 0.4))) renderer.shadowMap.needsUpdate = true;   /* and every frame while the tank moves: a map four frames old made every man on the moving column flicker */   /* shadows slowed by the governor still follow the camera (a frozen map left big black squares) */
   sky.position.copy(camera.position); if (NSKY.g.visible) NSKY.g.position.copy(camera.position); camera.getWorldDirection(_fwd); followSun(camera.position.x + _fwd.x * 40, camera.position.z + _fwd.z * 40); updateVmLight();
   if (GAME.state === 'play') updHUD(dt);
   if (CVID.on) { if (GAME.state !== 'play' && !CVID.el.paused) CVID.el.pause(); return; }   // a film on video: its picture covers the view, nothing to draw under it (paused with the game)

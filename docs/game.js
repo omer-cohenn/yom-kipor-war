@@ -4672,7 +4672,7 @@ function nsDecide(u) {
   if (near && !R.root.visible) near = false;   /* a man not drawn takes no one's place */
   if (near) { camera.getWorldDirection(_nsF); const bx = u.pos.x - camera.position.x, by = u.pos.y + 1 - camera.position.y, bz = u.pos.z - camera.position.z, ahead = (bx * _nsF.x + by * _nsF.y + bz * _nsF.z) / Math.max(0.1, far);
     // the men in front of the camera first: one behind it, or far off to the side, only fills a place nobody in view needs
-    u.nsRank = eff * (R.nsOn ? 0.85 : 1) * (u.alive ? 1 : 1.6) * (ahead > 0.55 || far < 4 ? 1 : 6); NSB.cand.push(u); }
+    u.nsRank = eff * (R.nsOn ? 0.85 : 1) * (R.nsLod === 0 ? 0.75 : 1)   /* the whole figure kept a little: no swapping back and forth */ * (u.alive ? 1 : 1.6) * (ahead > 0.55 || far < 4 ? 1 : 6); NSB.cand.push(u); }
   const w = near && (R.root.visible || R.nsOn); if (w !== !!R.nsOn) nsShow(R, w);
   if (w && R.talkU) nsJaw(u, R);
   if (w && R.ns && NEWSOL.geos && NEWSOL.geos.length > 1) {
@@ -7749,7 +7749,7 @@ function frameInner() {
   updFarSmoke(dt, time); wreckUpd(dt); for (const u of DUG_UNITS) if (_shown(u.rig.root)) nsDecide(u); animateWater(dt); waveFlags(time);
   if (HM_PANO) HM_PANO.visible = MODE === 'hermon';   // the view from the Hermon is drawn only there
   if (UNI_E.mode !== MODE) { UNI_E.mode = MODE; uniformFor(MODE); }   // Syrian uniforms on the Hermon, Egyptian everywhere else
-  if (!renderer.shadowMap.autoUpdate && (FRAMEN = (FRAMEN || 0) + 1) % 4 === 0) renderer.shadowMap.needsUpdate = true;   /* shadows slowed by the governor still follow the camera (a frozen map left big black squares) */
+  if (!renderer.shadowMap.autoUpdate && ((FRAMEN = (FRAMEN || 0) + 1) % 4 === 0 || (P.mode === 'tank' && Math.abs(TANK.speed || 0) > 0.4))) renderer.shadowMap.needsUpdate = true;   /* and every frame while the tank moves: a map four frames old made every man on the moving column flicker */   /* shadows slowed by the governor still follow the camera (a frozen map left big black squares) */
   sky.position.copy(camera.position); if (NSKY.g.visible) NSKY.g.position.copy(camera.position); camera.getWorldDirection(_fwd); followSun(camera.position.x + _fwd.x * 40, camera.position.z + _fwd.z * 40); updateVmLight();
   if (GAME.state === 'play') updHUD(dt);
   if (CVID.on) { if (GAME.state !== 'play' && !CVID.el.paused) CVID.el.pause(); return; }   // a film on video: its picture covers the view, nothing to draw under it (paused with the game)
@@ -10926,10 +10926,11 @@ const rsSideAt = (x) => (Math.floor((x + 2000) / 130) % 2 ? 1 : -1);
    only the last of each drive from both sides. [x along the track, side (+1 / -1), kinds as the veteran level has them, men on each level,
    the level from which a Sagger stays a Sagger] - below it he is a rifleman. The holes lie closer to the track the harder the level */
 const RS_ENC = {
-  0: [[180, 1, ['rifle', 'rifle', 'rpg'], [2, 2, 3]], [90, -1, ['rpg', 'rifle', 'rifle'], [2, 3, 3]], [0, 1, ['rifle', 'rifle', 'rifle'], [2, 2, 3]], [-110, -1, ['rpg', 'rifle', 'rifle', 'rifle'], [2, 3, 4]],
-      [-210, 1, ['rifle', 'rpg', 'rifle'], [2, 3, 3]], [-240, 1, ['rifle', 'rpg', 'rifle'], [2, 2, 3]],
-      [-330, -1, ['rpg', 'rifle', 'rifle', 'lmg'], [2, 3, 4]], [-360, -1, ['rifle', 'rpg', 'rifle'], [2, 3, 3]],
-      [-460, 1, ['rpg', 'rifle', 'rifle', 'lmg'], [2, 3, 4], 2, true], [-460, -1, ['rifle', 'rpg', 'rifle', 'atgm'], [2, 3, 4], 2, true]],
+  0: [[180, 1, ['rifle', 'lmg', 'smg', 'lmg', 'smg', 'rpg', 'lmg'], [4, 5, 7]], [90, -1, ['rpg', 'smg', 'lmg', 'smg', 'lmg', 'smg', 'rifle'], [4, 6, 7]], [0, 1, ['rifle', 'smg', 'lmg', 'smg', 'lmg', 'smg'], [4, 5, 6]],
+      [-110, -1, ['rpg', 'lmg', 'smg', 'lmg', 'smg', 'rifle', 'lmg'], [4, 6, 7]],
+      [-210, 1, ['rifle', 'rpg', 'smg', 'lmg', 'smg'], [3, 4, 5]], [-240, 1, ['smg', 'lmg', 'smg', 'rpg', 'lmg'], [3, 4, 5]],
+      [-330, -1, ['rpg', 'lmg', 'smg', 'lmg', 'smg', 'rifle'], [4, 5, 6]], [-360, -1, ['smg', 'rpg', 'lmg', 'smg', 'lmg'], [3, 4, 5]],
+      [-460, 1, ['rpg', 'lmg', 'smg', 'lmg', 'smg', 'rifle'], [4, 5, 6], 2, true], [-460, -1, ['smg', 'rpg', 'lmg', 'smg', 'lmg', 'rpg'], [4, 5, 6], 2, true]],   /* the first drive: crowds of men storming the tank with machine guns (the user) */
   2: [[-110, 1, ['rifle', 'rpg', 'rifle'], [2, 3, 3]], [-180, -1, ['rpg', 'rifle', 'rifle', 'lmg'], [2, 3, 4]], [-250, 1, ['rifle', 'rpg', 'rifle', 'lmg'], [2, 3, 4]],
       [-350, 1, ['rpg', 'rifle', 'rifle', 'lmg'], [2, 3, 4], 2, true], [-350, -1, ['rifle', 'rpg', 'rifle', 'atgm'], [2, 3, 4], 1, true]],
   4: [[-380, 1, ['rpg', 'rifle', 'rpg'], [1, 2, 3]], [-330, -1, ['rifle', 'rpg', 'rifle'], [2, 3, 3]], [-300, -1, ['rifle', 'rifle', 'rpg'], [2, 2, 3]],
@@ -11115,7 +11116,7 @@ function rsSetup(stage) {
   for (const v of VEH) if (v.mode === 'rescue') { vehRevive(v); v.shown = true; v.g.visible = true; v.ended = false; v.path = null; v.stop = undefined; v.onEnd = null; v.tgtV = null; v.hpSeen = 100; }
   const sA = rsArc(RS_GROUPS.A.at), sB = rsArc(RS_GROUPS.B.at), sC = rsArc(RS_GROUPS.C.at), sE = pathLen(RS_TRACK) - 0.5, sH = rsArc(RS_HILL[0] + 10); RS.stops = [sA, sB, sC, sE]; RS.sH = sH;
   // the T-55s: three hull-down far to the west; two more come forward to the dunes for the second entry
-  C.t55.forEach((v, i) => { const [x, z] = [[-1080, -50], [-1150, -84], [-990, -70], [-760, -60], [-740, 40]][i]; const [wx, wz] = RW(x, z); v.hdV = Math.PI / 2; vehPose(v, wx, wz, Math.PI / 2); v.shoots = i >= 3 && stage >= 2; v.shown = i < 3 || stage >= 2; v.g.visible = v.shown; v.far = i < 3; v.ct = rand(3, 12); });
+  C.t55.forEach((v, i) => { const [x, z] = [[-1080, -50], [-1150, -84], [-990, -70], [-760, -60], [-740, 40]][i]; const [wx, wz] = RW(x, z); v.hdV = Math.PI / 2; vehPose(v, wx, wz, Math.PI / 2); v.shoots = i >= 3 && stage >= 2; v.shown = stage === 3 ? i >= 3 : i < 3 || stage >= 2;   /* the boarding: two Egyptian tanks in all (the user) */ v.g.visible = v.shown; v.far = i < 3; v.ct = rand(3, 12); });
   if (!TANK.g) tankModel(); if (TANK.spot) TANK.spot.intensity = 0;   // no searchlight: the moon, the illumination rounds and the fires light the night
   if (stage !== 2) RS.hillCp = false;
   if (stage === 0 || stage === 2) {
@@ -11161,7 +11162,7 @@ function rsStage(i) {
   }
   if (i === 2 && RS.hillCp) { RS.msgs.h1 = RS.msgs.h2 = RS.msgs.h3 = RS.msgs.c2 = true; for (const k of [0, 1, 3]) vehDestroy(C.apc[k], true); radio('מח״ט', 'שאול, עצור. קבוצת חיילים יורדת מהגבעה אליכם — אל תירו עד שמזהים.', 4); }
   else if (i === 2) { radio('מח״ט', 'אני נכנס איתכם, הטנק שלי משמאל. חטיבה 421 מגבירה אש. כולם — גז, לא עוצרים!', 4.5); }
-  if (i === 3) { radio('שאול', 'אני בנקודת המפגש! הם רצים אליי מאחורי הדיונה. תחפה עליי מהגבעה — האר־פי־ג׳י יחפשו אותי עכשיו.', 5); rsRunners([3, 4, 5][rsD()], [-790, 30], [-660, 20], 40, ['rpg', 'rifle', 'rpg', 'rifle', 'rifle']); for (const v of C.t55.slice(3)) { v.shown = true; v.g.visible = true; v.shoots = true; } if (C.shaul.path && !C.shaul.ended && C.shaul.s < 1) C.shaul.onEnd = () => rsBoardStart(); else rsBoardStart(); hint('rs-cover', 'הטנק של שאול עומד במקום עד ש־33 איש עולים עליו. סימון צהוב מהבהב = מפעיל אר־פי־ג׳י מכוון אליו: הרגו אותו לפני שהטיל מגיע. טנק מצרי — פגז (G).', 10); }
+  if (i === 3) { radio('שאול', 'אני בנקודת המפגש! הם רצים אליי מאחורי הדיונה. תחפה עליי מהגבעה — האר־פי־ג׳י יחפשו אותי עכשיו.', 5); rsRunners([3, 4, 5][rsD()], [-790, 30], [-660, 20], 40, ['rpg', 'rifle', 'rpg', 'rifle', 'rifle']); for (const v of C.t55.slice(0, 3)) { v.shown = false; v.g.visible = false; v.shoots = false; } C.t55.slice(3).forEach((v, k) => { v.shown = true; v.g.visible = true; v.shoots = true; const [x, z] = [[-760, -60], [-740, 40]][k]; v.follow = null; v.path = [RW(x, z), RW(x + 60, z * 0.5)]; v.s = 0; v.speed = 0; v.vmax = 2.2; v.stop = undefined; v.ended = false; });   /* they come on toward the meeting point, slowly, firing */ if (C.shaul.path && !C.shaul.ended && C.shaul.s < 1) C.shaul.onEnd = () => rsBoardStart(); else rsBoardStart(); hint('rs-cover', 'הטנק של שאול עומד במקום עד ש־33 איש עולים עליו. סימון צהוב מהבהב = מפעיל אר־פי־ג׳י מכוון אליו: הרגו אותו לפני שהטיל מגיע. טנק מצרי — פגז (G).', 10); }
   if (i === 4) { radio('שאול', 'כולם עליי! שלושים ושלושה. אני זז מזרחה — תישאר צמוד אליי.', 4); DIRQ.push({ at: GAME.t + 6, fn: () => radio('מח״ט', 'כל הדרך הביתה הם יחכו לכם בשוחות. מי שמרים ראש — מקבל.', 3.5) }); }
 }
 function rsSquad(id, n) { const C = CHAP.rescue, sl = C.slots.filter((q) => q.grp === id), r = rng(5300 + id.charCodeAt(0) * 31 + n); n = Math.round(n * [0.6, 1, 1.25][rsD()]); for (let k = 0; k < n && sl.length; k++) { const s = sl[k % sl.length], [lx, lz] = corr(RS_TRACK, s.x - RS.o.x + (r() - 0.5) * 50, s.z - RS.o.z + (r() - 0.5) * 12, 24, 10), [mx, mz] = corr(RS_TRACK, lx + (r() - 0.5) * 20, lz * 0.5, 14, 4), [x, z] = RW(lx, lz), [tx, tz] = RW(mx, mz); const e = fSpawnStreet0(x, z, [[tx, tz]], k % 4 === 3 ? 'rpg' : 'rifle'); if (e) { e.sq = id; e.tac = k % 4 < [1, 2, 3][rsD()] ? 'storm' : 'hold'; e.rpgMiss = rsD() === 0 || (rsD() === 1 && k % 8 === 3); } } }
@@ -11201,7 +11202,7 @@ function rsRunners(n, from, to, spread, kinds) { const r = rng(9100 + Math.round
    first man and the machine gunner stay and cover. The RPG man kneels, aims (by level) while the gunner calls it, and fires. A burst close by
    puts a man flat for a second. Nobody cries out before he has fired */
 function rsRunInit(e, dest, k) {
-  e.sz = 'rsrun'; e.dest = dest; e.role = e.kind === 'rpg' ? 'rpg' : k === 0 || e.kind === 'lmg' ? 'cover' : 'storm'; e.rr = 'in'; e.rrT = 0; e.seen = false; e.fired = false;
+  e.sz = 'rsrun'; e.dest = dest; e.role = e.kind === 'rpg' ? 'rpg' : RS.stage !== 0 && (k === 0 || e.kind === 'lmg') ? 'cover' : 'storm';   /* the first drive: all of them come on */ e.rr = 'in'; e.rrT = 0; e.seen = false; e.fired = false;
   e.rpgMiss = e.kind === 'rpg' && Math.random() > rsLv('rpgHit'); e.rpgCd = 0; e.rpgAim = 0; e.losT = 0; e.downT = 0;
 }
 function rsRunStep(e, dt, shoot, aimPitch) {
