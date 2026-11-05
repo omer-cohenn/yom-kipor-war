@@ -639,7 +639,7 @@ const NSKY = (() => {
 const _nmv = new THREE.Vector3();
 function nightSkySet(deep) {
   NSKY.g.visible = deep > 0.02; if (!NSKY.g.visible) return;
-  const fN = CHAP[MODE] && CHAP[MODE].forceNight; NSKY.dome.material.opacity = deep; NSKY.stars.material.opacity = deep * (fN ? 1 : 0.95); NSKY.stars.material.size = fN ? 11 : 6;   /* a sky full of bright stars on the deep night */
+  const fN = CHAP[MODE] && CHAP[MODE].forceNight; NSKY.dome.material.opacity = deep; NSKY.stars.material.opacity = deep * (fN ? 1 : 0.95); NSKY.stars.material.size = fN ? 7.5 : 6;   /* a sky full of bright stars on the deep night */
   NSKY.stars.renderOrder = -25; NSKY.moon.renderOrder = -24;   /* over the night dome */ NSKY.moon.scale.setScalar(NSKY.R * (fN ? 0.08 : 0.045)); NSKY.halo.scale.setScalar(NSKY.R * (fN ? 0.34 : 0.2)); NSKY.moon.material.opacity = deep; NSKY.halo.material.opacity = deep * 0.55;
   if (!NSKY.halo.material.map && typeof FXT !== 'undefined' && FXT.flare) { NSKY.halo.material.map = FXT.flare; NSKY.halo.material.needsUpdate = true; }
   const d = fN ? _nmv.set(-0.62, 0.55, -0.2).normalize() : MOON, R = NSKY.R * 0.97; NSKY.moon.position.set(d.x * R, d.y * R, d.z * R); if (fN) NSKY.halo.material.opacity = 0.95;   /* the deep night's moon: big, bright, high over the way west */ NSKY.halo.position.copy(NSKY.moon.position);
@@ -728,7 +728,8 @@ function setTimeOfDay(min) {
   hemi.intensity = lerp(0.42, 0.78, dusk); hemi.color.copy(HEMI_DAY[0]).lerp(HEMI_NIGHT[0], dusk); hemi.groundColor.copy(HEMI_DAY[1]).lerp(HEMI_NIGHT[1], dusk); scene.fog.color.copy(FOG_DAY).lerp(FOG_NIGHT, dusk); renderer.toneMappingExposure = lerp(0.5, 0.72, dusk) + 0.08 * (1 - day) * (1 - dusk);
   const N = (CHAP[MODE] && CHAP[MODE].nightLook) || NIGHT_LOOK, C0 = CHAP[MODE], deep = NIGHT_DEEP = C0 && C0.night && MODE !== 'mezach' ? (C0.forceNight ? 1 : 1 - smooth(N.from, N.to, d.y)) : 0; let skyMin = 0.03;
   if (deep > 0) { sun.intensity = lerp(sun.intensity, N.moonI, deep); sun.color.lerp(_nc.setHex(N.moonCol), deep); hemi.intensity = lerp(hemi.intensity, N.hemiI, deep); hemi.color.lerp(_nc.setHex(N.hemiSky), deep); hemi.groundColor.lerp(_nc.setHex(N.hemiGnd), deep); scene.fog.color.lerp(_nc.setHex(N.fog), deep); renderer.toneMappingExposure = lerp(renderer.toneMappingExposure, N.exp, deep); skyMin = lerp(0.03, N.skyY, deep); }
-  if (scene.fog.isFogExp2) scene.fog.density = (C0 && C0.noFog) ? 0 : 0.00013 * lerp(1, N.fogK, deep) * (MODE === 'hermon' ? 0.15 : 1);   // the Hermon's clear mountain air nightSkySet(deep);
+  if (scene.fog.isFogExp2) scene.fog.density = (C0 && C0.noFog) ? 0 : 0.00013 * lerp(1, N.fogK, deep) * (MODE === 'hermon' ? 0.15 : 1);   // the Hermon's clear mountain air
+  nightSkySet(deep);   /* (this call had fallen into the comment above: no stars, no moon on any night) */
   // the Mezach: dust and smoke over the canal at Port Tewfik - a pale sand-grey haze that softens the far bank and swallows the city behind it
   const hz = MODE === 'mezach' ? 1 - 0.6 * dusk : 0; if (hz > 0) { if (scene.fog.isFogExp2) scene.fog.density = Math.max(scene.fog.density, 0.0014 * hz); scene.fog.color.lerp(_nc.setHex(0xc4b9a0), 0.8 * hz); }
   if (water && water.material.uniforms && water.material.uniforms.waterColor) water.material.uniforms.waterColor.value.copy(WATER_BASE).lerp(WATER_HAZE, 0.65 * hz);
