@@ -29,14 +29,14 @@ const rsSideAt = (x) => (Math.floor((x + 2000) / 130) % 2 ? 1 : -1);
    only the last of each drive from both sides. [x along the track, side (+1 / -1), kinds as the veteran level has them, men on each level,
    the level from which a Sagger stays a Sagger] - below it he is a rifleman. The holes lie closer to the track the harder the level */
 const RS_ENC = {
-  0: [[0, 1, ['rifle', 'rifle', 'rifle'], [2, 2, 3]], [-110, -1, ['rpg', 'rifle', 'rifle', 'rifle'], [2, 3, 4]],
+  0: [[180, 1, ['rifle', 'rifle', 'rpg'], [2, 2, 3]], [90, -1, ['rpg', 'rifle', 'rifle'], [2, 3, 3]], [0, 1, ['rifle', 'rifle', 'rifle'], [2, 2, 3]], [-110, -1, ['rpg', 'rifle', 'rifle', 'rifle'], [2, 3, 4]],
       [-210, 1, ['rifle', 'rpg', 'rifle'], [2, 3, 3]], [-240, 1, ['rifle', 'rpg', 'rifle'], [2, 2, 3]],
       [-330, -1, ['rpg', 'rifle', 'rifle', 'lmg'], [2, 3, 4]], [-360, -1, ['rifle', 'rpg', 'rifle'], [2, 3, 3]],
       [-460, 1, ['rpg', 'rifle', 'rifle', 'lmg'], [2, 3, 4], 2, true], [-460, -1, ['rifle', 'rpg', 'rifle', 'atgm'], [2, 3, 4], 2, true]],
-  2: [[-250, 1, ['rifle', 'rpg', 'rifle', 'lmg'], [2, 3, 4]],
+  2: [[-110, 1, ['rifle', 'rpg', 'rifle'], [2, 3, 3]], [-180, -1, ['rpg', 'rifle', 'rifle', 'lmg'], [2, 3, 4]], [-250, 1, ['rifle', 'rpg', 'rifle', 'lmg'], [2, 3, 4]],
       [-350, 1, ['rpg', 'rifle', 'rifle', 'lmg'], [2, 3, 4], 2, true], [-350, -1, ['rifle', 'rpg', 'rifle', 'atgm'], [2, 3, 4], 1, true]],
   4: [[-380, 1, ['rpg', 'rifle', 'rpg'], [1, 2, 3]], [-330, -1, ['rifle', 'rpg', 'rifle'], [2, 3, 3]], [-300, -1, ['rifle', 'rifle', 'rpg'], [2, 2, 3]],
-      [-265, 1, ['rifle', 'atgm', 'rifle', 'lmg'], [2, 3, 4], 1], [-215, 1, ['rpg', 'rifle', 'rifle', 'lmg'], [2, 3, 4], 2, true], [-215, -1, ['rifle', 'rpg', 'rifle', 'rifle'], [2, 3, 4], 2, true]],
+      [-265, 1, ['rifle', 'atgm', 'rifle', 'lmg'], [2, 3, 4], 1], [-200, -1, ['rifle', 'rpg', 'rifle'], [2, 3, 3]], [-130, 1, ['rpg', 'rifle', 'rifle', 'lmg'], [2, 3, 4]], [-60, 1, ['rpg', 'rifle', 'rifle', 'lmg'], [2, 3, 4], 2, true], [-60, -1, ['rifle', 'rpg', 'rifle', 'rifle'], [2, 3, 4], 2, true]],
 };
 const RS_AMBX = { 0: RS_ENC[0].map((t) => t[0]), 2: RS_ENC[2].map((t) => t[0]), 4: RS_ENC[4].map((t) => t[0]) };
 const RS_LV = { off: [35, 25, 15], rise: [65, 50, 35], aim: [1.6, 1.0, 0.6], down: [2.5, 1.8, 1.2], rpgHit: [0.33, 0.5, 0.75], slow: [0.4, 0.5, 0.65], rpgDmg: [15, 25, 35] };
@@ -169,7 +169,7 @@ function rsGarrison(mode) {
 function rsBoardStart() {
   const C = CHAP.rescue; RS.boardT = 0;
   FRIENDS.slice(0, 12).forEach((f, i) => { if (f.state !== 'post') return; const seat = f.ride; DIRQ.push({ at: GAME.t + i * 0.7, fn: () => { if (f.state !== 'post') return; f.state = 'board'; f.goal = () => seat().p; f.onArrive = (ff) => { ff.state = 'ride'; ff.ride = seat; rsBoarded(); }; } }); });
-  C.riders.forEach((r, i) => { if (r.state === 'wait') { r.state = 'run'; r.delay = 1 + i * 0.6; } });
+  C.riders.forEach((r, i) => { if (r.state === 'wait') { r.state = 'run'; r.delay = 1 + i * 0.9; } });
 }
 function rsBoarded() { RS.boarded++; if (RS.boarded % 6 === 0 || RS.boarded === 33) feed(`על הטנק של שאול: ${RS.boarded}/33`, 'good'); if (RS.boarded === 20) radio('שאול', 'עשרים עליי. עוד! תמשיכו לעלות, אין מקום רק למי שלא מחזיק חזק!', 3); }
 function rsRidersUpd(dt) {
@@ -223,7 +223,7 @@ function rsSetup(stage) {
   if (stage !== 2) RS.hillCp = false;
   if (stage === 0 || stage === 2) {
     // the first entry starts just past our line and halts at B, C and the meeting point (A is fought on the move); the second starts short of B
-    const atHill = stage === 2 && RS.hillCp, s0 = stage === 0 ? sE - 600 : atHill ? sH - 2 : sH - 250, stops = stage === 0 ? [sE] : [sH]; RS.s2 = s0;   /* 600 m and 250 m, no halts (the user) */
+    const atHill = stage === 2 && RS.hillCp, s0 = stage === 0 ? sE - 800 : atHill ? sH - 2 : sH - 400, stops = stage === 0 ? [sE] : [sH]; RS.s2 = s0;   /* 600 m and 250 m, no halts (the user) */
     tankStart(RS_TRACK, RW, s0, stops); TANK.vmax = RS_V[stage]; if (atHill) RS.ambI = 99;
     C.shaul.follow = { gap: 26 }; C.ksha.follow = { gap: 50 }; C.apc.forEach((v, i) => { v.follow = { gap: [74, 90, 106, 122][i] }; });
     rsGarrison('hide');
@@ -417,7 +417,7 @@ function rsUpd(dt) {
   } else if (RS.stage === 4) {
     if (!RS.msgs.join && Math.hypot(TANK.g.position.x - C.shaul.g.position.x, TANK.g.position.z - C.shaul.g.position.z) < 70) { RS.msgs.join = true; radio('מח״ט', 'אני מאחוריך, שאול. סע, אני מחפה.', 2.5); }
     // the last stretch to our line is the film's: once Shaul is past the burning wrecks at the middle of the track, the column is home
-    if (RS.msgs.home || TANK.s > 95 + 490 || TANK.s > pathLen(TANK.path) - 2) { if (!RS.msgs.endFilm) { RS.msgs.endFilm = true; rsEndFilm(); } }
+    if (RS.msgs.home || TANK.s > 95 + 650 || TANK.s > pathLen(TANK.path) - 2) { if (!RS.msgs.endFilm) { RS.msgs.endFilm = true; rsEndFilm(); } }
   }
 }
 /* stage 3 without a checkpoint reset: the tank is already parked on the hill, the rest is placed */
