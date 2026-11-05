@@ -44,7 +44,7 @@ const RS_LV = { first: [1.5, 1.0, 0.6], rpgAim: [1.6, 1.1, 0.7], off: [35, 25, 1
 const rsLv = (k) => RS_LV[k][rsD()];
 function rsAmbDefs(stage) {
   return RS_ENC[stage].map(([x, sd, kinds, n, atgmLv = 2, last = false], i) => { const r = rng(7100 + stage * 100 + i), dir = stage === 4 ? 1 : -1;
-    return { x, id: `a${stage}_${i}`, n, last, sh: kinds.map((k0, k) => { const kind = k0 === 'atgm' ? (rsD() < atgmLv ? 'rifle' : 'rpg') : k0, off = rsLv('off') + k * 6 + r() * 4, dx = dir * (k * 8 + r() * 5);   /* spread out, about eight metres between holes */
+    return { x, id: `a${stage}_${i}`, n, last, sh: kinds.map((k0, k) => { const kind = k0 === 'atgm' ? (rsD() < atgmLv ? 'rifle' : 'rpg') : k0, off = rsLv('off') + (k % 2) * 6 + r() * 4, dx = dir * (k * 14 + r() * 3);   /* spread out: some 15 m from man to man (the user) */
       return { dx, side: sd, off, kind, how: 'run' }; }) }; });   /* no positions: they run in over the dune (the user) */
 }
 const RS_STAGES = [
