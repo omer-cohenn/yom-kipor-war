@@ -84,7 +84,7 @@ function rsBuild() {
     const X0 = RS.o.x - 770, X1 = RS.o.x + 750, Z0 = RS.o.z - 320, Z1 = RS.o.z + 320;
     const TW = RS_TRACK.map(([x, z]) => RW(x, z));
     concealPatches([...patchesNear(TW, 60, 12, 120, 990, okW, 4, 9), ...patchesIn(70, X0, RS.o.x - 330, Z0, Z1, 991, okW, 5, 12)], C, 992, 0.5);
-    dressRoute(TW, okW, 900, 1.2, 0.15); dressArea(X0, X1, Z0, Z1, okW, 950, 1, 0.1); dressArea(X0, RS.o.x - 330, Z0, Z1, okW, 980, 0.8, 0.85);
+    dressRoute(TW, okW, 900, 0.6, 0.15); dressArea(X0, X1, Z0, Z1, okW, 950, 0.5, 0.1); dressArea(X0, RS.o.x - 330, Z0, Z1, okW, 980, 0.4, 0.85);   /* half: millions of triangles of pebbles and tufts (the black squares on a full screen) */
     instScatter(ROCK_G, scatterIn(LITE ? 200 : 460, X0, X1, Z0, Z1, 301, okW, (x, z, r) => [x, z, 0.22 + r() ** 3 * 1.1, r() * 6, rockCol(r), 0.2, 0.55]).concat(scatterNear(TW, LITE ? 260 : 700, 9, 140, 311, okW, (x, z, r) => [x, z, 0.18 + r() ** 3 * 1.3, r() * 6, rockCol(r), 0.2, 0.55])));
     instScatter(BUSH_G, scatterNear(TW, LITE ? 220 : 560, 10, 150, 312, okW, (x, z, r) => [x, z, 0.5 + r() * 1.0, r() * 6, r() < 0.25 ? greenBush(r) : dryBush(r), 0, 0.8]));
     { const bl2 = scatterNear(TW, LITE ? 5 : 10, 18, 110, 313, okW, (x, z, r) => [x, z, 1.2 + r() * 1.8, r() * 6, rockCol(r), 0.3, 0.72]); instScatter(BOULDER_G, bl2); boulders(bl2); }

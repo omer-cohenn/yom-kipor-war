@@ -4267,6 +4267,16 @@ function nsGeometry() {
     for (const k of ['position', 'normal', 'uv', 'skinIndex', 'skinWeight']) g2.setAttribute(k, geo.attributes[k]);
     g2.setIndex(new THREE.BufferAttribute(ix2, 1)); g2.boundingSphere = geo.boundingSphere; NEWSOL.geos.push(g2);
   }
+  /* a fourth, for the men far off: the lightest one's vertices merged on a 5 cm grid, skin weights and all (the black squares and the
+     crash on a full screen of men: millions of triangles a frame) */
+  try { const src = NEWSOL.geos[NEWSOL.geos.length - 1], I = src.index.array, A = geo.attributes, cell = 0.05, map = new Map(), keep = [], out = [];
+    const g3 = new THREE.BufferGeometry(); const groups = src.groups.length ? src.groups : [{ start: 0, count: I.length, materialIndex: 0 }];
+    for (const gr of groups) { map.clear(); const st = out.length;
+      const vid = (i) => { const key = Math.round(A.position.getX(i) / cell) + ',' + Math.round(A.position.getY(i) / cell) + ',' + Math.round(A.position.getZ(i) / cell) + ',' + gr.materialIndex; let v = map.get(key); if (v === undefined) { v = keep.length; map.set(key, v); keep.push(i); } return v; };
+      for (let t = gr.start; t < gr.start + gr.count; t += 3) { const a = vid(I[t]), b = vid(I[t + 1]), c = vid(I[t + 2]); if (a !== b && b !== c && a !== c) out.push(a, b, c); }
+      g3.addGroup(st, out.length - st, gr.materialIndex); }
+    for (const k of ['position', 'normal', 'uv', 'skinIndex', 'skinWeight']) { const s0 = A[k], sz = s0.itemSize, arr = new s0.array.constructor(keep.length * sz); keep.forEach((i, j) => { for (let c = 0; c < sz; c++) arr[j * sz + c] = s0.array[i * sz + c]; }); g3.setAttribute(k, new THREE.BufferAttribute(arr, sz, s0.normalized)); }
+    g3.setIndex(out); g3.boundingSphere = geo.boundingSphere; NEWSOL.geos.push(g3); } catch (e) { console.error(e); }
   return (NEWSOL.geo = geo);
 }
 /* the helmet sat high in 1973 - pushed back off the brow, the face open under it: raised 2 cm and tipped back 10 degrees about the head */
@@ -4644,7 +4654,7 @@ const NS_D = { high: PHONE ? 70 : 100, med: 55, low: 32 }[QUAL], NS_MAX = { high
 // in a film every man the camera can make out wears it (the user: no old figures in the films): further, and many more at once
 const NS_DC = NS_D * 1.6, NS_MAXC = { high: PHONE ? 60 : 90, med: 45, low: 24 }[QUAL];   // and never more than NS_MAX at once: the nearest (a crowded rampart is many men)
 // the figure's level of detail by that same distance: whole near, a third of its triangles past NS_L[0], an eighth past NS_L[1]
-const NS_L = { high: PHONE ? [14, 34] : [22, 50], med: [16, 34], low: [10, 24] }[QUAL];   // whole near - every crease, as the showroom shows them - lighter where the detail is too small to see
+const NS_L = { high: PHONE ? [14, 34, 60] : [22, 50, 90], med: [16, 34, 60], low: [10, 24, 45] }[QUAL];   // whole near - every crease, as the showroom shows them - lighter where the detail is too small to see
 const NSB = { t: -1, allow: new Set(), cand: [] };
 const _nsF = V3();
 function nsCine() { try { return CINE.on; } catch (e) { return false; } }   // (CINE is defined further on; men are set up before it)
@@ -4652,7 +4662,7 @@ function nsDecide(u) {
   const R = u.rig; if (!R) return; const far = camera.position.distanceTo(u.pos), eff = far * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2) / 0.7265 / (u.vs || 1);
   const fk = nsCine() ? -1e6 - CINE.t : GAME.t;   /* in a film the game's clock may stand still (the battle waits it out): the film's clock marks the frames */
   if (NSB.t !== fk) {   // a new frame: last frame's near men ranked, those wearing it already a little ahead (no flicker), the dead behind the living
-    NSB.cand.sort((a, b) => a.nsRank - b.nsRank); NSB.allow = new Set(NSB.cand.slice(0, nsCine() ? NS_MAXC : NS_MAX)); NSB.cand.length = 0; NSB.t = fk;
+    NSB.cand.sort((a, b) => a.nsRank - b.nsRank); NSB.allow = new Set(NSB.cand.slice(0, nsCine() ? NS_MAXC : NS_MAX)); NSB.hi = new Set(NSB.cand.slice(0, PHONE ? 3 : 6)); NSB.cand.length = 0; NSB.t = fk;
   }
   /* every man drawn wears it, at any distance (the detail steps down with the distance below); only the Chinese Farm's men disguised in our
      uniforms in their pits keep the old figure, which is what wears the disguise */
@@ -4664,7 +4674,7 @@ function nsDecide(u) {
   const w = near && (R.root.visible || R.nsOn); if (w !== !!R.nsOn) nsShow(R, w);
   if (w && R.talkU) nsJaw(u, R);
   if (w && R.ns && NEWSOL.geos && NEWSOL.geos.length > 1) {
-    const cur = R.nsLod ?? 0, h = cur === 0 ? 1.1 : 0.92, l = eff < NS_L[0] * (cur === 0 ? h : 1) ? 0 : eff < NS_L[1] * (cur <= 1 ? 1.08 : 0.94) ? 1 : 2;   /* a little hysteresis: no flicker on the line */
+    const cur = R.nsLod ?? 0, h = cur === 0 ? 1.1 : 0.92, l = eff < NS_L[0] * (cur === 0 ? h : 1) ? 0 : eff < NS_L[1] * (cur <= 1 ? 1.08 : 0.94) ? 1 : eff < NS_L[2] * (cur <= 2 ? 1.08 : 0.94) ? 2 : 3; if (l === 0 && NSB.hi && !NSB.hi.has(u)) l = 1;   /* the whole figure only for the six nearest: eighteen of them, two million triangles, blacked out the screen */   /* a little hysteresis: no flicker on the line */
     if (l !== cur) { R.nsLod = l; R.ns.geometry = NEWSOL.geos[Math.min(l, NEWSOL.geos.length - 1)]; R.ns.castShadow = SHADOWS && l < (PHONE ? 1 : 2); }   /* the farthest cast no shadow */
   }
 }
@@ -10931,7 +10941,7 @@ function rsBuild() {
     const X0 = RS.o.x - 770, X1 = RS.o.x + 750, Z0 = RS.o.z - 320, Z1 = RS.o.z + 320;
     const TW = RS_TRACK.map(([x, z]) => RW(x, z));
     concealPatches([...patchesNear(TW, 60, 12, 120, 990, okW, 4, 9), ...patchesIn(70, X0, RS.o.x - 330, Z0, Z1, 991, okW, 5, 12)], C, 992, 0.5);
-    dressRoute(TW, okW, 900, 1.2, 0.15); dressArea(X0, X1, Z0, Z1, okW, 950, 1, 0.1); dressArea(X0, RS.o.x - 330, Z0, Z1, okW, 980, 0.8, 0.85);
+    dressRoute(TW, okW, 900, 0.6, 0.15); dressArea(X0, X1, Z0, Z1, okW, 950, 0.5, 0.1); dressArea(X0, RS.o.x - 330, Z0, Z1, okW, 980, 0.4, 0.85);   /* half: millions of triangles of pebbles and tufts (the black squares on a full screen) */
     instScatter(ROCK_G, scatterIn(LITE ? 200 : 460, X0, X1, Z0, Z1, 301, okW, (x, z, r) => [x, z, 0.22 + r() ** 3 * 1.1, r() * 6, rockCol(r), 0.2, 0.55]).concat(scatterNear(TW, LITE ? 260 : 700, 9, 140, 311, okW, (x, z, r) => [x, z, 0.18 + r() ** 3 * 1.3, r() * 6, rockCol(r), 0.2, 0.55])));
     instScatter(BUSH_G, scatterNear(TW, LITE ? 220 : 560, 10, 150, 312, okW, (x, z, r) => [x, z, 0.5 + r() * 1.0, r() * 6, r() < 0.25 ? greenBush(r) : dryBush(r), 0, 0.8]));
     { const bl2 = scatterNear(TW, LITE ? 5 : 10, 18, 110, 313, okW, (x, z, r) => [x, z, 1.2 + r() * 1.8, r() * 6, rockCol(r), 0.3, 0.72]); instScatter(BOULDER_G, bl2); boulders(bl2); }
