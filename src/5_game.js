@@ -2262,7 +2262,7 @@ function updHUD(dt) {
   { const noMove = (P.mode === 'tank' && !TANK.free) || !!P.ride || P.mode === 'mag' || CINE.on; if (noMove !== updHUD.noMove) { updHUD.noMove = noMove; $('#app').classList.toggle('nomove', noMove); } }
   const low = 1 - P.hp / 100; $('#vignette').style.opacity = String(clamp(Math.pow(low, 1.2) * 1.1, 0, 0.95));
   const fh = $('#flashHit'); fh.style.opacity = String(Math.max(0, parseFloat(fh.style.opacity || 0) - dt * 2.5));
-  const gap = (P.mode === 'mag' ? 6 : lerp(14, 3, P.ads) + (moving() ? 8 : 0) + P.recoil * 16);
+  const gap = (P.mode === 'mag' || P.mode === 'tank' ? 6 :   /* the tank's MG sight as the MAG's (the user) */ lerp(14, 3, P.ads) + (moving() ? 8 : 0) + P.recoil * 16);
   const xh = $('#xhair'), bare = P.mode === 'rifle' && !(P.ride && P.ride.mg); xh.style.opacity = P.mode === 'carry' ? '0' : P.ads > (bare ? 0.15 : 0.7) ? '0' : '1'; xh.classList.toggle('bare', bare);
   xh.children[0].style.top = `${-gap - 9}px`; xh.children[1].style.top = `${gap}px`; xh.children[2].style.left = `${-gap - 9}px`; xh.children[3].style.left = `${gap}px`;
   if (AUD.lp) { AUD.ring = Math.max(0, AUD.ring - dt); AUD.lp.frequency.value = AUD.ring > 0 ? 700 + (1 - AUD.ring / 2.2) * 6000 : 18000; }
