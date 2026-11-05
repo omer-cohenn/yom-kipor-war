@@ -636,11 +636,14 @@ const NSKY = (() => {
   const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: null, transparent: true, opacity: 0, depthWrite: false, fog: false, toneMapped: false, blending: THREE.AdditiveBlending, color: 0x7f92c8 })); halo.scale.setScalar(R * 0.2); halo.renderOrder = -28; g.add(halo);
   scene.add(g); return { g, dome, stars, moon, halo, R };
 })();
+const _nmv = new THREE.Vector3();
 function nightSkySet(deep) {
   NSKY.g.visible = deep > 0.02; if (!NSKY.g.visible) return;
-  const fN = CHAP[MODE] && CHAP[MODE].forceNight; NSKY.dome.material.opacity = deep; NSKY.stars.material.opacity = deep * (fN ? 1 : 0.95); NSKY.stars.material.size = fN ? 8.5 : 6;   /* a sky full of stars on the deep night */ NSKY.moon.material.opacity = deep; NSKY.halo.material.opacity = deep * 0.55;
+  const fN = CHAP[MODE] && CHAP[MODE].forceNight; NSKY.dome.material.opacity = deep; NSKY.stars.material.opacity = deep * (fN ? 1 : 0.95); NSKY.stars.material.size = fN ? 11 : 6;   /* a sky full of bright stars on the deep night */
+  sky.visible = !fN;   /* the deep night: no sun and no daylight sky at all behind the stars (the user) */
+  NSKY.stars.renderOrder = -25; NSKY.stars.material.depthTest = !fN; NSKY.moon.renderOrder = -24; NSKY.moon.material.depthTest = !fN; NSKY.moon.scale.setScalar(NSKY.R * (fN ? 0.08 : 0.045)); NSKY.halo.scale.setScalar(NSKY.R * (fN ? 0.34 : 0.2)); NSKY.moon.material.opacity = deep; NSKY.halo.material.opacity = deep * 0.55;
   if (!NSKY.halo.material.map && typeof FXT !== 'undefined' && FXT.flare) { NSKY.halo.material.map = FXT.flare; NSKY.halo.material.needsUpdate = true; }
-  const d = MOON, R = NSKY.R * 0.97; NSKY.moon.position.set(d.x * R, d.y * R, d.z * R); NSKY.halo.position.copy(NSKY.moon.position);
+  const d = fN ? _nmv.set(-0.62, 0.55, -0.2).normalize() : MOON, R = NSKY.R * 0.97; NSKY.moon.position.set(d.x * R, d.y * R, d.z * R); if (fN) NSKY.halo.material.opacity = 0.95;   /* the deep night's moon: big, bright, high over the way west */ NSKY.halo.position.copy(NSKY.moon.position);
 }
 const hemi = new THREE.HemisphereLight(0xc4d6ee, 0x9c8466, 0.42); scene.add(hemi);
 const sun = new THREE.DirectionalLight(0xfff0da, 3.1); scene.add(sun, sun.target);

@@ -637,11 +637,14 @@ const NSKY = (() => {
   const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: null, transparent: true, opacity: 0, depthWrite: false, fog: false, toneMapped: false, blending: THREE.AdditiveBlending, color: 0x7f92c8 })); halo.scale.setScalar(R * 0.2); halo.renderOrder = -28; g.add(halo);
   scene.add(g); return { g, dome, stars, moon, halo, R };
 })();
+const _nmv = new THREE.Vector3();
 function nightSkySet(deep) {
   NSKY.g.visible = deep > 0.02; if (!NSKY.g.visible) return;
-  const fN = CHAP[MODE] && CHAP[MODE].forceNight; NSKY.dome.material.opacity = deep; NSKY.stars.material.opacity = deep * (fN ? 1 : 0.95); NSKY.stars.material.size = fN ? 8.5 : 6;   /* a sky full of stars on the deep night */ NSKY.moon.material.opacity = deep; NSKY.halo.material.opacity = deep * 0.55;
+  const fN = CHAP[MODE] && CHAP[MODE].forceNight; NSKY.dome.material.opacity = deep; NSKY.stars.material.opacity = deep * (fN ? 1 : 0.95); NSKY.stars.material.size = fN ? 11 : 6;   /* a sky full of bright stars on the deep night */
+  sky.visible = !fN;   /* the deep night: no sun and no daylight sky at all behind the stars (the user) */
+  NSKY.stars.renderOrder = -25; NSKY.stars.material.depthTest = !fN; NSKY.moon.renderOrder = -24; NSKY.moon.material.depthTest = !fN; NSKY.moon.scale.setScalar(NSKY.R * (fN ? 0.08 : 0.045)); NSKY.halo.scale.setScalar(NSKY.R * (fN ? 0.34 : 0.2)); NSKY.moon.material.opacity = deep; NSKY.halo.material.opacity = deep * 0.55;
   if (!NSKY.halo.material.map && typeof FXT !== 'undefined' && FXT.flare) { NSKY.halo.material.map = FXT.flare; NSKY.halo.material.needsUpdate = true; }
-  const d = MOON, R = NSKY.R * 0.97; NSKY.moon.position.set(d.x * R, d.y * R, d.z * R); NSKY.halo.position.copy(NSKY.moon.position);
+  const d = fN ? _nmv.set(-0.62, 0.55, -0.2).normalize() : MOON, R = NSKY.R * 0.97; NSKY.moon.position.set(d.x * R, d.y * R, d.z * R); if (fN) NSKY.halo.material.opacity = 0.95;   /* the deep night's moon: big, bright, high over the way west */ NSKY.halo.position.copy(NSKY.moon.position);
 }
 const hemi = new THREE.HemisphereLight(0xc4d6ee, 0x9c8466, 0.42); scene.add(hemi);
 const sun = new THREE.DirectionalLight(0xfff0da, 3.1); scene.add(sun, sun.target);
@@ -11300,7 +11303,7 @@ function rsEnd(win, why) {
   if (why === 'shaul') return ['הטנק של שאול נפגע', 'הטנק עם לוחמי פורקן על הסיפון הוא המטרה של כל אר־פי־ג׳י וכל טנק בגזרה. הישארו מולו, חפשו את הסימונים הצהובים ברגע שהם מופיעים, ותנו פגז לכל טנק מצרי שמציץ מהדיונות.', stats];
   return ['נפגעת', 'המפקד חשוף בצריח. כשהאש כבדה, היכנסו לצריח וירו בכוונת התותחן.', stats];
 }
-CHAP.rescue = { nightLook: Object.assign({}, NIGHT_LOOK, { moonI: 0.42, hemiI: 0.2, exp: 0.5 }), forceNight: true, flareK: 0.8, stages: RS_STAGES, st: () => RS.stage, cp: () => CHAP.rescue.cpN || 0, upd: rsUpd, obj: rsObj, hints: rsHints, items: rsItems, mini: rsMini, restore: fieldRestore, tod: () => RS_TOD[RS.stage] - START_MIN + CHAP.rescue.t / 8, end: rsEnd, tank: true, dry: true, night: true, tracers: 0.75, burnLong: true, hitK: () => 0.75, hard: 0.4,
+CHAP.rescue = { nightLook: Object.assign({}, NIGHT_LOOK, { moonI: 0.42, hemiI: 0.2, exp: 0.5, fogK: 0.3, fog: 0x0a1226 }), forceNight: true, flareK: 0.8, stages: RS_STAGES, st: () => RS.stage, cp: () => CHAP.rescue.cpN || 0, upd: rsUpd, obj: rsObj, hints: rsHints, items: rsItems, mini: rsMini, restore: fieldRestore, tod: () => RS_TOD[RS.stage] - START_MIN + CHAP.rescue.t / 8, end: rsEnd, tank: true, dry: true, night: true, tracers: 0.75, burnLong: true, hitK: () => 0.75, hard: 0.4,
   atgmTarget: (e) => (RS.stage >= 3 && CHAP.rescue.shaul.alive && Math.random() < 0.6 ? () => CHAP.rescue.shaul.g.position.clone().add(V3(0, 1.6, 0)) : null),
   build: () => chapterBuild(CHAP.rescue, rsBuild), setup: rsSetup, clock: '9.10.1973 · ציר טליסמן', toast: ['הלילה שבין 8 ל־9 באוקטובר 1973 · 03:40', 'כוח חילוץ יוצא בלילה לאסוף את לוחמי מעוז פורקן'], start: () => fieldStart('rescue') };
 
