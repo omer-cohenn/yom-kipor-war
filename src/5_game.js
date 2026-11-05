@@ -2242,7 +2242,7 @@ function clockText() { const m = START_MIN + Math.floor(FIELDM() ? CH().tod() : 
 /* which enemies carry their red mark, and when: the ones that matter now - firing, aiming a bazooka, or with the player in their sight. On
    the easy level also every man who knows we are here; on the hard one only those shooting */
 function tagWanted(e) {
-  if (MODE === 'rescue' && TANK.g) { const t = TANK.g.position; if (Math.hypot(e.pos.x - t.x, e.pos.z - t.z) > 175) return false; if ((e.mgCk ?? 0) < GAME.t) { e.mgCk = GAME.t + 0.3; e.mgSee = rsMgSees(e) && rsArcOK(e); } if (!e.mgSee) return false; }   /* no mark on a man the MG cannot hit (the user) */
+  if (MODE === 'rescue' && TANK.g) { const t = TANK.g.position; if (Math.hypot(e.pos.x - t.x, e.pos.z - t.z) > 130) return false; if ((e.mgCk ?? 0) < GAME.t) { e.mgCk = GAME.t + 0.3; e.mgSee = rsMgSees(e) && rsArcOK(e); } if (!e.mgSee) return false; }   /* no mark on a man the MG cannot hit (the user) */
   const lv = Math.max(0, DIFF.indexOf(diff)), fired = GAME.t - (e.shotT ?? -9) < 2.6, aim = (e.rpgAim > 0.1 && e.peek) || !!e.guide;
   if (fired || aim) return true; if (lv === 2) return false; if ((e.seeT || 0) > 0.3) return true; return lv === 0 && !!e.alert;
 }

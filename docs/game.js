@@ -7347,7 +7347,7 @@ function clockText() { const m = START_MIN + Math.floor(FIELDM() ? CH().tod() : 
 /* which enemies carry their red mark, and when: the ones that matter now - firing, aiming a bazooka, or with the player in their sight. On
    the easy level also every man who knows we are here; on the hard one only those shooting */
 function tagWanted(e) {
-  if (MODE === 'rescue' && TANK.g) { const t = TANK.g.position; if (Math.hypot(e.pos.x - t.x, e.pos.z - t.z) > 175) return false; if ((e.mgCk ?? 0) < GAME.t) { e.mgCk = GAME.t + 0.3; e.mgSee = rsMgSees(e) && rsArcOK(e); } if (!e.mgSee) return false; }   /* no mark on a man the MG cannot hit (the user) */
+  if (MODE === 'rescue' && TANK.g) { const t = TANK.g.position; if (Math.hypot(e.pos.x - t.x, e.pos.z - t.z) > 130) return false; if ((e.mgCk ?? 0) < GAME.t) { e.mgCk = GAME.t + 0.3; e.mgSee = rsMgSees(e) && rsArcOK(e); } if (!e.mgSee) return false; }   /* no mark on a man the MG cannot hit (the user) */
   const lv = Math.max(0, DIFF.indexOf(diff)), fired = GAME.t - (e.shotT ?? -9) < 2.6, aim = (e.rpgAim > 0.1 && e.peek) || !!e.guide;
   if (fired || aim) return true; if (lv === 2) return false; if ((e.seeT || 0) > 0.3) return true; return lv === 0 && !!e.alert;
 }
@@ -11008,7 +11008,7 @@ function rsNightUpd(dt) {
   const C = CHAP.rescue;
   // illumination rounds from our guns hang over the ground the column fights on
   // a round every 14-19 s, over the ground the column is about to drive into: each one comes down on its parachute to the sand and dies there
-  if (RS.stage !== 1 && !CINE.on) { RS.illumT -= dt; if (RS.illumT <= 0) { const n = RS.illumN = (RS.illumN || 0) + 1; RS.illumT = 30 + (n % 3) * 4;   /* half as often (the user) */ const [tx, tz] = TANK.g ? [TANK.g.position.x, TANK.g.position.z] : RW(0, 0), ahead = RS.stage === 4 ? 1 : -1; spawnFlare(tx + ahead * (95 + (n % 3) * 40), tz + [-55, 35, 75][n % 3], 205 + (n % 2) * 15, 30, 28, 0.45); if (n % 2) radio('תצפית', n % 4 === 1 ? 'תאורה מעל הציר!' : 'פצצת תאורה באוויר, עיניים לדיונות!', 2); } }
+  if (false && RS.stage !== 1 && !CINE.on) { RS.illumT -= dt;   /* no illumination rounds (the user) */ if (RS.illumT <= 0) { const n = RS.illumN = (RS.illumN || 0) + 1; RS.illumT = 30 + (n % 3) * 4;   /* half as often (the user) */ const [tx, tz] = TANK.g ? [TANK.g.position.x, TANK.g.position.z] : RW(0, 0), ahead = RS.stage === 4 ? 1 : -1; spawnFlare(tx + ahead * (95 + (n % 3) * 40), tz + [-55, 35, 75][n % 3], 205 + (n % 2) * 15, 30, 28, 0.45); if (n % 2) radio('תצפית', n % 4 === 1 ? 'תאורה מעל הציר!' : 'פצצת תאורה באוויר, עיניים לדיונות!', 2); } }
   // how much an illumination round overhead lights the ground round the player (the global brightening in setTimeOfDay)
   FLARE_LIGHT = flareAmb(P.pos.x, P.pos.z);
   // the burning wrecks flicker
@@ -11154,16 +11154,19 @@ function rsArcOK(e) {
   if (!rsDriving() || !e || !e.pos) return true; const t = TANK.g.position, dx = e.pos.x - t.x, dz = e.pos.z - t.z, d = Math.hypot(dx, dz) || 1, [fx, fz] = rsFwd(), c = (dx * fx + dz * fz) / d;
   if (e.arcOut) { if (c > RS_ARC_IN) e.arcOut = false; } else if (c < RS_ARC_OUT) e.arcOut = true; return !e.arcOut;
 }
-function rsMgSees(e) { const t = TANK.g.position, h = e.chest(); return losW(t.x, t.y + 3.1, t.z, h.x, h.y + 0.4, h.z); }
+function rsMgSees(e) { const t = TANK.g.position, h = e.chest(); return losW(t.x, t.y + 3.1, t.z, h.x, h.y, h.z); }   /* his chest, not his head: what the MG can actually hit */
 function rsHold(dt) {
   RS.holdCk = (RS.holdCk || 0) - dt; if (RS.holdCk > 0) return; dt = 0.25; RS.holdCk = 0.25;   /* four times a second is enough (the sight lines cost) */
   if (!rsDriving()) { if (RS.held) { RS.held = false; TANK.vmax = RS.vmax0 ?? TANK.vmax; } return; }
   if (RS.vmax0 === undefined || (!RS.held && TANK.vmax > 0)) RS.vmax0 = TANK.vmax;
   const t = TANK.g.position; let block = false;
-  for (const e of UNITS.enemies) { if (!e.alive || !e.rig.root.visible || e.state === 'film') continue; const d = Math.hypot(e.pos.x - t.x, e.pos.z - t.z); if (d > 175 || !rsArcOK(e)) continue;
+  for (const e of UNITS.enemies) { if (!e.alive || !e.rig.root.visible || e.state === 'film') continue; const d = Math.hypot(e.pos.x - t.x, e.pos.z - t.z); if (d > 130 || !rsArcOK(e)) continue;
     if (rsMgSees(e)) { e.blindT = 0; block = true; continue; }
     e.blindT = (e.blindT || 0) + dt; if (RS.held && e.blindT > 6 && !e.peek) { e.alive = false; e.rig.root.visible = false; if (e.tag) e.tag.visible = false; if (e.slot) { e.slot.used = false; e.slot = null; } continue; }
     block = true; }
+  /* never stuck: held twenty seconds with nobody killed, the column drives on and the men it could not reach are taken off */
+  const kills = STATS.kills || 0; if (!RS.held || kills !== RS.holdK) { RS.holdK = kills; RS.holdT = 0; } else RS.holdT += dt;
+  if (RS.held && RS.holdT > 20) { for (const e of UNITS.enemies) if (e.alive && rsArcOK(e) && Math.hypot(e.pos.x - t.x, e.pos.z - t.z) < 130) { e.alive = false; e.rig.root.visible = false; if (e.tag) e.tag.visible = false; if (e.slot) { e.slot.used = false; e.slot = null; } } block = false; RS.holdT = 0; }
   if (block && !RS.held) { RS.held = true; TANK.vmax = 0; } else if (!block && RS.held) { RS.held = false; TANK.vmax = RS.vmax0; }
 }
 function rsUpd(dt) {
