@@ -183,6 +183,9 @@ button:focus-visible{outline:2px solid var(--sand);outline-offset:2px}
 #guide.foe span{color:#ffc4bd}
 #app.is-touch #guide{top:calc(50% + 46px)} #app.is-touch #guide svg{width:26px;height:26px}
 #app.cine #guide{display:none!important}
+/* night-vision goggles: the picture green, brighter, grainy, round the edges dark */
+#app.nv #stage canvas{filter:grayscale(1) brightness(2.6) contrast(1.25) sepia(1) hue-rotate(58deg) saturate(3.2)}
+#app.nv #stage::after{content:"";position:absolute;inset:0;pointer-events:none;z-index:2;background:radial-gradient(ellipse at center,transparent 52%,rgba(0,10,0,.92) 78%),repeating-linear-gradient(0deg,rgba(0,0,0,.18) 0 1px,transparent 1px 3px)}
 #edge{left:0;top:0;width:46px;height:46px;margin:-23px 0 0 -23px}
 #app.play #edge{display:none}
 #app.play #edge.on{display:block}

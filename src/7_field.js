@@ -786,7 +786,7 @@ function updCine(dt) {
   if (Math.abs(camera.fov - fov) > 0.05) { camera.fov = fov; camera.updateProjectionMatrix(); }
   if (CINE.t >= CINE.total) endCine(false);
 }
-function endCine(skip) {
+function endCine(skip) { $('#app').classList.remove('nv');
   if (!CINE.on) return; const def = CINE.def; if (skip) while (CINE.ev.length) CINE.ev.shift()[1]();
   CINE.on = false; CINE.slow = 1; FILMW.length = 0; if (CINE.vid) cvidStop(); $('#app').classList.remove('cine'); $('#cine').hidden = true; $('#cineCap').innerHTML = ''; camera.fov = CINE.fov0 || 72; camera.updateProjectionMatrix();
   vm.visible = CINE.vm0 || P.mode === 'rifle'; if (def && def.boatFilm) boatsThaw(); if (def && def.end) def.end(skip);   // the rifle as it was before the film (a film that starts on a gun hid it too)

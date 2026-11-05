@@ -384,6 +384,7 @@ function nsUniformFor(mode) {
   for (const [list, net] of [[M.ev, false], [M.e2v, true]]) for (const a of list) {   /* every face: the Syrians a shade fairer; their helmets painted */
     const V = a[3].userData.face; a[3].color.set(sy ? 0xf2dac2 : 0xf0d5ba); if (V) a[3].color.multiply(new THREE.Color(V[0][0], V[0][1], V[0][2])); a[4].color.copy(a[3].color); a[8] = sy ? Hm.sy : net ? Hm.net : Hm.cover; }
   for (const m of [E[0], E[1]]) m.needsUpdate = true;
+  if (E[0].userData.rim) { E[0].userData.rimHex = 0xb5a072; setRim(E[0], mode === 'rescue' ? 0.3 : 0); }   /* a faint glow of their khaki round the Egyptians' edges in the rescue's dark (the user) */
   for (const [own, base] of NEWSOL.own || []) { for (let k = 0; k < base.length; k++) if (k !== 3) own[k] = base[k]; own[3].color.copy(base[3].color); }   /* each man's own copy: all but his face follow the set */
 }
 { const _uf = uniformFor; uniformFor = function (mode) { _uf(mode); nsUniformFor(mode); nsRefresh(); }; }   /* reassigns the declaration in 4_actors.js (one module) */
