@@ -443,7 +443,7 @@ function nsDecide(u) {
   const w = near && (R.root.visible || R.nsOn); if (w !== !!R.nsOn) nsShow(R, w);
   if (w && R.talkU) nsJaw(u, R);
   if (w && R.ns && NEWSOL.geos && NEWSOL.geos.length > 1) {
-    const cur = R.nsLod ?? 0, h = cur === 0 ? 1.1 : 0.92, l = eff < NS_L[0] * (cur === 0 ? h : 1) ? 0 : eff < NS_L[1] * (cur <= 1 ? 1.08 : 0.94) ? 1 : eff < NS_L[2] * (cur <= 2 ? 1.08 : 0.94) ? 2 : 3; if (l === 0 && NSB.hi && !NSB.hi.has(u)) l = 1;   /* the whole figure only for the six nearest: eighteen of them, two million triangles, blacked out the screen */   /* a little hysteresis: no flicker on the line */
+    let cur = R.nsLod ?? 0, h = cur === 0 ? 1.1 : 0.92, l = eff < NS_L[0] * (cur === 0 ? h : 1) ? 0 : eff < NS_L[1] * (cur <= 1 ? 1.08 : 0.94) ? 1 : eff < NS_L[2] * (cur <= 2 ? 1.08 : 0.94) ? 2 : 3; if (l === 0 && NSB.hi && !NSB.hi.has(u)) l = 1;   /* the whole figure only for the six nearest: eighteen of them, two million triangles, blacked out the screen */   /* a little hysteresis: no flicker on the line */
     if (l !== cur) { R.nsLod = l; R.ns.geometry = NEWSOL.geos[Math.min(l, NEWSOL.geos.length - 1)]; R.ns.castShadow = SHADOWS && l < (PHONE ? 1 : 2); }   /* the farthest cast no shadow */
   }
 }
