@@ -534,7 +534,7 @@ function updTank(dt) {
 }
 function tankHit(p, big = false, dmg = null, from = null) {   // from: where the shot came from (the shooter), for the hit-direction mark
   fxExplosion(p, big ? 1.4 : camera.position.distanceTo(p) < 4.5 ? 0.4 : 0.9); sndBoom(p, big ? 1.4 : 0.9); FX.shake = Math.max(FX.shake, big ? 1.1 : 0.6);
-  if (!TANK.alive || GOD()) return; TANK.hp -= dmg ?? (big ? 60 : 11); if (P.mode === 'tank' && !P.crouch) hurtPlayer(rand(4, 9), from || p, true);
+  if (!TANK.alive || GOD()) return; if (dmg == null && !big && MODE === 'rescue') dmg = rsLv('rpgDmg'); TANK.hp -= dmg ?? (big ? 60 : 11); if (P.mode === 'tank' && !P.crouch) hurtPlayer(rand(4, 9), from || p, true);
   else if (P.mode === 'tank' && P.alive && GAME.state === 'play' && !CINE.on) { $('#flashHit').style.opacity = '0.5'; showDmgDir(from || p); }   // down in the turret he is not hurt, but he still sees the hit and where it came from
   radio('נהג', TANK.hp > 50 ? pick(['פגיעה בצד! ממשיכים!', 'אר־פי־ג׳י! לא חדר!']) : pick(['עוד פגיעה! המנוע מתחמם!', 'הטנק לא יחזיק עוד הרבה!']), 2.2);
   if (TANK.hp <= 0 && MODE !== 'suez') { TANK.hp = 0; TANK.alive = false; TANK.burning = true; endGame(false, 'tank'); }
