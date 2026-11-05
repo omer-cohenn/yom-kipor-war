@@ -328,6 +328,14 @@ function rsSyncPeek(e) {
   e.peek = want; e.cyc = 1;
 }
 function rsMgSees(e) { const t = TANK.g.position, h = e.chest(); return losW(t.x, t.y + 3.1, t.z, h.x, h.y, h.z); }   /* his chest, not his head: what the MG can actually hit */
+/* nobody outside the 90 degrees in front of the tank, in any stage: a man who is out at the side or behind (a position astride the
+   track, a rifleman's run, a group of the stage) is taken off at once, unseen and uncounted (the user: surrounded) - only the hill's thirty walk in from the side */
+function rsArcCull(dt) {
+  RS.cullT = (RS.cullT || 0) - dt; if (RS.cullT > 0 || CINE.on || !TANK.g) return; RS.cullT = 0.25;
+  const t = TANK.g.position, [fx, fz] = rsFwd();
+  for (const e of UNITS.enemies) { if (!e.alive || e.state === 'film' || e.sq === 'H') continue; const dx = e.pos.x - t.x, dz = e.pos.z - t.z, d = Math.hypot(dx, dz) || 1;
+    if ((dx * fx + dz * fz) / d < RS_ARC_OUT) { e.alive = false; e.rig.root.visible = false; if (e.tag) e.tag.visible = false; if (e.slot) { e.slot.used = false; e.slot = null; } } }
+}
 function rsHold(dt) {
   RS.holdCk = (RS.holdCk || 0) - dt; if (RS.holdCk > 0) return; dt = 0.25; RS.holdCk = 0.25;   /* four times a second is enough (the sight lines cost) */
   if (!rsDriving()) { if (RS.held) { RS.held = false; TANK.vmax = RS.vmax0 ?? TANK.vmax; } return; }
@@ -345,7 +353,7 @@ function rsHold(dt) {
 function rsUpd(dt) {
   const C = CHAP.rescue; C.t += dt; RS.t += dt; if (Math.floor(RS.t * 2) !== Math.floor((RS.t - dt) * 2)) szEnemyCleanup();
   for (let i = DIRQ.length - 1; i >= 0; i--) if (DIRQ[i] && GAME.t >= DIRQ[i].at) { const q = DIRQ.splice(i, 1)[0]; q.fn(); }
-  rsNightUpd(dt); rsHold(dt); if (P.mode === 'tank') P.crouch = false;   /* no ducking into the turret in this mission (the user) */
+  rsNightUpd(dt); rsArcCull(dt); rsHold(dt); if (P.mode === 'tank') P.crouch = false;   /* no ducking into the turret in this mission (the user) */
   rsRidersUpd(dt); if (RS.walk) rsWalkUpd(dt); if (RS.stage !== 1 && RS.stage !== 3) rsAmbUpd(dt);
   // the T-55s pick on Shaul's tank once it carries the garrison, the player the rest of the time
   C.t55.forEach((v, i) => { v.tgtV = i >= 3 && RS.stage >= 3 && C.shaul.alive ? (Math.random() < 0.6 ? () => C.shaul : null) : null; });
@@ -413,7 +421,7 @@ function rsIntroFilm() {
       { d: 4.6, cam: (u) => ({ p: mid().add(V3(-dz * 6, 24 - u * 4, dx * 6)).add(V3(dx * (u * 8 - 4), 0, dz * (u * 8 - 4))), l: mid().add(V3(dx * 4, 0, dz * 4)), fov: 50 }) },
       { d: 5.0, cam: camLerp(() => line.clone().add(V3(40, 3.5, 30)), () => line.clone().add(V3(22, 2.6, 18)), () => line.clone().add(V3(-20, 2, 0)), () => line.clone().add(V3(-30, 2, 0)), 48) },
     ],
-    ev: [[0, () => $('#app').classList.add('nv')], [9.75, () => $('#app').classList.remove('nv')], [9.6, () => { RS.walk = null; for (const q of units) { q.u.rig.root.visible = false; if (q.r) q.r.state = 'hide'; } }]],
+    ev: [[0, () => $('#app').classList.add('nv')], [9.6, () => { RS.walk = null; for (const q of units) { q.u.rig.root.visible = false; if (q.r) q.r.state = 'hide'; } }]],
     caps: [[0.3, '<b>8 באוקטובר, בערב.</b> מאירק׳ה, מפקד פורקן, בקשר: "יש בכוונתי להיחלץ רגלית." דיוויזיה מצרית שלמה בינו לבין כוחותינו.', 4.6], [5.3, 'בשתיים וחצי, אחרי שקיעת הירח, יוצאים 33 לוחמים דרומה, לאורך ציר טליסמן. עשרה קילומטרים ברגל, בין העמדות המצריות.', 4.4], [10.0, '<b>לפנות בוקר.</b> חטיבה 14 מקבלת את החילוץ. הכוח: שני טנקים, ארבעה ג׳יפים ורופא. המח״ט עולה לתצפית ומשגיח מקרוב.', 4.8]],
     end: () => { $('#app').classList.remove('nv'); radio('מח״ט', 'כוח החילוץ, היכנסו. לוחמי פורקן מחכים בנקודת המפגש בקצה הציר. כל שוחה בדרך — אש מיד.', 5); },
   });
