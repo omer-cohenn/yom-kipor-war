@@ -4201,7 +4201,7 @@ const MAGSIGHT = (() => {
 const MAGFILL = new THREE.DirectionalLight(0xfff2e2, 0); MAGFILL.position.set(0.35, 0.9, 0.8); vmScene.add(MAGFILL);   // light on the gunner's side of the sights: the gun often faces the sun, and its back would be black
 /* how far the gunner has the sights up (0..1), and the sights placed for it; the world's gun is hidden while they are up */
 function magSightUpd(dt, off) {
-  const mag = !off && P.mode === 'mag' && P.post && P.post.mag && !P.post.mag.big && !P.post.mag.heavy, jeep = !off && !!(P.ride && P.ride.mg), k = mag || jeep ? P.ads : 0;
+  const mag = !off && P.mode === 'mag' && P.post && P.post.mag && !P.post.mag.big && !P.post.mag.heavy, jeep = !off && !!(P.ride && P.ride.mg), tank = !off && P.mode === 'tank', k = mag || jeep || tank ? P.ads : 0;   /* the tank's gun through the same sights as the MAG (the user) */
   const gun = mag ? P.post.mag.pivot : jeep ? P.ride.gun : null, hide = gun && k > 0.5 ? gun : null;
   if (P.adsHid && P.adsHid !== hide) { P.adsHid.visible = true; P.adsHid = null; } if (hide && hide.visible) { hide.visible = false; P.adsHid = hide; }
   MAGSIGHT.visible = k > 0.02; MAGFILL.intensity = MAGSIGHT.visible ? 2.2 / renderer.toneMappingExposure : 0; if (!MAGSIGHT.visible) return 0;
@@ -8413,8 +8413,8 @@ function tankCamera(dt) {
   { const hp = P.ads > 0.5 ? camera.position : tankHeadPos(); P.pos.set(hp.x, hp.y - 1.65, hp.z); } P.pitch = clamp(P.pitch, -0.55, 1.2);   // the player is at the cupola, wherever the eye is
   const sh = FX.shake; FX.shake = Math.max(0, FX.shake - dt * 1.8);
   camera.rotation.set(P.pitch + (sh ? rand(-sh, sh) * 0.03 : 0), P.yaw + (sh ? rand(-sh, sh) * 0.02 : 0), 0, 'YXZ');
-  const fov = P.ads > 0.5 ? 13 : P.crouch ? 55 : 70; if (Math.abs(camera.fov - fov) > 0.05) { camera.fov = fov; camera.updateProjectionMatrix(); }
-  vm.visible = false; $('#tsight').classList.toggle('on', P.ads > 0.5);
+  const fov = P.ads > 0.5 ? 30 : P.crouch ? 55 : 70; if (Math.abs(camera.fov - fov) > 0.05) { camera.fov = fov; camera.updateProjectionMatrix(); }
+  vm.visible = false; $('#tsight').classList.remove('on');   /* the MAG's sights instead of the gunner's black-masked scope (magSightUpd) */
 }
 function bailOut() {
   if (SZ.stage !== 1 || SZ.bailed) return; SZ.bailed = true; TANK.alive = false; TANK.burning = true; TANK.hp = 0;
@@ -11156,6 +11156,7 @@ function rsArcOK(e) {
 }
 function rsMgSees(e) { const t = TANK.g.position, h = e.chest(); return losW(t.x, t.y + 3.1, t.z, h.x, h.y + 0.4, h.z); }
 function rsHold(dt) {
+  RS.holdCk = (RS.holdCk || 0) - dt; if (RS.holdCk > 0) return; dt = 0.25; RS.holdCk = 0.25;   /* four times a second is enough (the sight lines cost) */
   if (!rsDriving()) { if (RS.held) { RS.held = false; TANK.vmax = RS.vmax0 ?? TANK.vmax; } return; }
   if (RS.vmax0 === undefined || (!RS.held && TANK.vmax > 0)) RS.vmax0 = TANK.vmax;
   const t = TANK.g.position; let block = false;

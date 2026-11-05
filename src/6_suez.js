@@ -589,8 +589,8 @@ function tankCamera(dt) {
   { const hp = P.ads > 0.5 ? camera.position : tankHeadPos(); P.pos.set(hp.x, hp.y - 1.65, hp.z); } P.pitch = clamp(P.pitch, -0.55, 1.2);   // the player is at the cupola, wherever the eye is
   const sh = FX.shake; FX.shake = Math.max(0, FX.shake - dt * 1.8);
   camera.rotation.set(P.pitch + (sh ? rand(-sh, sh) * 0.03 : 0), P.yaw + (sh ? rand(-sh, sh) * 0.02 : 0), 0, 'YXZ');
-  const fov = P.ads > 0.5 ? 13 : P.crouch ? 55 : 70; if (Math.abs(camera.fov - fov) > 0.05) { camera.fov = fov; camera.updateProjectionMatrix(); }
-  vm.visible = false; $('#tsight').classList.toggle('on', P.ads > 0.5);
+  const fov = P.ads > 0.5 ? 30 : P.crouch ? 55 : 70; if (Math.abs(camera.fov - fov) > 0.05) { camera.fov = fov; camera.updateProjectionMatrix(); }
+  vm.visible = false; $('#tsight').classList.remove('on');   /* the MAG's sights instead of the gunner's black-masked scope (magSightUpd) */
 }
 function bailOut() {
   if (SZ.stage !== 1 || SZ.bailed) return; SZ.bailed = true; TANK.alive = false; TANK.burning = true; TANK.hp = 0;

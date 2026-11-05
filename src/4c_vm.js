@@ -367,7 +367,7 @@ const MAGSIGHT = (() => {
 const MAGFILL = new THREE.DirectionalLight(0xfff2e2, 0); MAGFILL.position.set(0.35, 0.9, 0.8); vmScene.add(MAGFILL);   // light on the gunner's side of the sights: the gun often faces the sun, and its back would be black
 /* how far the gunner has the sights up (0..1), and the sights placed for it; the world's gun is hidden while they are up */
 function magSightUpd(dt, off) {
-  const mag = !off && P.mode === 'mag' && P.post && P.post.mag && !P.post.mag.big && !P.post.mag.heavy, jeep = !off && !!(P.ride && P.ride.mg), k = mag || jeep ? P.ads : 0;
+  const mag = !off && P.mode === 'mag' && P.post && P.post.mag && !P.post.mag.big && !P.post.mag.heavy, jeep = !off && !!(P.ride && P.ride.mg), tank = !off && P.mode === 'tank', k = mag || jeep || tank ? P.ads : 0;   /* the tank's gun through the same sights as the MAG (the user) */
   const gun = mag ? P.post.mag.pivot : jeep ? P.ride.gun : null, hide = gun && k > 0.5 ? gun : null;
   if (P.adsHid && P.adsHid !== hide) { P.adsHid.visible = true; P.adsHid = null; } if (hide && hide.visible) { hide.visible = false; P.adsHid = hide; }
   MAGSIGHT.visible = k > 0.02; MAGFILL.intensity = MAGSIGHT.visible ? 2.2 / renderer.toneMappingExposure : 0; if (!MAGSIGHT.visible) return 0;

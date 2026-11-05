@@ -317,6 +317,7 @@ function rsArcOK(e) {
 }
 function rsMgSees(e) { const t = TANK.g.position, h = e.chest(); return losW(t.x, t.y + 3.1, t.z, h.x, h.y + 0.4, h.z); }
 function rsHold(dt) {
+  RS.holdCk = (RS.holdCk || 0) - dt; if (RS.holdCk > 0) return; dt = 0.25; RS.holdCk = 0.25;   /* four times a second is enough (the sight lines cost) */
   if (!rsDriving()) { if (RS.held) { RS.held = false; TANK.vmax = RS.vmax0 ?? TANK.vmax; } return; }
   if (RS.vmax0 === undefined || (!RS.held && TANK.vmax > 0)) RS.vmax0 = TANK.vmax;
   const t = TANK.g.position; let block = false;
