@@ -9875,7 +9875,7 @@ function jeepMgFire(v, dt) {
 }
 function clockOf(p) { const fwd = Math.atan2(-Math.sin(P.yaw), -Math.cos(P.yaw)), a = Math.atan2(p.x - P.pos.x, p.z - P.pos.z); let h = Math.round(-wrapPi(a - fwd) / (Math.PI / 6)); h = ((h % 12) + 12) % 12 || 12; return `שעה ${h}`; }
 function vehTagTick(v) {   // the enemy vehicle's mark: over it while it is alive and in view, larger and flashing just before it fires
-  if (!v.tag) return; const on = v.alive && v.mode === MODE && v.g.visible && !CINE.on && v.g.position.distanceTo(camera.position) > 14 && !(MODE === 'rescue' && v.g.position.distanceTo(camera.position) > 400);   /* the far tanks out of reach: no mark */ v.tag.visible = on; if (!on) return;
+  if (!v.tag) return; const on = v.alive && v.mode === MODE && v.g.visible && !CINE.on && v.g.position.distanceTo(camera.position) > 14 && MODE !== 'rescue';   /* no marks on vehicles in the rescue: the far tanks on the horizon (the user) */   /* the far tanks out of reach: no mark */ v.tag.visible = on; if (!on) return;
   v.tag.position.set(v.g.position.x, v.g.position.y + (v.kind === 'atgun' ? 2.4 : 3.9), v.g.position.z); const warn = v.shoots && v.fireCd < 1.4;
   v.tag.material = warn ? TAGM.fire : TAGM.e; v.tag.scale.setScalar(warn ? 0.06 + 0.012 * Math.sin(GAME.t * 16) : 0.05);
 }
@@ -9886,7 +9886,8 @@ function updVeh(dt) {
     if (v.tag && (v.mode !== MODE || !v.g.visible || !v.alive || CINE.on)) v.tag.visible = false;
     if (v.mode !== MODE || !v.g.visible) continue;
     // enemy vehicles carry a red marker too, so a tank in the haze reads as a target
-    if (v.side === 'e' && v.alive && !CINE.on) { if (!v.tag) { v.tag = new THREE.Sprite(TAGM.e); v.tag.center.set(0.5, 0); v.tag.renderOrder = 5; onLayer1(v.tag); scene.add(v.tag); } v.tag.visible = true; v.tag.position.set(v.g.position.x, v.g.position.y + v.half[1] + 1.4, v.g.position.z); v.tag.scale.setScalar(v.kind === 't55' || v.kind === 'btr' ? 0.05 : 0.04); }
+    if (v.side === 'e' && v.alive && !CINE.on && MODE === 'rescue') { if (v.tag) v.tag.visible = false; }   /* the rescue: no marks on the far tanks and trucks (the user) */
+    else if (v.side === 'e' && v.alive && !CINE.on) { if (!v.tag) { v.tag = new THREE.Sprite(TAGM.e); v.tag.center.set(0.5, 0); v.tag.renderOrder = 5; onLayer1(v.tag); scene.add(v.tag); } v.tag.visible = true; v.tag.position.set(v.g.position.x, v.g.position.y + v.half[1] + 1.4, v.g.position.z); v.tag.scale.setScalar(v.kind === 't55' || v.kind === 'btr' ? 0.05 : 0.04); }
     if (v.rock) v.rock.a *= Math.exp(-dt * 0.9);
     if (v.alive) {
       if (v.follow) { const f = v.follow; const s = Math.max(0, f.s ? f.s() : TANK.s - f.gap); const [x, z, hd] = tankAt(Math.min(s, pathLen(TANK.path))); const [wx, wz] = TANK.toW(x, z); vehPose(v, wx + Math.cos(hd) * (f.lat || 0), wz - Math.sin(hd) * (f.lat || 0), hd); v.speed = TANK.speed; }
