@@ -39,7 +39,7 @@ const RS_ENC = {
       [-265, 1, ['rifle', 'atgm', 'rifle', 'lmg'], [2, 3, 4], 1], [-200, -1, ['rifle', 'rpg', 'rifle'], [2, 3, 3]], [-130, 1, ['rpg', 'rifle', 'rifle', 'lmg'], [2, 3, 4]], [-60, 1, ['rpg', 'rifle', 'rifle', 'lmg'], [2, 3, 4], 2, true], [-60, -1, ['rifle', 'rpg', 'rifle', 'rifle'], [2, 3, 4], 2, true]],
 };
 const RS_AMBX = { 0: RS_ENC[0].map((t) => t[0]), 2: RS_ENC[2].map((t) => t[0]), 4: RS_ENC[4].map((t) => t[0]) };
-const RS_LV = { off: [35, 25, 15], rise: [65, 50, 35], aim: [1.6, 1.0, 0.6], down: [2.5, 1.8, 1.2], rpgHit: [0.33, 0.5, 0.75], slow: [0.4, 0.5, 0.65], rpgDmg: [15, 25, 35] };
+const RS_LV = { first: [1.5, 1.0, 0.6], rpgAim: [1.6, 1.1, 0.7], off: [35, 25, 15], rise: [65, 50, 35], aim: [1.6, 1.0, 0.6], down: [2.5, 1.8, 1.2], rpgHit: [0.33, 0.5, 0.75], slow: [0.4, 0.5, 0.65], rpgDmg: [15, 25, 35] };
 const rsLv = (k) => RS_LV[k][rsD()];
 function rsAmbDefs(stage) {
   return RS_ENC[stage].map(([x, sd, kinds, n, atgmLv = 2, last = false], i) => { const r = rng(7100 + stage * 100 + i), dir = stage === 4 ? 1 : -1;
@@ -106,7 +106,7 @@ function rsBuild() {
         for (let n = 0; n < 8; n++) { const pz = tz + q.side * q.off, y0 = H(lx, tz) + 3.1, y1 = H(lx, pz) + 1.0; let ok = true; for (let k = 1; k < 10; k++) { const u = k / 10; if (H(lx, lerp(tz, pz, u)) > lerp(y0, y1, u) - 0.2) { ok = false; break; } } if (ok || q.off <= 13) break; q.off -= 3; } }
       const lx = a.x + q.dx, tz = rsTrackZ(lx), lz = tz + q.side * q.off, fz = Math.sign(tz - lz) || 1, [wx, wz] = RW(lx, lz);
       if (q.how === 'pit') { const sl = foxhole(wx, wz, 0, fz, C.slots); sl.grp = a.id; sl.kind = q.kind; q.slot = sl;  }
-      else { q.dest = [wx, wz]; q.from = RW(lx + (r() - 0.5) * 12, lz - fz * 44); C.ambW.push([wx, wz]); } });
+      else { q.dest = [wx, wz]; q.from = RW(lx + (st === 4 ? 1 : -1) * (22 + r() * 10), lz - fz * 40);   /* from behind the crest ahead: down at the column on the diagonal */ C.ambW.push([wx, wz]); } });
     return a; });
   /* the dunes, the holes and the men (the user); of the battlefield of the day before only what still burns, and the far smoke */
   for (const [x, z, b, fire] of [[-330, 58, 110, true]]) { const [wx, wz] = RW(x, z); placeTank(wx, wz, b, TANK_BURNT); if (fire) rsFire(wx, wz, 2.2); }
@@ -277,9 +277,9 @@ function rsAmbSpawn(a) {
   a.sh.slice(0, n).forEach((q, k) => { let e = null;
     // the Sagger crews of the ambushes are the hard level's (the positions astride the track keep theirs on every level); below it an RPG team holds the hole
     if (q.how === 'pit') { e = fSlotSpawn(q.kind === 'atgm' && rsD() < 2 ? 'rpg' : q.kind, (sl) => sl === q.slot, 'am'); if (e) { e.peek = false; e.cyc = 1.3; e.rpgCd = e.atgm ? 8 + k * 1.5 : 2.5 + k; e.rpgMiss = e.kind === 'rpg' && (easy || (rsD() === 1 ? k > 0 || RS.ambN % 3 > 0 || RS.stage === 2 : k % 2 === 1)); e.wild = rsD() < 2; } }
-    else { e = fSpawnStreet0(q.from[0], q.from[1], [q.dest], q.kind); if (e) { e.sq = 'am'; e.tac = 'hold'; e.rpgMiss = easy; } }
+    else { e = fSpawnStreet0(q.from[0], q.from[1], [q.dest], q.kind); if (e) { e.sq = 'am'; rsRunInit(e, q.dest, k); } }
     if (e) { e.ambId = a.id; e.gi = k; e.ambLast = a.last; if (e.kind === 'rpg') e.rpgMiss = Math.random() > rsLv('rpgHit'); if (q.side * dir > 0) right++; else left++; } });
-  { const m = UNITS.enemies.filter((e) => e.alive && e.ambId === a.id); if (m.length) { arShout(m[0], 'yalla', 1); if (m[1]) DIRQ.push({ at: GAME.t + 2.6, fn: () => arShout(m[1], 'allah', 1) }); const x = m.reduce((s, e) => s + e.pos.x, 0) / m.length, z = m.reduce((s, e) => s + e.pos.z, 0) / m.length; spawnFlare(x, z, 150, 26, 24, 0.2); } }   /* our guns light every ambush as it comes up (the user) */
+  { const m = UNITS.enemies.filter((e) => e.alive && e.ambId === a.id); if (m.length) { const x = m.reduce((s, e) => s + e.pos.x, 0) / m.length, z = m.reduce((s, e) => s + e.pos.z, 0) / m.length; spawnFlare(x, z, 150, 26, 24, 0.2); } }   /* our guns light every ambush as it comes up (the user) */
   const n0 = RS.ambN++; if (n0 % 2 === 0) radio('תותחן', right && left ? ['מארב משני צדי הציר!', 'יורים עלינו משני הצדדים!', 'שוחות מימין ומשמאל!'][n0 / 2 % 3] : right ? ['שוחות מימין!', 'מארב מימין, על הדיונה!'][n0 / 2 % 2] : ['שוחות משמאל!', 'מארב משמאל, בין השיחים!'][n0 / 2 % 2], 2);
 }
 /* each drive: the next ambush comes up 125 m before the column reaches it - or up to 260 m before, as soon as fewer than two of the ambushes
@@ -297,7 +297,42 @@ function rsAmbUpd(dt) {
 /* men running in over the dunes from behind a crest to their place on the near slope (no positions in the rescue: the user) */
 function rsRunners(n, from, to, spread, kinds) { const r = rng(9100 + Math.round(from[0] + from[1])); let k = 0;
   for (let i = 0; i < n; i++) { const [fx, fz] = RW(from[0] + (r() - 0.5) * spread, from[1] + (r() - 0.5) * spread), [tx, tz] = RW(to[0] + (r() - 0.5) * spread, to[1] + (r() - 0.5) * spread);
-    const e = fSpawnStreet0(fx, fz, [[tx, tz]], kinds[i % kinds.length]); if (e) { e.sq = 'W'; e.tac = 'hold'; if (e.kind === 'rpg') e.rpgMiss = Math.random() > rsLv('rpgHit'); if (k++ === 0) arShout(e, 'yalla', 1); } } }
+    const e = fSpawnStreet0(fx, fz, [[tx, tz]], kinds[i % kinds.length]); if (e) { e.sq = 'W'; rsRunInit(e, [tx, tz], k++); } } }
+/* ---------- the rescue's men on foot: simple, quick, all at the player's tank (the user: they took too long, fired anywhere, never came on) ----------
+   Down from behind the crest at a run to a place on the near slope, ahead of the tank. From the moment they see the tank they fire: a moment to
+   aim (by level), then bursts. Most of a team storms - two or three seconds at a run toward the tank, down on a knee for a burst, again; the
+   first man and the machine gunner stay and cover. The RPG man kneels, aims (by level) while the gunner calls it, and fires. A burst close by
+   puts a man flat for a second. Nobody cries out before he has fired */
+function rsRunInit(e, dest, k) {
+  e.sz = 'rsrun'; e.dest = dest; e.role = e.kind === 'rpg' ? 'rpg' : k === 0 || e.kind === 'lmg' ? 'cover' : 'storm'; e.rr = 'in'; e.rrT = 0; e.seen = false; e.fired = false;
+  e.rpgMiss = e.kind === 'rpg' && Math.random() > rsLv('rpgHit'); e.rpgCd = 0; e.rpgAim = 0; e.losT = 0; e.downT = 0;
+}
+function rsRunStep(e, dt, shoot, aimPitch) {
+  if (!TANK.g) return; const tp = tankTurretWorld(), dT = Math.hypot(tp.x - e.pos.x, tp.z - e.pos.z);
+  // the target is the player's tank, always: whether he can see it is checked three times a second
+  e.losT -= dt; if (e.losT <= 0) { e.losT = 0.33; const ey = e.eye(), pe = playerEye(); e.los = P.alive && losW(ey.x, ey.y, ey.z, pe.x, pe.y, pe.z); }
+  e.target = e.los ? { player: true, p: playerEye() } : null;
+  if (e.los && !e.seen) { e.seen = true; e.fireCd = rsLv('first') * rand(0.85, 1.15); e.burst = 0; }
+  const fire = () => { const c0 = e.fireCd; shoot(); if (!e.fired && e.fireCd > c0) { e.fired = true; arShout(e, Math.random() < 0.6 ? 'allah' : 'yalla', 1); } };
+  // flat for a moment under a burst
+  if (pinned(e) && e.downT <= 0 && e.rr !== 'rpg') e.downT = rand(0.8, 1.3);
+  if (e.downT > 0) { e.downT -= dt; e.stance = 'hide'; e.rrDown = true; e.rig.pose('hide', e.anim); return; } e.rrDown = false;
+  const runTo = (x, z, v) => { e.anim += dt * 9.5; e.stance = 'stand'; const d = steer(e, x, z, v, dt); e.rig.pose('run', e.anim); return d; };
+  const kneel = () => { e.stance = 'crouch'; if (e.target) fire(); e.rig.pose('crouch', e.anim, aimPitch()); };
+  if (e.rr === 'in') { const d = runTo(e.dest[0], e.dest[1], 5.2); if (e.target && e.fireCd <= 0 && e.role !== 'rpg') fire();   // firing on the run, from the hip, once he sees the tank
+    if (d < 0.9 || (e.seen && GAME.t - (e.seenT ?? (e.seenT = GAME.t)) > 1.6)) { e.rr = e.role === 'rpg' ? 'rpg' : e.role === 'storm' ? 'kneel' : 'hold'; e.rrT = rand(1.0, 1.8); } return; }
+  if (e.rr === 'rpg') { e.stance = 'crouch';
+    if (e.rpgCd > 0) { e.rpgCd -= dt; kneel(); return; }
+    const t = szRpgTarget(e); if (!t || !e.los) { kneel(); return; } e.face(t.x, t.z);
+    if (e.rpgAim === 0) { szRpgCall(e, 'אר־פי־ג׳י'); e.fired = true; arShout(e, 'allah', 1); }
+    e.rpgAim += dt; e.rig.shoulderT = GAME.t + 0.9; e.rig.pose('crouch', e.anim, aimPitch());
+    if (e.rpgAim >= rsLv('rpgAim')) { fireRocket(e.muzzle(), t, 'e', e); e.rpgAim = 0; e.rpgCd = rand(6, 9); e.rpgMiss = Math.random() > rsLv('rpgHit'); } return; }
+  if (e.rr === 'hold') { kneel(); return; }
+  // storming: rushes at the tank, down on a knee between them; no closer than 16 m
+  e.rrT -= dt;
+  if (e.rr === 'kneel') { kneel(); if (e.rrT <= 0 && dT > 18) { e.rr = 'rush'; e.rrT = rand(2.0, 3.0); const a = Math.atan2(tp.x - e.pos.x, tp.z - e.pos.z) + rand(-0.4, 0.4); e.rush = [e.pos.x + Math.sin(a) * 12, e.pos.z + Math.cos(a) * 12]; } return; }
+  if (e.rr === 'rush') { const d = runTo(e.rush[0], e.rush[1], 5.0); if (e.rrT <= 0 || d < 0.8 || dT < 16) { e.rr = 'kneel'; e.rrT = rand(1.2, 2.0); e.fireCd = Math.min(e.fireCd, 0.25); e.burst = 0; if (e.fired && Math.random() < 0.3) arShout(e, 'allah', 1); } return; }
+}
 function rsGroupSpawn(id, first = 9, gap = 8, max = 99) { const C = CHAP.rescue; let k = 0, r = 0, m = 0; for (const s of C.slots) if (s.grp === id && !s.used && m++ < max) { const e = fSlotSpawn(s.kind, (q) => q === s, id); if (e && e.atgm) { e.rpgCd = first + (k++) * gap; } else if (e && e.kind === 'rpg') e.rpgMiss = rsD() === 0 || (rsD() === 1 && r++ % 2 === 0); } return k; }
 /* the thirty Egyptians on the hill: they stand in the open, unmarked, until the tank is a hundred metres away */
 function rsHillGroup() {

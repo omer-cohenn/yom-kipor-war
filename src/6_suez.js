@@ -1411,6 +1411,7 @@ function szPickCover(e, mode, dE) {
   return best || (mode === 'storm' ? szPickCover(e, 'hold', dE) : null);   // (falling back finds nothing: he stays where he is)
 }
 function suezEnemyStep(e, dt, shoot, aimPitch) {
+  if (e.sz === 'rsrun') { rsRunStep(e, dt, shoot, aimPitch); return; }   /* the rescue's own men (8_rescue.js) */
   if (e.dormant && dormantStep(e, dt)) return;
   if (e.sz === 'win') {
     const s = e.slot;

@@ -114,7 +114,7 @@ function voxPlay(k, { radio = false, pos = null, vol = 1.25, line = true, reach 
    fire, 'watch your back' in the trench - from the man himself, one cry at a time across the field */
 const AR_LAST = { t: -99 };
 function arShout(e, kind, p = 1) {
-  if (!e || !AUD.ctx || Math.random() > p || GAME.t - AR_LAST.t < 1.4 || GAME.t - (e.arT ?? -99) < 6) return; const rs = MODE === 'rescue'; if (!rs && Math.random() < 0.5) return;   /* half as many cries (the user); all of them in the rescue */ if (camera.position.distanceTo(e.pos) > (rs ? 220 : 140)) return;
+  if (!e || !AUD.ctx || Math.random() > p || GAME.t - AR_LAST.t < 1.4 || GAME.t - (e.arT ?? -99) < 6) return; const rs = MODE === 'rescue'; if (rs && !e.fired) return;   /* the rescue's: not a sound before he has fired (the user) */ if (!rs && Math.random() < 0.5) return;   /* half as many cries (the user); all of them in the rescue */ if (camera.position.distanceTo(e.pos) > (rs ? 220 : 140)) return;
   if (voxPlay('ar_' + kind + '_' + (Math.random() < 0.5 ? 1 : 2), { pos: e.pos, vol: rs ? 2.8 : 1.1, line: false, reach: rs ? 200 : undefined }))   /* the rescue's: loud, they carry across the dunes (the user) */ { AR_LAST.t = GAME.t; e.arT = GAME.t; }
 }
 function voxBark(f, k) {   // a squad man's shout, in his own voice (one of two), from where he is
@@ -1941,7 +1941,7 @@ function propsNear(p, R, dir) { if (typeof PROPS === 'undefined') return; for (c
 function applyHit(hit, dmg) {
   if (hit.o) suppressAlong(hit.o, hit.p, dmg > 120 ? 1.5 : 1);   // every round of ours pins the men it cracks past
   /* the rescue: a man ducked down in his hole is behind the sand - most rounds kick up the parapet in front of him (the user) */
-  if (hit.kind === 'enemy' && MODE === 'rescue' && hit.u.sz === 'win' && !hit.u.peek && Math.random() < 0.8) { fxDust(hit.p.clone()); return; }
+  if (hit.kind === 'enemy' && MODE === 'rescue' && ((hit.u.sz === 'win' && !hit.u.peek) || hit.u.rrDown) && Math.random() < 0.8) { fxDust(hit.p.clone()); return; }
   if (hit.kind === 'enemy') { const e = hit.u; const dd = hit.head ? dmg * 2.5 : dmg; e.hp -= dd; const kill = e.hp <= 0; { const dr = hit.o ? hit.p.clone().sub(hit.o).normalize() : null; fxBlood(hit.p.clone(), hit.head ? 14 : 10, dr); if (!hit.head) bodyWound(e, hit.p.clone()); if (dr) { const g = hit.p.clone().addScaledVector(dr, rand(0.8, 1.6)); bloodPool({ rig: e.rig, alive: false }, g, rand(0.25, 0.4)); } } if (kill) killEnemy(e, hit.head); hitmark(kill); fxDust(hit.p.clone(), false); if (e.dormant || kill) wakeNear(e.pos, 9); }
   else if (hit.kind === 'seat') { killSeat(hit.boat, hit.seat); hitmark(true); }
   else if (hit.kind === 'boat') { hit.boat.hp -= dmg * 0.2; fxDust(hit.p.clone(), true); hitmark(false); }
