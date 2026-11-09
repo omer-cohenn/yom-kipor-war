@@ -2679,7 +2679,7 @@ if (/[?&]dev\b/.test(location.search)) window.__ev = (c) => eval(c);
 const DATA_FILES = __DATA_FILES__;
 const DATAQ = { p: null, done: false, n: 0 };
 function dataLoad(cb) {
-  if (!DATAQ.p) DATAQ.p = (async () => { for (const f of DATA_FILES) { await new Promise((ok) => { const sc = document.createElement('script'); sc.src = 'data/' + f + '.js'; sc.onload = ok; sc.onerror = () => { console.error('data ' + f); ok(); }; document.head.appendChild(sc); }); DATAQ.n++; if (DATAQ.cb) DATAQ.cb(DATAQ.n / DATA_FILES.length); }
+  if (!DATAQ.p) DATAQ.p = (async () => { for (const f of DATA_FILES) { await new Promise((ok) => { const sc = document.createElement('script'); sc.src = (window.YK_DATA && window.YK_DATA[f]) || 'data/' + f + '.js';   /* a page that carries its data inline (the boat page) */ sc.onload = ok; sc.onerror = () => { console.error('data ' + f); ok(); }; document.head.appendChild(sc); }); DATAQ.n++; if (DATAQ.cb) DATAQ.cb(DATAQ.n / DATA_FILES.length); }
     DATAQ.done = true; if (AUD.ctx) sndLoad(); })();
   DATAQ.cb = cb || null; if (cb) cb(DATAQ.n / DATA_FILES.length); return DATAQ.p;
 }
