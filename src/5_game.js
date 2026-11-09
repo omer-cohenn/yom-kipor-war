@@ -1302,7 +1302,18 @@ function launchBoat(zLand, delay, n, rpg = 0, flame = 0, men, spread = 90, rower
 /* the men in the boats shoot back as they come in: short wild bursts from a random seat, muzzle flashes over the water, rounds that slap
    the sandbags and the bank around the player, and a hit now and then on a man who stands up in the open */
 const _wtB = { h: 0, pitch: 0, roll: 0 };
+/* the rest of the men in the boat fire too (the user: every man not rowing fires at the beach): a flash at the muzzle and the crack of it,
+   now and then a tracer at the bank - for the sight and sound of it; the rounds that count are boatFire's */
+function boatVolley(bt, dt) {
+  if (CINE.on || GAME.state !== 'play' || bt.state !== 'cross') return; const cp = camera.position; if (cp.distanceTo(bt.g.position) > 260) return;
+  bt.seats.forEach((s, i) => { if (!s.alive || s.gone || s.rower || i === bt.shooter) return;
+    s.vf = (s.vf ?? rand(0.5, 4)) - dt; if (s.vf > 0) return;
+    s.vb = (s.vb > 0 ? s.vb : Math.floor(rand(2, 5))) - 1; s.vf = s.vb > 0 ? rand(0.11, 0.17) : rand(2.2, 5.5) * (SURV.on ? 0.8 : 1);
+    const from = bt.muzzleWorld(i); fxMuzzle(from); if (Math.random() < 0.5) sndShot('ak', from);
+    if (Math.random() < 0.18) { const pe = playerEye(), end = V3(lerp(from.x, pe.x, 0.9) + rand(-6, 6), Math.max(0.3, pe.y + rand(-2, 1)), lerp(from.z, pe.z, 0.9) + rand(-6, 6)); fxTracer(from, end, true); } });
+}
 function boatFire(bt, dt, x, z) {
+  boatVolley(bt, dt);
   if (!P.alive || CINE.on || GAME.state !== 'play') return;
   bt.fireCd = (bt.fireCd ?? rand(0.6, 2.5)) - dt; if (bt.fireCd > 0) return;
   const pe = playerEye(), d = Math.hypot(pe.x - x, pe.z - z);
@@ -1310,7 +1321,7 @@ function boatFire(bt, dt, x, z) {
   const seats = []; bt.seats.forEach((s, i) => { if (s.alive && !s.gone && !s.rower) seats.push(i); }); if (!seats.length) return;
   if (!(bt.burst > 0)) { bt.burst = Math.floor(rand(2, 5)); bt.shooter = pick(seats); }
   bt.burst--; bt.fireCd = bt.burst > 0 ? rand(0.1, 0.16) : rand(2.0, 4.2) * (SURV.on ? 0.75 : 1);
-  const i = seats.includes(bt.shooter) ? bt.shooter : pick(seats); const from = bt.seatWorld(i); from.y += 0.92; from.x += Math.sin(bt.heading) * 0.55; from.z += Math.cos(bt.heading) * 0.55;
+  const i = seats.includes(bt.shooter) ? bt.shooter : pick(seats); const from = bt.muzzleWorld(i);   /* from the end of his barrel: he sits aiming */
   fxMuzzle(from); sndShot('ak', from); bt.shotT = GAME.t;
   const rangeF = clamp(1 - d / 320, 0.2, 1), aim = V3(pe.x, pe.y - 0.2, pe.z), wt = segHitT(from.x, from.y, from.z, aim.x, aim.y, aim.z, 1.5);
   if (wt >= 0) { // the round ends in the parapet or a wall in front of the player: a puff of sand, sometimes a torn sandbag
@@ -1345,7 +1356,7 @@ function sndRowing(dt) {
 /* the men in the boats, at full detail at any distance (the user): the new soldier, posed once sitting (with his rifle) and once at the oars,
    baked into still meshes and drawn instanced - every seated man in every boat in a handful of draw calls. The old seated figures stay as
    the boat's bookkeeping (where a man sits, whether he is alive) but draw nothing */
-const ROW_FR = 8;
+const ROW_FR = 16;   /* sixteen moments of the stroke: smooth enough at any distance */
 const SEATI = { on: false, sets: [], hid: new THREE.MeshBasicMaterial({ visible: false }), m4: new THREE.Matrix4(), N: 640 };
 function seatBake(row, ph = 0) {
   const R = new Rig('e', WGEO.rifle); nsShow(R, true); R.root.scale.setScalar(1); R.root.position.set(0, 0, 0); R.root.rotation.set(0, 0, 0);
@@ -1353,8 +1364,13 @@ function seatBake(row, ph = 0) {
   const c = Math.cos(ph), k = (1 + c) / 2;   // the stroke: k = 1 at the catch (leaning to the stern, arms out on the handle), 0 at the finish (back, handle at his chest)
   const sit = (hk) => { T.hipsY = 0.36; T.hipsX = 0; T.hipsZ = 0; T.hipsYaw = 0; T.torsoX = row ? lerp(-0.12, 0.48, k) : 0.14; T.torsoY = 0; T.torsoZ = 0; R.legs(hk, 1.5, hk, 1.5);
     if (row) { T.ik = false; T.arms = [lerp(-0.7, -1.45, k), lerp(-1.55, -0.12, k), lerp(-0.7, -1.45, k), lerp(-1.55, -0.12, k), lerp(0.3, 0.1, k), lerp(-0.3, -0.1, k)]; } R.snapNext = true; R.apply('idle'); R.torso.scale.set(1, 1, 1); R.headP.rotation.set(row ? -0.2 : 0.05, 0, 0); R.root.updateMatrixWorld(true); };
-  sit(-1.5); { const k = V3(); R.kL.getWorldPosition(k); if (k.z < 0) sit(1.5); }   // the thighs forward, whichever sign the hinge takes
+  /* the fighter sits with his rifle in his shoulder, aiming (the user: the men who are not rowing fire at the beach) */
+  const aim = (hk) => { R.snapNext = true; R.pose('aim', 0, 0); T.hipsY = 0.36; T.hipsX = 0; T.hipsZ = 0; T.hipsYaw = 0; T.torsoX = 0.1; R.legs(hk, 1.5, hk, 1.5); R.snapNext = true; R.apply('aim'); R.root.updateMatrixWorld(true); };
+  const sitW = row ? sit : aim;
+  sitW(-1.5); { const k = V3(); R.kL.getWorldPosition(k); if (k.z < 0) sitW(1.5); }   // the thighs forward, whichever sign the hinge takes
   const inv = new THREE.Matrix4().copy(R.root.matrixWorld).invert(), out = [];
+  { const B = R.ns.skeleton.bones, mid = V3(-0.022, -0.325, 0.032).applyMatrix4(B[5].matrixWorld).add(V3(0.022, -0.325, 0.032).applyMatrix4(B[3].matrixWorld)).multiplyScalar(0.5).applyMatrix4(inv);
+    if (row) out.hand = mid; else if (R.gun) { R.gun.updateWorldMatrix(true, false); out.muzzle = V3(0, 0.005, 0.64).applyMatrix4(R.gun.matrixWorld).applyMatrix4(inv); } }
   { const m = R.ns, g = m.geometry.clone(), P = g.attributes.position, v = V3(), mw = new THREE.Matrix4().multiplyMatrices(inv, m.matrixWorld);
     for (let i = 0; i < P.count; i++) { v.fromBufferAttribute(P, i); m.applyBoneTransform(i, v); v.applyMatrix4(mw); P.setXYZ(i, v.x, v.y, v.z); }
     g.deleteAttribute('skinIndex'); g.deleteAttribute('skinWeight'); g.deleteAttribute('normal'); g.computeVertexNormals(); g.computeBoundingSphere(); out.push([g, m.material]); }
@@ -1382,7 +1398,7 @@ const SEAT_LOD = [[25, 0.012], [70, 0.025], [1e9, 0.06]];
 function seatInst() {
   if (SEATI.on) return SEATI.sets.length > 0; SEATI.on = true;
   const inst = (g, mat) => { const mesh = new THREE.InstancedMesh(g, Array.isArray(mat) ? mat.slice() : mat, SEATI.N); mesh.count = 0; mesh.frustumCulled = false; mesh.castShadow = false; mesh.receiveShadow = false; onLayer1(mesh); scene.add(mesh); return mesh; };   /* no shadows of their own: from the rampart a seated man's shadow in the boat is hardly seen, and it doubled the cost */
-  try { for (let f = -1; f < ROW_FR; f++) { const row = f >= 0, baked = seatBake(row, (f + 0.5) / ROW_FR * Math.PI * 2); SEATI.sets.push({ row, lods: SEAT_LOD.map(([, cell]) => baked.map(([g, mat]) => inst(seatCoarse(g, cell), mat))) }); } }   /* the fighters, then the rower in eight moments of his stroke */
+  try { for (let f = -1; f < ROW_FR; f++) { const row = f >= 0, baked = seatBake(row, (f + 0.5) / ROW_FR * Math.PI * 2); if (baked.hand) ROW_HANDS[f] = baked.hand; if (baked.muzzle) { ROW_MUZZLE.p.copy(baked.muzzle); ROW_MUZZLE.ok = true; } SEATI.sets.push({ row, lods: SEAT_LOD.map(([, cell]) => baked.map(([g, mat]) => inst(seatCoarse(g, cell), mat))) }); } }   /* the fighters, then the rower in eight moments of his stroke */
   catch (e) { console.error(e); SEATI.sets.length = 0; } return SEATI.sets.length > 0;
 }
 function seatInstUpdate() {

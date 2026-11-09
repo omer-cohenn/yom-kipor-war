@@ -847,7 +847,7 @@ function bcrewUnit(i) {
 function filmRow(b, on) {
   b.filmHide = on;
   for (const s of b.seats) if (s.rower) { s.m.visible = !on && s.alive && !s.gone; s.oar.visible = !on && !s.gone; }
-  if (on && !b.filmExtra) { b.filmExtra = []; const have = b.seats.filter((s) => !s.rower).length; for (let i = have; i < 8; i++) { const m = new THREE.Mesh(SEATED, MAT.clothE); m.position.set(SEATS[i][0], 0.02, SEATS[i][1]); m.rotation.y = Math.PI / 2; m.scale.setScalar(US / BOAT_S); b.g.add(m); b.filmExtra.push(m); } }
+  if (on && !b.filmExtra) { b.filmExtra = []; const have = b.seats.filter((s) => !s.rower).length; for (let i = have; i < 8; i++) { const m = new THREE.Mesh(SEATED, MAT.clothE); m.position.set(SEATS[i][0], seatY(SEATS[i]), SEATS[i][1]); m.rotation.y = Math.PI / 2 + SEATS[i][3]; m.scale.setScalar(US / BOAT_S); b.g.add(m); b.filmExtra.push(m); } }
   if (!on && b.filmExtra) { for (const m of b.filmExtra) b.g.remove(m); b.filmExtra = null; }
 }
 /* the real soldiers in the boats near the camera, for the films of the boats: every boat within some seventy metres of it (the twelve nearest)
