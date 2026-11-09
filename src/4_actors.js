@@ -792,8 +792,9 @@ for (let i = 0; i < (LITE ? 60 : 96); i++) UNITS.enemies.push(new Unit('e', 'rif
    the waterline, thwarts and floorboards inside; three pairs of oars, soldiers packed between the rowers, a flag at the bow of some.
    Local units (the group is scaled by BOAT_S): bow at +x, the waterline at y = 0 */
 const BOAT_L = 2.75, BOAT_B = 0.68;
-const boatW = (u) => BOAT_B * Math.pow(Math.max(0, 1 - u * u), 0.55);          // half-breadth at the gunwale
-const boatG = (u) => 0.36 + 0.24 * Math.pow(Math.abs(u), 3.2);                    // the sheer, rising toward stem and stern
+const bgI = (x, ys) => { const xs = BOAT_GUN.xs; if (x <= xs[0]) return ys[0]; for (let i = 1; i < xs.length; i++) if (x <= xs[i]) return ys[i - 1] + (ys[i] - ys[i - 1]) * (x - xs[i - 1]) / (xs[i] - xs[i - 1]); return ys[ys.length - 1]; };
+const boatW = (u) => bgI(u * BOAT_L, BOAT_GUN.hw);   // half-breadth at the gunwale (the Rowboat's hull, 4a_boat_hull.js)
+const boatG = (u) => bgI(u * BOAT_L, BOAT_GUN.hy);   // the sheer, rising toward stem and stern
 const boatK = (u) => -0.3 * (1 - 0.3 * u * u);                                    // the keel line
 function boatShell(kw, kg, kk, inner) {
   const NU = 34, NV = 9, pos = [], uv = [], idx = [];
@@ -810,17 +811,22 @@ function boatRim() {
   for (let i = 0; i < NU; i++) for (let k = 0; k < 2; k++) { const a = i * 4 + k * 2, b = a + 1, c = a + 4, d = c + 1; idx.push(a, b, c, b, d, c, a, c, b, b, c, d); }
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals(); return g;
 }
+/* the five thwarts a long step apart (the user: room between the men): rowers on the second and fourth, the fighters on the others */
+const BOAT_THW = [-1.9, -0.95, 0, 0.95, 1.9];
+const ROW_SEATS = [[-0.95, 0.17, -1], [-0.95, -0.17, 1], [0.95, 0.17, -1], [0.95, -0.17, 1]];   // [x, where he sits, the side of his oar: across from him]
 const BOAT_GEO = (() => {
-  const paint = (x, y) => { const u = x / BOAT_L, yg = boatG(u); return y > yg - 0.07 ? 0x3a3f36 : y < 0.015 ? 0x6b3426 : 0xe9e4d6; };
-  const parts = [[boatShell(1, 0, 0, false), paint], [boatShell(0.9, -0.03, 0.05, true), (x, y) => (y < -0.05 ? 0x7a5e40 : 0xd9d2c0)], [boatRim(), 0x4a3c2c]];
-  // floorboards, thwarts, the stem and stern posts, oarlocks
-  for (let k = -5; k <= 5; k++) parts.push([G.box(0.14, 0.03, 0.62 * Math.max(0.3, 1 - Math.abs(k) / 6.5)), 0x8a6a46, M4(k * 0.42, 0.0, 0)]);
-  for (const x of [-1.95, -1.3, -0.65, 0, 0.65, 1.3, 1.95]) { const w = boatW(x / BOAT_L) * 0.88; parts.push([G.box(0.16, 0.035, w * 2), 0x9a7a52, M4(x, 0.19, 0)]); }
-  for (const sd of [-1, 1]) parts.push([G.box(0.07, 0.62, 0.07), 0x4a3c2c, M4(sd * BOAT_L * 0.985, 0.2, 0, 0, 0, sd * 0.32)]);
-  for (const x of [-1.3, 0, 1.3]) for (const sd of [-1, 1]) parts.push([G.box(0.04, 0.09, 0.04), 0x2a2a28, M4(x, boatG(x / BOAT_L) + 0.05, sd * boatW(x / BOAT_L))]);
+  const { nv, nu, p } = BOAT_HULL, pos = new Float32Array(p), uv = [], idx = [];
+  for (let j = 0; j < nv; j++) for (let i = 0; i < nu; i++) { const k = (j * nu + i) * 3; uv.push(pos[k] / 1.3, pos[k + 1] * 1.6 + pos[k + 2] * 0.3); }
+  for (let j = 0; j < nv - 1; j++) for (let i = 0; i < nu - 1; i++) { const a = j * nu + i, b = a + 1, c = a + nu, d = c + 1; idx.push(a, c, b, b, c, d); }
+  const hull = new THREE.BufferGeometry(); hull.setAttribute('position', new THREE.BufferAttribute(pos, 3)); hull.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); hull.setIndex(idx); hull.computeVertexNormals();
+  const parts = [[hull, (x, y) => (y < 0.02 ? 0x5a4838 : 0xd9d0c0)]];
+  parts.push([G.box(4.6, 0.03, 0.5), 0x9a8a70, M4(0, -0.2, 0)]);   // the floorboards
+  for (const x of BOAT_THW) parts.push([G.box(0.22, 0.04, boatW(x / BOAT_L) * 1.9), 0xb8a888, M4(x, 0.17, 0)]);
+  for (const [x, , sd] of ROW_SEATS) { const lx = x - 0.32; parts.push([G.tor(0.04, 0.009, 5, 10), 0x2a2a28, M4(lx, boatG(lx / BOAT_L) + 0.05, sd * boatW(lx / BOAT_L), Math.PI / 2, 0, 0)]); }
   return build(parts);
 })();
-MAT.boatWood = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.82, metalness: 0, map: TX.grime });
+const _woodTx = new THREE.TextureLoader().load(BOAT_WOOD_JPG); _woodTx.wrapS = _woodTx.wrapT = THREE.RepeatWrapping; _woodTx.colorSpace = THREE.SRGBColorSpace;
+MAT.boatWood = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85, metalness: 0, map: _woodTx, side: THREE.DoubleSide });
 // an oar: the handle inboard of the oarlock (z < 0), the loom out over the water, the blade at the end; pivot at the oarlock
 const OAR_GEO = build([[G.cyl(0.022, 0.022, 0.42, 6), 0x6a4e34, M4(0, 0, -0.32, Math.PI / 2, 0, 0)], [G.cyl(0.026, 0.02, 1.85, 6), 0xb79b6c, M4(0, 0, 0.82, Math.PI / 2, 0, 0)], [G.box(0.015, 0.11, 0.48), 0xc7ab78, M4(0, 0, 1.92)]]);
 // a rower: the seated soldier without his rifle, both arms out on the oar handle
@@ -838,10 +844,10 @@ function boatFlag() {
 }
 const BOATS = [], BOAT_S = 1.55;
 // the fighters' places (filled in this order), then the rowers'
-const SEATS = [[-1.95, -0.36], [-1.95, 0.36], [-0.65, -0.36], [-0.65, 0.36], [0.65, -0.36], [0.65, 0.36], [1.95, -0.3], [1.95, 0.3], [-2.35, 0], [2.35, 0]];
-const ROW_SEATS = [[-1.3, -0.24], [-1.3, 0.24], [0, -0.24], [0, 0.24], [1.3, -0.24], [1.3, 0.24]];
+const SEATS = [[-1.9, -0.26], [-1.9, 0.26], [0, -0.26], [0, 0.26], [1.9, -0.24], [1.9, 0.24], [-2.3, 0], [2.3, 0], [-1.45, 0], [1.45, 0]];
+
 class Boat {
-  constructor(from, to, n, speed, delay, nr = LITE ? 4 : 6) {
+  constructor(from, to, n, speed, delay, nr = 4) {
     this.g = new THREE.Group(); this.hull = new THREE.Mesh(BOAT_GEO, MAT.boatWood); this.g.add(this.hull); SH(this.hull, true, false);
     this.from = from; this.to = to; this.speed = speed; this.t = -delay; this.hp = 240; this.state = 'wait'; this.g.scale.setScalar(BOAT_S);
     this.len = Math.hypot(to[0] - from[0], to[1] - from[1]); this.heading = Math.atan2(to[0] - from[0], to[1] - from[1]); this.ph = Math.random() * 6.28;
@@ -849,8 +855,8 @@ class Boat {
     // the soldiers, facing the bow with their rifles
     for (let i = 0; i < n && i < SEATS.length; i++) { const m = new THREE.Mesh(SEATED, MAT.clothE); m.position.set(SEATS[i][0], 0.02, SEATS[i][1]); m.rotation.y = Math.PI / 2; m.scale.setScalar(US / BOAT_S); this.g.add(m); this.seats.push({ m, alive: true, kind: 'rifle', sp: SEATS[i] }); }
     // the rowers face the stern, each with his oar over his own side
-    for (let i = 0; i < nr; i++) { const [x, z] = ROW_SEATS[nr <= 4 ? i + 2 : i], m = new THREE.Mesh(SEATED_ROW, MAT.clothE); m.position.set(x, 0.02, z); m.rotation.order = 'YXZ'; m.rotation.y = -Math.PI / 2; m.scale.setScalar(US / BOAT_S); this.g.add(m);
-      const sd = Math.sign(z), oar = new THREE.Group(); oar.position.set(x, boatG(x / BOAT_L) + 0.07, sd * boatW(x / BOAT_L)); oar.rotation.order = 'YXZ'; const om = new THREE.Mesh(OAR_GEO, MAT.vc); om.rotation.y = sd < 0 ? Math.PI : 0; oar.add(om); this.g.add(oar);
+    for (let i = 0; i < Math.min(nr, ROW_SEATS.length); i++) { const [x, z, sd] = ROW_SEATS[i], m = new THREE.Mesh(SEATED_ROW, MAT.clothE); m.position.set(x, 0.02, z); m.rotation.order = 'YXZ'; m.rotation.y = -Math.PI / 2; m.scale.setScalar(US / BOAT_S); this.g.add(m);
+      const lx = x - 0.32, oar = new THREE.Group(); oar.position.set(lx, boatG(lx / BOAT_L) + 0.07, sd * boatW(lx / BOAT_L)); oar.rotation.order = 'YXZ'; const om = new THREE.Mesh(OAR_GEO, MAT.vc); om.rotation.y = sd < 0 ? Math.PI : 0; oar.add(om); this.g.add(oar);
       this.seats.push({ m, alive: true, kind: 'rifle', sp: [x, z], rower: true, oar, sd }); }
     if (Math.random() < 0.34) { const F = boatFlag(), pole = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.022, 1.3, 5).translate(0, 0.65, 0), MAT.wood || MAT.vc); pole.position.set(BOAT_L * 0.9, boatG(0.9), 0); const fl = new THREE.Mesh(F.geo, F.mat); fl.position.set(0, 1.12, 0); pole.add(fl); this.g.add(pole); this.flag = pole; }
     // far off, the boat is drawn as one piece - hull, men and oars baked together, as the scenery's boats are - instead of some twenty: the canal can be full of boats
@@ -870,8 +876,9 @@ class Boat {
     const ph0 = this.ph, ph = (this.ph += dt * rate), c0 = Math.cos(ph0), c1 = Math.cos(ph), sw = 0.4 * Math.sin(ph), near = splash && camera.position.distanceTo(this.g.position) < 160;
     for (const s of this.seats) { if (!s.rower) continue;
       if (!s.alive) { s.oar.rotation.set(-0.05 * s.sd, -0.35 * s.sd, 0); continue; }
-      const dip = 0.19 - 0.09 * clamp(c1 * 3, -1, 1); s.oar.rotation.set(dip * s.sd, -sw * s.sd, 0); s.m.rotation.x = -0.2 * Math.sin(ph);
-      if (near && c0 > 0 && c1 <= 0) { const b = s.oar.localToWorld(V3(0, 0, 2.0 * s.sd)); b.y = 0.12; fxDust(b, true); } }
+      /* the catch at cos = 1 (handle out toward the stern, his arms reaching), the drive while sin > 0 (blade down, handle pulled to his chest) */
+      s.oar.rotation.set(s.sd * (0.24 + 0.08 * Math.sin(ph)), s.sd * 0.55 * c1, 0); s.m.rotation.x = 0;
+      if (near && Math.sin(ph0) < 0 && Math.sin(ph) >= 0) { const b = s.oar.localToWorld(V3(0, 0, 1.9)); b.y = 0.12; fxDust(b, true); } }
   }
   dispose() { scene.remove(this.g); this.dead = true; }
 }
@@ -888,8 +895,8 @@ const FLOT_GEO = (() => {
   const s = US / BOAT_S, list = [BOAT_GEO.clone()], m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler();
   const add = (geo, x, y, z, rx, ry, rz, sc) => { e.set(rx, ry, rz, 'YXZ'); m.compose(V3(x, y, z), q.setFromEuler(e), V3(sc, sc, sc)); list.push(geo.clone().applyMatrix4(m)); };
   for (let i = 0; i < 8; i++) add(FLOT_FIG, SEATS[i][0], 0.02, SEATS[i][1], 0, Math.PI / 2, 0, s);
-  for (const [x, z] of ROW_SEATS) { const sd = Math.sign(z); add(FLOT_ROW, x, 0.02, z, -0.12, -Math.PI / 2, 0, s);
-    const o = new THREE.Matrix4().compose(V3(x, boatG(x / BOAT_L) + 0.07, sd * boatW(x / BOAT_L)), new THREE.Quaternion().setFromEuler(new THREE.Euler(0.16 * sd, -0.15 * sd, 0, 'YXZ')), V3(1, 1, 1));
+  for (const [x, z, sd] of ROW_SEATS) { add(FLOT_ROW, x, 0.02, z, -0.12, -Math.PI / 2, 0, s); const lx = x - 0.32;
+    const o = new THREE.Matrix4().compose(V3(lx, boatG(lx / BOAT_L) + 0.07, sd * boatW(lx / BOAT_L)), new THREE.Quaternion().setFromEuler(new THREE.Euler(0.16 * sd, -0.15 * sd, 0, 'YXZ')), V3(1, 1, 1));
     const oy = new THREE.Matrix4().makeRotationY(sd < 0 ? Math.PI : 0); list.push(FLOT_OAR.clone().applyMatrix4(o.multiply(oy))); }
   return mergeGeometries(list, false);
 })();

@@ -1345,12 +1345,14 @@ function sndRowing(dt) {
 /* the men in the boats, at full detail at any distance (the user): the new soldier, posed once sitting (with his rifle) and once at the oars,
    baked into still meshes and drawn instanced - every seated man in every boat in a handful of draw calls. The old seated figures stay as
    the boat's bookkeeping (where a man sits, whether he is alive) but draw nothing */
+const ROW_FR = 8;
 const SEATI = { on: false, sets: [], hid: new THREE.MeshBasicMaterial({ visible: false }), m4: new THREE.Matrix4(), N: 640 };
-function seatBake(row) {
+function seatBake(row, ph = 0) {
   const R = new Rig('e', WGEO.rifle); nsShow(R, true); R.root.scale.setScalar(1); R.root.position.set(0, 0, 0); R.root.rotation.set(0, 0, 0);
   R.snapNext = true; R.pose('idle', 0); const T = R.T;
-  const sit = (hk) => { T.hipsY = 0.36; T.hipsX = 0; T.hipsZ = 0; T.hipsYaw = 0; T.torsoX = row ? 0.32 : 0.14; T.torsoY = 0; T.torsoZ = 0; R.legs(hk, 1.5, hk, 1.5);
-    if (row) { T.ik = false; T.arms = [-1.25, -0.35, -1.25, -0.35, 0.08, -0.08]; } R.snapNext = true; R.apply('idle'); R.torso.scale.set(1, 1, 1); R.headP.rotation.set(row ? -0.2 : 0.05, 0, 0); R.root.updateMatrixWorld(true); };
+  const c = Math.cos(ph), k = (1 + c) / 2;   // the stroke: k = 1 at the catch (leaning to the stern, arms out on the handle), 0 at the finish (back, handle at his chest)
+  const sit = (hk) => { T.hipsY = 0.36; T.hipsX = 0; T.hipsZ = 0; T.hipsYaw = 0; T.torsoX = row ? lerp(-0.12, 0.48, k) : 0.14; T.torsoY = 0; T.torsoZ = 0; R.legs(hk, 1.5, hk, 1.5);
+    if (row) { T.ik = false; T.arms = [lerp(-0.7, -1.45, k), lerp(-1.55, -0.12, k), lerp(-0.7, -1.45, k), lerp(-1.55, -0.12, k), lerp(0.3, 0.1, k), lerp(-0.3, -0.1, k)]; } R.snapNext = true; R.apply('idle'); R.torso.scale.set(1, 1, 1); R.headP.rotation.set(row ? -0.2 : 0.05, 0, 0); R.root.updateMatrixWorld(true); };
   sit(-1.5); { const k = V3(); R.kL.getWorldPosition(k); if (k.z < 0) sit(1.5); }   // the thighs forward, whichever sign the hinge takes
   const inv = new THREE.Matrix4().copy(R.root.matrixWorld).invert(), out = [];
   { const m = R.ns, g = m.geometry.clone(), P = g.attributes.position, v = V3(), mw = new THREE.Matrix4().multiplyMatrices(inv, m.matrixWorld);
@@ -1380,20 +1382,37 @@ const SEAT_LOD = [[25, 0.012], [70, 0.025], [1e9, 0.06]];
 function seatInst() {
   if (SEATI.on) return SEATI.sets.length > 0; SEATI.on = true;
   const inst = (g, mat) => { const mesh = new THREE.InstancedMesh(g, Array.isArray(mat) ? mat.slice() : mat, SEATI.N); mesh.count = 0; mesh.frustumCulled = false; mesh.castShadow = false; mesh.receiveShadow = false; onLayer1(mesh); scene.add(mesh); return mesh; };   /* no shadows of their own: from the rampart a seated man's shadow in the boat is hardly seen, and it doubled the cost */
-  try { for (const row of [false, true]) { const baked = seatBake(row); SEATI.sets.push({ row, lods: SEAT_LOD.map(([, cell]) => baked.map(([g, mat]) => inst(seatCoarse(g, cell), mat))) }); } }
+  try { for (let f = -1; f < ROW_FR; f++) { const row = f >= 0, baked = seatBake(row, (f + 0.5) / ROW_FR * Math.PI * 2); SEATI.sets.push({ row, lods: SEAT_LOD.map(([, cell]) => baked.map(([g, mat]) => inst(seatCoarse(g, cell), mat))) }); } }   /* the fighters, then the rower in eight moments of his stroke */
   catch (e) { console.error(e); SEATI.sets.length = 0; } return SEATI.sets.length > 0;
 }
 function seatInstUpdate() {
   if (!BOATS.length && !SEATI.on) return; if (!seatInst()) return;
-  const n = [[0, 0, 0], [0, 0, 0]], lk = Math.tan(camera.fov * Math.PI / 360) / 0.601, cp = camera.position;   /* through a sight a far boat counts as near */
+  const n = SEATI.sets.map(() => [0, 0, 0]), lk = Math.tan(camera.fov * Math.PI / 360) / 0.601, cp = camera.position;   /* through a sight a far boat counts as near */
   for (const bt of BOATS) { if (bt.dead || !bt.g.visible) continue; bt.lodOn = false; const d = cp.distanceTo(bt.g.position) * lk; let far = 0; while (far < SEAT_LOD.length - 1 && d > SEAT_LOD[far][0]) far++;
     for (const q of bt.seats) { const m = q.m; if (m.material !== SEATI.hid) { m.material = SEATI.hid; m.visible = q.alive && !q.gone; } if (!m.visible || !q.alive || q.gone || (q.rower && bt.filmHide)) continue;
-      const k = q.rower ? 1 : 0; if (n[k][far] >= SEATI.N) continue; m.updateWorldMatrix(true, false); SEATI.m4.copy(m.matrixWorld).multiply(SEAT_FIX[k]);
+      const k = q.rower ? 1 + (Math.floor(((bt.ph % 6.2832) + 6.2832) % 6.2832 / 6.2832 * ROW_FR) % ROW_FR) : 0; if (n[k][far] >= SEATI.N) continue; m.updateWorldMatrix(true, false); SEATI.m4.copy(m.matrixWorld).multiply(SEAT_FIX[k ? 1 : 0]);
       for (const p of SEATI.sets[k].lods[far]) p.setMatrixAt(n[k][far], SEATI.m4); n[k][far]++; } }
-  for (let k = 0; k < 2; k++) SEATI.sets[k].lods.forEach((L, f) => { for (const p of L) { p.count = n[k][f]; p.instanceMatrix.needsUpdate = true; } });
+  for (let k = 0; k < SEATI.sets.length; k++) SEATI.sets[k].lods.forEach((L, f) => { for (const p of L) { p.count = n[k][f]; p.instanceMatrix.needsUpdate = true; } });
 }
 // from the old figure's frame (scaled to the boat, facing its way) to the baked soldier's: the same scale and facing (the rower's figure is turned)
 const SEAT_FIX = [new THREE.Matrix4(), new THREE.Matrix4()];
+/* ---------- the boat page (window.YK_SANDBOX = 'boat'): the stronghold's fight as it is, the player unhurt, and a camera of its own on the
+   boats - close, middle, far, or back to the player on the rampart - to look at the boats, their men and the landing ---------- */
+const BSBX = { on: (() => { try { return window.YK_SANDBOX === 'boat'; } catch (e) { return false; } })(), mode: 'player', i: 0 };
+function bsbxUi() {
+  const d = document.createElement('div'); d.style.cssText = 'position:fixed;top:10px;right:10px;z-index:99;background:rgba(20,24,20,.78);color:#f2ead6;border-radius:10px;padding:8px;display:flex;flex-wrap:wrap;gap:6px;max-width:300px;font:13px system-ui;direction:rtl';
+  const B = [['player', 'השחקן'], ['near', 'קרוב'], ['mid', 'בינוני'], ['far', 'רחוק'], ['next', 'סירה הבאה'], ['slow', 'האט ×0.5'], ['fast', 'רגיל']];
+  for (const [k, t] of B) { const b = document.createElement('button'); b.textContent = t; b.style.cssText = 'font:inherit;border:0;border-radius:6px;padding:6px 9px;background:#e8dcbc;color:#222'; b.onpointerdown = (e) => { e.stopPropagation();
+    if (k === 'next') BSBX.i++; else if (k === 'slow') SLOW.k = 0.5; else if (k === 'fast') SLOW.k = 1; else BSBX.mode = k; }; d.appendChild(b); }
+  const c = document.createElement('div'); c.style.cssText = 'width:100%;font-size:11px;opacity:.8'; c.textContent = 'גוף הסירה: Rowboat מאת Jefferson Moreira, ‏CC BY 3.0'; d.appendChild(c); document.body.appendChild(d);
+}
+function bsbxCam() {
+  if (!BSBX.on || BSBX.mode === 'player' || GAME.state !== 'play') return false;
+  const live = BOATS.filter((b) => !b.dead && b.g.visible && (b.state === 'cross' || b.state === 'landed'));
+  if (!live.length) return false; const b = live[BSBX.i % live.length], p = b.g.position, h = b.heading, [dist, hgt] = { near: [6.5, 2.6], mid: [20, 8], far: [65, 24] }[BSBX.mode];
+  const sx = Math.sin(h + Math.PI / 2), sz = Math.cos(h + Math.PI / 2), fx = Math.sin(h), fz = Math.cos(h);
+  camera.position.set(p.x + sx * dist - fx * dist * 0.35, Math.max(hgt, groundAt(p.x + sx * dist, p.z + sz * dist) + 1.5), p.z + sz * dist - fz * dist * 0.35); camera.lookAt(p.x + fx * 2, 0.8, p.z + fz * 2); camera.updateMatrixWorld(true); return true;
+}
 function updBoats(dt) {
   sndRowing(dt); seatInstUpdate(); mzDetailUpd(dt);
   if (MODE === 'mezach' && !CINE.on && AUD.ctx && (D.boatCryT = (D.boatCryT ?? 2) - dt) <= 0) { D.boatCryT = rand(5, 9);   /* the boats chant as they come: 'Allahu akbar' over the water (the user: more of it) */
@@ -1852,6 +1871,7 @@ function updProjectiles(dt) {
 /* ================= player actions ================= */
 function moving() { const k = INPUT.keys; return !!(k.KeyW || k.KeyA || k.KeyS || k.KeyD || k.ArrowUp || k.ArrowDown || k.ArrowLeft || k.ArrowRight || Math.hypot(INPUT.joy.x, INPUT.joy.y) > 0.2); }
 function hurtPlayer(dmg, from, splash = false) {
+  if (BSBX.on) return;   // the boat page: the player only watches
   if (!P.alive || GAME.state !== 'play' || CINE.on) return;
   { const mz = mzEase(); if (mz) dmg *= mz.dmg; }
   { const h0 = P.hp; if (!GOD()) P.hp -= dmg; if (h0 >= 10 && P.hp < 10) groan(null, true); } P.lastHit = GAME.t; sndHurt(); $('#flashHit').style.opacity = String(clamp(dmg / 40, 0.2, 0.8));
@@ -2600,7 +2620,7 @@ const clock = new THREE.Clock(); let firstFrame = true;
 const _fwd = V3();
 function frame() {
   // the first frame only puts up the menu, which covers the screen: no world is drawn (and no shader compiled) until a mission is chosen
-  if (firstFrame) { firstFrame = false; window.__gameReady = true; setTimeout(() => dataLoad(), 400); clearTimeout(window.__gameTimer); LD.finish(); LD.hide(); showTitle(); GAME.state = 'menu'; /* no face painting in the menu (it made the menu stutter on a phone): the faces are painted while a mission loads */ if (HM_SANDBOX) setTimeout(() => startChapter('hermon'), 50); return; }   /* the building alone goes straight in */
+  if (firstFrame) { firstFrame = false; window.__gameReady = true; setTimeout(() => dataLoad(), 400); if (BSBX.on) setTimeout(() => { bsbxUi(); startChapter('mezach'); }, 500); clearTimeout(window.__gameTimer); LD.finish(); LD.hide(); showTitle(); GAME.state = 'menu'; /* no face painting in the menu (it made the menu stutter on a phone): the faces are painted while a mission loads */ if (HM_SANDBOX) setTimeout(() => startChapter('hermon'), 50); return; }   /* the building alone goes straight in */
   try { frameInner(); } catch (err) { if (!frame.err) { frame.err = true; console.error(err); } }
 }
 let FRAMEN = 0;
@@ -2631,10 +2651,11 @@ function frameInner() {
   if (HM_PANO) HM_PANO.visible = MODE === 'hermon';   // the view from the Hermon is drawn only there
   if (UNI_E.mode !== MODE) { UNI_E.mode = MODE; uniformFor(MODE); }   // Syrian uniforms on the Hermon, Egyptian everywhere else
   if (!renderer.shadowMap.autoUpdate && ((FRAMEN = (FRAMEN || 0) + 1) % 4 === 0 || (P.mode === 'tank' && Math.abs(TANK.speed || 0) > 0.4))) renderer.shadowMap.needsUpdate = true;   /* and every frame while the tank moves: a map four frames old made every man on the moving column flicker */   /* shadows slowed by the governor still follow the camera (a frozen map left big black squares) */
+  const bsCam = bsbxCam();
   sky.position.copy(camera.position); if (NSKY.g.visible) NSKY.g.position.copy(camera.position); camera.getWorldDirection(_fwd); followSun(camera.position.x + _fwd.x * 40, camera.position.z + _fwd.z * 40); updateVmLight();
   if (GAME.state === 'play') updHUD(dt);
   if (CVID.on) { if (GAME.state !== 'play' && !CVID.el.paused) CVID.el.pause(); return; }   // a film on video: its picture covers the view, nothing to draw under it (paused with the game)
-  const ms = magSightUpd(real, CINE.on || GAME.state !== 'play'), showVm = GAME.state === 'play' && !CINE.on && (P.mode === 'rifle' || ms > 0.02), vmWas = vm.visible; if (ms > 0.02) vm.visible = false;   // aiming a machine gun: its sights in the viewmodel pass instead of the rifle
+  const ms = magSightUpd(real, CINE.on || GAME.state !== 'play'), showVm = !bsCam && GAME.state === 'play' && !CINE.on && (P.mode === 'rifle' || ms > 0.02), vmWas = vm.visible; if (ms > 0.02) vm.visible = false;   // aiming a machine gun: its sights in the viewmodel pass instead of the rifle
   if (composer) { vmPass.enabled = showVm; composer.render(dt); }
   else { renderer.setRenderTarget(null); renderer.clear(); renderer.render(scene, camera); if (showVm) { renderer.clearDepth(); renderer.render(vmScene, vmCamera); } }
   vm.visible = vmWas;
