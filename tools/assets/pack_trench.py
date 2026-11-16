@@ -37,7 +37,13 @@ pk.add('tr_wall', parts=parts, tex={'*': {'map': sand_tint(m0['map_path'], W + '
 
 # the sandbags: a row of canvas bags 4.1 m long, 0.96 deep, 0.65 high
 bparts = mesh.load_glb(glb('barrier_sandbag')); b0 = bparts[0]['mat']
-pk.add('tr_bags', parts=bparts, tex={'*': {'map': b0['map_path'], 'nmap': b0['nmap_path'], 'rough': 0.95}}, texsize=1024, uv_flip=True, preview=False)
+def burlap(src, dst, size=1024):
+    # the scan's canvas is a dark muddy brown: the light and shade of it kept, the colour moved to the pale khaki of sun-bleached sandbags
+    a = np.asarray(Image.open(src).convert('RGB').resize((size, size), Image.LANCZOS)).astype(np.float32) / 255
+    lum = (0.3 * a[..., 0] + 0.59 * a[..., 1] + 0.11 * a[..., 2])[..., None]; k = lum / max(1e-3, float(np.median(lum)))
+    tgt = np.array([0.56, 0.48, 0.35]) * np.clip(0.55 + 0.45 * k, 0, 1.6); out = a * 0.3 + tgt * 0.7
+    Image.fromarray((np.clip(out, 0, 1) * 255).astype(np.uint8)).save(dst, quality=92); return dst
+pk.add('tr_bags', parts=bparts, tex={'*': {'map': burlap(b0['map_path'], W + 'bags_col.jpg'), 'nmap': b0['nmap_path'], 'rough': 0.95}}, texsize=1024, uv_flip=True, preview=False)
 
 # far levels: the same placement as the near one (pack centres and grounds the near level; the far one is moved the same way)
 from pack import encode

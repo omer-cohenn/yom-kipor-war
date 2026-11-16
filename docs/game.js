@@ -2034,7 +2034,7 @@ function trwPlace(pts, S, N, s0, s1, sd, outer, bag = false) {
 }
 function trwEarthMat() {
   if (MAT.trEarth) return MAT.trEarth; const has = !!MDL_TEX['trench/sand/earth'];
-  const m = new THREE.MeshStandardMaterial({ color: has ? 0xffffff : 0xcdbb95, map: has ? mdlTex('trench/sand/earth') : TX.micro, roughness: 0.98, side: THREE.DoubleSide });
+  const m = new THREE.MeshStandardMaterial({ color: has ? 0xb49c78 : 0xcdbb95, map: has ? mdlTex('trench/sand/earth') : TX.micro, roughness: 0.98, side: THREE.DoubleSide });
   if (has && !LITE) { m.normalMap = mdlTex('trench/sand/nmap', false); m.normalScale.set(0.7, 0.7); }
   return (MAT.trEarth = m);
 }
@@ -2046,7 +2046,7 @@ function trwBuild() {
   // a wall module: from 0.12 under the floor to the top of the wall, stretched along to its slot (2.5 m, a touch over so the joints close)
   put(TRW_MOD, 'w', (it) => basis(it, (it.L + 0.06) / bw[0], (it.top - it.fl + 0.12) / bw[1], 1, it.fl - 0.12));
   // a row of bags: 0.25 m of it above the earth top, a slight random tilt of its own so the rows do not line up like bricks
-  put(TRW_BAG, 'b', (it) => basis(it, (it.L + 0.2) / bb[0], 1, 1, it.top + 0.25 - bb[1]));
+  put(TRW_BAG, 'b', (it) => basis(it, (it.L + 0.2) / bb[0], 0.72, 0.78, it.top + 0.22 - bb[1] * 0.72));   // lower and narrower than the scan: bags of a man's carrying size
   const near = LITE ? 22 : 40;
   for (const gq of groups.values()) {
     const c = { x: gq.cx / gq.n, z: gq.cz / gq.n, hi: [], lo: [] };
