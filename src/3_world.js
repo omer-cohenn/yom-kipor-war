@@ -1191,6 +1191,45 @@ const TW = 1.25;   // half width of the trench floor (wall face to the centre li
 const ROOFS = [], BARRS = [], AIDPOST = { x: 0, z: 0, rot: 0 };
 const ROOF_K = [], BARR_K = [95, 135, 177, 223, 251];
 let SURV_BARR_K = [];   // the two barricades that close the small strongpoint of survival mode, filled in once the trench path exists
+/* ---- the scanned trench (Megascans, src/4f_data_trench.js): module placements, their instancing by 24 m chunks and two levels of detail ---- */
+const TRW_MOD = [], TRW_BAG = [], TRW_CH = [];
+/* a module from arc length s0 to s1 along a trench line, against the wall on side sd: its centre, its axes (x along the trench, z into it), the
+   floor and the top of the wall there */
+function trwPlace(pts, S, N, s0, s1, sd, outer, bag = false) {
+  const at = (s) => { let i = 0; while (i < S.length - 2 && S[i + 1] < s) i++; const t = Math.min(1, Math.max(0, (s - S[i]) / ((S[i + 1] - S[i]) || 1))); return [lerp(pts[i][0], pts[i + 1][0], t), lerp(pts[i][1], pts[i + 1][1], t), N[i][0], N[i][1]]; };
+  const a = at(s0), b = at(s1), m = at((s0 + s1) / 2); let tx = b[0] - a[0], tz = b[1] - a[1]; const l = Math.hypot(tx, tz) || 1; tx /= l; tz /= l;
+  let nx = -tz, nz = tx; if (nx * m[2] + nz * m[3] < 0) { nx = -nx; nz = -nz; }   // the line's own normal, from the chord
+  const off = bag ? TW + 0.62 : TW + 0.22, x = m[0] + nx * sd * off, z = m[1] + nz * sd * off, fl = groundAt(m[0], m[1]);
+  let top = fl + 1.12; for (const p of [a, m, b]) { const ax = p[0] + nx * sd * TW, az = p[1] + nz * sd * TW; top = Math.max(top, groundAt(p[0], p[1]) + 1.12, groundAt(ax, az) + trenchCut(ax, az) + 0.12); } if (outer) top += 0.22;
+  return { x, z, fl, top, tx, tz, ix: -nx * sd, iz: -nz * sd, L: s1 - s0 };
+}
+function trwEarthMat() {
+  if (MAT.trEarth) return MAT.trEarth; const has = !!MDL_TEX['trench/sand/earth'];
+  const m = new THREE.MeshStandardMaterial({ color: has ? 0xffffff : 0xcdbb95, map: has ? mdlTex('trench/sand/earth') : TX.micro, roughness: 0.98, side: THREE.DoubleSide });
+  if (has && !LITE) { m.normalMap = mdlTex('trench/sand/nmap', false); m.normalScale.set(0.7, 0.7); }
+  return (MAT.trEarth = m);
+}
+function trwBuild() {
+  if (!mdlHas('tr_wall')) return;   // the data did not come in: the earth faces alone
+  const mm = new THREE.Matrix4(), X = V3(), Y = V3(0, 1, 0), Z = V3(), bw = mdlBox('tr_wall'), bb = mdlBox('tr_bags'), CH = 24, groups = new Map();
+  const put = (list, name, f) => { for (const it of list) { const key = Math.floor(it.x / CH) + ',' + Math.floor(it.z / CH); if (!groups.has(key)) groups.set(key, { cx: 0, cz: 0, n: 0, w: [], b: [] }); const gq = groups.get(key); gq.cx += it.x; gq.cz += it.z; gq.n++; gq[name].push(f(it)); } };
+  const basis = (it, sx, sy, sz, y) => { Z.set(it.ix, 0, it.iz); X.crossVectors(Y, Z); return mm.makeBasis(X.clone().multiplyScalar(sx), Y.clone().multiplyScalar(sy), Z.clone().multiplyScalar(sz)).setPosition(it.x, y, it.z).clone(); };
+  // a wall module: from 0.12 under the floor to the top of the wall, stretched along to its slot (2.5 m, a touch over so the joints close)
+  put(TRW_MOD, 'w', (it) => basis(it, (it.L + 0.06) / bw[0], (it.top - it.fl + 0.12) / bw[1], 1, it.fl - 0.12));
+  // a row of bags: 0.25 m of it above the earth top, a slight random tilt of its own so the rows do not line up like bricks
+  put(TRW_BAG, 'b', (it) => basis(it, (it.L + 0.2) / bb[0], 1, 1, it.top + 0.25 - bb[1]));
+  const near = LITE ? 22 : 40;
+  for (const gq of groups.values()) {
+    const c = { x: gq.cx / gq.n, z: gq.cz / gq.n, hi: [], lo: [] };
+    for (const [k, name] of [['w', 'tr_wall'], ['b', 'tr_bags']]) if (gq[k].length) { c.hi.push(...mdlInst(name, 0, gq[k])); c.lo.push(...mdlInst(name, 1, gq[k], null, !LITE)); }
+    /* in a group of their own: the chapter shows and hides the stronghold by its top-level objects, the chunk only switches its two levels */
+    const grp = new THREE.Group(); for (const m of [...c.hi, ...c.lo]) { scene.remove(m); grp.add(m); } grp.layers.set(1); scene.add(grp);
+    for (const m of c.lo) m.visible = false; TRW_CH.push(c);
+  }
+  // each chunk shows its near level while the camera is within `near` m of its middle (plus the chunk's own reach), the far one past that
+  const prev = scene.onBeforeRender; scene.onBeforeRender = function (...a) { prev && prev.apply(this, a); const cp = camera.position;
+    for (const c of TRW_CH) { const h = Math.hypot(cp.x - c.x, cp.z - c.z) < near + CH * 0.6; if (c.h === h) continue; c.h = h; for (const m of c.hi) m.visible = h; for (const m of c.lo) m.visible = !h; } };
+}
 function bagMesh(list, wall = false) { return bagInst(list, rng(list.length * 7 + 3), wall ? 0.04 : 0.12, wall); }
 function buildTrenches() {
   SURV_BARR_K = [kz(-49), kz(49)];
@@ -1218,18 +1257,30 @@ function buildTrenches() {
         const top = Math.max(fl + 1.12, groundAt(ax, az) + trenchCut(ax, az) + 0.12) + (outer ? 0.22 : 0);
         return { ax, az, tx, tz, cx, cz, ex, ez, fl, top, low: groundAt(ex, ez) - 0.12 };
       });
+      /* the scanned revetment (Megascans): a 2.5 m module of planks and corrugated iron in three slots out of four, bare dug earth in the
+         fourth; a slot that would cross an exit, a dugout door or a gate stays earth. Behind a module the earth face stands back 0.3 m, so
+         where two modules meet on a bend the gap shows earth, not a hole */
+      const ex = []; for (let i = 0; i < pts.length - 1; i++) { const m = [(pts[i][0] + pts[i + 1][0]) / 2, (pts[i][1] + pts[i + 1][1]) / 2]; ex.push(isExit(line, outer, (S[i] + S[i + 1]) / 2, len, m[0], m[1], line.perimeter && sd !== outSd)); }
+      const MODL = 2.5, ns = Math.floor(len / MODL), slot = [];
+      for (let k = 0; k < ns; k++) { let ok = (k + (sd > 0 ? 0 : 2) + TRENCH_LINES.indexOf(line)) % 4 !== 3; for (let i = 0; i < ex.length && ok; i++) if (S[i + 1] > k * MODL - 0.3 && S[i] < (k + 1) * MODL + 0.3 && ex[i]) ok = false; slot.push(ok); }
+      const inMod = (sm) => { const k = Math.floor(sm / MODL); return k < ns && slot[k]; };
+      for (let k = 0; k < ns; k++) if (slot[k]) TRW_MOD.push(trwPlace(pts, S, N, k * MODL, (k + 1) * MODL, sd, outer));
       for (let i = 0; i < pts.length - 1; i++) {
-        const m = [(pts[i][0] + pts[i + 1][0]) / 2, (pts[i][1] + pts[i + 1][1]) / 2]; if (isExit(line, outer, (S[i] + S[i + 1]) / 2, len, m[0], m[1], line.perimeter && sd !== outSd)) continue;
+        const m = [(pts[i][0] + pts[i + 1][0]) / 2, (pts[i][1] + pts[i + 1][1]) / 2]; if (ex[i]) continue;
         const a = V[i], b = V[i + 1], u0 = S[i] / 2.4, u1 = S[i + 1] / 2.4;
-        quad([a.ax, a.fl - 0.12, a.az], [b.ax, b.fl - 0.12, b.az], [a.tx, a.top, a.tz], [b.tx, b.top, b.tz], u0, u1, 0, 0, (a.top - a.fl + 0.12) / 1.28, (b.top - b.fl + 0.12) / 1.28);
+        if (inMod((S[i] + S[i + 1]) / 2)) { const bk = (v, j) => [v.ax + N[j][0] * sd * 0.3, v.az + N[j][1] * sd * 0.3];
+          const [a0x, a0z] = bk(a, i), [b0x, b0z] = bk(b, i + 1); quad([a0x, a.fl - 0.12, a0z], [b0x, b.fl - 0.12, b0z], [a0x, a.top, a0z], [b0x, b.top, b0z], u0, u1, 0, 0, (a.top - a.fl + 0.12) / 2.4, (b.top - b.fl + 0.12) / 2.4); }
+        else quad([a.ax, a.fl - 0.12, a.az], [b.ax, b.fl - 0.12, b.az], [a.tx, a.top, a.tz], [b.tx, b.top, b.tz], u0, u1, 0, 0, (a.top - a.fl + 0.12) / 2.4, (b.top - b.fl + 0.12) / 2.4);
         equad([a.tx, a.top, a.tz], [b.tx, b.top, b.tz], [a.cx, a.top - 0.05, a.cz], [b.cx, b.top - 0.05, b.cz], u0, u1, 0, 0, 0.32, 0.32);
         equad([a.cx, a.top - 0.05, a.cz], [b.cx, b.top - 0.05, b.cz], [a.ex, a.low, a.ez], [b.ex, b.low, b.ez], u0, u1, 0, 0, (a.top - a.low) / 2.4, (b.top - b.low) / 2.4);
         // a post every 2.4 m, standing against the planks
-        if (Math.floor(S[i] / 2.4) !== Math.floor(S[i + 1] / 2.4)) posts.push([a.ax + N[i][0] * sd * 0.06, (a.fl - 0.12 + a.top) / 2 + 0.02, a.az + N[i][1] * sd * 0.06, Math.atan2(-(b.az - a.az), b.ax - a.ax), 0.13, a.top - a.fl + 0.16, 0.11]);
+        if (false) posts.push([a.ax + N[i][0] * sd * 0.06, (a.fl - 0.12 + a.top) / 2 + 0.02, a.az + N[i][1] * sd * 0.06, Math.atan2(-(b.az - a.az), b.ax - a.ax), 0.13, a.top - a.fl + 0.16, 0.11]);
         const cx = (a.ax + b.ax) / 2 + N[i][0] * sd * 0.2, cz = (a.az + b.az) / 2 + N[i][1] * sd * 0.2, L = Math.hypot(b.ax - a.ax, b.az - a.az);
         if (!(line.perimeter && sd !== outSd && DUGOUTS.some((d) => Math.hypot(m[0] - d.p[0], m[1] - d.p[1]) < 1.35))) addCollider(cx, cz, L / 2 + 0.05, 0.2, Math.atan2(-(b.az - a.az), b.ax - a.ax), Math.max(a.top, b.top) + 0.25);
       }
-      const bags = densify(line.pts, 0.56); let s0 = 0;
+      /* the parapet: rows of scanned canvas sandbags (4.1 m), sunk into the earth top so 0.25 m shows - a man still sees over them */
+      { const RL = 3.9; for (let s1 = 0.4; s1 + RL < len - 0.4; s1 += RL) { let ok = true; for (let i = 0; i < ex.length && ok; i++) if (S[i + 1] > s1 && S[i] < s1 + RL && ex[i]) ok = false; if (ok) TRW_BAG.push(trwPlace(pts, S, N, s1, s1 + RL, sd, outer, true)); } }
+      const bags = []; let s0 = 0;
       bags.forEach((p, i) => {
         if (i) s0 += Math.hypot(p[0] - bags[i - 1][0], p[1] - bags[i - 1][1]); if (i === bags.length - 1) return;
         const b2 = bags[i + 1], dx = b2[0] - p[0], dz = b2[1] - p[1], l = Math.hypot(dx, dz) || 1, nx = dz / l, nz = -dx / l, rot = Math.atan2(-dz, dx);
@@ -1238,14 +1289,14 @@ function buildTrenches() {
         for (const [off, lays] of [[0.42, 1], [0.8, 1]]) for (let lay = 0; lay < lays; lay++) { const st = (lay % 2 ? 0.14 : -0.14) + (off > 0.5 ? 0.28 : 0); BATCH.bag.push([mx + nx * sd * (TW + off) + st * dx / l, top + 0.06 + lay * 0.19, mz + nz * sd * (TW + off) + st * dz / l, rot]); }
       });
     }
-    const dk = densify(line.pts, 0.75); dk.forEach((p, i) => { if (i === dk.length - 1) return; const b = dk[i + 1]; slats.push([p[0], groundAt(p[0], p[1]) + 0.04, p[1], Math.atan2(-(b[1] - p[1]), b[0] - p[0]) + Math.PI / 2]); });
+    const dk = []; dk.forEach((p, i) => { if (i === dk.length - 1) return; const b = dk[i + 1]; slats.push([p[0], groundAt(p[0], p[1]) + 0.04, p[1], Math.atan2(-(b[1] - p[1]), b[0] - p[0]) + Math.PI / 2]); });
   }
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals();
   // the planks: the Plank Fence pack's boards (2.4 m to a repeat, 1.28 m high) where its texture is there, else the farm's painted boards
-  const pk = !!MDL_TEX['props/plank/map'], plk = new THREE.MeshStandardMaterial({ map: pk ? mdlTex('props/plank/map') : plankTex(), roughness: 0.95, side: THREE.DoubleSide });
-  if (pk && !LITE) { plk.normalMap = mdlTex('props/plank/nmap', false); plk.normalScale.set(0.9, 0.9); }
-  scene.add(SH(onLayer1(new THREE.Mesh(g, plk))));
-  { const e = new THREE.BufferGeometry(); e.setAttribute('position', new THREE.Float32BufferAttribute(epos, 3)); e.setAttribute('uv', new THREE.Float32BufferAttribute(euv, 2)); e.setIndex(eidx); e.computeVertexNormals(); scene.add(SH(onLayer1(new THREE.Mesh(e, MAT.sand)))); }
+  const earth = trwEarthMat();
+  scene.add(SH(onLayer1(new THREE.Mesh(g, earth))));
+  { const e = new THREE.BufferGeometry(); e.setAttribute('position', new THREE.Float32BufferAttribute(epos, 3)); e.setAttribute('uv', new THREE.Float32BufferAttribute(euv, 2)); e.setIndex(eidx); e.computeVertexNormals(); scene.add(SH(onLayer1(new THREE.Mesh(e, earth)))); }
+  trwBuild();
   if (posts.length) { const pm = new THREE.InstancedMesh(GEO.box, MAT.wood, posts.length); posts.forEach(([x, y, z, r, sx, sy, sz], i) => pm.setMatrixAt(i, mm.compose(V3(x, y, z), q.setFromAxisAngle(up, r), V3(sx, sy, sz)))); scene.add(SH(onLayer1(pm))); }
   const sm = new THREE.InstancedMesh(new THREE.BoxGeometry(1.5, 0.05, 0.22), MAT.wood, slats.length);
   slats.forEach(([x, y, z, r], i) => sm.setMatrixAt(i, mm.compose(V3(x, y, z), q.setFromAxisAngle(up, r), V3(1, 1, 1))));

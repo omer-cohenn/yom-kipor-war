@@ -555,10 +555,19 @@ function buildTerrain() {
   geo.setIndex(new THREE.BufferAttribute(idx, 1)); geo.computeVertexNormals(); geo.setAttribute('aSand', new THREE.BufferAttribute(sk, 1));
   const mat = new THREE.MeshStandardMaterial({ vertexColors: true, map: groundTex(), bumpMap: sandBumpTex(), bumpScale: 0.3, roughness: 0.97, metalness: 0, envMapIntensity: 0.3 });
   const detT = detailTex(), micT = microTex();
+  /* the scanned dry sand (Megascans, src/4f_data_trench.js): its grain as a detail over the game's own colours near the camera, and its normals */
+  const scan = typeof MDL_TEX !== 'undefined' && !!MDL_TEX['trench/sand/det'], sdT = scan ? mdlTex('trench/sand/det', false) : null, snT = scan && !LITE ? mdlTex('trench/sand/nmap', false) : null;
   mat.onBeforeCompile = (sh) => {
     sh.uniforms.uDetail = { value: detT }; sh.uniforms.uMicro = { value: micT }; sh.uniforms.uRect = { value: new THREE.Vector4(DET.x0, DET.z0, DET.w, DET.w) };
+    if (scan) { sh.uniforms.uSandD = { value: sdT }; sh.uniforms.uSandN = { value: snT || sdT }; }
+    const sdef = scan ? '#define SAND_SCAN\n' + (snT ? '#define SAND_SCAN_N\n' : '') + 'uniform sampler2D uSandD; uniform sampler2D uSandN;\n' : '';
     sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vWPos;').replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\nvWPos = (modelMatrix * vec4(transformed, 1.0)).xyz;');
-    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vWPos;\nuniform sampler2D uDetail;\nuniform sampler2D uMicro;\nuniform vec4 uRect;').replace('#include <map_fragment>', `#include <map_fragment>
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vWPos;\nuniform sampler2D uDetail;\nuniform sampler2D uMicro;\nuniform vec4 uRect;\n' + sdef).replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
+    #ifdef SAND_SCAN_N
+    { float nf = 1.0 - smoothstep(10.0, 45.0, length(vWPos - cameraPosition));
+      vec3 sn = texture2D(uSandN, vWPos.xz / 1.6).xyz * 2.0 - 1.0;
+      normal = normalize(normal + mat3(viewMatrix) * vec3(sn.x, 0.0, -sn.y) * 0.75 * nf); }
+    #endif`).replace('#include <map_fragment>', `#include <map_fragment>
     {
       vec2 duv = (vWPos.xz - uRect.xy) / uRect.zw;
       if (duv.x > 0.0 && duv.x < 1.0 && duv.y > 0.0 && duv.y < 1.0) {
@@ -568,11 +577,17 @@ function buildTerrain() {
       }
       float cd = length(vWPos - cameraPosition);
       float mf = 1.0 - smoothstep(20.0, 150.0, cd);
+      #ifdef SAND_SCAN
+      { float sf = 1.0 - smoothstep(14.0, 80.0, cd); vec2 sp = vWPos.xz / 1.6;
+        vec3 d1 = texture2D(uSandD, sp).rgb * 2.0, d2 = texture2D(uSandD, vec2(sp.y, -sp.x) * 0.31 + 0.27).rgb * 2.0;
+        diffuseColor.rgb *= mix(vec3(1.0), mix(d1, d1 * d2, 0.4), sf * 0.95);
+        mf *= 1.0 - 0.75 * sf; }
+      #endif
       vec3 mic = texture2D(uMicro, vWPos.xz / 3.3).rgb * texture2D(uMicro, vWPos.xz / 17.0 + 0.37).rgb;
       diffuseColor.rgb *= mix(vec3(1.0), mic * 1.55, mf * 0.85);
     }`);
   };
-  mat.customProgramCacheKey = () => 'mezGround'; sandify(mat);   // the canal's sand: the wind's ripples and streamers too (4g_maps.js)
+  mat.customProgramCacheKey = () => 'mezGround' + (scan ? '+scan' : ''); sandify(mat);   // the canal's sand: the wind's ripples and streamers too (4g_maps.js)
   const mesh = new THREE.Mesh(geo, mat); mesh.receiveShadow = true; scene.add(mesh);
 }
 function findIdx(arr, v) { let lo = 0, hi = arr.length - 1; if (v <= arr[0]) return 0; if (v >= arr[hi]) return hi - 1; while (hi - lo > 1) { const m = (lo + hi) >> 1; if (arr[m] <= v) lo = m; else hi = m; } return lo; }

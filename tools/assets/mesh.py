@@ -3,9 +3,11 @@ A part is a dict: P (n,3) float32 positions, N (n,3) normals, U (n,2) uvs, I (m,
 import json, ctypes, os, sys
 import numpy as np
 from PIL import Image, ImageDraw
-MO = ctypes.CDLL('/home/claude/tools_src/meshoptimizer/libmeshopt.so')
-MO.meshopt_simplify.restype = ctypes.c_size_t
-MO.meshopt_simplifySloppy.restype = ctypes.c_size_t
+try:
+    MO = ctypes.CDLL('/home/claude/tools_src/meshoptimizer/libmeshopt.so')
+    MO.meshopt_simplify.restype = ctypes.c_size_t
+    MO.meshopt_simplifySloppy.restype = ctypes.c_size_t
+except OSError: MO = None   # meshoptimizer not built here: simplify() is unavailable, cluster() still works
 J = '/home/claude/yk_assets/j/'
 
 def load(name):
@@ -78,6 +80,16 @@ def simplify(p, ratio, err=0.02, sloppy=False):
     if sloppy: n = MO.meshopt_simplifySloppy(out.ctypes.data_as(ctypes.c_void_p), I.ctypes.data_as(ctypes.c_void_p), ctypes.c_size_t(len(I)), P.ctypes.data_as(ctypes.c_void_p), ctypes.c_size_t(len(P)), ctypes.c_size_t(12), None, ctypes.c_size_t(target), ctypes.c_float(err), ctypes.byref(e))
     else: n = MO.meshopt_simplify(out.ctypes.data_as(ctypes.c_void_p), I.ctypes.data_as(ctypes.c_void_p), ctypes.c_size_t(len(I)), P.ctypes.data_as(ctypes.c_void_p), ctypes.c_size_t(len(P)), ctypes.c_size_t(12), ctypes.c_size_t(target), ctypes.c_float(err), ctypes.c_uint(1), ctypes.byref(e))
     q = dict(p); q['I'] = out[:n].copy(); return compact(q)
+
+def cluster(p, cell, uvcell=0.02):
+    """vertex clustering: vertices in the same cell (and the same uv neighbourhood, so uv seams stay apart) become one; for far levels"""
+    P, U = p['P'], p['U']; key = np.concatenate([np.floor(P / cell), np.floor(U / uvcell)], axis=1).astype(np.int64)
+    _, inv, cnt = np.unique(key, axis=0, return_inverse=True, return_counts=True); inv = inv.ravel(); n = len(cnt)
+    def avg(A): o = np.zeros((n, A.shape[1])); np.add.at(o, inv, A); return (o / cnt[:, None]).astype(np.float32)
+    N = avg(p['N']); N /= np.maximum(np.linalg.norm(N, axis=1, keepdims=True), 1e-6)
+    I = inv[p['I']].reshape(-1, 3); ok = (I[:, 0] != I[:, 1]) & (I[:, 1] != I[:, 2]) & (I[:, 0] != I[:, 2]); I = I[ok]
+    I = np.unique(np.sort(I, axis=1), axis=0, return_index=True)[1]; I = inv[p['I']].reshape(-1, 3)[ok][np.sort(I)]
+    q = dict(p); q['P'] = avg(P); q['N'] = N.astype(np.float32); q['U'] = avg(U); q['I'] = I.ravel().astype(np.uint32); return compact(q)
 
 def compact(p):
     used = np.unique(p['I']); remap = np.full(len(p['P']), -1, dtype=np.int64); remap[used] = np.arange(len(used))
