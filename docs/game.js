@@ -753,6 +753,8 @@ function setTimeOfDay(min) {
   // an illumination round overhead: the whole ground brightens and warms while it burns (on a phone this is all the light it gives)
   if (FLARE_LIGHT > 0) { const fk = (C0 && C0.flareK) || 1; hemi.intensity += 0.7 * fk * FLARE_LIGHT; sun.intensity += 0.7 * fk * FLARE_LIGHT; sun.color.lerp(_nc.setHex(0xfff0d0), 0.6 * FLARE_LIGHT); hemi.color.lerp(_nc.setHex(0xe8e0d0), 0.5 * FLARE_LIGHT); }
   if (deep > 0 || hz > 0 || SKYU.rayleigh.value !== SKY_DAY.ray) for (const [k, u] of [['ray', 'rayleigh'], ['turb', 'turbidity'], ['mie', 'mieCoefficient']]) { const v = lerp(lerp(SKY_DAY[k], N[k], deep), SKY_HAZE[k], 0.92 * hz); if (SKYU[u].value !== v) { SKYU[u].value = v; envSky.material.uniforms[u].value = v; } }
+  /* the Mezach in the light of the trench test page (the user): a brighter exposure, more light from the sky, a warm bounce off the sand */
+  if (MODE === 'mezach') { const dy = 1 - dusk; renderer.toneMappingExposure *= 1 + 0.28 * dy; hemi.intensity *= 1 + 0.75 * dy; hemi.groundColor.lerp(_nc.setHex(0xd2b88c), 0.6 * dy); sun.intensity *= 1 + 0.2 * dy; }
   vmKey.intensity = 1.15 / renderer.toneMappingExposure; vmHemi.intensity = 0.275 / renderer.toneMappingExposure; vmKey.color.copy(sun.color); vmHemi.color.copy(hemi.color);
   // the sky never goes black: its sun is held just above the horizon, so night is a deep, glowing blue and the reflections keep some light (a real night holds it a touch below)
   _skyV.copy(d); if (C0 && C0.forceNight) { _skyV.set(-d.x, -0.35, -d.z).normalize(); } else if (_skyV.y < skyMin) { _skyV.y = skyMin; _skyV.normalize(); }   /* a deep night: the sky's sun well under the horizon, no dawn glow anywhere (the user) */
@@ -2020,44 +2022,150 @@ const TW = 1.25;   // half width of the trench floor (wall face to the centre li
 const ROOFS = [], BARRS = [], AIDPOST = { x: 0, z: 0, rot: 0 };
 const ROOF_K = [], BARR_K = [95, 135, 177, 223, 251];
 let SURV_BARR_K = [];   // the two barricades that close the small strongpoint of survival mode, filled in once the trench path exists
-/* ---- the scanned trench (Megascans, src/4f_data_trench.js): module placements, their instancing by 24 m chunks and two levels of detail ---- */
-const TRW_MOD = [], TRW_BAG = [], TRW_CH = [];
-/* a module from arc length s0 to s1 along a trench line, against the wall on side sd: its centre, its axes (x along the trench, z into it), the
-   floor and the top of the wall there */
-function trwPlace(pts, S, N, s0, s1, sd, outer, bag = false) {
-  const at = (s) => { let i = 0; while (i < S.length - 2 && S[i + 1] < s) i++; const t = Math.min(1, Math.max(0, (s - S[i]) / ((S[i + 1] - S[i]) || 1))); return [lerp(pts[i][0], pts[i + 1][0], t), lerp(pts[i][1], pts[i + 1][1], t), N[i][0], N[i][1]]; };
-  const a = at(s0), b = at(s1), m = at((s0 + s1) / 2); let tx = b[0] - a[0], tz = b[1] - a[1]; const l = Math.hypot(tx, tz) || 1; tx /= l; tz /= l;
-  let nx = -tz, nz = tx; if (nx * m[2] + nz * m[3] < 0) { nx = -nx; nz = -nz; }   // the line's own normal, from the chord
-  const off = bag ? TW + 0.62 : TW + 0.22, x = m[0] + nx * sd * off, z = m[1] + nz * sd * off, fl = groundAt(m[0], m[1]);
-  let top = fl + 1.12; for (const p of [a, m, b]) { const ax = p[0] + nx * sd * TW, az = p[1] + nz * sd * TW; top = Math.max(top, groundAt(p[0], p[1]) + 1.12, groundAt(ax, az) + trenchCut(ax, az) + 0.12); } if (outer) top += 0.22;
-  return { x, z, fl, top, tx, tz, ix: -nx * sd, iz: -nz * sd, L: s1 - s0 };
-}
 function trwEarthMat() {
   if (MAT.trEarth) return MAT.trEarth; const has = !!MDL_TEX['trench/sand/earth'];
-  const m = new THREE.MeshStandardMaterial({ color: has ? 0xb49c78 : 0xcdbb95, map: has ? mdlTex('trench/sand/earth') : TX.micro, roughness: 0.98, side: THREE.DoubleSide });
+  const m = new THREE.MeshStandardMaterial({ color: has ? 0xd8c7a3 : 0xcdbb95, map: has ? mdlTex('trench/sand/earth') : TX.micro, roughness: 0.98, side: THREE.DoubleSide });
   if (has && !LITE) { m.normalMap = mdlTex('trench/sand/nmap', false); m.normalScale.set(0.7, 0.7); }
   return (MAT.trEarth = m);
 }
-function trwBuild() {
-  if (!mdlHas('tr_wall')) return;   // the data did not come in: the earth faces alone
-  const mm = new THREE.Matrix4(), X = V3(), Y = V3(0, 1, 0), Z = V3(), bw = mdlBox('tr_wall'), bb = mdlBox('tr_bags'), CH = 24, groups = new Map();
-  const put = (list, name, f) => { for (const it of list) { const key = Math.floor(it.x / CH) + ',' + Math.floor(it.z / CH); if (!groups.has(key)) groups.set(key, { cx: 0, cz: 0, n: 0, w: [], b: [] }); const gq = groups.get(key); gq.cx += it.x; gq.cz += it.z; gq.n++; gq[name].push(f(it)); } };
-  const basis = (it, sx, sy, sz, y) => { Z.set(it.ix, 0, it.iz); X.crossVectors(Y, Z); return mm.makeBasis(X.clone().multiplyScalar(sx), Y.clone().multiplyScalar(sy), Z.clone().multiplyScalar(sz)).setPosition(it.x, y, it.z).clone(); };
-  // a wall module: from 0.12 under the floor to the top of the wall, stretched along to its slot (2.5 m, a touch over so the joints close)
-  put(TRW_MOD, 'w', (it) => basis(it, (it.L + 0.06) / bw[0], (it.top - it.fl + 0.12) / bw[1], 1, it.fl - 0.12));
-  // a row of bags: 0.25 m of it above the earth top, a slight random tilt of its own so the rows do not line up like bricks
-  put(TRW_BAG, 'b', (it) => basis(it, (it.L + 0.2) / bb[0], 0.72, 0.78, it.top + 0.22 - bb[1] * 0.72));   // lower and narrower than the scan: bags of a man's carrying size
-  const near = LITE ? 22 : 40;
-  for (const gq of groups.values()) {
-    const c = { x: gq.cx / gq.n, z: gq.cz / gq.n, hi: [], lo: [] };
-    for (const [k, name] of [['w', 'tr_wall'], ['b', 'tr_bags']]) if (gq[k].length) { c.hi.push(...mdlInst(name, 0, gq[k])); c.lo.push(...mdlInst(name, 1, gq[k], null, !LITE)); }
-    /* in a group of their own: the chapter shows and hides the stronghold by its top-level objects, the chunk only switches its two levels */
-    const grp = new THREE.Group(); for (const m of [...c.hi, ...c.lo]) { scene.remove(m); grp.add(m); } grp.layers.set(1); scene.add(grp);
-    for (const m of c.lo) m.visible = false; TRW_CH.push(c);
+/* ---- the revetment, as approved on the trench test page: horizontal boards between thick old posts, every board its own width, depth and
+   tilt, the bays leaning back with their posts and bellied by the earth behind, a board gone here and there with bags behind it and sand run
+   out at its foot, an ammunition-box lid nailed over a gap, now and then a bleached board from somewhere else; the boards drawn toward the
+   sand's colour, still grey-brown. Stretches of bags laid like bricks, and now and then a stretch half come down. Lumpy dug earth over the top,
+   the parapet bags piled by hand along it, sand drifted at the foot of the walls, the user's floor texture down the middle ---- */
+const RVG = () => ({ pos: [], uv: [], h: [], idx: [] });
+const RV = { pk: RVG(), pale: RVG(), patch: RVG(), back: RVG(), cap: RVG(), ft: RVG(), floor: RVG(), posts: [], spills: [], loose: [] };
+function rvQuad(G, a, b, c, d, uv, h) { const n = G.pos.length / 3; G.pos.push(...a, ...b, ...c, ...d); G.uv.push(...uv); G.h.push(...(h || [0, 0, 0, 0])); G.idx.push(n, n + 2, n + 1, n + 1, n + 2, n + 3); }
+/* a trench line seen from one side: arc length s -> the point on the line, its normal toward that side (sd), the floor and the top there */
+function rvFrame(pts, S, N, V, sd) {
+  const n = S.length;
+  const at = (s) => { s = Math.max(0, Math.min(S[n - 1], s)); let lo = 0, hi = n - 1; while (hi - lo > 1) { const m = (lo + hi) >> 1; if (S[m] <= s) lo = m; else hi = m; }
+    const t = (s - S[lo]) / ((S[hi] - S[lo]) || 1); let nx = lerp(N[lo][0], N[hi][0], t), nz = lerp(N[lo][1], N[hi][1], t); const l = Math.hypot(nx, nz) || 1; nx /= l; nz /= l;
+    return { x: lerp(pts[lo][0], pts[hi][0], t), z: lerp(pts[lo][1], pts[hi][1], t), nx: nx * sd, nz: nz * sd, tx: -nz, tz: nx, fl: lerp(V[lo].fl, V[hi].fl, t), top: lerp(V[lo].top, V[hi].top, t) }; };
+  const wp = (s, off) => { const a = at(s); return { x: a.x + a.nx * off, z: a.z + a.nz * off, a }; };
+  return { at, wp };
+}
+const RV_FACE = TW + 0.06;   // the face of the boards: just behind the walls' colliders, the posts standing a little in front of it
+function rvBoardQuads(F, G, s, e, y0, y1, offAt, sl, u0, u1, v0, v1) {
+  const n = 2;
+  for (let k = 0; k < n; k++) { const sa = lerp(s, e, k / n), sb = lerp(s, e, (k + 1) / n), ua = lerp(u0, u1, k / n), ub = lerp(u0, u1, (k + 1) / n), ya = (yy, f) => yy + sl * (1 - 2 * f), fa = k / n, fb = (k + 1) / n;
+    const A = F.wp(sa, offAt(sa, y0)), B = F.wp(sb, offAt(sb, y0)), C = F.wp(sa, offAt(sa, y1)), D = F.wp(sb, offAt(sb, y1)), hA = A.a.fl, hB = B.a.fl;
+    rvQuad(G, [A.x, ya(y0, fa), A.z], [B.x, ya(y0, fb), B.z], [C.x, ya(y1, fa), C.z], [D.x, ya(y1, fb), D.z], [ua, v0, ub, v0, ua, v1, ub, v1], [y0 - hA, y0 - hB, y1 - hA, y1 - hB]);
+    const C2 = F.wp(sa, offAt(sa, y1) + 0.03), D2 = F.wp(sb, offAt(sb, y1) + 0.03);
+    rvQuad(G, [C.x, ya(y1, fa), C.z], [D.x, ya(y1, fb), D.z], [C2.x, ya(y1, fa), C2.z], [D2.x, ya(y1, fb), D2.z], [ua, v1, ub, v1, ua, v1 - 0.01, ub, v1 - 0.01], [y1 - hA, y1 - hB, y1 - hA, y1 - hB]); }
+}
+function rvBay(F, r, s, e, lA, lB, o = {}) {
+  const L = e - s, a0 = F.at(s), a1 = F.at(e), fl = Math.min(a0.fl, a1.fl), top = Math.min(a0.top, a1.top), H = top - fl, base = o.base ?? RV_FACE;
+  const bulge = o.wreck ? 0.04 + r() * 0.04 : 0.015 + r() * 0.035, miss = o.wreck ? 0.28 : 0.07;
+  const offAt = (ss, yy) => { const f = (ss - s) / L, hy = Math.max(0, yy - fl); return base + lerp(lA, lB, f) * hy - bulge * Math.sin(Math.PI * Math.min(1, Math.max(0, f))) * Math.sin(Math.PI * Math.min(1, hy / H)); };
+  { const A = F.wp(s, base + 0.21), B = F.wp(e, base + 0.21); rvQuad(RV.back, [A.x, fl - 0.08, A.z], [B.x, fl - 0.08, B.z], [A.x, top, A.z], [B.x, top, B.z], [0, 0, 1, 0, 0, 1, 1, 1]); }
+  let row = 0;
+  for (let y = fl - 0.05; y < top - 0.03; row++) {
+    let h = 0.07 + r() * 0.07; const last = y + h >= top - 0.06; if (last) h = Math.max(0.04, top - 0.01 - y - r() * 0.05);   // the top board: what was left, cut short
+    const y0 = y, y1 = y + h, j = Math.floor(r() * 6), v0 = j / 6 + 0.004, v1 = v0 + (1 / 6 - 0.008) * Math.min(1, h / 0.1), dd = (r() - 0.5) * 0.035, sl = (r() - 0.5) * 0.03;
+    const off2 = (ss, yy) => offAt(ss, yy) + dd, piece = (a, b) => { const fl2 = r() < 0.5 ? -1 : 1, u0 = r() * 3; rvBoardQuads(F, r() < 0.16 ? RV.pale : RV.pk, a, b, y0, y1, off2, sl, u0, u0 + fl2 * (b - a) / 0.6, v0, v1); };
+    const q = r();
+    if (row > 0 && !last && q < miss) {   // a board gone: bags behind it, sand run out at its foot
+      const m = (s + e) / 2; for (const dq of [-0.35, 0.3]) { const w = F.wp(m + dq * Math.min(1, L / 1.4), base + 0.23); BATCH.bag.push([w.x, (y0 + y1) / 2, w.z, Math.atan2(-w.a.tz, w.a.tx)]); }
+      const w = F.wp(m, base - 0.2); RV.spills.push([w.x, w.a.fl, w.z, 0.35 + r() * 0.25]);
+    } else if (!last && q < miss + 0.06) {   // an ammunition-box lid over a gap
+      const a = s + r() * Math.max(0, L - 0.7), u0 = r() * 3; rvBoardQuads(F, RV.patch, a, a + 0.62, y0 - 0.02, y1 + 0.03, (ss, yy) => offAt(ss, yy) - 0.015, sl, u0, u0 + 0.5, v0, v1); piece(s - 0.04, e + 0.04);
+    } else if (q < 0.35) { const jt = s + L * (0.3 + r() * 0.4); piece(s - 0.04, jt); piece(jt + 0.004, e + 0.04); }   // two short boards meeting
+    else if (last && r() < 0.5) piece(s - 0.04, s + L * (0.45 + r() * 0.4));   // the top board broken off short
+    else piece(s - 0.04, e + 0.04);
+    y = y1 + 0.004 + r() * 0.016;
   }
-  // each chunk shows its near level while the camera is within `near` m of its middle (plus the chunk's own reach), the far one past that
+}
+/* one side of one trench line: its free stretches between the exits cut into sections, each built; the earth top, the parapet, the drift */
+function rvSide(pts, S, N, V, ex, sd, seed) {
+  const F = rvFrame(pts, S, N, V, sd), r = rng(seed), lean = new Map(), runs = [];
+  const postLean = (s, w) => { const k = s.toFixed(2); if (!lean.has(k)) lean.set(k, w ? -0.08 - r() * 0.06 : 0.03 + r() * 0.09); return lean.get(k); };
+  { let a0 = null; for (let i = 0; i < ex.length; i++) { if (!ex[i]) { if (a0 === null) a0 = S[i]; } else if (a0 !== null) { runs.push([a0, S[i]]); a0 = null; } } if (a0 !== null) runs.push([a0, S[ex.length]]); }
+  const post = (s, w) => { const { x, z, a } = F.wp(s, RV_FACE - 0.05), y0 = a.fl - 0.1, hgt = a.top - y0 + 0.35 + r() * 0.35, th = 1.25 + r() * 0.35, lb = postLean(s, w);
+    const Z = V3(-a.nx, 0, -a.nz), Y = V3(0, 1, 0), X = V3().crossVectors(Y, Z), M = new THREE.Matrix4().makeBasis(X.multiplyScalar(th), Y.multiplyScalar(hgt / 1.07), Z.multiplyScalar(th)).setPosition(x, y0, z);
+    M.multiply(new THREE.Matrix4().makeRotationY(r() * 6.28)); const kx = a.nx * lb, kz = a.nz * lb; M.premultiply(new THREE.Matrix4().set(1, kx, 0, -kx * y0, 0, 1, 0, 0, 0, kz, 1, -kz * y0, 0, 0, 0, 1)); RV.posts.push(M); };
+  for (const [ra, rb] of runs) {
+    if (rb - ra < 0.6) continue; let s = ra;
+    while (s < rb - 0.05) {
+      const left = rb - s, pick = r(), kind = left > 4 && pick < 0.09 ? 'bags' : left > 4.5 && pick < 0.15 ? 'wreck' : 'plank', L = kind === 'plank' ? 6 + r() * 9 : kind === 'bags' ? 2.4 : 3;
+      let e = Math.min(rb, s + L); if (rb - e < 1.2) e = rb; const end = e >= rb - 1e-6;
+      if (kind === 'bags') { const a = F.at((s + e) / 2), nl = Math.max(1, Math.round((a.top - a.fl - 0.05) / 0.185));   // bags laid like bricks from the floor to the top
+        for (let l = 0; l < nl; l++) for (let u = s + (l % 2) * 0.3; u < e - 0.25; u += 0.6) { const w = F.wp(u + 0.3, RV_FACE + 0.14 + l * 0.012); BATCH.bag.push([w.x, w.a.fl + 0.1 + l * 0.185, w.z, Math.atan2(-w.a.tz, w.a.tx)]); } }
+      else { const wr = kind === 'wreck';
+        if (wr) for (let u = s + 1.5; u < e - 0.01; u += 1.5) postLean(u, true);   // the earth behind has pushed these posts over into the trench
+        for (let u = s; u < e - 0.05; u += 1.5) post(u, wr); if (end) post(e, false);
+        for (let u = s; u < e - 0.05; u += 1.5) { const v = Math.min(e, u + 1.5); rvBay(F, r, u, v, postLean(u), postLean(v), { wreck: wr }); }
+        if (wr) { for (let u = s + 0.3; u < e - 0.2; u += 0.45) { const w = F.wp(u, TW - 0.15 - r() * 0.15); RV.spills.push([w.x, w.a.fl, w.z, 0.5 + r() * 0.3]); }
+          for (let k = 0; k < 3; k++) { const u = s + 0.4 + r() * (e - s - 0.8), w = F.wp(u, TW - 0.25 - r() * 0.3); RV.loose.push([w.x, w.a.fl + 0.08 + r() * 0.1, w.z, Math.atan2(-w.a.tz, w.a.tx) + (r() - 0.5) * 0.7, (r() - 0.5) * 0.3, 0.8 + r() * 0.6]); } } }
+      s = e;
+    }
+    // the earth top: lumpy dug earth in three strips from the boards back to the outer slope, a little higher toward the bags
+    const lump = (u, o) => 0.05 * Math.sin(u * 3.1 + o * 7 + sd) + 0.035 * Math.sin(u * 7.3 - o * 11) + 0.02 * Math.sin(u * 13.7 + o * 3);
+    const O = [RV_FACE - 0.03, TW + 0.3, TW + 0.6, TW + 0.95], Y = [-0.03, 0.06, 0.08, -0.05];
+    for (let u = ra; u < rb - 0.01; u += 0.3) { const v = Math.min(rb, u + 0.3);
+      for (let k = 0; k < 3; k++) { const A = F.wp(u, O[k]), B = F.wp(v, O[k]), A2 = F.wp(u, O[k + 1]), B2 = F.wp(v, O[k + 1]);
+        rvQuad(RV.cap, [A.x, A.a.top + Y[k] + (k ? lump(u, k) : 0), A.z], [B.x, B.a.top + Y[k] + (k ? lump(v, k) : 0), B.z], [A2.x, A2.a.top + Y[k + 1] + (k < 2 ? lump(u, k + 1) : 0), A2.z], [B2.x, B2.a.top + Y[k + 1] + (k < 2 ? lump(v, k + 1) : 0), B2.z], [A.x / 2, A.z / 2, B.x / 2, B.z / 2, A2.x / 2, A2.z / 2, B2.x / 2, B2.z / 2]); }
+      // sand drifted along the foot of the wall
+      const hA = 0.1 + 0.08 * Math.sin(u * 2.3 + sd) + 0.05 * Math.sin(u * 5.1), hB = 0.1 + 0.08 * Math.sin(v * 2.3 + sd) + 0.05 * Math.sin(v * 5.1), wA = 0.24 + 0.1 * Math.sin(u * 1.7), wB = 0.24 + 0.1 * Math.sin(v * 1.7);
+      const A = F.wp(u, RV_FACE + 0.02), B = F.wp(v, RV_FACE + 0.02), C = F.wp(u, RV_FACE + 0.02 - wA), D = F.wp(v, RV_FACE + 0.02 - wB);
+      rvQuad(RV.ft, [C.x, C.a.fl + 0.01, C.z], [D.x, D.a.fl + 0.01, D.z], [A.x, A.a.fl + hA, A.z], [B.x, B.a.fl + hB, B.z], [C.x / 2, C.z / 2, D.x / 2, D.z / 2, A.x / 2, A.z / 2, B.x / 2, B.z / 2]); }
+    /* the parapet, piled by hand: one bag high on the inner row and one or two on the outer, wandering in and out of line, gaps, a bag laid
+       across now and then, the odd one slumped down the outer slope - low enough that a man in the trench still sees over it */
+    let u = ra + 0.2, w1 = 0, w2 = 0;
+    while (u < rb - 0.3) { u += 0.5 + r() * 0.16; if (u > rb - 0.25) break;
+      w1 = Math.max(-0.06, Math.min(0.08, w1 + (r() - 0.5) * 0.06)); w2 = Math.max(-0.1, Math.min(0.1, w2 + (r() - 0.5) * 0.08));
+      const q = F.wp(u, TW + 0.3 + w1), base = Math.atan2(-q.a.tz, q.a.tx); if (r() > 0.06) BATCH.bag.push([q.x, q.a.top + 0.1 + (r() - 0.5) * 0.04, q.z, base + (r() < 0.1 ? Math.PI / 2 : 0) + (r() - 0.5) * 0.4]);
+      const q2 = F.wp(u + 0.27 * (r() + 0.5), TW + 0.64 + w2 + (r() - 0.5) * 0.08), n2 = r() < 0.75 ? 1 : 2;
+      for (let l = 0; l < n2; l++) BATCH.bag.push([q2.x + (r() - 0.5) * 0.08, q2.a.top + 0.13 + l * 0.18, q2.z + (r() - 0.5) * 0.08, base + (r() - 0.5) * (l ? 0.6 : 0.35) + (r() < 0.08 ? Math.PI / 2 : 0)]);
+      if (r() < 0.06) { const q4 = F.wp(u, TW + 1.05 + r() * 0.1); BATCH.bag.push([q4.x, q4.a.top - 0.12, q4.z, r() * 6]); } }
+  }
+}
+/* the floor down the middle of a trench line: the user's floor texture in the desert's yellow, the sand drift at each wall covering its edges */
+function rvFloor(pts, S, li) {
+  const n = 4, w = TW + 0.02, y0 = 0.02 + li * 0.004;
+  for (let i = 0; i < pts.length - 1; i++) { const a = pts[i], b = pts[i + 1], na = rvN(pts, i), nb = rvN(pts, i + 1);
+    for (let k = 0; k < n; k++) { const o0 = -w + 2 * w * k / n, o1 = -w + 2 * w * (k + 1) / n, P = (p, nn, o) => { const x = p[0] + nn[0] * o, z = p[1] + nn[1] * o; return [x, groundAt(x, z) + y0, z]; };
+      const A = P(a, na, o0), B = P(b, nb, o0), C = P(a, na, o1), D = P(b, nb, o1); rvQuad(RV.floor, A, B, C, D, [A[0] / 1.6, A[2] / 2.9, B[0] / 1.6, B[2] / 2.9, C[0] / 1.6, C[2] / 2.9, D[0] / 1.6, D[2] / 2.9]); } }
+}
+function rvN(pts, i) { const a = pts[Math.max(0, i - 1)], b = pts[Math.min(pts.length - 1, i + 1)], dx = b[0] - a[0], dz = b[1] - a[1], l = Math.hypot(dx, dz) || 1; return [dz / l, -dx / l]; }
+function rvMesh(G, mat, cast = true) { if (!G.idx.length) return null; const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(G.pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(G.uv, 2));
+  g.setAttribute('aH', new THREE.Float32BufferAttribute(G.h, 1)); g.setIndex(G.idx); g.computeVertexNormals(); const m = new THREE.Mesh(g, mat); scene.add(SH(onLayer1(m), cast, true)); return m; }
+function rvBuild() {
+  const has = typeof MDL_TEX !== 'undefined' && !!MDL_TEX['tp/plank2/map'];
+  const earth = trwEarthMat();
+  // the boards: the user's plank texture, drawn toward the sand's colour but still grey-brown; darker low down, dust on every upward face
+  const pm = new THREE.MeshStandardMaterial({ map: has ? mdlTex('tp/plank2/map') : TX.micro, normalMap: has && !LITE ? mdlTex('tp/plank2/nmap', false) : null, roughness: 0.93, side: THREE.DoubleSide, envMapIntensity: 0.35, color: has ? 0xffffff : 0x9a8a70 });
+  const plankSh = (sh) => { sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute float aH; varying float vH; varying float vNy;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvH = aH; vNy = normal.y;');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vH; varying float vNy;').replace('#include <map_fragment>', '#include <map_fragment>\n{ float sl = dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11)); diffuseColor.rgb = mix(diffuseColor.rgb, sl * vec3(1.22, 1.06, 0.84), 0.62) * 1.12; }\n{ diffuseColor.rgb *= mix(0.72, 1.0, smoothstep(0.0, 0.7, vH)); diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.62, 0.52, 0.36), smoothstep(0.4, 0.8, abs(vNy)) * 0.7); }'); };
+  pm.onBeforeCompile = plankSh; pm.customProgramCacheKey = () => 'rvPlank';
+  // here and there a board from somewhere else: bleached nearly white, the grain and the cracks still through it
+  const pw = pm.clone(); pw.onBeforeCompile = (sh) => { plankSh(sh); sh.fragmentShader = sh.fragmentShader.replace('#include <emissivemap_fragment>', '{ vec3 c = pow(diffuseColor.rgb, vec3(0.62)); diffuseColor.rgb = mix(c, vec3(dot(c, vec3(0.3, 0.59, 0.11))), 0.5) * vec3(1.0, 0.97, 0.9); }\n#include <emissivemap_fragment>'); }; pw.customProgramCacheKey = () => 'rvPale';
+  rvMesh(RV.pk, pm); rvMesh(RV.pale, pw);
+  rvMesh(RV.patch, new THREE.MeshStandardMaterial({ map: pm.map, color: 0x8a8c5c, roughness: 0.85, side: THREE.DoubleSide }));   // the olive of an ammunition box
+  rvMesh(RV.back, new THREE.MeshStandardMaterial({ color: 0x2a2116, roughness: 1, side: THREE.DoubleSide }), false);
+  rvMesh(RV.cap, earth); rvMesh(RV.ft, earth, false);
+  if (has) { const fm = new THREE.MeshStandardMaterial({ map: mdlTex('tp/floor/map'), normalMap: LITE ? null : mdlTex('tp/floor/nmap', false), roughness: 0.97, envMapIntensity: 0.3, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+    fm.onBeforeCompile = (sh) => { sh.fragmentShader = sh.fragmentShader.replace('#include <map_fragment>', '#include <map_fragment>\n{ float dl = dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11)) / 0.21; diffuseColor.rgb = vec3(0.6, 0.5, 0.33) * mix(1.0, dl, 0.75); }'); }; fm.customProgramCacheKey = () => 'rvFloor';
+    rvMesh(RV.floor, fm, false); }
+  // sand run out where boards are gone or a stretch has come down
+  if (RV.spills.length) { const g = new THREE.SphereGeometry(1, 12, 6, 0, Math.PI * 2, 0, Math.PI / 2), m = new THREE.InstancedMesh(g, earth, RV.spills.length), mm = new THREE.Matrix4(), q = new THREE.Quaternion(), r = rng(91);
+    RV.spills.forEach(([x, y, z, s], i) => m.setMatrixAt(i, mm.compose(V3(x, y - 0.02, z), q.setFromAxisAngle(V3(0, 1, 0), r() * 6), V3(s, s * 0.35, s * 0.8)))); scene.add(SH(onLayer1(m), false, true)); }
+  if (RV.loose.length) { const g = new THREE.BoxGeometry(1, 0.035, 0.2), m = new THREE.InstancedMesh(g, pm.clone(), RV.loose.length), mm = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler();
+    m.material.onBeforeCompile = () => {}; m.material.customProgramCacheKey = () => 'rvLoose';
+    RV.loose.forEach(([x, y, z, yaw, roll, len], i) => m.setMatrixAt(i, mm.compose(V3(x, y, z), q.setFromEuler(e.set(0, yaw, roll, 'YXZ')), V3(len, 1, 1)))); scene.add(SH(onLayer1(m))); }
+  // the posts: the scanned fence post near the camera (its far level on a phone), a plain eight-sided log further off; each top closed
+  if (!RV.posts.length) return;
+  const capG = new THREE.CylinderGeometry(0.066, 0.074, 0.06, 12, 1).translate(0, 1.04, 0); { const cp = capG.attributes.position; for (let i = 0; i < cp.count; i++) if (cp.getY(i) > 1.06) cp.setY(i, 1.07 + 0.008 * (1 - Math.hypot(cp.getX(i), cp.getZ(i)) / 0.066)); capG.computeVertexNormals(); }
+  const capM = new THREE.MeshStandardMaterial({ map: pm.map, color: 0xb9ab95, roughness: 0.95 }), ci = new THREE.InstancedMesh(capG, capM, RV.posts.length); RV.posts.forEach((M, i) => ci.setMatrixAt(i, M)); scene.add(SH(onLayer1(ci)));
+  if (!mdlHas('post')) { const im = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.07, 0.075, 1.07, 8).translate(0, 0.535, 0), MAT.wood, RV.posts.length); RV.posts.forEach((M, i) => im.setMatrixAt(i, M)); scene.add(SH(onLayer1(im))); return; }
+  const CH = 24, groups = new Map(), _p = V3();
+  for (const M of RV.posts) { _p.setFromMatrixPosition(M); const key = Math.floor(_p.x / CH) + ',' + Math.floor(_p.z / CH); if (!groups.has(key)) groups.set(key, { cx: 0, cz: 0, l: [] }); const gq = groups.get(key); gq.cx += _p.x; gq.cz += _p.z; gq.l.push(M); }
+  const farG = new THREE.CylinderGeometry(0.068, 0.074, 1.07, 8).translate(0, 0.535, 0), farM = new THREE.MeshStandardMaterial({ color: 0x8e8270, roughness: 0.95 }), pmats = mdlMats('post', { color: 0xe8e2d6 }, 'rv'), near = LITE ? 22 : 36, chunks = [];
+  for (const gq of groups.values()) { const c = { x: gq.cx / gq.l.length, z: gq.cz / gq.l.length, hi: mdlInst('post', PHONE || LITE ? 1 : 0, gq.l, pmats), lo: [] };
+    const fm = new THREE.InstancedMesh(farG, farM, gq.l.length); gq.l.forEach((M, i) => fm.setMatrixAt(i, M)); fm.computeBoundingSphere(); c.lo.push(SH(onLayer1(fm), false, true));
+    const grp = new THREE.Group(); for (const m of [...c.hi, ...c.lo]) { scene.remove(m); grp.add(m); } grp.layers.set(1); scene.add(grp); for (const m of c.lo) m.visible = false; chunks.push(c); }
   const prev = scene.onBeforeRender; scene.onBeforeRender = function (...a) { prev && prev.apply(this, a); const cp = camera.position;
-    for (const c of TRW_CH) { const h = Math.hypot(cp.x - c.x, cp.z - c.z) < near + CH * 0.6; if (c.h === h) continue; c.h = h; for (const m of c.hi) m.visible = h; for (const m of c.lo) m.visible = !h; } };
+    for (const c of chunks) { const h = Math.hypot(cp.x - c.x, cp.z - c.z) < near + CH * 0.6; if (c.h === h) continue; c.h = h; for (const m of c.hi) m.visible = h; for (const m of c.lo) m.visible = !h; } };
 }
 function bagMesh(list, wall = false) { return bagInst(list, rng(list.length * 7 + 3), wall ? 0.04 : 0.12, wall); }
 function buildTrenches() {
@@ -2086,29 +2194,16 @@ function buildTrenches() {
         const top = Math.max(fl + 1.12, groundAt(ax, az) + trenchCut(ax, az) + 0.12) + (outer ? 0.22 : 0);
         return { ax, az, tx, tz, cx, cz, ex, ez, fl, top, low: groundAt(ex, ez) - 0.12 };
       });
-      /* the scanned revetment (Megascans): a 2.5 m module of planks and corrugated iron in three slots out of four, bare dug earth in the
-         fourth; a slot that would cross an exit, a dugout door or a gate stays earth. Behind a module the earth face stands back 0.3 m, so
-         where two modules meet on a bend the gap shows earth, not a hole */
       const ex = []; for (let i = 0; i < pts.length - 1; i++) { const m = [(pts[i][0] + pts[i + 1][0]) / 2, (pts[i][1] + pts[i + 1][1]) / 2]; ex.push(isExit(line, outer, (S[i] + S[i + 1]) / 2, len, m[0], m[1], line.perimeter && sd !== outSd)); }
-      const MODL = 2.5, ns = Math.floor(len / MODL), slot = [];
-      for (let k = 0; k < ns; k++) { let ok = (k + (sd > 0 ? 0 : 2) + TRENCH_LINES.indexOf(line)) % 4 !== 3; for (let i = 0; i < ex.length && ok; i++) if (S[i + 1] > k * MODL - 0.3 && S[i] < (k + 1) * MODL + 0.3 && ex[i]) ok = false; slot.push(ok); }
-      const inMod = (sm) => { const k = Math.floor(sm / MODL); return k < ns && slot[k]; };
-      for (let k = 0; k < ns; k++) if (slot[k]) TRW_MOD.push(trwPlace(pts, S, N, k * MODL, (k + 1) * MODL, sd, outer));
+      rvSide(pts, S, N, V, ex, sd, 1009 + TRENCH_LINES.indexOf(line) * 31 + (sd > 0 ? 7 : 0));
       for (let i = 0; i < pts.length - 1; i++) {
         const m = [(pts[i][0] + pts[i + 1][0]) / 2, (pts[i][1] + pts[i + 1][1]) / 2]; if (ex[i]) continue;
         const a = V[i], b = V[i + 1], u0 = S[i] / 2.4, u1 = S[i + 1] / 2.4;
-        if (inMod((S[i] + S[i + 1]) / 2)) { const bk = (v, j) => [v.ax + N[j][0] * sd * 0.3, v.az + N[j][1] * sd * 0.3];
-          const [a0x, a0z] = bk(a, i), [b0x, b0z] = bk(b, i + 1); quad([a0x, a.fl - 0.12, a0z], [b0x, b.fl - 0.12, b0z], [a0x, a.top, a0z], [b0x, b.top, b0z], u0, u1, 0, 0, (a.top - a.fl + 0.12) / 2.4, (b.top - b.fl + 0.12) / 2.4); }
-        else quad([a.ax, a.fl - 0.12, a.az], [b.ax, b.fl - 0.12, b.az], [a.tx, a.top, a.tz], [b.tx, b.top, b.tz], u0, u1, 0, 0, (a.top - a.fl + 0.12) / 2.4, (b.top - b.fl + 0.12) / 2.4);
-        equad([a.tx, a.top, a.tz], [b.tx, b.top, b.tz], [a.cx, a.top - 0.05, a.cz], [b.cx, b.top - 0.05, b.cz], u0, u1, 0, 0, 0.32, 0.32);
+        // the outer face of the earth top, down into the ground (the top itself is the revetment's lumpy earth)
         equad([a.cx, a.top - 0.05, a.cz], [b.cx, b.top - 0.05, b.cz], [a.ex, a.low, a.ez], [b.ex, b.low, b.ez], u0, u1, 0, 0, (a.top - a.low) / 2.4, (b.top - b.low) / 2.4);
-        // a post every 2.4 m, standing against the planks
-        if (false) posts.push([a.ax + N[i][0] * sd * 0.06, (a.fl - 0.12 + a.top) / 2 + 0.02, a.az + N[i][1] * sd * 0.06, Math.atan2(-(b.az - a.az), b.ax - a.ax), 0.13, a.top - a.fl + 0.16, 0.11]);
         const cx = (a.ax + b.ax) / 2 + N[i][0] * sd * 0.2, cz = (a.az + b.az) / 2 + N[i][1] * sd * 0.2, L = Math.hypot(b.ax - a.ax, b.az - a.az);
         if (!(line.perimeter && sd !== outSd && DUGOUTS.some((d) => Math.hypot(m[0] - d.p[0], m[1] - d.p[1]) < 1.35))) addCollider(cx, cz, L / 2 + 0.05, 0.2, Math.atan2(-(b.az - a.az), b.ax - a.ax), Math.max(a.top, b.top) + 0.25);
       }
-      /* the parapet: rows of scanned canvas sandbags (4.1 m), sunk into the earth top so 0.25 m shows - a man still sees over them */
-      { const RL = 3.9; for (let s1 = 0.4; s1 + RL < len - 0.4; s1 += RL) { let ok = true; for (let i = 0; i < ex.length && ok; i++) if (S[i + 1] > s1 && S[i] < s1 + RL && ex[i]) ok = false; if (ok) TRW_BAG.push(trwPlace(pts, S, N, s1, s1 + RL, sd, outer, true)); } }
       const bags = []; let s0 = 0;
       bags.forEach((p, i) => {
         if (i) s0 += Math.hypot(p[0] - bags[i - 1][0], p[1] - bags[i - 1][1]); if (i === bags.length - 1) return;
@@ -2118,6 +2213,7 @@ function buildTrenches() {
         for (const [off, lays] of [[0.42, 1], [0.8, 1]]) for (let lay = 0; lay < lays; lay++) { const st = (lay % 2 ? 0.14 : -0.14) + (off > 0.5 ? 0.28 : 0); BATCH.bag.push([mx + nx * sd * (TW + off) + st * dx / l, top + 0.06 + lay * 0.19, mz + nz * sd * (TW + off) + st * dz / l, rot]); }
       });
     }
+    rvFloor(pts, S, TRENCH_LINES.indexOf(line));
     const dk = []; dk.forEach((p, i) => { if (i === dk.length - 1) return; const b = dk[i + 1]; slats.push([p[0], groundAt(p[0], p[1]) + 0.04, p[1], Math.atan2(-(b[1] - p[1]), b[0] - p[0]) + Math.PI / 2]); });
   }
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals();
@@ -2125,7 +2221,7 @@ function buildTrenches() {
   const earth = trwEarthMat();
   scene.add(SH(onLayer1(new THREE.Mesh(g, earth))));
   { const e = new THREE.BufferGeometry(); e.setAttribute('position', new THREE.Float32BufferAttribute(epos, 3)); e.setAttribute('uv', new THREE.Float32BufferAttribute(euv, 2)); e.setIndex(eidx); e.computeVertexNormals(); scene.add(SH(onLayer1(new THREE.Mesh(e, earth)))); }
-  trwBuild();
+  rvBuild();
   if (posts.length) { const pm = new THREE.InstancedMesh(GEO.box, MAT.wood, posts.length); posts.forEach(([x, y, z, r, sx, sy, sz], i) => pm.setMatrixAt(i, mm.compose(V3(x, y, z), q.setFromAxisAngle(up, r), V3(sx, sy, sz)))); scene.add(SH(onLayer1(pm))); }
   const sm = new THREE.InstancedMesh(new THREE.BoxGeometry(1.5, 0.05, 0.22), MAT.wood, slats.length);
   slats.forEach(([x, y, z, r], i) => sm.setMatrixAt(i, mm.compose(V3(x, y, z), q.setFromAxisAngle(up, r), V3(1, 1, 1))));
@@ -2158,7 +2254,6 @@ function buildTrenches() {
     lastT = k; alt = -alt; const inner = -Math.sign(TR.n[k][0] * TR.out[k][0] + TR.n[k][1] * TR.out[k][1]), side = nearPost(p[0], p[1], 4.6) ? inner : alt;
     const { nx, nz, tx, tz, fl } = frame(k), rot = Math.atan2(-tz, tx);
     for (let lay = 0; lay < 6; lay++) for (const a of [-0.2, 0.2]) for (const b of [0.6, 0.92, 1.2]) { const o = a + (lay % 2 ? 0.08 : -0.08); BATCH.bag.push([p[0] + tx * o + nx * side * b, fl + 0.1 + lay * 0.19, p[1] + tz * o + nz * side * b, rot]); }
-    addCollider(p[0] + nx * side * 0.88, p[1] + nz * side * 0.88, 0.42, 0.45, rot, fl + 1.2);
     for (const dir of [1, -1]) { const qq = TR.pts[k - dir]; const node = { k: k - dir, dir, x: qq[0] + nx * side * 0.85, z: qq[1] + nz * side * 0.85, px: qq[0] - nx * side * 0.35, pz: qq[1] - nz * side * 0.35, lx: -nx * side * 0.4, lz: -nz * side * 0.4, nx: tx * dir, nz: tz * dir, h: 1.15, by: null }; TRAV.push(node); COVER.push(node); }
   }
   /* kit along the walls: ammunition, jerrycans, crates, loose sandbags, helmets, blankets, shovels; a telephone line on the inner wall */

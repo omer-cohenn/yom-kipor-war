@@ -752,6 +752,8 @@ function setTimeOfDay(min) {
   // an illumination round overhead: the whole ground brightens and warms while it burns (on a phone this is all the light it gives)
   if (FLARE_LIGHT > 0) { const fk = (C0 && C0.flareK) || 1; hemi.intensity += 0.7 * fk * FLARE_LIGHT; sun.intensity += 0.7 * fk * FLARE_LIGHT; sun.color.lerp(_nc.setHex(0xfff0d0), 0.6 * FLARE_LIGHT); hemi.color.lerp(_nc.setHex(0xe8e0d0), 0.5 * FLARE_LIGHT); }
   if (deep > 0 || hz > 0 || SKYU.rayleigh.value !== SKY_DAY.ray) for (const [k, u] of [['ray', 'rayleigh'], ['turb', 'turbidity'], ['mie', 'mieCoefficient']]) { const v = lerp(lerp(SKY_DAY[k], N[k], deep), SKY_HAZE[k], 0.92 * hz); if (SKYU[u].value !== v) { SKYU[u].value = v; envSky.material.uniforms[u].value = v; } }
+  /* the Mezach in the light of the trench test page (the user): a brighter exposure, more light from the sky, a warm bounce off the sand */
+  if (MODE === 'mezach') { const dy = 1 - dusk; renderer.toneMappingExposure *= 1 + 0.28 * dy; hemi.intensity *= 1 + 0.75 * dy; hemi.groundColor.lerp(_nc.setHex(0xd2b88c), 0.6 * dy); sun.intensity *= 1 + 0.2 * dy; }
   vmKey.intensity = 1.15 / renderer.toneMappingExposure; vmHemi.intensity = 0.275 / renderer.toneMappingExposure; vmKey.color.copy(sun.color); vmHemi.color.copy(hemi.color);
   // the sky never goes black: its sun is held just above the horizon, so night is a deep, glowing blue and the reflections keep some light (a real night holds it a touch below)
   _skyV.copy(d); if (C0 && C0.forceNight) { _skyV.set(-d.x, -0.35, -d.z).normalize(); } else if (_skyV.y < skyMin) { _skyV.y = skyMin; _skyV.normalize(); }   /* a deep night: the sky's sun well under the horizon, no dawn glow anywhere (the user) */
