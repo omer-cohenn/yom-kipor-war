@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>בודק דגמים · מלחמת יום הכיפורים</title>
+<style>
+  body { margin: 0; background: #1b1c17; color: #e8e5d3; font: 15px/1.5 "Segoe UI", Arial, sans-serif; display: grid; grid-template-columns: 340px 1fr; height: 100vh; }
+  aside { padding: 14px; overflow: auto; border-left: 1px solid #43443a; display: grid; gap: 10px; align-content: start; }
+  h1 { font-size: 19px; margin: 0; }
+  label.pick { display: block; padding: 16px; border: 2px dashed #a9a791; border-radius: 6px; text-align: center; cursor: pointer; font-weight: 600; }
+  label.pick input { display: none; }
+  button { font: inherit; background: #33342b; color: inherit; border: 1px solid #5b5c4f; border-radius: 4px; padding: 5px 10px; cursor: pointer; }
+  button:hover { border-color: #f0b232; }
+  .row { display: flex; flex-wrap: wrap; gap: 6px; }
+  pre { white-space: pre-wrap; font: 12.5px/1.45 Consolas, monospace; background: #24251f; padding: 8px; border-radius: 4px; margin: 0; direction: ltr; text-align: left; }
+  #msg { color: #f0b232; min-height: 1.5em; }
+  main { position: relative; }
+  canvas { display: block; width: 100%; height: 100%; }
+</style>
+</head>
+<body>
+<aside>
+  <h1>בודק דגמים</h1>
+  <label class="pick">בחר קובצי GLB<input id="files" type="file" accept=".glb,.gltf" multiple></label>
+  <div id="msg">עוד לא נטען דגם.</div>
+  <div class="row" id="list"></div>
+  <div class="row"><button data-v="iso">אלכסון</button><button data-v="top">מלמעלה</button><button data-v="side">מהצד</button><button data-v="low">גובה העין</button><button id="wire">רשת</button></div>
+  <div class="row"><button id="bake">אפה מפת גבהים וצבע</button><select id="res"><option>1024</option><option selected>2048</option><option>4096</option></select></div>
+  <pre id="info"></pre>
+</aside>
+<main><canvas id="cv"></canvas></main>
+<script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }</script>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+import { KTX2Loader } from 'three/addons/loaders/KTX2Loader.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+const $ = (id) => document.getElementById(id), msg = (t) => ($('msg').textContent = t);
+const cv = $('cv'), renderer = new THREE.WebGLRenderer({ canvas: cv, antialias: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(Math.min(2, devicePixelRatio)); renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.ACESFilmicToneMapping;
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0xc9d6de);
+const cam = new THREE.PerspectiveCamera(45, 1, 0.1, 1e6), ctl = new OrbitControls(cam, cv);
+scene.add(new THREE.HemisphereLight(0xdfe9f3, 0x6b5a40, 1.1)); const sun = new THREE.DirectionalLight(0xfff1dc, 2.2); sun.position.set(1, 1.4, 0.6); scene.add(sun);
+const draco = new DRACOLoader().setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/');
+const ktx2 = new KTX2Loader().setTranscoderPath('https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/libs/basis/').detectSupport(renderer);
+const loader = new GLTFLoader().setDRACOLoader(draco).setKTX2Loader(ktx2).setMeshoptDecoder(MeshoptDecoder);
+const M = window.M = { models: {}, cur: null };
+
+function resize() { const r = cv.parentElement.getBoundingClientRect(); renderer.setSize(r.width, r.height, false); cam.aspect = r.width / r.height; cam.updateProjectionMatrix(); }
+addEventListener('resize', resize); resize();
+renderer.setAnimationLoop(() => { ctl.update(); renderer.render(scene, cam); });
+
+function stats(name, gltf, bytes) {
+  const root = gltf.scene, box = new THREE.Box3().setFromObject(root), size = box.getSize(new THREE.Vector3());
+  let meshes = 0, tris = 0, verts = 0; const mats = new Set(), texs = new Map();
+  root.traverse((o) => { if (!o.isMesh) return; meshes++; const g = o.geometry; verts += g.attributes.position.count; tris += (g.index ? g.index.count : g.attributes.position.count) / 3;
+    for (const m of [].concat(o.material)) { mats.add(m); for (const k of ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'emissiveMap']) { const t = m[k]; if (t && t.image) texs.set(t.uuid, `${k} ${t.image.width}x${t.image.height}`); } } });
+  return { name, mb: +(bytes / 1048576).toFixed(1), meshes, tris: Math.round(tris), verts, materials: mats.size, textures: [...texs.values()], size: [size.x, size.y, size.z].map((v) => +v.toFixed(2)), min: box.min.toArray().map((v) => +v.toFixed(2)), max: box.max.toArray().map((v) => +v.toFixed(2)), anims: gltf.animations.length, gen: gltf.asset && gltf.asset.generator, extensions: gltf.parser.json.extensionsUsed || [] };
+}
+function show(name) {
+  for (const k in M.models) M.models[k].root.visible = k === name; M.cur = name; const m = M.models[name];
+  $('info').textContent = JSON.stringify(m.stats, null, 1); view('iso');
+  document.querySelectorAll('#list button').forEach((b) => (b.style.borderColor = b.textContent === name ? '#f0b232' : ''));
+}
+function view(v) {
+  const m = M.models[M.cur]; if (!m) return; const box = new THREE.Box3().setFromObject(m.root), c = box.getCenter(new THREE.Vector3()), s = box.getSize(new THREE.Vector3()), r = Math.max(s.x, s.y, s.z);
+  cam.near = r / 2000; cam.far = r * 20; cam.updateProjectionMatrix(); ctl.target.copy(c);
+  const d = { iso: [0.9, 0.7, 0.9], top: [0, 1.6, 0.001], side: [1.5, 0.15, 0], low: [0.7, 0.04, 0.35] }[v]; cam.position.set(c.x + d[0] * r, c.y + d[1] * r, c.z + d[2] * r);
+  if (v === 'low') { cam.position.y = box.max.y * 0.9 + s.y * 0.05; ctl.target.set(c.x - 0.3 * r, box.min.y + s.y * 0.3, c.z - 0.2 * r); }
+  ctl.update();
+}
+M.view = view; M.show = show;
+document.querySelectorAll('[data-v]').forEach((b) => (b.onclick = () => view(b.dataset.v)));
+$('wire').onclick = () => { const m = M.models[M.cur]; if (m) m.root.traverse((o) => { if (o.isMesh) for (const x of [].concat(o.material)) x.wireframe = !x.wireframe; }); };
+
+$('files').onchange = async (e) => {
+  for (const f of e.target.files) {
+    msg(`טוען ${f.name} (${(f.size / 1048576).toFixed(1)}MB)…`);
+    try { const buf = await f.arrayBuffer(); const gltf = await loader.parseAsync(buf, ''); scene.add(gltf.scene);
+      M.models[f.name] = { root: gltf.scene, gltf, stats: stats(f.name, gltf, f.size) };
+      const b = document.createElement('button'); b.textContent = f.name; b.onclick = () => show(f.name); $('list').appendChild(b); show(f.name); msg(`נטען: ${f.name}`);
+    } catch (err) { msg(`שגיאה ב־${f.name}: ${err.message}`); console.error(err); }
+  }
+};
+
+/* the bake: straight down with an orthographic camera over the model's box. Height goes out as 16 bits packed in red (high byte) and
+   green (low byte) of a PNG, normalised to the box's own min and max; the colour is the model lit flat from above. Both download. */
+const hMat = new THREE.ShaderMaterial({ uniforms: { y0: { value: 0 }, y1: { value: 1 } }, side: THREE.DoubleSide,
+  vertexShader: 'varying float vy; void main(){ vec4 w = modelMatrix * vec4(position,1.0); vy = w.y; gl_Position = projectionMatrix * viewMatrix * w; }',
+  fragmentShader: 'uniform float y0, y1; varying float vy; void main(){ float h = clamp((vy - y0) / (y1 - y0), 0.0, 1.0); float v = floor(h * 65535.0 + 0.5); gl_FragColor = vec4(floor(v / 256.0) / 255.0, mod(v, 256.0) / 255.0, 0.0, 1.0); }' });
+async function bake(N) {
+  const m = M.models[M.cur]; if (!m) return msg('בחר דגם קודם.'); const box = new THREE.Box3().setFromObject(m.root), s = box.getSize(new THREE.Vector3());
+  const o = new THREE.OrthographicCamera(box.min.x, box.max.x, -box.min.z, -box.max.z, 0.01, s.y * 4 + 10); o.position.set(0, box.max.y + s.y + 5, 0); o.up.set(0, 0, -1); o.lookAt(0, box.min.y - 1, 0);
+  o.left = box.min.x; o.right = box.max.x; o.top = -box.min.z; o.bottom = -box.max.z; o.updateProjectionMatrix();
+  const W = N, H = Math.max(2, Math.round(N * s.z / s.x)), rt = new THREE.WebGLRenderTarget(W, H, { type: THREE.UnsignedByteType }), px = new Uint8Array(W * H * 4), save = scene.overrideMaterial, bg = scene.background, tm = renderer.toneMapping;
+  const grab = (fname) => { renderer.setRenderTarget(rt); renderer.render(scene, o); renderer.readRenderTargetPixels(rt, 0, 0, W, H, px); renderer.setRenderTarget(null);
+    const c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d'), id = g.createImageData(W, H);
+    for (let y = 0; y < H; y++) id.data.set(px.subarray((H - 1 - y) * W * 4, (H - y) * W * 4), y * W * 4); g.putImageData(id, 0, 0);
+    return new Promise((r) => c.toBlob((b) => { const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = fname; a.click(); r(b.size); }, fname.endsWith('.jpg') ? 'image/jpeg' : 'image/png', 0.92)); };
+  msg('אופה…'); const base = M.cur.replace(/\.glb$/i, '');
+  hMat.uniforms.y0.value = box.min.y; hMat.uniforms.y1.value = box.max.y; scene.overrideMaterial = hMat; scene.background = new THREE.Color(0); renderer.toneMapping = THREE.NoToneMapping;
+  const hb = await grab(`${base}_height_${W}x${H}.png`);
+  scene.overrideMaterial = save; scene.background = bg; renderer.toneMapping = tm; const sp = sun.position.clone(); sun.position.set(0.2, 1, 0.1);
+  const cb = await grab(`${base}_color_${W}x${H}.jpg`); sun.position.copy(sp);
+  const meta = { model: M.cur, box: { min: box.min.toArray(), max: box.max.toArray() }, size: [W, H], height_png: 'R*256+G over 0..65535 = y0..y1', y0: box.min.y, y1: box.max.y };
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(meta, null, 1)], { type: 'application/json' })); a.download = `${base}_bake.json`; a.click();
+  M.lastBake = Object.assign(meta, { heightBytes: hb, colorBytes: cb }); msg(`נאפה ${W}×${H}: גבהים ${(hb / 1048576).toFixed(1)}MB, צבע ${(cb / 1048576).toFixed(1)}MB. בתיקיית ההורדות.`);
+  rt.dispose(); return M.lastBake;
+}
+M.bake = bake; $('bake').onclick = () => bake(+$('res').value);
+</script>
+</body>
+</html>
