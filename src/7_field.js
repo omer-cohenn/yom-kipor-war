@@ -699,6 +699,8 @@ function updTrail(dt) { const tr = SZ.trail, l = tr[tr.length - 1]; if (!P.alive
     const k = tr.length - 1, b = tr[Math.max(0, k - 4)], dx = tr[k][0] - b[0], dz = tr[k][1] - b[1]; if (Math.hypot(dx, dz) > 1.6) { const d = Math.atan2(dx, dz); SZ.fdir = SZ.fdir === undefined ? d : SZ.fdir + wrapPi(d - SZ.fdir) * 0.5; } } else SZ.stillT = (SZ.stillT || 0) + dt; }
 function resetTrail() { SZ.trail = []; SZ.trailN = 0; SZ.trailBase = 0; SZ.stillT = 0; SZ.fdir = P.yaw + Math.PI; }
 /* common start of a field chapter */
+/* the stage a mission opens at: 0, unless a link chose another (?ch=…, the picker in 20_prologue.js) */
+const FIELD_CP0 = { n: 0 };
 function fieldStart(m) {
   sqfReset();
   survStop(); snapReset(); facesNow(); envReady();
@@ -709,7 +711,7 @@ function fieldStart(m) {
   Object.assign(STATS, { kills: 0, heads: 0, treated: 0, saved: 0, kia: 0, shots: 0, wounded: 0 }); scoreReset(); D.capture = 0;
   for (const j of STRAFE) scene.remove(j.m); STRAFE.length = 0; for (const j of JETS) scene.remove(j.m); JETS.length = 0; for (const f of FLARES) { scene.remove(f.s); f.light.intensity = 0; } FLARES.length = 0;
   if (TANK.spot) TANK.spot.intensity = 0; FLARE_LIGHT = 0;
-  cvidPrefetch(m); C.setup(0); GAME.state = 'play'; $('#app').classList.add('play'); for (const k of ['#mBrief', '#mPause', '#mEnd', '#mOps', '#mSet']) $(k).hidden = true;
+  cvidPrefetch(m); { const s0 = Math.min(FIELD_CP0.n || 0, C.stages.length - 1); FIELD_CP0.n = 0; C.setup(s0); } GAME.state = 'play'; $('#app').classList.add('play'); for (const k of ['#mBrief', '#mPause', '#mEnd', '#mOps', '#mSet']) $(k).hidden = true;
   initAudio(); lockPointer(); toast(C.toast[0], C.toast[1]);
 }
 function fieldSetupCommon(C, stage) {

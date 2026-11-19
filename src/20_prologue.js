@@ -477,3 +477,23 @@ CHAP.prologue = { stages: PR_STAGES, st: () => PR.stage, cp: () => PR.stage, upd
   mezWorld: true, mezMini: true, peace: true, night: true, tank: true, rayT: prRayT, hitT: prHitT, onBoom: prBoom, treat: prTreat, stableTag: () => 'לתאג״ד',
   tod: () => PR_TOD[PR.stage] - START_MIN + CHAP.prologue.t / (PR.stage ? 30 : 12),
   build: () => chapterBuild(CHAP.prologue, prBuild), setup: prSetup, clock: '5.10.1973 · מעוז המזח · ערב יום כיפור', toast: ['שישי, 5 באוקטובר 1973 · 16:52', 'ערב יום כיפור במעוז המזח'], start: () => fieldStart('prologue') };
+
+/* ---------- a link straight into a mission's fight: ?ch=hermon (or cross, rescue) opens a card of its stages over the menu; each starts the
+   mission at that stage, a checkpoint from the first moment. ?cp=N marks stage N as the one to start at ---------- */
+(() => {
+  const ch = QS.get('ch'); if (!ch || ch === 'mezach' || !CHAP[ch] || !CHAP[ch].stages) return;
+  const C = CHAP[ch], mark = Math.max(1, Math.min(C.stages.length, +QS.get('cp') || 1)) - 1, names = { hermon: 'הקרב על מוצב החרמון', cross: 'הצליחה', rescue: 'החילוץ' };
+  const el = document.createElement('div'); el.id = 'cpPick';
+  el.innerHTML = `<style>#cpPick{position:fixed;inset:0;z-index:9999;display:grid;place-items:center;background:rgba(10,9,7,.82);direction:rtl;font-family:inherit;padding:16px}
+#cpPick .box{background:#1d1a14;border:1px solid #5b4a2a;border-radius:10px;padding:22px 22px 16px;width:min(520px,100%);max-height:100%;overflow:auto;color:#efe6d0;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+#cpPick h2{margin:0 0 4px;font-size:24px}#cpPick p{margin:0 0 14px;color:#b8a988;font-size:14px}
+#cpPick button{display:flex;gap:12px;align-items:baseline;width:100%;text-align:right;background:#2a251c;color:inherit;border:1px solid #3d3426;border-radius:7px;padding:11px 14px;margin:0 0 8px;font:inherit;font-size:16px;cursor:pointer}
+#cpPick button:hover,#cpPick button:focus-visible,#cpPick button.mk{border-color:#f0b232;background:#342b1b;outline:none}#cpPick b{color:#f0b232;min-width:3.6em}#cpPick .x{background:none;border:none;color:#b8a988;justify-content:center;font-size:14px}</style>
+<div class="box"><h2>${names[ch] || ch}</h2><p>בחרו את השלב שממנו הקרב מתחיל. נפילה מחזירה לתחילת השלב.</p>
+${C.stages.map((s, i) => `<button data-i="${i}" class="${i === mark ? 'mk' : ''}"><b>שלב ${i + 1}</b><span>${s.title}</span></button>`).join('')}
+<button class="x">לתפריט הראשי</button></div>`;
+  const go = (i) => { el.remove(); FIELD_CP0.n = i; startChapter(ch); };
+  el.addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; if (b.classList.contains('x')) return el.remove(); go(+b.dataset.i); });
+  const put = () => { document.body.appendChild(el); const b = el.querySelector('.mk'); if (b) b.focus(); };
+  if (document.readyState === 'loading') addEventListener('DOMContentLoaded', put); else put();
+})();
