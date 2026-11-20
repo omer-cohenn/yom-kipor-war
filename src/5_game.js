@@ -2755,7 +2755,7 @@ async function loadMission(m, go) {
     if (!DATAQ.done) { LD.step('data'); await dataLoad((f) => LD.frac(f)); }
     if (base) { LD.step('base', LD_MS.base); await LD.paint(); ensureBase(); }
     if (mez) { LD.step('mez', LD_MS.mez); await LD.paint(); ensureMez(); }
-    if (chap) { LD.step('chap', LD_MS[m] || 900); await LD.paint(); await mapsLoad(m); if (m === 'suez') { ensureBase(); buildSuez(); } else { const C = CHAP[m]; C.built = true; const g0 = GROUND; C.build(); GROUND = g0; } }
+    if (chap) { LD.step('chap', LD_MS[m] || 900); await LD.paint(); await mapsLoad(m); if (m === 'suez') { ensureBase(); buildSuez(); } else { const C = CHAP[m]; C.built = true; const g0 = GROUND; C.build(); GROUND = g0; if (C.ready) await C.ready; } }
     if (FACEQ.length) { LD.step('faces'); await facesPaint((f) => LD.frac(f)); }
     LD.step('gfx'); await gfxWarm(m, (f) => LD.frac(f));
     // a long wait has used up the click that chose the mission: the browser wants a fresh one for the sound and for taking the mouse

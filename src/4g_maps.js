@@ -6,7 +6,7 @@
    chapter's height function: inside the map's box the map gives the ground and its colour, blending over edge_blend metres back to the
    procedural ground outside it, and the chapter then carves what must be exact (trenches, ramparts, canals) on top. */
 const MAPS = {}, MAPSET = {}, MAPV = { kinds: null, atlas: null, mat: null };
-const MAP_OF = { rescue: 'rescue', armor: 'armor', farm: 'farm', cross: 'cross', hermon: 'hermon', army: 'army', range: 'range' };
+const MAP_OF = { rescue: 'rescue', armor: 'armor', farm: 'farm', hermon: 'hermon', army: 'army', range: 'range' };
 const MAP_URL = 'maps/', MAP_EDGE = 60;
 async function mapFetch(url, type) {
   const r = await fetch(url, { cache: 'force-cache' }); if (!r.ok) throw new Error(url + ' ' + r.status);
