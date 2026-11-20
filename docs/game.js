@@ -16845,7 +16845,7 @@ CHAP.prologue = { stages: PR_STAGES, st: () => PR.stage, cp: () => PR.stage, upd
 /* ---------- a link straight into a mission's fight: ?ch=hermon (or cross, rescue) opens a card of its stages over the menu; each starts the
    mission at that stage, a checkpoint from the first moment. ?cp=N marks stage N as the one to start at ---------- */
 (() => {
-  const ch = QS.get('ch'); if (!ch || ch === 'mezach' || !CHAP[ch] || !CHAP[ch].stages) return;
+  const ch = QS.get('ch') || (/^#[a-z]+$/.test(location.hash) ? location.hash.slice(1) : ''); if (!ch || ch === 'mezach' || !CHAP[ch] || !CHAP[ch].stages) return;
   const C = CHAP[ch], mark = Math.max(1, Math.min(C.stages.length, +QS.get('cp') || 1)) - 1, names = { hermon: 'הקרב על מוצב החרמון', cross: 'הצליחה', rescue: 'החילוץ' };
   const el = document.createElement('div'); el.id = 'cpPick';
   el.innerHTML = `<style>#cpPick{position:fixed;inset:0;z-index:9999;display:grid;place-items:center;background:rgba(10,9,7,.82);direction:rtl;font-family:inherit;padding:16px}
