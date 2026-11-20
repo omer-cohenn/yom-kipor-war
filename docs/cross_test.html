@@ -202,7 +202,7 @@ const wallBox = (x0, x1, z0, z1, y0 = -9, y1 = 40) => WALLS.push({ x0: Math.min(
 function plasterMat(tint, nScale) { const m = new THREE.MeshStandardMaterial({ map: tex('cross/mud/map'), normalMap: tex('cross/mud/nmap', false), normalScale: new THREE.Vector2(nScale, nScale), vertexColors: true, color: tint, roughness: 0.96 });
   m.onBeforeCompile = (sh) => { sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vWp; varying vec3 vWn;').replace('#include <uv_vertex>', '#include <uv_vertex>\nvWp = (modelMatrix * vec4(position, 1.0)).xyz; vWn = normalize(mat3(modelMatrix) * normal);');
     sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vWp; varying vec3 vWn;')
-      .replace('#include <map_fragment>', 'vec2 wuv = abs(vWn.x) > 0.5 ? vWp.zy : abs(vWn.z) > 0.5 ? vWp.xy : vWp.xz; wuv /= 2.4; diffuseColor *= texture2D(map, wuv); diffuseColor.rgb *= mix(0.72, 1.0, smoothstep(1.3, 2.2, vWp.y));')
+      .replace('#include <map_fragment>', 'vec2 wuv = abs(vWn.x) > 0.5 ? vWp.zy : abs(vWn.z) > 0.5 ? vWp.xy : vWp.xz; wuv /= 2.4; { vec3 c = texture2D(map, wuv).rgb; float l = dot(c, vec3(0.3, 0.59, 0.11)); diffuseColor.rgb *= mix(vec3(l), c, 0.5) * 1.32; } diffuseColor.rgb *= mix(0.72, 1.0, smoothstep(1.3, 2.2, vWp.y));')
       .replace('#include <normal_fragment_maps>', 'vec3 mapN = texture2D(normalMap, (abs(vWn.x) > 0.5 ? vWp.zy : abs(vWn.z) > 0.5 ? vWp.xy : vWp.xz) / 2.4).xyz * 2.0 - 1.0; mapN.xy *= normalScale; normal = normalize(tbn * mapN);'); };
   m.customProgramCacheKey = () => 'plaster' + nScale; return m; }
 function woodTex(seed, paint) { const W = 128, H = 256, c = document.createElement('canvas'); c.width = W; c.height = H; const x = c.getContext('2d'), r = rng(seed);
@@ -221,27 +221,55 @@ const jar = (() => { const pts = [[0, 0], [0.16, 0.02], [0.24, 0.2], [0.22, 0.42
 /* ---- a house: its body (one or two floors, the upper set back), the parapet round its roof, its door and shutters on the street side, a
    bench by the door, a palm-frond shade, stairs up the side, and what lies on the roof: bundles of cotton stalks, straw, jars, now and then
    a dovecote ---- */
+/* a soft mud box: walls lean in as they rise, corners and the top edge are rounded off, the faces bulge and sag a little, its top line
+   wanders. Base at y, centred on x, z */
+function softBox(w, h, d, x, y, z, tint, o = {}) { const S = 0.42, g = new THREE.BoxGeometry(w, h, d, Math.max(2, Math.round(w / S)), Math.max(2, Math.round(h / S)), Math.max(2, Math.round(d / S))), p = g.attributes.position, R = o.round ?? 0.32, bat = o.batter ?? 0.035, sd = (o.seed ?? 0) * 3.7;
+  for (let i = 0; i < p.count; i++) { let px = p.getX(i), py = p.getY(i) + h / 2, pz = p.getZ(i); const t = py / h;
+    // round the vertical edges
+    const ex = w / 2 - R, ez = d / 2 - R, ax = Math.abs(px), az = Math.abs(pz); if (ax > ex && az > ez) { const dx = ax - ex, dz = az - ez, L = Math.hypot(dx, dz) || 1; px = Math.sign(px) * (ex + dx * R / L * Math.min(1, L / R) ** 0.2); pz = Math.sign(pz) * (ez + dz * R / L * Math.min(1, L / R) ** 0.2); }
+    // round the top edge and let the top wander
+    const edge = Math.min(w / 2 - Math.abs(px), d / 2 - Math.abs(pz)); if (py > h - 0.3 && edge < 0.3) py -= (0.3 - edge) * 0.45 * ((py - (h - 0.3)) / 0.3);
+    if (py > h - 0.05) py += (vn((x + px) * 0.35 + sd, (z + pz) * 0.35) - 0.5) * (o.wob ?? 0.22);
+    // the lean, and the bulges of hand-laid mud
+    const k = 1 - bat * t; px *= k; pz *= k; const b = (vn((x + px) * 0.6 + sd, py * 0.6 + (z + pz) * 0.6) - 0.5) * 0.09 * Math.min(1, py / 0.4);
+    if (Math.abs(Math.abs(px) - w * k / 2) < 0.05) px += Math.sign(px) * b; if (Math.abs(Math.abs(pz) - d * k / 2) < 0.05) pz += Math.sign(pz) * b;
+    p.setXYZ(i, px, py, pz); }
+  g.translate(x, y, z); g.computeVertexNormals(); const c = new Float32Array(p.count * 3); for (let i = 0; i < c.length; i += 3) c.set(tint, i); g.setAttribute('color', new THREE.BufferAttribute(c, 3)); GEO.mud.push(g); return g; }
+/* a window set deep in the mud: its dark inside, a wooden frame, two shutters (open flat to the wall, half open or shut), sometimes bars */
+function windowAt(at, s, yb, ww, wh, ry, wl, tint, r) { const [wx, wz] = at(s, -0.18); bx(GEO.dark, ww, wh, 0.4, wx, yb + wh / 2, wz, ry);
+  const fr = [at(s, 0.02)]; const [fx, fz] = fr[0]; for (const [a, b, c2, e] of [[ww + 0.16, 0.08, 0, wh / 2 + 0.04], [ww + 0.16, 0.08, 0, -wh / 2 - 0.04], [0.08, wh, -ww / 2 - 0.04, 0], [0.08, wh, ww / 2 + 0.04, 0]]) { const [qx, qz] = at(s + c2, 0.03); bx(wl, a, b, 0.08, qx, yb + wh / 2 + e, qz, ry); }
+  const mode = r(); for (const k of [-1, 1]) { const sw = ww / 2; if (mode < 0.25) { const [qx, qz] = at(s + k * sw / 2, 0.05); bx(wl, sw - 0.02, wh - 0.04, 0.04, qx, yb + wh / 2, qz, ry); continue; }
+      const open = mode < 0.6 ? Math.PI * 0.5 : Math.PI * 0.92, hx = s + k * (ww / 2 + 0.04), [hx0, hz0] = at(hx, 0.06), g = new THREE.BoxGeometry(sw, wh - 0.04, 0.04); g.translate(-k * sw / 2, 0, 0); g.rotateY(k * -open); if (ry) g.rotateY(ry); g.translate(hx0, yb + wh / 2, hz0); wl.push(g); }
+  if (r() < 0.4) for (let b = -2; b <= 2; b++) { const [qx, qz] = at(s + b * ww / 5.5, -0.08); const g = new THREE.CylinderGeometry(0.012, 0.012, wh, 4); g.translate(qx, yb + wh / 2, qz); GEO.dark.push(g); }
+  const [sx0, sz0] = at(s, 0.08); bx(GEO.mud, ww + 0.3, 0.1, 0.22, sx0, yb - 0.05, sz0, ry, tint); }
 function house(H, r) {
-  const { x, z, w, d, face } = H, y = height(x, z) - 0.3, tint = [[1, 0.97, 0.92], [0.95, 0.88, 0.78], [1.02, 0.95, 0.86], [0.9, 0.86, 0.8], [1.04, 1.0, 0.95]][Math.floor(r() * 5)], h1 = 3.4 + r() * 0.8;
-  bx(GEO.mud, w, h1 + 0.3, d, x, y + h1 / 2 + 0.15, z, 0, tint); wallBox(x - w / 2, x + w / 2, z - d / 2, z + d / 2); HOUSES.push(H);
+  const { x, z, w, d, face } = H, y = height(x, z) - 0.3, tint = [[1, 0.97, 0.92], [0.95, 0.88, 0.78], [1.02, 0.95, 0.86], [0.9, 0.86, 0.8], [1.04, 1.0, 0.95]][Math.floor(r() * 5)], h1 = 3.3 + r() * 0.9, seed = r() * 100;
+  softBox(w, h1 + 0.3, d, x, y, z, tint, { seed, wob: 0.12 }); wallBox(x - w / 2, x + w / 2, z - d / 2, z + d / 2); HOUSES.push(H);
   const top = y + h1 + 0.3, two = H.two;
-  // the parapet, with a gap or two
-  const pw = 0.25, ph = 0.6 + r() * 0.3; for (const [ww, dd, xx, zz] of [[w, pw, x, z - d / 2 + pw / 2], [w, pw, x, z + d / 2 - pw / 2], [pw, d, x - w / 2 + pw / 2, z], [pw, d, x + w / 2 - pw / 2, z]]) bx(GEO.mud, ww, ph, dd, xx, top + ph / 2, zz, 0, tint);
-  if (two) { const w2 = w * (0.45 + r() * 0.2), d2 = d * (0.5 + r() * 0.2), ox = (r() - 0.5) * (w - w2) * 0.8, oz = (r() - 0.5) * (d - d2) * 0.8; bx(GEO.mud, w2, 2.9, d2, x + ox, top + 1.45, z + oz, 0, tint); for (const [ww, dd, xx, zz] of [[w2, pw, x + ox, z + oz - d2 / 2 + pw / 2], [w2, pw, x + ox, z + oz + d2 / 2 - pw / 2], [pw, d2, x + ox - w2 / 2 + pw / 2, z + oz], [pw, d2, x + ox + w2 / 2 - pw / 2, z + oz]]) bx(GEO.mud, ww, 0.6, dd, xx, top + 3.2, zz, 0, tint); }
-  // the street face: a frame of its axis and outward normal
-  const n = { '+z': [0, 1], '-z': [0, -1], '+x': [1, 0], '-x': [-1, 0] }[face], along = n[0] ? [0, 1] : [1, 0], half = n[0] ? d / 2 : w / 2, depth = n[0] ? w / 2 : d / 2;
-  const at = (s, out) => [x + along[0] * s + n[0] * (depth + out), z + along[1] * s + n[1] * (depth + out)], ry = n[0] ? Math.PI / 2 : 0, wd = WOOD[Math.floor(r() * 4)], wl = GEO.wood[WOOD.indexOf(wd)];
-  const ds = (r() - 0.5) * (half - 1.5) * 1.2, [dx, dz] = at(ds, 0.02); bx(GEO.dark, 1.3, 2.3, 0.08, dx, y + 1.45, dz, ry); const [dx2, dz2] = at(ds, 0.06); bx(wl, 1.1, 2.1, 0.06, dx2, y + 1.35, dz2, ry);
-  const [lx, lz] = at(ds, 0.1); bx(GEO.mud, 1.6, 0.18, 0.2, lx, y + 2.6, lz, ry, tint);   // the lintel
-  if (r() < 0.6) { const s = ds + (ds > 0 ? -1.8 : 1.8), [bx0, bz0] = at(s, 0.3); bx(GEO.mud, 1.5, 0.45, 0.55, bx0, y + 0.52, bz0, ry, tint); }   // the bench
-  for (const s of [-half * 0.62, half * 0.62]) { if (Math.abs(s - ds) < 1.6) continue; const [wx, wz] = at(s, 0.02); bx(GEO.dark, 0.85, 0.95, 0.08, wx, y + 2.05, wz, ry); for (const k of [-1, 1]) { const [sx, sz] = at(s + k * 0.68, 0.18); bx(wl, 0.42, 0.95, 0.05, sx, y + 2.05, sz, ry + k * 0.5); } }
-  if (r() < 0.35) { const [ax, az] = at(ds, 1.1); const g = new THREE.BoxGeometry(2.6, 0.08, 2.0); g.rotateX(0.12 * (n[1] || 0)); g.rotateZ(-0.12 * (n[0] || 0)); if (ry) g.rotateY(ry); g.translate(ax, y + 2.55, az); GEO.frond.push(g); for (const k of [-1.2, 1.2]) { const [px, pz] = at(ds + k, 1.95); bx(wl, 0.09, 2.45, 0.09, px, y + 1.5, pz); } }
+  // the parapet: soft, its height stepping, a gap here and there for the rain
+  const pw = 0.3; for (const [ww, dd, xx, zz] of [[w, pw, x, z - d / 2 + pw / 2], [w, pw, x, z + d / 2 - pw / 2], [pw, d - 2 * pw, x - w / 2 + pw / 2, z], [pw, d - 2 * pw, x + w / 2 - pw / 2, z]]) softBox(ww, 0.55 + r() * 0.35, dd, xx, top - 0.05, zz, tint, { seed: seed + xx, round: 0.1, batter: 0, wob: 0.3 });
+  let up = null; if (two) { const w2 = w * (0.45 + r() * 0.2), d2 = d * (0.5 + r() * 0.2), ox = (r() - 0.5) * (w - w2) * 0.8, oz = (r() - 0.5) * (d - d2) * 0.8; up = { x: x + ox, z: z + oz, w: w2, d: d2 }; softBox(w2, 2.9, d2, x + ox, top - 0.05, z + oz, tint, { seed: seed + 7, wob: 0.18 });
+    for (const [ww, dd, xx, zz] of [[w2, pw, x + ox, z + oz - d2 / 2 + pw / 2], [w2, pw, x + ox, z + oz + d2 / 2 - pw / 2]]) softBox(ww, 0.5, dd, xx, top + 2.8, zz, tint, { seed: seed + zz, round: 0.1, batter: 0, wob: 0.25 }); }
+  // the street face
+  const n = { '+z': [0, 1], '-z': [0, -1], '+x': [1, 0], '-x': [-1, 0] }[face], along = n[0] ? [0, 1] : [1, 0], half = n[0] ? d / 2 : w / 2, depth = (n[0] ? w / 2 : d / 2) * (1 - 0.035 * 0.3);
+  const at = (s, out) => [x + along[0] * s + n[0] * (depth + out), z + along[1] * s + n[1] * (depth + out)], ry = n[0] ? Math.PI / 2 : 0, wl = GEO.wood[Math.floor(r() * 4)];
+  // the door: deep in the wall, low and narrow, a heavy lintel of palm wood over it, a step
+  const ds = (r() - 0.5) * (half - 1.8) * 1.2, dw = 0.95 + r() * 0.2, dh = 1.95 + r() * 0.2, [dx, dz] = at(ds, -0.2); bx(GEO.dark, dw + 0.1, dh, 0.5, dx, y + 0.3 + dh / 2, dz, ry);
+  const [dx2, dz2] = at(ds, -0.12); if (r() < 0.75) bx(wl, dw, dh - 0.05, 0.06, dx2, y + 0.3 + dh / 2, dz2, ry); else { const [hx, hz] = at(ds - dw / 2, -0.12), g = new THREE.BoxGeometry(dw, dh - 0.05, 0.06); g.translate(dw / 2, 0, 0); g.rotateY(-1.1 * (n[1] ? n[1] : -n[0])); if (ry) g.rotateY(ry); g.translate(hx, y + 0.3 + dh / 2, hz); wl.push(g); }
+  const [lx, lz] = at(ds, 0.05); { const g = new THREE.CylinderGeometry(0.11, 0.12, dw + 0.7, 7); g.rotateZ(Math.PI / 2); if (ry) g.rotateY(ry); g.translate(lx, y + 0.3 + dh + 0.12, lz); GEO.wood[2].push(g); }
+  const [sx1, sz1] = at(ds, 0.2); bx(GEO.mud, dw + 0.5, 0.18, 0.45, sx1, y + 0.39, sz1, ry, tint);
+  if (r() < 0.6) { const s = ds + (ds > 0 ? -1.6 : 1.6), [bx0, bz0] = at(s, 0.28); softBox(1.6, 0.48, 0.5, bx0, y + 0.28, bz0, tint, { seed: seed + 3, round: 0.12, batter: 0.05, wob: 0.03 }); }
+  // the windows: small, square, high; the upper floor's smaller still
+  const nw = half > 4.5 ? 2 : 1; for (let i = 0; i < nw; i++) { const s = nw === 1 ? (ds > 0 ? -half * 0.5 : half * 0.5) : (i ? 1 : -1) * half * 0.62; if (Math.abs(s - ds) < 1.5) continue; const ww = 0.62 + r() * 0.16; windowAt(at, s, y + 1.75 + r() * 0.15, ww, ww * (1.15 + r() * 0.2), ry, wl, tint, r); }
+  if (up) { const fn = n[0] ? up.x + n[0] * up.w / 2 : up.z + n[1] * up.d / 2, own = n[0] ? x + n[0] * w / 2 : z + n[1] * d / 2; if (Math.abs(fn - own) < 0.6) { const c = n[0] ? up.z - z : up.x - x; windowAt(at, c, top + 0.95, 0.55, 0.7, ry, wl, tint, r); } }
+  if (r() < 0.35) { const [ax, az] = at(ds, 1.1); const g = new THREE.BoxGeometry(2.6, 0.08, 2.0); g.rotateX(0.12 * (n[1] || 0)); g.rotateZ(-0.12 * (n[0] || 0)); if (ry) g.rotateY(ry); g.translate(ax, y + 2.65, az); GEO.frond.push(g); for (const k of [-1.2, 1.2]) { const [px, pz] = at(ds + k, 1.95); const g2 = new THREE.CylinderGeometry(0.06, 0.07, 2.5, 6); g2.translate(px, y + 1.55, pz); wl.push(g2); } }
+  // a few palm beams poking out under the roof, as the roofs here are laid
+  for (let i = 0, nbm = 2 + Math.floor(r() * 3); i < nbm; i++) { const s = (r() - 0.5) * half * 1.7, [px, pz] = at(s, 0.18), g = new THREE.CylinderGeometry(0.07, 0.08, 0.5, 6); g.rotateX(Math.PI / 2); if (ry) g.rotateY(ry); g.translate(px, top - 0.2, pz); GEO.wood[2].push(g); }
   // roof clutter
   const nb = Math.floor(r() * 4); for (let i = 0; i < nb; i++) { const g = new THREE.CylinderGeometry(0.35, 0.35, 1.4 + r(), 7); g.rotateZ(Math.PI / 2); g.rotateY(r() * 3); g.translate(x + (r() - 0.5) * (w - 1.5), top + 0.35, z + (r() - 0.5) * (d - 1.5)); GEO.stalk.push(g); }
   if (r() < 0.5) { const g = new THREE.SphereGeometry(1 + r() * 0.6, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2); g.scale(1, 0.6, 1); g.translate(x + (r() - 0.5) * (w - 3), top, z + (r() - 0.5) * (d - 3)); GEO.straw.push(g); }
   for (let i = 0, nj = Math.floor(r() * 3); i < nj; i++) { const g = jar.clone(); g.translate(x + (r() - 0.5) * (w - 1), top, z + (r() - 0.5) * (d - 1)); GEO.clay.push(g); }
-  if (!two && r() < 0.15) { const g = new THREE.CylinderGeometry(0.9, 1.5, 3.4, 12); g.translate(x + (r() - 0.5) * (w - 3.5), top + 1.7, z + (r() - 0.5) * (d - 3.5)); const c = new Float32Array(g.attributes.position.count * 3); for (let i = 0; i < c.length; i += 3) c.set(tint, i); g.setAttribute('color', new THREE.BufferAttribute(c, 3)); GEO.mud.push(g); }
-  if (r() < 0.3) { const sx = n[0] ? 0 : 1, sgn = r() < 0.5 ? -1 : 1, steps = Math.round(h1 / 0.25); for (let k = 0; k < steps; k++) { const t = k / steps; const px = x + (sx ? sgn * (w / 2 + 0.45) : (t - 0.5) * (d - 1.5) * 0 + (n[0] ? -n[0] * (w / 2 - 1 - t * (w - 2) * 0.8) : 0)), pz = z + (sx ? (t - 0.5) * (d - 1.6) : sgn * (d / 2 + 0.45)); if (!sx) continue; bx(GEO.mud, 0.9, (k + 1) * 0.25, 0.42, px, y + (k + 1) * 0.125, pz, 0, tint); } }
+  if (!two && r() < 0.15) { const g = new THREE.CylinderGeometry(0.9, 1.5, 3.4, 14, 6); g.translate(x + (r() - 0.5) * (w - 3.5), top + 1.7, z + (r() - 0.5) * (d - 3.5)); const c = new Float32Array(g.attributes.position.count * 3); for (let i = 0; i < c.length; i += 3) c.set(tint, i); g.setAttribute('color', new THREE.BufferAttribute(c, 3)); GEO.mud.push(g); }
 }
 // ---- the rows: a gap is [centre, width]; houses stop exactly at its edges. `face` is the side toward the street; `deep` forces a depth ----
 { const r = rng(91);
@@ -256,12 +284,31 @@ function house(H, r) {
   { const x = -21.6, z = V.LZ; bx(GEO.mud, 0.5, 3.6, laneS - laneN + 0.6, x, height(x, z) + 1.5, z, 0, [0.95, 0.9, 0.82]); wallBox(x - 0.25, x + 0.25, laneN - 0.3, laneS + 0.3); }                                     // the lane's south side, its doors on the lane
   row('z', V.barZ[1], RB_Z + 6, 1, [[V.LZ, 2.4]], [7, 10]); row('z', RB_Z - 6, V.barZ[0], 1, [[-80, 3]], [7, 10]);   // the bar's east side, south and north arms
   row('z', V.barZ[1], RB_Z + 14, -1, [], [7, 9]); row('z', RB_Z - 14, V.barZ[0], -1, [[SB_Z, 7]], [7, 9]);         // the bar's west side, on either side of the mosque
-  // the street's things: a cart, barrels, sacks, a heap of bricks
-  const cart = mdlGeo('cart', PHONE ? 1 : 0), cm = mdlMats('cart'); const carts = [M4(-14, height(-14, RB_Z + 3.2), RB_Z + 3.2, 0.3), M4(-62, height(-62, RB_Z - 3.1), RB_Z - 3.1, -0.2), M4(-88, height(-88, -70), -70, 1.4)];
+  // the street's cover, staggered along the stem and the bar so there is always something within a short run: carts, a burnt-out truck,
+  // oil drums, crates, sacks of grain, heaps of bricks and rubble, straw bales, a fallen palm trunk, a low mud wall, a trough
+  const cart = mdlGeo('cart', PHONE ? 1 : 0), cm = mdlMats('cart'), carts = [];
+  const solid = (x, z, hw, hd, h = 1.2) => wallBox(x - hw, x + hw, z - hd, z + hd, -9, height(x, z) + h);
+  const put = { cart: (x, z, a) => { carts.push(M4(x, height(x, z), z, a)); solid(x, z, 0.8, 1.1, 1.0); },
+    drums: (x, z) => { for (let k = 0; k < 4; k++) { const g = new THREE.CylinderGeometry(0.29, 0.29, 0.88, 12); g.translate(x + (k % 2) * 0.62, height(x, z) + 0.44, z + Math.floor(k / 2) * 0.62); GEO.wood[k % 2 ? 0 : 3].push(g); } solid(x + 0.3, z + 0.3, 0.7, 0.7, 0.9); },
+    crates: (x, z) => { for (let k = 0; k < 5; k++) bx(GEO.wood[2], 0.8, 0.6, 0.6, x + (k % 3) * 0.82, height(x, z) + 0.3 + Math.floor(k / 3) * 0.6, z, (k % 2) * 0.1); solid(x + 0.8, z, 1.3, 0.4, 1.2); },
+    sacks: (x, z) => { for (let k = 0; k < 9; k++) { const g = new THREE.SphereGeometry(0.42, 8, 6); g.scale(1.25, 0.55, 0.8); g.translate(x + (k % 4) * 0.82 + (Math.floor(k / 4) % 2) * 0.4, height(x, z) + 0.22 + Math.floor(k / 4) * 0.4, z); GEO.straw.push(g); } solid(x + 1.3, z, 1.8, 0.45, 1.0); },
+    bricks: (x, z) => { for (let i = 0; i < 40; i++) bx(GEO.mud, 0.4, 0.2, 0.2, x + (i % 6) * 0.42, height(x, z) + 0.1 + Math.floor(i / 12) * 0.2, z + (Math.floor(i / 6) % 2) * 0.22, 0, [0.85, 0.66, 0.5]); solid(x + 1.1, z + 0.1, 1.35, 0.3, 0.8); },
+    rubble: (x, z) => { const r = rng(Math.round(x * 13 - z)); for (let i = 0; i < 16; i++) softBox(0.5 + r() * 0.8, 0.3 + r() * 0.5, 0.4 + r() * 0.7, x + (r() - 0.5) * 2.4, height(x, z) - 0.1, z + (r() - 0.5) * 1.2, [0.95, 0.88, 0.78], { seed: i, round: 0.15, wob: 0.1 }); solid(x, z, 1.3, 0.7, 0.9); },
+    bales: (x, z) => { for (let k = 0; k < 6; k++) bx(GEO.straw, 1.0, 0.5, 0.5, x + (k % 3) * 1.02, height(x, z) + 0.25 + Math.floor(k / 3) * 0.5, z, 0); solid(x + 1, z, 1.6, 0.3, 1.0); },
+    palm: (x, z, a) => { const g = new THREE.CylinderGeometry(0.28, 0.34, 7, 9); g.rotateZ(Math.PI / 2); g.rotateY(a); g.translate(x, height(x, z) + 0.3, z); GEO.wood[2].push(g); solid(x, z, Math.abs(Math.cos(a)) * 3.5 + 0.35, Math.abs(Math.sin(a)) * 3.5 + 0.35, 0.6); },
+    wall: (x, z, a) => { softBox(Math.abs(Math.cos(a)) * 3 + 0.5, 1.15, Math.abs(Math.sin(a)) * 3 + 0.5, x, height(x, z) - 0.1, z, [0.95, 0.9, 0.8], { round: 0.15, wob: 0.15 }); solid(x, z, Math.abs(Math.cos(a)) * 1.5 + 0.25, Math.abs(Math.sin(a)) * 1.5 + 0.25, 1.1); },
+    trough: (x, z) => { bx(GEO.lime, 2.2, 0.6, 0.7, x, height(x, z) + 0.3, z, 0, [0.75, 0.74, 0.7]); solid(x, z, 1.1, 0.35, 0.6); },
+    truck: (x, z, a) => { const T = new THREE.Group(), bm = new THREE.MeshStandardMaterial({ map: steelTex(41, [52, 46, 40]), roughness: 0.9, metalness: 0.3 }), blk = new THREE.MeshStandardMaterial({ color: 0x1b1916, roughness: 1 });
+      const P = (w, h, d, px, py, pz, m = bm) => { const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); o.position.set(px, py, pz); T.add(o); };
+      P(1.9, 0.9, 1.9, 1.7, 1.1, 0); P(1.9, 0.95, 1.4, 1.75, 1.95, 0); P(0.05, 0.6, 1.3, 2.7, 2.0, 0, blk); P(3.4, 0.12, 2.1, -0.95, 1.05, 0); P(3.4, 0.6, 0.08, -0.95, 1.4, 1.02); P(3.4, 0.6, 0.08, -0.95, 1.4, -1.02); P(0.08, 0.6, 2.1, -2.62, 1.4, 0);
+      for (const [wx, wz] of [[1.7, 1], [1.7, -1], [-1.6, 1], [-1.6, -1]]) { const wh = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, 0.28, 12).rotateX(Math.PI / 2), blk); wh.position.set(wx, 0.42, wz); T.add(wh); }
+      T.rotation.set(0, a, 0.05); T.position.set(x, height(x, z) - 0.1, z); add(T); solid(x, z, 2.9 * Math.abs(Math.cos(a)) + 1.1 * Math.abs(Math.sin(a)), 2.9 * Math.abs(Math.sin(a)) + 1.1 * Math.abs(Math.cos(a)), 2.3); } };
+  // along the stem (south side +, north side -; the passage stays open down its middle) and both arms of the bar
+  for (const [k, x, s, a] of [['bricks', 24, 1], ['drums', 14, -1], ['cart', 6, 1, 0.3], ['sacks', -3, -1], ['wall', -12, 1, 0], ['truck', -22, -1, 0.15], ['crates', -31, 1], ['rubble', -36, -1], ['bales', -47, 1], ['palm', -55, -1, 0.1], ['cart', -62, 1, -0.4], ['drums', -70, -1], ['trough', -74, 1]])
+    put[k](x, RB_Z + s * (k === 'truck' ? 2.0 : k === 'palm' ? 2.1 : 3.0), a || 0);
+  for (const [k, z, s, a] of [['sacks', -62, 1], ['cart', -76, -1, 1.5], ['rubble', -90, 1], ['wall', -12, 1, Math.PI / 2], ['bales', 2, -1], ['drums', 14, 1]]) put[k](V.bar + s * 2.6 + (k === 'sacks' || k === 'bales' ? -1 : 0), z, a || 0);
   for (const p of cart) instOf(p.g, cm[p.m], carts);
-  for (const [x, z] of [[12, RB_Z - 3.2], [-31, RB_Z + 3.3], [-70, RB_Z + 3]]) for (let k = 0; k < 3; k++) { const g = new THREE.CylinderGeometry(0.3, 0.3, 0.9, 10); g.translate(x + k * 0.65, height(x, z) + 0.45, z); GEO.wood[2].push(g); }
-  for (const [x, z] of [[-22, RB_Z - 3.3], [-52, RB_Z + 3.4]]) for (let k = 0; k < 5; k++) { const g = new THREE.SphereGeometry(0.42, 8, 6); g.scale(1.2, 0.6, 0.8); g.translate(x + (k % 3) * 0.8, height(x, z) + 0.25 + Math.floor(k / 3) * 0.45, z); GEO.straw.push(g); }
-  { const x = 22, z = RB_Z + 3.2; for (let i = 0; i < 26; i++) bx(GEO.mud, 0.4, 0.2, 0.2, x + (i % 5) * 0.42, height(x, z) + 0.1 + Math.floor(i / 10) * 0.2, z + (Math.floor(i / 5) % 2) * 0.22, 0, [0.85, 0.7, 0.55]); }
+
 }
 
 /* ---- the mosque: walls 0.6 m thick with their doors and windows cut, a hall of columns and carpet below, a stair up the west wall to the
@@ -356,8 +403,8 @@ const ROUTE = new THREE.Group(); scene.add(ROUTE);
   const path = (pts, col, w = 1.6, dash = false) => { const d = densify(pts, 1), pos = [], idx = [], mat = new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.85, depthWrite: false, fog: false });
     for (let i = 0; i < d.length; i++) { const a = d[Math.max(0, i - 1)], b = d[Math.min(d.length - 1, i + 1)], L = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1, nx = -(b[1] - a[1]) / L, nz = (b[0] - a[0]) / L; for (const s of [-1, 1]) pos.push(d[i][0] + nx * s * w / 2, gy(d[i][0], d[i][1]), d[i][1] + nz * s * w / 2); if (i && !(dash && i % 4 > 1)) { const k = (i - 1) * 2; idx.push(k, k + 2, k + 1, k + 1, k + 2, k + 3); } }
     const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); const m = new THREE.Mesh(g, mat); m.renderOrder = 3; ROUTE.add(m);
-    for (let i = 6; i < d.length - 1; i += 7) { const [x, z] = d[i], [x2, z2] = d[i + 1], a = Math.atan2(x2 - x, z2 - z), tri = new THREE.Mesh(new THREE.ConeGeometry(w * 0.9, w * 1.6, 3).rotateX(Math.PI / 2), mat); tri.position.set(x, gy(x, z) + 0.05, z); tri.rotation.y = a; tri.scale.y = 0.15; ROUTE.add(tri); }
-    const [ex, ez] = d[d.length - 1], [px, pz] = d[d.length - 2], head = new THREE.Mesh(new THREE.ConeGeometry(w * 1.6, w * 3, 3).rotateX(Math.PI / 2), mat); head.position.set(ex, gy(ex, ez) + 0.05, ez); head.rotation.y = Math.atan2(ex - px, ez - pz); head.scale.y = 0.2; ROUTE.add(head); };
+    for (let i = 6; i < d.length - 1; i += 7) { const [x, z] = d[i], [x2, z2] = d[i + 1], a = Math.atan2(x2 - x, z2 - z), tri = new THREE.Mesh(new THREE.ConeGeometry(w * 0.55, w * 1.1, 3).rotateX(Math.PI / 2), mat); tri.position.set(x, gy(x, z) + 0.05, z); tri.rotation.y = a; tri.scale.y = 0.15; ROUTE.add(tri); }
+    const [ex, ez] = d[d.length - 1], [px, pz] = d[d.length - 2], head = new THREE.Mesh(new THREE.ConeGeometry(w * 1.0, w * 1.8, 3).rotateX(Math.PI / 2), mat); head.position.set(ex, gy(ex, ez) + 0.05, ez); head.rotation.y = Math.atan2(ex - px, ez - pz); head.scale.y = 0.2; ROUTE.add(head); };
   const M = V.mosque, door = [M.x - 3, M.z + M.d / 2], mg = [M.x + M.w / 2 - 1.5, M.z];
   // 3: up the main street itself
   path([[48, RB_Z], [20, RB_Z], [-20, RB_Z], [-46, RB_Z + 1]], '#e08a1e'); lab('3 · לחימה ברחוב הראשי', 5, 9, RB_Z, '#e08a1e');
