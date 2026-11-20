@@ -51,4 +51,16 @@ pk.tex['cross/soil/nmap'] = jpg(Image.open((glob.glob(W + '*Soil*Normal.jpg') or
 T = '/home/claude/yk_assets/trench/'
 pk.tex['cross/sand/det'] = detail(glob.glob(T + 'Dry_Sand*BaseColor.jpg')[0])
 pk.tex['cross/sand/nmap'] = jpg(Image.open(glob.glob(T + 'Dry_Sand*Normal.jpg')[0]).convert('RGB').resize((1024, 1024), Image.LANCZOS), 86)
+
+# the wheat: the Megascans scan's billboard sheet (eight clumps, four on each of two rows), colour bled under the cut-outs, and its opacity
+WH = '/home/claude/yk_assets/cross/wheat/'
+def bled(colp, opp, S):
+    col = Image.open(colp).convert('RGB').resize((S, S), Image.LANCZOS); op = Image.open(opp).convert('L').resize((S, S), Image.LANCZOS)
+    a = np.asarray(col).astype(np.float32); m = (np.asarray(op) > 100).astype(np.float32)[..., None]; acc, wt = a * m, m.copy()
+    for r in (2, 4, 8, 16, 32, 64):
+        A = Image.fromarray(np.clip(acc / np.maximum(wt, 1e-4), 0, 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(r)); Wt = Image.fromarray((np.clip(wt[..., 0], 0, 1) * 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(r))
+        wb = np.asarray(Wt).astype(np.float32)[..., None] / 255; ab = np.asarray(A).astype(np.float32); fill = (wt < 0.5); acc = np.where(fill, ab * wb, acc); wt = np.where(fill, wb, wt)
+    return Image.fromarray(np.clip(np.where(m > 0.5, a, acc / np.maximum(wt, 1e-4)), 0, 255).astype(np.uint8)), op
+c, o = bled(WH + 'Wheat_slBiJ_Mid_2K_Billboard_BaseColor.jpg', WH + 'Wheat_slBiJ_Mid_2K_Billboard_Opacity.jpg', 1024)
+pk.tex['cross/wheat/map'] = jpg(c, 86); pk.tex['cross/wheat/alpha'] = jpg(o, 88)
 pk.write()
