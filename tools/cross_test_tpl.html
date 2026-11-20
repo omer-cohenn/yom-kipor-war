@@ -23,7 +23,7 @@ body.walk #run{display:block}
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
 </head><body>
 <div id="ui"><div class="box"><b>הצליחה · חלק 1 · ניסוי</b>
-<div class="row"><button data-cam="walk" class="on">ללכת</button><button data-cam="roller">גשר הגלילים</button><button data-cam="pontoon">גשר הדוברות</button><button data-cam="orchard">הפרדסים</button><button data-cam="village">הכפר</button><button data-cam="mosque">המסגד מהרחוב</button><button data-cam="top">מלמעלה</button></div>
+<div class="row"><button data-cam="walk" class="on">ללכת</button><button data-cam="roller">גשר הגלילים</button><button data-cam="pontoon">גשר הדוברות</button><button data-cam="orchard">הפרדסים</button><button data-cam="village">הכפר</button><button data-cam="mosque">המסגד מהרחוב</button><button data-cam="top">מלמעלה</button><button id="rt" class="on">ציר ההתקדמות</button></div>
 <div id="note">ללכת: ג'ויסטיק משמאל וגרירה בשאר המסך (במחשב: WASD, Shift לריצה, גרירה בעכבר). אפשר ללכת על הגשרים.<br>גשר הגלילים וגשר הדוברות מפלדה, דרכי עפר בין החלקות וגדרות עץ סרוקות סביבן. האקליפטוסים הם עצים בתלת־ממד מענפים סרוקים; המנגו וההדרים הם תמונות שלהם. בשדות חיטה סרוקה; העצים והחיטה זזים ברוח.</div></div></div>
 <div id="joy"><i></i></div><button id="run">לרוץ</button><div id="where"></div>
 <div id="load">בונה את העצים ומצלם אותם…</div>
@@ -73,7 +73,7 @@ function mdlMats(name, color = 0xffffff) { const key = name + '|' + color; if (_
 
 /* ================= the layout (metres; x east, z south). The Suez canal runs north-south at x 70..170; the west bank: the rampart, the
    fields between dirt roads, the sweet-water canal at x -130 and the orchards beyond it ================= */
-const CAN0 = 70, CAN1 = 170, RAMP = 52, SWC = -130, RB_Z = -40, PB_Z = 70;
+const CAN0 = 70, CAN1 = 170, RAMP = 52, SWC = -130, RB_Z = -40, PB_Z = 70, SB_Z = -100;   // SB_Z: the concrete bridge over the sweet-water canal, on the tanks' axis
 const X0 = -260, X1 = 280, Z0 = -190, Z1 = 210;
 function height(x, z) {
   let h = 1.5 + 0.35 * (fbm(x / 60, z / 60) - 0.5);
@@ -88,9 +88,10 @@ function height(x, z) {
 }
 // the roads: [points, width]
 const ROADS = [
-  { p: [[CAN0 - 2, RB_Z], [RAMP, RB_Z], [20, RB_Z], [-40, RB_Z], [-121, RB_Z]], w: 5.5 },
+  { p: [[CAN0 - 2, RB_Z], [RAMP, RB_Z], [20, RB_Z], [-40, RB_Z], [-92, RB_Z]], w: 5.5 },
+  { p: [[-90, SB_Z], [-121, SB_Z]], w: 5.5 },
   { p: [[-90, -108], [-90, 28]], w: 5 },
-  { p: [[-139, RB_Z], [-260, RB_Z]], w: 5.5, trees: 1 },
+  { p: [[-139, SB_Z], [-260, SB_Z]], w: 5.5, trees: 1 },
   { p: [[CAN0 - 2, PB_Z], [RAMP, PB_Z], [30, PB_Z + 2], [10, PB_Z + 30], [-10, 160], [-12, 210]], w: 5 },
   { p: [[-118, -190], [-118, 210]], w: 3.2, trees: 2 },          // the towpath east of the sweet-water canal
   { p: [[-142, -190], [-142, 210]], w: 3.2, trees: 2 },            // and west of it
@@ -102,7 +103,7 @@ const ROADS = [
 const PLOTS = [];
 { const r = rng(5); const cells = [[-112, -46, -186, -114], [-34, 40, -186, RB_Z - 26], [-112, -46, 34, 114], [-34, 32, RB_Z + 28, 60], [-112, -46, 126, 206]];
   for (const [x0, x1, z0, z1] of cells) { const nz = Math.max(1, Math.round((z1 - z0) / 70)); for (let k = 0; k < nz; k++) { const a = lerp(z0, z1, k / nz), b = lerp(z0, z1, (k + 1) / nz); PLOTS.push({ x0, x1, z0: a + (k ? 1.5 : 0), z1: b - (k < nz - 1 ? 1.5 : 0), gate: Math.floor(r() * 4) }); } } }
-const ORCH = [{ x0: -255, x1: -150, z0: -186, z1: RB_Z - 8, kind: 1 }, { x0: -255, x1: -150, z0: RB_Z + 8, z1: 70, kind: 2 }, { x0: -255, x1: -150, z0: 80, z1: 206, kind: 1 }];
+const ORCH = [{ x0: -255, x1: -150, z0: -186, z1: SB_Z - 8, kind: 1 }, { x0: -255, x1: -150, z0: SB_Z + 8, z1: 70, kind: 2 }, { x0: -255, x1: -150, z0: 80, z1: 206, kind: 1 }];
 
 // ---------- the sky and the light: an October morning ----------
 { const sky = new THREE.Mesh(new THREE.SphereGeometry(1200, 32, 16), new THREE.ShaderMaterial({ side: THREE.BackSide, depthWrite: false, fog: false,
@@ -195,8 +196,8 @@ const HOUSES = [];
 { const r = rng(91), row = (along, a0, a1, side, gaps, depth) => { let a = a0; while (a > a1 + 4) { const w = 6 + r() * 5; if (gaps.some((g) => Math.abs(a - w / 2 - g) < w / 2 + 2.5)) { a -= 5.5; continue; } const d = depth[0] + r() * (depth[1] - depth[0]), h = r() < 0.35 ? 6 + r() * 1.5 : 3.2 + r() * 1.2;
       HOUSES.push(along === 'x' ? { x: a - w / 2, z: RB_Z + side * (4.2 + d / 2), w, d, h } : { x: V.bar + side * (4.2 + d / 2), z: a - w / 2, w: d, d: w, h }); a -= w + (r() < 0.25 ? 1.2 + r() * 2 : 0.15); } };
   row('x', V.stem[0], V.stem[1] + 4, -1, [-40, -8], [8, 13]); row('x', V.stem[0], V.stem[1] + 4, 1, [-40, 5], [8, 13]);   // both sides of the stem, an alley here and there
-  row('z', V.barZ[1], RB_Z + 6, 1, [], [7, 10]); row('z', RB_Z - 6, V.barZ[0], 1, [-80], [7, 10]);                       // the bar, its far side (east of the mosque's side)
-  row('z', V.barZ[1], RB_Z + 14, -1, [], [7, 9]); row('z', RB_Z - 14, V.barZ[0], -1, [], [7, 9]);                       // the bar's near side, north and south of the mosque
+  row('z', V.barZ[1], RB_Z + 6, 1, [-12], [7, 10]); row('z', RB_Z - 6, V.barZ[0], 1, [-80], [7, 10]);                       // the bar, its far side (east of the mosque's side)
+  row('z', V.barZ[1], RB_Z + 14, -1, [], [7, 9]); row('z', RB_Z - 14, V.barZ[0], -1, [SB_Z], [7, 9]);                       // the bar's near side, north and south of the mosque
   const mud = new THREE.MeshStandardMaterial({ color: 0xc9b48c, roughness: 0.95 }), mud2 = new THREE.MeshStandardMaterial({ color: 0xb59c74, roughness: 0.95 }), dark = new THREE.MeshStandardMaterial({ color: 0x3a3026, roughness: 1 });
   const bodies = [], tops = [], wins = [];
   for (const H of HOUSES) { const y = height(H.x, H.z) - 0.3; bodies.push(M4(H.x, y + H.h / 2 + 0.15, H.z, 0, H.w, H.h + 0.3, H.d)); tops.push(M4(H.x, y + H.h + 0.45, H.z, 0, H.w + 0.2, 0.6, H.d + 0.2));
@@ -223,12 +224,13 @@ const HOUSES = [];
   for (const [w, d, x, z] of [[0.6, M.d + 12, M.x - M.w / 2 - 6, M.z], [6, 0.6, M.x - M.w / 2 - 3, M.z - M.d / 2 - 6], [6, 0.6, M.x - M.w / 2 - 3, M.z + M.d / 2 + 6]]) B(w, 2.2, d, x, y0 + 1.1, z, mud2);
   HOUSES.push({ x: M.x, z: M.z, w: M.w, d: M.d, h: M.h, mosque: true });
 }
+
 // walking can not go through the houses or the mosque
 function pushOut(x, z) { for (const H of HOUSES) { const hx = H.w / 2 + 0.35, hz = H.d / 2 + 0.35, dx = x - H.x, dz = z - H.z; if (Math.abs(dx) < hx && Math.abs(dz) < hz) { if (hx - Math.abs(dx) < hz - Math.abs(dz)) x = H.x + Math.sign(dx || 1) * hx; else z = H.z + Math.sign(dz || 1) * hz; } } return [x, z]; }
 
 // the little concrete bridge over the sweet-water canal
-{ const CM = new THREE.MeshStandardMaterial({ color: 0xa8a294, roughness: 0.95 }); const b = add(new THREE.Mesh(boxUV(22, 0.5, 7), CM)); b.position.set(SWC, 1.75, RB_Z); for (const s of [-1, 1]) { const w = add(new THREE.Mesh(boxUV(22, 0.7, 0.3), CM)); w.position.set(SWC, 2.3, RB_Z + s * 3.35); } }
-const BRIDGES = (x, z) => { if (Math.abs(z - RB_Z) < 2.5) { const y = DECK_Y(x); if (y != null) return y; } if (Math.abs(z - PB_Z) < 2.2 && x > CAN0 - 4 && x < CAN1 + 4) return PB_DECK + 0.07; if (Math.abs(z - RB_Z) < 3.3 && Math.abs(x - SWC) < 11) return 2.0; return null; };
+{ const CM = new THREE.MeshStandardMaterial({ color: 0xa8a294, roughness: 0.95 }); const b = add(new THREE.Mesh(boxUV(22, 0.5, 7), CM)); b.position.set(SWC, 1.75, SB_Z); for (const s of [-1, 1]) { const w = add(new THREE.Mesh(boxUV(22, 0.7, 0.3), CM)); w.position.set(SWC, 2.3, SB_Z + s * 3.35); } }
+const BRIDGES = (x, z) => { if (Math.abs(z - RB_Z) < 2.5) { const y = DECK_Y(x); if (y != null) return y; } if (Math.abs(z - PB_Z) < 2.2 && x > CAN0 - 4 && x < CAN1 + 4) return PB_DECK + 0.07; if (Math.abs(z - SB_Z) < 3.3 && Math.abs(x - SWC) < 11) return 2.0; return null; };
 
 // ---------- the dirt roads: two ruts, tyre marks, sand blown to their edges ----------
 function dirtTex() { const W = 256, H = 512, c = document.createElement('canvas'); c.width = W; c.height = H; const x = c.getContext('2d'), r = rng(77);
@@ -244,6 +246,36 @@ for (const R of ROADS) { const d = densify(R.p, 2), pos = [], uv = [], idx = [];
     for (const s of [0, 1]) { const o = (s - 0.5) * R.w * 1.12, x = d[i][0] + nx * o, z = d[i][1] + nz * o; pos.push(x, (BRIDGES(x, z) ?? height(x, z)) + 0.05, z); uv.push(s, acc / (R.w * 2.2)); }
     if (i) { const k = (i - 1) * 2; idx.push(k, k + 2, k + 1, k + 1, k + 2, k + 3); } }
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals(); const m = new THREE.Mesh(g, DIRT); m.receiveShadow = true; m.renderOrder = 1; scene.add(m); }
+
+/* ---------- the way through it, drawn on the ground (the "ציר ההתקדמות" button hides it): numbered, a colour per stage ---------- */
+const ROUTE = new THREE.Group(); scene.add(ROUTE);
+{ const lab = (txt, x, y, z, col, s = 1) => { const c = document.createElement('canvas'); c.width = 512; c.height = 128; const g = c.getContext('2d'); g.font = 'bold 54px Rubik, Heebo, Arial'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.direction = 'rtl';
+    const w = Math.min(500, g.measureText(txt).width + 50); g.fillStyle = 'rgba(20,20,14,0.82)'; g.beginPath(); g.roundRect(256 - w / 2, 14, w, 100, 22); g.fill(); g.fillStyle = col; g.fillRect(256 - w / 2, 14, 14, 100); g.fillStyle = '#fff'; g.fillText(txt, 256 + 6, 66);
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), depthTest: false, transparent: true })); sp.scale.set(14 * s, 3.5 * s, 1); sp.position.set(x, y, z); sp.renderOrder = 10; ROUTE.add(sp); };
+  const gy = (x, z) => (BRIDGES(x, z) ?? Math.max(height(x, z), 0.62)) + 0.3;
+  const path = (pts, col, w = 1.6, dash = false) => { const d = densify(pts, 1), pos = [], idx = [], mat = new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.85, depthWrite: false, fog: false });
+    for (let i = 0; i < d.length; i++) { const a = d[Math.max(0, i - 1)], b = d[Math.min(d.length - 1, i + 1)], L = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1, nx = -(b[1] - a[1]) / L, nz = (b[0] - a[0]) / L; for (const s of [-1, 1]) pos.push(d[i][0] + nx * s * w / 2, gy(d[i][0], d[i][1]), d[i][1] + nz * s * w / 2); if (i && !(dash && i % 4 > 1)) { const k = (i - 1) * 2; idx.push(k, k + 2, k + 1, k + 1, k + 2, k + 3); } }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); const m = new THREE.Mesh(g, mat); m.renderOrder = 3; ROUTE.add(m);
+    for (let i = 6; i < d.length - 1; i += 7) { const [x, z] = d[i], [x2, z2] = d[i + 1], a = Math.atan2(x2 - x, z2 - z), tri = new THREE.Mesh(new THREE.ConeGeometry(w * 0.9, w * 1.6, 3).rotateX(Math.PI / 2), mat); tri.position.set(x, gy(x, z) + 0.05, z); tri.rotation.y = a; tri.scale.y = 0.15; ROUTE.add(tri); }
+    const [ex, ez] = d[d.length - 1], [px, pz] = d[d.length - 2], head = new THREE.Mesh(new THREE.ConeGeometry(w * 1.6, w * 3, 3).rotateX(Math.PI / 2), mat); head.position.set(ex, gy(ex, ez) + 0.05, ez); head.rotation.y = Math.atan2(ex - px, ez - pz); head.scale.y = 0.2; ROUTE.add(head); };
+  const M = V.mosque, door = [M.x - 3, M.z + M.d / 2], mg = [M.x + M.w / 2 - 1.5, M.z];
+  // 3: up the main street itself
+  path([[48, RB_Z], [20, RB_Z], [-20, RB_Z], [-46, RB_Z + 1]], '#e08a1e'); lab('3 · לחימה ברחוב הראשי', 5, 9, RB_Z, '#e08a1e');
+  // the MG's fire down the street, from the window, and where it pins you
+  { const y = height(M.x, M.z) + 6.4, g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute([mg[0] + 1, y, mg[1], -20, 1, RB_Z - 5, -20, 1, RB_Z + 5], 3)); const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: 0xd8312a, transparent: true, opacity: 0.22, side: THREE.DoubleSide, depthWrite: false, fog: false })); ROUTE.add(m);
+    lab('המאג מרתק את הרחוב', -60, 11, RB_Z, '#d8312a', 0.9); }
+  // 4: off the street before the fire, through the alley, behind the houses, across the south arm to the mosque's side door; floor 1, the stairs, floor 2, the MG
+  path([[-46, RB_Z + 1], [-40, RB_Z + 4], [-40, -14], [-60, -12], [-82, -12], [-90, -14], [-90, -28], [door[0], -28.3]], '#7c4dc4');
+  lab('4 · עוקפים: סמטה, מאחורי הבתים, הזרוע הדרומית', -60, 8, -12, '#7c4dc4', 1.05); lab('דלת הצד', door[0], 6, -26, '#7c4dc4', 0.7);
+  { const m = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 6, 8), new THREE.MeshBasicMaterial({ color: 0x7c4dc4, transparent: true, opacity: 0.8, depthTest: false, fog: false })); m.position.set(M.x - 3, height(M.x, M.z) + 4.5, M.z + 4); m.renderOrder = 4; ROUTE.add(m); lab('קומה 1 ← מדרגות ← קומה 2 ← חדר המאג', M.x - 3, 15, M.z + 4, '#7c4dc4', 1.05); }
+  // 5: on the MG; the Egyptian reinforcement comes back up the way you came
+  lab('5 · על המאג: 2 דקות', mg[0], 12.5, mg[1] - 6, '#1f6f8b', 0.95);
+  path([[52, RB_Z - 1.8], [20, RB_Z - 1.8], [-10, RB_Z - 1.8], [-50, RB_Z - 1.8]], '#c0392b', 1.1, true); path([[-40, -100], [-40, -66], [-40, RB_Z - 3]], '#c0392b', 1.1, true); path([[-40, 40], [-40, -14], [-40, RB_Z + 3]], '#c0392b', 1.1, true);
+  lab('התגבורת המצרית: מאיפה שבאנו', 30, 7, RB_Z - 12, '#c0392b', 0.9);
+  // then the roller bridge is across: the tanks over it, up the street to the junction under the mosque, north and over the concrete bridge
+  path([[CAN1 + 30, RB_Z + 1.8], [CAN0 - 6, RB_Z + 1.8], [20, RB_Z + 1.8], [-86, RB_Z + 1.8], [-88, -60], [-90, SB_Z], [-121, SB_Z], [-150, SB_Z], [-200, SB_Z]], '#2f8a3a', 1.4);
+  lab('אחרי 2 דקות: הטנקים על גשר הגלילים', 120, 9, RB_Z + 6, '#2f8a3a', 0.95); lab('הטנקים מתחת למסגד', -80, 8, RB_Z + 10, '#2f8a3a', 0.85); lab('גשר הבטון: הציר ממשיך', SWC, 7, SB_Z, '#2f8a3a', 0.9);
+}
 
 /* ---------- the fences round the fields: the scanned wooden fence, a section every 1.66 m, a gap for the gate; the scan near you, a
    plain post and two rails further off ---------- */
@@ -344,7 +376,7 @@ function plantTrees() {
   const put = (x, z, k, s = 1) => list.push([x, z, k, Math.floor(r() * VAR), s * (0.85 + r() * 0.3), r() * 6.28]);
   // eucalyptus rows: both sides of the road from the bridges and along both banks of the sweet-water canal, a gap here and there
   for (const R of ROADS) if (R.trees) { const d = densify(R.p, 1); for (let i = 0; i < d.length - 1; i += R.trees === 2 ? 11 : 9) { const [ax, az] = d[i], [bx, bz] = d[Math.min(d.length - 1, i + 1)], L = Math.hypot(bx - ax, bz - az) || 1, nx = -(bz - az) / L, nz = (bx - ax) / L;
-    for (const s of R.trees === 2 ? [R.p[0][0] < SWC ? -1 : 1] : [-1, 1]) { if (r() < 0.12) continue; const x = ax + nx * s * (R.w * 0.5 + 1.8), z = az + nz * s * (R.w * 0.5 + 1.8); if (x > RAMP - 12) continue; if (Math.abs(x - SWC) < 9 && Math.abs(z - RB_Z) < 6) continue; EUC.push([x, z, 0.85 + r() * 0.3, r() * 6.28, Math.floor(r() * 3)]); } } }
+    for (const s of R.trees === 2 ? [R.p[0][0] < SWC ? -1 : 1] : [-1, 1]) { if (r() < 0.12) continue; const x = ax + nx * s * (R.w * 0.5 + 1.8), z = az + nz * s * (R.w * 0.5 + 1.8); if (x > RAMP - 12) continue; if (Math.abs(x - SWC) < 9 && Math.abs(z - SB_Z) < 6) continue; EUC.push([x, z, 0.85 + r() * 0.3, r() * 6.28, Math.floor(r() * 3)]); } } }
   // the orchards: mango (rows of 9 m) and citrus (rows of 5 m), planted in their grid
   for (const O of ORCH) { const sp = O.kind === 1 ? 7 : 4.8; for (let x = O.x0 + sp / 2; x < O.x1; x += sp) for (let z = O.z0 + sp / 2; z < O.z1; z += sp) { if (r() < 0.04) continue; put(x + (r() - 0.5) * 0.8, z + (r() - 0.5) * 0.8, O.kind); } }
   const geo = new THREE.PlaneGeometry(1, 1).translate(0, 0.5, 0); geo.setAttribute('aRow', new THREE.InstancedBufferAttribute(new Float32Array(list.length * 3), 3)); geo.setAttribute('aYaw', new THREE.InstancedBufferAttribute(new Float32Array(list.length), 1));
@@ -411,11 +443,12 @@ function walkTick(dt) { const k = W.keys; let f = -W.jy + (k.KeyW || k.ArrowUp ?
   W.x = clamp(W.x + (-sy * f + cy * r) * sp, X0 + 5, X1 - 5); W.z = clamp(W.z + (-cy * f - sy * r) * sp, Z0 + 5, Z1 - 5); [W.x, W.z] = pushOut(W.x, W.z); if (l > 0.05) W.bob += dt * 8 * l;
   const gy = groundY(W.x, W.z); W.fy = W.fy == null ? gy : W.fy + (gy - W.fy) * Math.min(1, dt * 10);
   camera.position.set(W.x, W.fy + 1.7 + Math.sin(W.bob) * 0.03 * Math.min(1, l), W.z); camera.rotation.set(W.pitch, W.yaw, 0, 'YXZ'); }
-const CAMS = { village: [[60, 45, RB_Z + 70], [-60, 4, RB_Z]], mosque: [[-40, 6, RB_Z + 3], [-104, 7, RB_Z]], roller: [[CAN0 - 30, 9, RB_Z + 22], [CAN0 + 30, 1, RB_Z]], pontoon: [[CAN0 - 25, 6, PB_Z - 20], [CAN0 + 40, 0.5, PB_Z]], orchard: [[-120, 14, 30], [-200, 2, -20]], top: [[-20, 260, 60], [-20, 0, 20]] };
+const CAMS = { village: [[40, 120, RB_Z + 90], [-60, 4, RB_Z - 20]], mosque: [[-40, 6, RB_Z + 3], [-104, 7, RB_Z]], roller: [[CAN0 - 30, 9, RB_Z + 22], [CAN0 + 30, 1, RB_Z]], pontoon: [[CAN0 - 25, 6, PB_Z - 20], [CAN0 + 40, 0.5, PB_Z]], orchard: [[-120, 14, 30], [-200, 2, -20]], top: [[-20, 260, 60], [-20, 0, 20]] };
 function setCam(k) { for (const b of document.querySelectorAll('[data-cam]')) b.classList.toggle('on', b.dataset.cam === k);
   if (k === 'walk') { W.on = true; controls.enabled = false; document.body.classList.add('walk'); return; }
   W.on = false; controls.enabled = true; document.body.classList.remove('walk'); const [p, t] = CAMS[k]; camera.position.set(...p); controls.target.set(...t); controls.update(); }
 for (const b of document.querySelectorAll('[data-cam]')) b.onclick = () => setCam(b.dataset.cam);
+document.getElementById('rt').onclick = (e) => { ROUTE.visible = !ROUTE.visible; e.target.classList.toggle('on', ROUTE.visible); };
 addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
 const whereEl = document.getElementById('where');
 function where() { const x = camera.position.x, z = camera.position.z; if (x < 32 && x > -86 && Math.abs(z - RB_Z) < 5) return 'הרחוב הראשי'; if (Math.abs(x - V.bar) < 4 && z > V.barZ[0] && z < V.barZ[1]) return z < RB_Z ? 'הזרוע הצפונית' : 'הזרוע הדרומית'; if (Math.abs(x - V.mosque.x) < 16 && Math.abs(z - V.mosque.z) < 18) return 'המסגד'; return x > CAN1 ? 'הגדה המזרחית' : x > CAN0 ? (Math.abs(z - RB_Z) < 4 ? 'על גשר הגלילים' : Math.abs(z - PB_Z) < 4 ? 'על גשר הדוברות' : 'מעל התעלה') : x > RAMP - 10 ? 'הסוללה' : x > -112 ? 'השדות' : x > -150 ? 'תעלת המים המתוקים' : 'הפרדסים'; }
