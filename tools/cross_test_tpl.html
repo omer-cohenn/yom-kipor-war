@@ -96,7 +96,7 @@ const ROADS = [
   { p: [[-118, -190], [-118, 210]], w: 3.2, trees: 2 },          // the towpath east of the sweet-water canal
   { p: [[-142, -190], [-142, 210]], w: 3.2, trees: 2 },            // and west of it
   { p: [[-118, 120], [-40, 120], [10, 118]], w: 3.5 },               // a field road east-west
-  { p: [[-40, -190], [-40, -66]], w: 3.5 }, { p: [[-40, -14], [-40, 120]], w: 3.5 },             // and north-south
+  { p: [[-40, -190], [-40, -66]], w: 3.5 }, { p: [[-40, -8], [-40, 120]], w: 3.5 },             // and north-south
   { p: [[CAN1 + 2, RB_Z], [210, RB_Z], [280, RB_Z - 10]], w: 5.5 }, { p: [[CAN1 + 2, PB_Z], [220, PB_Z + 4], [280, PB_Z + 20]], w: 5 },
 ];
 // the fields (to be filled with wheat in part 2) between the roads, each with its gate
@@ -193,11 +193,11 @@ const PB_DECK = 1.05;
    two floors, the dome, a minaret, the MG window on the upper floor. Plain boxes, to see the shape of it before it is built ================= */
 const V = { stem: [30, -82], bar: -90, barZ: [-108, 28], mosque: { x: -104, z: RB_Z, w: 17, d: 19, h: 9.5 } };
 const HOUSES = [];
-{ const r = rng(91), row = (along, a0, a1, side, gaps, depth) => { let a = a0; while (a > a1 + 4) { const w = 6 + r() * 5; if (gaps.some((g) => Math.abs(a - w / 2 - g) < w / 2 + 2.5)) { a -= 5.5; continue; } const d = depth[0] + r() * (depth[1] - depth[0]), h = r() < 0.35 ? 6 + r() * 1.5 : 3.2 + r() * 1.2;
+{ const r = rng(91), row = (along, a0, a1, side, gaps, depth) => { let a = a0; while (a > a1 + 4) { let w = 6 + r() * 5; const G = gaps.find(([g, gw]) => a - w < g + gw / 2 && a > g - gw / 2); if (G) { if (a <= G[0] + G[1] / 2 + 0.01) { a = G[0] - G[1] / 2; continue; } w = a - (G[0] + G[1] / 2); if (w < 3.5) { a = G[0] - G[1] / 2; continue; } } const d = depth[0] + r() * (depth[1] - depth[0]), h = r() < 0.35 ? 6 + r() * 1.5 : 3.2 + r() * 1.2;
       HOUSES.push(along === 'x' ? { x: a - w / 2, z: RB_Z + side * (4.2 + d / 2), w, d, h } : { x: V.bar + side * (4.2 + d / 2), z: a - w / 2, w: d, d: w, h }); a -= w + (r() < 0.25 ? 1.2 + r() * 2 : 0.15); } };
-  row('x', V.stem[0], V.stem[1] + 4, -1, [-40, -8], [8, 13]); row('x', V.stem[0], V.stem[1] + 4, 1, [-40, 5], [8, 13]);   // both sides of the stem, an alley here and there
-  row('z', V.barZ[1], RB_Z + 6, 1, [-12], [7, 10]); row('z', RB_Z - 6, V.barZ[0], 1, [-80], [7, 10]);                       // the bar, its far side (east of the mosque's side)
-  row('z', V.barZ[1], RB_Z + 14, -1, [], [7, 9]); row('z', RB_Z - 14, V.barZ[0], -1, [SB_Z], [7, 9]);                       // the bar's near side, north and south of the mosque
+  row('x', V.stem[0], V.stem[1] + 4, -1, [[-40, 3.5], [-8, 3]], [8, 13]); row('x', V.stem[0], V.stem[1] + 4, 1, [[-40, 2.2], [5, 2.6]], [8, 13]);   // both sides of the stem, an alley here and there
+  row('z', V.barZ[1], RB_Z + 6, 1, [[-12, 2.4]], [7, 10]); row('z', RB_Z - 6, V.barZ[0], 1, [[-80, 3]], [7, 10]);                       // the bar, its far side (east of the mosque's side)
+  row('z', V.barZ[1], RB_Z + 14, -1, [], [7, 9]); row('z', RB_Z - 14, V.barZ[0], -1, [[SB_Z, 7]], [7, 9]);                       // the bar's near side, north and south of the mosque
   const mud = new THREE.MeshStandardMaterial({ color: 0xc9b48c, roughness: 0.95 }), mud2 = new THREE.MeshStandardMaterial({ color: 0xb59c74, roughness: 0.95 }), dark = new THREE.MeshStandardMaterial({ color: 0x3a3026, roughness: 1 });
   const bodies = [], tops = [], wins = [];
   for (const H of HOUSES) { const y = height(H.x, H.z) - 0.3; bodies.push(M4(H.x, y + H.h / 2 + 0.15, H.z, 0, H.w, H.h + 0.3, H.d)); tops.push(M4(H.x, y + H.h + 0.45, H.z, 0, H.w + 0.2, 0.6, H.d + 0.2));
@@ -223,6 +223,11 @@ const HOUSES = [];
   // the courtyard wall round its back
   for (const [w, d, x, z] of [[0.6, M.d + 12, M.x - M.w / 2 - 6, M.z], [6, 0.6, M.x - M.w / 2 - 3, M.z - M.d / 2 - 6], [6, 0.6, M.x - M.w / 2 - 3, M.z + M.d / 2 + 6]]) B(w, 2.2, d, x, y0 + 1.1, z, mud2);
   HOUSES.push({ x: M.x, z: M.z, w: M.w, d: M.d, h: M.h, mosque: true });
+  { const LZ = -12, h = 2.6, wall = (x0, z0, x1, z1) => { const w = Math.abs(x1 - x0) + 0.4, d = Math.abs(z1 - z0) + 0.4, x = (x0 + x1) / 2, z = (z0 + z1) / 2; B(w, h, d, x, height(x, z) + h / 2 - 0.2, z, mud2); HOUSES.push({ x, z, w, d, h }); };
+    const hb = (x) => Math.max(...HOUSES.filter((H) => !H.mosque && H.z > RB_Z && Math.abs(H.x - x) < H.w / 2 + 0.1).map((H) => H.z + H.d / 2), RB_Z + 6);
+    wall(-41.1, hb(-42), -41.1, LZ - 1.1); wall(-38.9, hb(-38), -38.9, LZ + 1.1);           // the alley's walls, house to lane
+    wall(-41.1, LZ - 1.1, -84.5, LZ - 1.1); wall(-38.9, LZ + 1.1, -84.5, LZ + 1.1);          // the lane behind the houses, to the south arm
+    wall(-38.9, LZ - 1.1, -38.9, LZ + 1.1); }
 }
 
 // walking can not go through the houses or the mosque
@@ -270,7 +275,7 @@ const ROUTE = new THREE.Group(); scene.add(ROUTE);
   { const m = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 6, 8), new THREE.MeshBasicMaterial({ color: 0x7c4dc4, transparent: true, opacity: 0.8, depthTest: false, fog: false })); m.position.set(M.x - 3, height(M.x, M.z) + 4.5, M.z + 4); m.renderOrder = 4; ROUTE.add(m); lab('קומה 1 ← מדרגות ← קומה 2 ← חדר המאג', M.x - 3, 15, M.z + 4, '#7c4dc4', 1.05); }
   // 5: on the MG; the Egyptian reinforcement comes back up the way you came
   lab('5 · על המאג: 2 דקות', mg[0], 12.5, mg[1] - 6, '#1f6f8b', 0.95);
-  path([[52, RB_Z - 1.8], [20, RB_Z - 1.8], [-10, RB_Z - 1.8], [-50, RB_Z - 1.8]], '#c0392b', 1.1, true); path([[-40, -100], [-40, -66], [-40, RB_Z - 3]], '#c0392b', 1.1, true); path([[-40, 40], [-40, -14], [-40, RB_Z + 3]], '#c0392b', 1.1, true);
+  path([[52, RB_Z - 1.8], [20, RB_Z - 1.8], [-10, RB_Z - 1.8], [-50, RB_Z - 1.8]], '#c0392b', 1.1, true); path([[-40, -100], [-40, -66], [-40, RB_Z - 3]], '#c0392b', 1.1, true); 
   lab('התגבורת המצרית: מאיפה שבאנו', 30, 7, RB_Z - 12, '#c0392b', 0.9);
   // then the roller bridge is across: the tanks over it, up the street to the junction under the mosque, north and over the concrete bridge
   path([[CAN1 + 30, RB_Z + 1.8], [CAN0 - 6, RB_Z + 1.8], [20, RB_Z + 1.8], [-86, RB_Z + 1.8], [-88, -60], [-90, SB_Z], [-121, SB_Z], [-150, SB_Z], [-200, SB_Z]], '#2f8a3a', 1.4);
@@ -280,8 +285,8 @@ const ROUTE = new THREE.Group(); scene.add(ROUTE);
 /* ---------- the fences round the fields: the scanned wooden fence, a section every 1.66 m, a gap for the gate; the scan near you, a
    plain post and two rails further off ---------- */
 const FENCE = [], FCH = 30;
-{ const sec = 1.66, put = (ax, az, bx, bz, gate) => { const L = Math.hypot(bx - ax, bz - az), n = Math.floor(L / sec), ry = Math.atan2(-(bz - az), bx - ax), g0 = gate ? n / 2 - 2 : -9, r = rng(Math.round(ax * 7 + az * 13));
-    for (let k = 0; k < n; k++) { if (k >= g0 && k < g0 + 3) continue; const t = (k * sec) / L, x = lerp(ax, bx, t), z = lerp(az, bz, t), lean = (r() - 0.5) * 0.05; FENCE.push(M4(x, height(x, z) - 0.05, z, ry + (r() - 0.5) * 0.02, 1, 0.95 + r() * 0.1, 1, lean, (r() - 0.5) * 0.03)); } };
+{ const sec = 1.66, put = (ax, az, bx, bz, gate) => { const L = Math.hypot(bx - ax, bz - az), n = Math.max(1, Math.round(L / sec)), sx = L / (n * sec), ry = Math.atan2(-(bz - az), bx - ax), g0 = gate ? n / 2 - 2 : -9, r = rng(Math.round(ax * 7 + az * 13));
+    for (let k = 0; k < n; k++) { if (k >= g0 && k < g0 + 3) continue; const t = k / n, x = lerp(ax, bx, t), z = lerp(az, bz, t), lean = (r() - 0.5) * 0.05; FENCE.push(M4(x, height(x, z) - 0.05, z, ry, sx, 0.95 + r() * 0.1, 1, lean, 0)); } };
   for (const P of PLOTS) { const e = [[P.x0, P.z0, P.x1, P.z0], [P.x1, P.z0, P.x1, P.z1], [P.x1, P.z1, P.x0, P.z1], [P.x0, P.z1, P.x0, P.z0]]; e.forEach((q, i) => put(q[0] + (q[2] > q[0] ? 1 : q[2] < q[0] ? -1 : 0) * 0, q[1], q[2], q[3], i === P.gate)); }
   for (const O of ORCH) put(O.x1, O.z0, O.x1, O.z1, true); }
 const fenceChunks = (() => { const groups = new Map(), p = V3(); for (const M of FENCE) { p.setFromMatrixPosition(M); const k = Math.floor(p.x / FCH) + ',' + Math.floor(p.z / FCH); if (!groups.has(k)) groups.set(k, { x: 0, z: 0, l: [] }); const g = groups.get(k); g.x += p.x; g.z += p.z; g.l.push(M); }
