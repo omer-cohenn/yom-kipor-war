@@ -126,11 +126,11 @@ const ground = (() => {
     c.setRGB(r, gg, b, THREE.SRGBColorSpace); col.set([c.r, c.g, c.b], i * 3); soil[i] = 1 - sandy; }
   g.setAttribute('color', new THREE.BufferAttribute(col, 3)); g.setAttribute('aSoil', new THREE.BufferAttribute(soil, 1)); g.computeVertexNormals();
   const dS = tex('cross/soil/det', false), dA = tex('cross/sand/det', false), nS = tex('cross/soil/nmap', false), nA = tex('cross/sand/nmap', false);
-  const m = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.97, normalMap: nS, normalScale: new THREE.Vector2(0.9, 0.9) });
+  const m = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.97, normalMap: nS, normalScale: new THREE.Vector2(0.45, 0.45) });
   m.onBeforeCompile = (sh) => { Object.assign(sh.uniforms, { dS: { value: dS }, dA: { value: dA }, nA: { value: nA } });
     sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute float aSoil; varying float vSoil; varying vec2 vW;').replace('#include <uv_vertex>', '#include <uv_vertex>\nvSoil = aSoil; vW = (modelMatrix * vec4(position,1.0)).xz; vNormalMapUv = vW / 3.0;');
     sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform sampler2D dS, dA, nA; varying float vSoil; varying vec2 vW;')
-      .replace('#include <color_fragment>', '#include <color_fragment>\n{ vec3 a = texture2D(dS, vW / 3.0).rgb, b = texture2D(dA, vW / 4.0).rgb, f = texture2D(dA, vW / 37.0).rgb; diffuseColor.rgb *= mix(b, a, vSoil) * 2.0 * mix(vec3(1.0), f * 2.0, 0.35); }')
+      .replace('#include <color_fragment>', '#include <color_fragment>\n{ vec3 a = texture2D(dS, vW / 3.0).rgb, b = texture2D(dA, vW / 4.0).rgb, f = texture2D(dA, vW / 37.0).rgb; diffuseColor.rgb *= mix(vec3(1.0), mix(b, a, vSoil) * 2.0, 0.55) * mix(vec3(1.0), f * 2.0, 0.3); }')
       .replace('#include <normal_fragment_maps>', 'vec3 mapN = mix(texture2D(nA, vNormalMapUv * 0.75).xyz, texture2D(normalMap, vNormalMapUv).xyz, vSoil) * 2.0 - 1.0; mapN.xy *= normalScale; normal = normalize(tbn * mapN);'); };
   const mesh = new THREE.Mesh(g, m); mesh.receiveShadow = true; scene.add(mesh); return mesh;
 })();
@@ -223,7 +223,7 @@ function fenceLod() { const cp = camera.position; for (const c of fenceChunks) {
    one sheet) on a trunk of its own, photographed from eight sides into one sheet, and drawn as a picture that turns to face you, the side
    it shows chosen by where you stand ================= */
 const KINDS = [
-  { name: 'eucalyptus', H: 19, W: 11, rowH: 1.5, trunkH: 9, trunkR: 0.34, bark: 0xd8cdb8, cards: 420, crown: [0, 12.5, 0], cr: [4.2, 6.2, 4.2], size: [1.6, 2.6], tint: [0.62, 0.78, 0.55] },
+  { name: 'eucalyptus', H: 19, W: 11, rowH: 1.5, trunkH: 9, trunkR: 0.27, bark: 0xd8cdb8, cards: 420, crown: [0, 12.5, 0], cr: [4.2, 6.2, 4.2], size: [1.6, 2.6], tint: [0.62, 0.78, 0.55] },
   { name: 'mango', H: 10.5, W: 11, rowH: 1, trunkH: 1.9, trunkR: 0.3, bark: 0x4f4232, cards: 820, crown: [0, 5.4, 0], cr: [4.8, 3.9, 4.8], size: [1.7, 2.6], tint: [0.42, 0.6, 0.34] },
   { name: 'citrus', H: 4.6, W: 4.6, rowH: 1, trunkH: 0.9, trunkR: 0.11, bark: 0x55493a, cards: 330, crown: [0, 2.3, 0], cr: [1.95, 1.8, 1.95], size: [0.75, 1.05], tint: [0.5, 0.66, 0.4], fruit: 70 },
 ];
@@ -245,8 +245,8 @@ const VAR = 2, AZ = 8, FW = PHONE ? 192 : 384;
 function buildTree(K, seed) {
   const r = rng(seed), grp = new THREE.Group(), lean = (r() - 0.5) * 0.12;
   // the trunk and a few limbs out into the crown
-  const bark = new THREE.MeshStandardMaterial({ map: tex('cross/bark/map'), bumpMap: tex('cross/bark/bump', false), bumpScale: 2.5, roughness: 0.9 }); const limbs = [];
-  const th = K.trunkH + K.cr[1] * 0.5, tg = new THREE.CylinderGeometry(K.trunkR * 0.55, K.trunkR, th, 16, Math.max(2, Math.round(th / 1.5))); { const uv = tg.attributes.uv, p = tg.attributes.position; for (let i = 0; i < uv.count; i++) { uv.setXY(i, uv.getX(i) * Math.max(1, Math.round(K.trunkR * 6.28 / 0.7)), uv.getY(i) * th / 1.25); const a = Math.atan2(p.getZ(i), p.getX(i)); const k = 1 + 0.07 * Math.sin(a * 3 + p.getY(i) * 0.7) + 0.04 * Math.sin(a * 7); p.setX(i, p.getX(i) * k); p.setZ(i, p.getZ(i) * k); } }
+  const bark = new THREE.MeshStandardMaterial({ map: tex('cross/bark/map'), bumpMap: tex('cross/bark/bump', false), bumpScale: 1.4, roughness: 0.95, color: new THREE.Color().setRGB(0.66, 0.64, 0.6) }); const limbs = [];
+  const th = K.trunkH + K.cr[1] * 0.5, tg = new THREE.CylinderGeometry(K.trunkR * 0.38, K.trunkR, th, 16, Math.max(2, Math.round(th / 1.5))); { const uv = tg.attributes.uv, p = tg.attributes.position; for (let i = 0; i < uv.count; i++) { uv.setXY(i, uv.getX(i) * Math.max(1, Math.round(K.trunkR * 6.28 / 0.7)), uv.getY(i) * th / 1.25); const a = Math.atan2(p.getZ(i), p.getX(i)); const k = 1 + 0.07 * Math.sin(a * 3 + p.getY(i) * 0.7) + 0.04 * Math.sin(a * 7); p.setX(i, p.getX(i) * k + Math.sin((p.getY(i) / th + 0.5) * 2.4 + seed) * 0.16 * (p.getY(i) / th + 0.5)); p.setZ(i, p.getZ(i) * k + Math.sin((p.getY(i) / th + 0.5) * 1.7 + seed * 0.7) * 0.12 * (p.getY(i) / th + 0.5)); } }
   limbs.push(tg.translate(0, th / 2, 0).rotateZ(lean));
   const nl = K.name === 'eucalyptus' ? 5 : 6; for (let i = 0; i < nl; i++) { const a = r() * 6.28, L = K.cr[0] * (0.6 + r() * 0.4), g = new THREE.CylinderGeometry(K.trunkR * 0.18, K.trunkR * 0.45, L, 8); { const uv = g.attributes.uv; for (let k = 0; k < uv.count; k++) uv.setXY(k, uv.getX(k), uv.getY(k) * L / 1.25); } g.translate(0, L / 2, 0); g.rotateZ(0.6 + r() * 0.5); g.rotateY(a); g.translate(0, K.trunkH * (0.85 + r() * 0.3), 0); limbs.push(g); }
   grp.add(new THREE.Mesh(mergeGeometries(limbs), bark));
@@ -337,9 +337,9 @@ function tileLayer(geo, mat, per, ok, scl, near) { const r = rng(Math.round(per 
 { // the wheat: crossed pictures of the scanned clumps (eight of them on the sheet), thick in every field, its heads moving in the wind
   const parts = []; for (let k = 0; k < 8; k++) { const col = k % 4, row = k < 4 ? 1 : 0; for (const ry of [0, Math.PI / 2]) { const g = new THREE.PlaneGeometry(0.62, 0.95).translate(0, 0.475, 0); const uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, (col + uv.getX(i)) * 0.25, (row + uv.getY(i)) * 0.5); g.rotateY(ry); parts.push(g); } }
   const geos = [0, 1, 2, 3, 4, 5, 6, 7].map((k) => mergeGeometries([parts[k * 2], parts[k * 2 + 1]]));
-  const wm = new THREE.MeshStandardMaterial({ map: tex('cross/wheat/map'), alphaMap: tex('cross/wheat/alpha', false), alphaTest: 0.4, side: THREE.DoubleSide, roughness: 0.85, color: new THREE.Color().setRGB(0.92, 1.0, 0.62) });
+  const wm = new THREE.MeshStandardMaterial({ map: tex('cross/wheat/map'), alphaMap: tex('cross/wheat/alpha', false), alphaTest: 0.3, alphaToCoverage: true, side: THREE.DoubleSide, roughness: 0.85, color: new THREE.Color().setRGB(1.0, 0.93, 0.66) });
   wm.onBeforeCompile = (sh) => { sh.uniforms.uWind = WIND; sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nuniform float uWind;').replace('#include <beginnormal_vertex>', 'vec3 objectNormal = vec3(0.0, 1.0, 0.0);').replace('#include <begin_vertex>', '#include <begin_vertex>\n' + windSway(0.16, 0.1, 0.85)); }; wm.customProgramCacheKey = () => 'wheat';
-  for (const g of geos) tileLayer(g, wm, (PHONE ? 1.6 : 4.2) / 8, (x, z) => inPlotXZ(x, z, -0.6), (r) => { const s = 1.05 + r() * 0.5; return [s, s * (0.9 + r() * 0.35)]; }, PHONE ? 90 : 180);
+  for (const g of geos) tileLayer(g, wm, (PHONE ? 2.6 : 6.5) / 8, (x, z) => inPlotXZ(x, z, -0.6), (r) => { const s = 1.05 + r() * 0.5; return [s, s * (0.9 + r() * 0.35)]; }, PHONE ? 90 : 180);
 }
 function tilesLod() { const cp = camera.position; for (const t of TILES) { const d = Math.hypot(cp.x - t.x, cp.z - t.z), v = d < t.near; if (t.im.visible !== v) t.im.visible = v; if (v && t.mid) { const g = d < t.fullR ? t.full : t.mid; if (t.im.geometry !== g) t.im.geometry = g; } } }
 
