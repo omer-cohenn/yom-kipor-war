@@ -24,7 +24,7 @@ body.walk #run{display:block}
 </head><body>
 <div id="ui"><div class="box"><b>הצליחה · חלק 1 · ניסוי</b>
 <div class="row"><button data-cam="walk" class="on">ללכת</button><button data-cam="roller">גשר הגלילים</button><button data-cam="pontoon">גשר הדוברות</button><button data-cam="orchard">הפרדסים</button><button data-cam="top">מלמעלה</button></div>
-<div id="note">ללכת: ג'ויסטיק משמאל וגרירה בשאר המסך (במחשב: WASD, Shift לריצה, גרירה בעכבר). אפשר ללכת על הגשרים.<br>גשר הגלילים וגשר הדוברות מפלדה, דרכי עפר בין החלקות וגדרות עץ סרוקות סביבן. האקליפטוסים הם עצים בתלת־ממד מענפים סרוקים; המנגו וההדרים הם תמונות שלהם. בשדות חיטה סרוקה, דשא על כל השאר, והכול זז ברוח.</div></div></div>
+<div id="note">ללכת: ג'ויסטיק משמאל וגרירה בשאר המסך (במחשב: WASD, Shift לריצה, גרירה בעכבר). אפשר ללכת על הגשרים.<br>גשר הגלילים וגשר הדוברות מפלדה, דרכי עפר בין החלקות וגדרות עץ סרוקות סביבן. האקליפטוסים הם עצים בתלת־ממד מענפים סרוקים; המנגו וההדרים הם תמונות שלהם. בשדות חיטה סרוקה, דשא (הדגם שלך) על כל השאר, והכול זז ברוח.</div></div></div>
 <div id="joy"><i></i></div><button id="run">לרוץ</button><div id="where"></div>
 <div id="load">בונה את העצים ומצלם אותם…</div>
 <script>
@@ -317,10 +317,13 @@ function tileLayer(geo, mat, per, ok, scl, near) { const r = rng(Math.round(per 
   for (let tx = X0; tx < X1; tx += T) for (let tz = Z0; tz < Z1; tz += T) { const ms = [], n = Math.round(T * T * per);
     for (let i = 0; i < n; i++) { const x = tx + r() * T, z = tz + r() * T; if (!ok(x, z)) continue; const s = scl(r); ms.push(M4(x, height(x, z) - 0.03, z, r() * 6.28, s[0], s[1], s[0])); }
     if (!ms.length) continue; const im = new THREE.InstancedMesh(geo, mat, ms.length); ms.forEach((M, i) => im.setMatrixAt(i, M)); im.computeBoundingSphere(); im.receiveShadow = true; im.castShadow = false; im.visible = false; scene.add(im); TILES.push({ im, x: tx + T / 2, z: tz + T / 2, near }); } }
-{ // the grass
-  const gm = new THREE.MeshStandardMaterial({ vertexColors: true, side: THREE.DoubleSide, roughness: 0.9 }); gm.onBeforeCompile = (sh) => { sh.uniforms.uWind = WIND; sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nuniform float uWind;').replace('#include <beginnormal_vertex>', 'vec3 objectNormal = vec3(0.0, 1.0, 0.0);').replace('#include <begin_vertex>', '#include <begin_vertex>\n' + windSway(0.09, 0.0, 0.6)); }; gm.customProgramCacheKey = () => 'grass';
-  const geo = grassClump(3); tileLayer(geo, gm, PHONE ? 0.8 : 1.7, (x, z) => x < RAMP - 7 && !inPlotXZ(x, z, 0.8) && !onRoad(x, z) && Math.abs(x - SWC) > 7.5 && height(x, z) > 0.8, (r) => { const s = 0.8 + r() * 0.7; return [s, s * (0.8 + r() * 0.6)]; }, PHONE ? 35 : 55);
-  tileLayer(geo, gm, 0.5, (x, z) => (Math.abs(Math.abs(x - SWC) - 8.5) < 1.6) && !onRoad(x, z), (r) => [1.6 + r(), 2.2 + r() * 1.6], PHONE ? 60 : 110);   // tall tufts along the canal's edge
+{ // the grass: the user's patch of blades (Trava Kolosok), a patch every few square metres; past 25 m only the first third of its blades
+  const gm = new THREE.MeshStandardMaterial({ map: tex('cross/trava/map'), alphaMap: tex('cross/trava/alpha', false), alphaTest: 0.4, side: THREE.DoubleSide, roughness: 0.88, color: new THREE.Color().setRGB(0.9, 1.0, 0.85) });
+  gm.onBeforeCompile = (sh) => { sh.uniforms.uWind = WIND; sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nuniform float uWind;').replace('#include <beginnormal_vertex>', 'vec3 objectNormal = vec3(0.0, 1.0, 0.0);').replace('#include <begin_vertex>', '#include <begin_vertex>\n' + windSway(0.13, 0.0, 0.75)); }; gm.customProgramCacheKey = () => 'grass';
+  const full = mdlGeo('trava')[0].g, mid = new THREE.BufferGeometry(); for (const k in full.attributes) mid.setAttribute(k, full.attributes[k]); mid.setIndex(full.index); mid.setDrawRange(0, Math.floor(full.index.count / 3 / 6) * 6); mid.boundingSphere = full.boundingSphere;
+  const n0 = TILES.length; tileLayer(full, gm, PHONE ? 0.14 : 0.26, (x, z) => x < RAMP - 7 && !inPlotXZ(x, z, 1.2) && !onRoad(x, z) && Math.abs(x - SWC) > 8 && height(x, z) > 0.8, (r) => { const s = 0.75 + r() * 0.6; return [s, s * (0.7 + r() * 0.6)]; }, PHONE ? 40 : 65);
+  tileLayer(full, gm, 0.12, (x, z) => (Math.abs(Math.abs(x - SWC) - 8.6) < 1.4) && !onRoad(x, z), (r) => [1.0 + r() * 0.5, 2.0 + r() * 1.2], PHONE ? 60 : 110);   // tall along the canal's edge
+  for (let i = n0; i < TILES.length; i++) Object.assign(TILES[i], { full, mid, fullR: PHONE ? 16 : 26 });
 }
 { // the wheat: crossed pictures of the scanned clumps (eight of them on the sheet), thick in every field, its heads moving in the wind
   const parts = []; for (let k = 0; k < 8; k++) { const col = k % 4, row = k < 4 ? 1 : 0; for (const ry of [0, Math.PI / 2]) { const g = new THREE.PlaneGeometry(0.62, 0.95).translate(0, 0.475, 0); const uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, (col + uv.getX(i)) * 0.25, (row + uv.getY(i)) * 0.5); g.rotateY(ry); parts.push(g); } }
@@ -329,7 +332,7 @@ function tileLayer(geo, mat, per, ok, scl, near) { const r = rng(Math.round(per 
   wm.onBeforeCompile = (sh) => { sh.uniforms.uWind = WIND; sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nuniform float uWind;').replace('#include <beginnormal_vertex>', 'vec3 objectNormal = vec3(0.0, 1.0, 0.0);').replace('#include <begin_vertex>', '#include <begin_vertex>\n' + windSway(0.16, 0.1, 0.85)); }; wm.customProgramCacheKey = () => 'wheat';
   for (const g of geos) tileLayer(g, wm, (PHONE ? 1.6 : 4.2) / 8, (x, z) => inPlotXZ(x, z, -0.6), (r) => { const s = 1.05 + r() * 0.5; return [s, s * (0.9 + r() * 0.35)]; }, PHONE ? 90 : 180);
 }
-function tilesLod() { const cp = camera.position; for (const t of TILES) { const v = Math.hypot(cp.x - t.x, cp.z - t.z) < t.near; if (t.im.visible !== v) t.im.visible = v; } }
+function tilesLod() { const cp = camera.position; for (const t of TILES) { const d = Math.hypot(cp.x - t.x, cp.z - t.z), v = d < t.near; if (t.im.visible !== v) t.im.visible = v; if (v && t.mid) { const g = d < t.fullR ? t.full : t.mid; if (t.im.geometry !== g) t.im.geometry = g; } } }
 
 
 // ---------- the bits around: a few hay stacks, a cart, poles ----------

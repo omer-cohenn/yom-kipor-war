@@ -63,4 +63,30 @@ def bled(colp, opp, S):
     return Image.fromarray(np.clip(np.where(m > 0.5, a, acc / np.maximum(wt, 1e-4)), 0, 255).astype(np.uint8)), op
 c, o = bled(WH + 'Wheat_slBiJ_Mid_2K_Billboard_BaseColor.jpg', WH + 'Wheat_slBiJ_Mid_2K_Billboard_Opacity.jpg', 1024)
 pk.tex['cross/wheat/map'] = jpg(c, 86); pk.tex['cross/wheat/alpha'] = jpg(o, 88)
+
+# the grass: the user's 'Trava Kolosok' (a patch of 332 blades, each one quad on a sheet of blades; the 'Cut' sheet is its opacity).
+# The blades go in shuffled so that the first third of the triangles is a thinner patch of its own (the game draws only that further off)
+TK = '/home/claude/yk_assets/cross/trava/'
+def obj_parts(path):
+    V, T, F = [], [], []
+    for ln in open(path, encoding='latin1'):
+        a = ln.split()
+        if not a: continue
+        if a[0] == 'v': V.append([float(x) for x in a[1:4]])
+        elif a[0] == 'vt': T.append([float(x) for x in a[1:3]])
+        elif a[0] == 'f': F.append([[int(i) if i else 0 for i in (c.split('/') + ['', ''])[:2]] for c in a[1:]])
+    V, T = np.array(V, np.float32), np.array(T, np.float32); rs = np.random.RandomState(7); order = rs.permutation(len(F)); P, U = [], []
+    for fi in order:
+        f = F[fi]
+        for k in range(1, len(f) - 1):
+            for c in (f[0], f[k], f[k + 1]): P.append(V[c[0] - 1]); U.append(T[c[1] - 1] if c[1] else [0, 0])
+    P = np.array(P, np.float32); U = np.array(U, np.float32); N = np.tile(np.array([0, 1, 0], np.float32), (len(P), 1))
+    return [{'P': P, 'N': N, 'U': U, 'I': np.arange(len(P), dtype=np.uint32), 'mat': {'name': '*'}}]
+tp = obj_parts(TK + 'Trava Kolosok.obj')
+pk.add('trava', parts=tp, size=('y', 0.75), lods=[1.0], tex={'*': {'rough': 0.9}}, preview=False, merge=False) if False else None
+from pack import encode
+P = tp[0]['P']; lo, hi = P.min(0), P.max(0); k = 0.75 / (hi[1] - lo[1]); P2 = (P - np.array([(lo[0] + hi[0]) / 2, lo[1], (lo[2] + hi[2]) / 2])) * k
+q = dict(tp[0]); q['P'] = P2.astype(np.float32); pk.models['trava'] = {'box': [round(float(v), 3) for v in (P2.max(0) - P2.min(0))], 'mats': [{'color': 0xffffff, 'rough': 0.9, 'metal': 0.0}], 'lods': [[dict(encode(q), m=0)]]}
+c, o = bled(TK + 'Trava Kolosok.jpg', TK + 'Trava Kolosok Cut.jpg', 1024)
+pk.tex['cross/trava/map'] = jpg(c, 86); pk.tex['cross/trava/alpha'] = jpg(o, 88)
 pk.write()
