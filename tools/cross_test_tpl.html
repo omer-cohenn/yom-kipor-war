@@ -24,7 +24,7 @@ body.walk #run{display:block}
 </head><body>
 <div id="ui"><div class="box"><b>הצליחה · חלק 1 · ניסוי</b>
 <div class="row"><button data-cam="walk" class="on">ללכת</button><button data-cam="roller">גשר הגלילים</button><button data-cam="pontoon">גשר הדוברות</button><button data-cam="orchard">הפרדסים</button><button data-cam="top">מלמעלה</button></div>
-<div id="note">ללכת: ג'ויסטיק משמאל וגרירה בשאר המסך (במחשב: WASD, Shift לריצה, גרירה בעכבר). אפשר ללכת על הגשרים.<br>גשר הגלילים וגשר הדוברות מפלדה, דרכי עפר בין החלקות וגדרות עץ סרוקות סביבן. האקליפטוסים הם עצים בתלת־ממד מענפים סרוקים; המנגו וההדרים הם תמונות שלהם. בשדות חיטה סרוקה, דשא (הדגם שלך) על כל השאר, והכול זז ברוח.</div></div></div>
+<div id="note">ללכת: ג'ויסטיק משמאל וגרירה בשאר המסך (במחשב: WASD, Shift לריצה, גרירה בעכבר). אפשר ללכת על הגשרים.<br>גשר הגלילים וגשר הדוברות מפלדה, דרכי עפר בין החלקות וגדרות עץ סרוקות סביבן. האקליפטוסים הם עצים בתלת־ממד מענפים סרוקים; המנגו וההדרים הם תמונות שלהם. בשדות חיטה סרוקה; העצים והחיטה זזים ברוח.</div></div></div>
 <div id="joy"><i></i></div><button id="run">לרוץ</button><div id="where"></div>
 <div id="load">בונה את העצים ומצלם אותם…</div>
 <script>
@@ -88,14 +88,14 @@ function height(x, z) {
 }
 // the roads: [points, width]
 const ROADS = [
-  { p: [[CAN0 - 2, RB_Z], [RAMP, RB_Z], [20, RB_Z], [-40, RB_Z], [-121, RB_Z]], w: 6.5, trees: 1 },
-  { p: [[-139, RB_Z], [-260, RB_Z]], w: 6, trees: 1 },
+  { p: [[CAN0 - 2, RB_Z], [RAMP, RB_Z], [20, RB_Z], [-40, RB_Z], [-121, RB_Z]], w: 5.5, trees: 1 },
+  { p: [[-139, RB_Z], [-260, RB_Z]], w: 5.5, trees: 1 },
   { p: [[CAN0 - 2, PB_Z], [RAMP, PB_Z], [30, PB_Z + 2], [10, PB_Z + 30], [-10, 160], [-12, 210]], w: 5 },
-  { p: [[-118, -190], [-118, 210]], w: 4.2, trees: 2 },          // the towpath east of the sweet-water canal
-  { p: [[-142, -190], [-142, 210]], w: 4, trees: 2 },            // and west of it
-  { p: [[-118, 120], [-40, 120], [10, 118]], w: 4 },               // a field road east-west
-  { p: [[-40, -190], [-40, RB_Z], [-40, 120]], w: 4 },             // and north-south
-  { p: [[CAN1 + 2, RB_Z], [210, RB_Z], [280, RB_Z - 10]], w: 7 }, { p: [[CAN1 + 2, PB_Z], [220, PB_Z + 4], [280, PB_Z + 20]], w: 6 },
+  { p: [[-118, -190], [-118, 210]], w: 3.2, trees: 2 },          // the towpath east of the sweet-water canal
+  { p: [[-142, -190], [-142, 210]], w: 3.2, trees: 2 },            // and west of it
+  { p: [[-118, 120], [-40, 120], [10, 118]], w: 3.5 },               // a field road east-west
+  { p: [[-40, -190], [-40, RB_Z], [-40, 120]], w: 3.5 },             // and north-south
+  { p: [[CAN1 + 2, RB_Z], [210, RB_Z], [280, RB_Z - 10]], w: 5.5 }, { p: [[CAN1 + 2, PB_Z], [220, PB_Z + 4], [280, PB_Z + 20]], w: 5 },
 ];
 // the fields (to be filled with wheat in part 2) between the roads, each with its gate
 const PLOTS = [];
@@ -118,7 +118,7 @@ const ground = (() => {
   for (let i = 0; i < p.count; i++) { const x = p.getX(i), z = p.getZ(i), y = height(x, z); p.setY(i, y);
     const n = fbm(x / 25, z / 25), sandy = Math.max(smooth(RAMP - 12, RAMP + 4, x), smooth(0.2, -2, y)), wet = smooth(1.0, 0.0, y) * (1 - smooth(-3, 0, y));
     const inPlot = PLOTS.some((P) => x > P.x0 - 0.5 && x < P.x1 + 0.5 && z > P.z0 - 0.5 && z < P.z1 + 0.5);
-    let r = inPlot ? lerp(0.6, 0.52, n) : lerp(0.36, 0.28, n), gg = inPlot ? lerp(0.52, 0.44, n) : lerp(0.46, 0.38, n), b = inPlot ? lerp(0.3, 0.24, n) : lerp(0.2, 0.15, n); // the fields' soil, green everywhere else
+    let r = inPlot ? lerp(0.6, 0.52, n) : lerp(0.56, 0.47, n), gg = inPlot ? lerp(0.52, 0.44, n) : lerp(0.47, 0.39, n), b = inPlot ? lerp(0.3, 0.24, n) : lerp(0.34, 0.27, n); // the fields' soil, green everywhere else
     r = lerp(r, lerp(0.86, 0.78, n), sandy); gg = lerp(gg, lerp(0.76, 0.68, n), sandy); b = lerp(b, lerp(0.57, 0.5, n), sandy);
     r = lerp(r, 0.42, wet * 0.6); gg = lerp(gg, 0.38, wet * 0.6); b = lerp(b, 0.3, wet * 0.6);
     c.setRGB(r, gg, b, THREE.SRGBColorSpace); col.set([c.r, c.g, c.b], i * 3); soil[i] = 1 - sandy; }
@@ -201,7 +201,7 @@ const DIRT = new THREE.MeshStandardMaterial({ map: dirtTex(), transparent: true,
 function densify(pts, step) { const out = []; for (let i = 0; i < pts.length - 1; i++) { const [ax, az] = pts[i], [bx, bz] = pts[i + 1], L = Math.hypot(bx - ax, bz - az), n = Math.max(1, Math.ceil(L / step)); for (let k = 0; k < n; k++) out.push([lerp(ax, bx, k / n), lerp(az, bz, k / n)]); } out.push(pts[pts.length - 1]); return out; }
 for (const R of ROADS) { const d = densify(R.p, 2), pos = [], uv = [], idx = []; let acc = 0;
   for (let i = 0; i < d.length; i++) { const a = d[Math.max(0, i - 1)], b = d[Math.min(d.length - 1, i + 1)], dx = b[0] - a[0], dz = b[1] - a[1], L = Math.hypot(dx, dz) || 1, nx = -dz / L, nz = dx / L; if (i) acc += Math.hypot(d[i][0] - d[i - 1][0], d[i][1] - d[i - 1][1]);
-    for (const s of [0, 1]) { const o = (s - 0.5) * R.w * 1.5, x = d[i][0] + nx * o, z = d[i][1] + nz * o; pos.push(x, (BRIDGES(x, z) ?? height(x, z)) + 0.05, z); uv.push(s, acc / (R.w * 2.2)); }
+    for (const s of [0, 1]) { const o = (s - 0.5) * R.w * 1.12, x = d[i][0] + nx * o, z = d[i][1] + nz * o; pos.push(x, (BRIDGES(x, z) ?? height(x, z)) + 0.05, z); uv.push(s, acc / (R.w * 2.2)); }
     if (i) { const k = (i - 1) * 2; idx.push(k, k + 2, k + 1, k + 1, k + 2, k + 3); } }
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals(); const m = new THREE.Mesh(g, DIRT); m.receiveShadow = true; m.renderOrder = 1; scene.add(m); }
 
@@ -288,7 +288,7 @@ function plantTrees() {
   const put = (x, z, k, s = 1) => list.push([x, z, k, Math.floor(r() * VAR), s * (0.85 + r() * 0.3), r() * 6.28]);
   // eucalyptus rows: both sides of the road from the bridges and along both banks of the sweet-water canal, a gap here and there
   for (const R of ROADS) if (R.trees) { const d = densify(R.p, 1); for (let i = 0; i < d.length - 1; i += R.trees === 2 ? 11 : 9) { const [ax, az] = d[i], [bx, bz] = d[Math.min(d.length - 1, i + 1)], L = Math.hypot(bx - ax, bz - az) || 1, nx = -(bz - az) / L, nz = (bx - ax) / L;
-    for (const s of R.trees === 2 ? [R.p[0][0] < SWC ? -1 : 1] : [-1, 1]) { if (r() < 0.12) continue; const x = ax + nx * s * (R.w * 0.5 + 2.2), z = az + nz * s * (R.w * 0.5 + 2.2); if (x > RAMP - 12) continue; if (Math.abs(x - SWC) < 9 && Math.abs(z - RB_Z) < 6) continue; EUC.push([x, z, 0.85 + r() * 0.3, r() * 6.28, Math.floor(r() * 3)]); } } }
+    for (const s of R.trees === 2 ? [R.p[0][0] < SWC ? -1 : 1] : [-1, 1]) { if (r() < 0.12) continue; const x = ax + nx * s * (R.w * 0.5 + 1.8), z = az + nz * s * (R.w * 0.5 + 1.8); if (x > RAMP - 12) continue; if (Math.abs(x - SWC) < 9 && Math.abs(z - RB_Z) < 6) continue; EUC.push([x, z, 0.85 + r() * 0.3, r() * 6.28, Math.floor(r() * 3)]); } } }
   // the orchards: mango (rows of 9 m) and citrus (rows of 5 m), planted in their grid
   for (const O of ORCH) { const sp = O.kind === 1 ? 7 : 4.8; for (let x = O.x0 + sp / 2; x < O.x1; x += sp) for (let z = O.z0 + sp / 2; z < O.z1; z += sp) { if (r() < 0.04) continue; put(x + (r() - 0.5) * 0.8, z + (r() - 0.5) * 0.8, O.kind); } }
   const geo = new THREE.PlaneGeometry(1, 1).translate(0, 0.5, 0); geo.setAttribute('aRow', new THREE.InstancedBufferAttribute(new Float32Array(list.length * 3), 3)); geo.setAttribute('aYaw', new THREE.InstancedBufferAttribute(new Float32Array(list.length), 1));
@@ -317,14 +317,6 @@ function tileLayer(geo, mat, per, ok, scl, near) { const r = rng(Math.round(per 
   for (let tx = X0; tx < X1; tx += T) for (let tz = Z0; tz < Z1; tz += T) { const ms = [], n = Math.round(T * T * per);
     for (let i = 0; i < n; i++) { const x = tx + r() * T, z = tz + r() * T; if (!ok(x, z)) continue; const s = scl(r); ms.push(M4(x, height(x, z) - 0.03, z, r() * 6.28, s[0], s[1], s[0])); }
     if (!ms.length) continue; const im = new THREE.InstancedMesh(geo, mat, ms.length); ms.forEach((M, i) => im.setMatrixAt(i, M)); im.computeBoundingSphere(); im.receiveShadow = true; im.castShadow = false; im.visible = false; scene.add(im); TILES.push({ im, x: tx + T / 2, z: tz + T / 2, near }); } }
-{ // the grass: the user's patch of blades (Trava Kolosok), a patch every few square metres; past 25 m only the first third of its blades
-  const gm = new THREE.MeshStandardMaterial({ map: tex('cross/trava/map'), alphaMap: tex('cross/trava/alpha', false), alphaTest: 0.4, side: THREE.DoubleSide, roughness: 0.88, color: new THREE.Color().setRGB(0.9, 1.0, 0.85) });
-  gm.onBeforeCompile = (sh) => { sh.uniforms.uWind = WIND; sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nuniform float uWind;').replace('#include <beginnormal_vertex>', 'vec3 objectNormal = vec3(0.0, 1.0, 0.0);').replace('#include <begin_vertex>', '#include <begin_vertex>\n' + windSway(0.13, 0.0, 0.75)); }; gm.customProgramCacheKey = () => 'grass';
-  const full = mdlGeo('trava')[0].g, mid = new THREE.BufferGeometry(); for (const k in full.attributes) mid.setAttribute(k, full.attributes[k]); mid.setIndex(full.index); mid.setDrawRange(0, Math.floor(full.index.count / 3 / 6) * 6); mid.boundingSphere = full.boundingSphere;
-  const n0 = TILES.length; tileLayer(full, gm, PHONE ? 0.14 : 0.26, (x, z) => x < RAMP - 7 && !inPlotXZ(x, z, 1.2) && !onRoad(x, z) && Math.abs(x - SWC) > 8 && height(x, z) > 0.8, (r) => { const s = 0.75 + r() * 0.6; return [s, s * (0.7 + r() * 0.6)]; }, PHONE ? 40 : 65);
-  tileLayer(full, gm, 0.12, (x, z) => (Math.abs(Math.abs(x - SWC) - 8.6) < 1.4) && !onRoad(x, z), (r) => [1.0 + r() * 0.5, 2.0 + r() * 1.2], PHONE ? 60 : 110);   // tall along the canal's edge
-  for (let i = n0; i < TILES.length; i++) Object.assign(TILES[i], { full, mid, fullR: PHONE ? 16 : 26 });
-}
 { // the wheat: crossed pictures of the scanned clumps (eight of them on the sheet), thick in every field, its heads moving in the wind
   const parts = []; for (let k = 0; k < 8; k++) { const col = k % 4, row = k < 4 ? 1 : 0; for (const ry of [0, Math.PI / 2]) { const g = new THREE.PlaneGeometry(0.62, 0.95).translate(0, 0.475, 0); const uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, (col + uv.getX(i)) * 0.25, (row + uv.getY(i)) * 0.5); g.rotateY(ry); parts.push(g); } }
   const geos = [0, 1, 2, 3, 4, 5, 6, 7].map((k) => mergeGeometries([parts[k * 2], parts[k * 2 + 1]]));
