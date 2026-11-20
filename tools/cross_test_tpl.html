@@ -23,7 +23,7 @@ body.walk #run{display:block}
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
 </head><body>
 <div id="ui"><div class="box"><b>הצליחה · חלק 1 · ניסוי</b>
-<div class="row"><button data-cam="walk" class="on">ללכת</button><button data-cam="roller">גשר הגלילים</button><button data-cam="pontoon">גשר הדוברות</button><button data-cam="orchard">הפרדסים</button><button data-cam="village">הכפר</button><button data-cam="mosque">המסגד מהרחוב</button><button data-cam="top">מלמעלה</button><button id="rt" class="on">ציר ההתקדמות</button></div>
+<div class="row"><button data-cam="walk" class="on">ללכת</button><button data-cam="roller">גשר הגלילים</button><button data-cam="pontoon">גשר הדוברות</button><button data-cam="orchard">הפרדסים</button><button data-cam="walkv">ללכת בכפר</button><button data-cam="walkm">ללכת במסגד</button><button data-cam="village">הכפר</button><button data-cam="mosque">המסגד מהרחוב</button><button data-cam="top">מלמעלה</button><button id="rt" class="on">ציר ההתקדמות</button></div>
 <div id="note">ללכת: ג'ויסטיק משמאל וגרירה בשאר המסך (במחשב: WASD, Shift לריצה, גרירה בעכבר). אפשר ללכת על הגשרים.<br>גשר הגלילים וגשר הדוברות מפלדה, דרכי עפר בין החלקות וגדרות עץ סרוקות סביבן. האקליפטוסים הם עצים בתלת־ממד מענפים סרוקים; המנגו וההדרים הם תמונות שלהם. בשדות חיטה סרוקה; העצים והחיטה זזים ברוח.</div></div></div>
 <div id="joy"><i></i></div><button id="run">לרוץ</button><div id="where"></div>
 <div id="load">בונה את העצים ומצלם אותם…</div>
@@ -188,50 +188,143 @@ const PB_DECK = 1.05;
   instOf(new THREE.BoxGeometry(0.08, 0.06, 4.4), DARK, ribs); instOf(new THREE.CylinderGeometry(0.035, 0.04, 1.1, 6), DARK, posts); instOf(new THREE.CylinderGeometry(0.11, 0.13, 0.3, 10), DARK, bol);
   for (const s of [-1, 1]) for (const hgt of [1.05, 0.65]) { const r = add(new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, CAN1 - CAN0 + 4, 5).rotateZ(Math.PI / 2), ROPE)); r.position.set((CAN0 + CAN1) / 2, PB_DECK + hgt, PB_Z + s * 2.15); }
   for (const [x, s] of [[CAN0 - 9, 1], [CAN1 + 9, -1]]) { const g = new THREE.BoxGeometry(10, 0.22, 4.4); const m = add(new THREE.Mesh(g, TREAD)); const yb = Math.max(height(x, PB_Z), 0.9); m.position.set(x, (yb + PB_DECK) / 2 + 0.05, PB_Z); m.rotation.z = s * Math.atan2(yb - PB_DECK, 10) * -1; } }
-/* ================= part 2, blocked out: the village as a T. The main street (the stem) runs from the roller bridge west along the road;
-   at its end the cross street (the bar of the T) runs north and south, and at the head of the T, facing straight down the stem, the mosque:
-   two floors, the dome, a minaret, the MG window on the upper floor. Plain boxes, to see the shape of it before it is built ================= */
-const V = { stem: [30, -82], bar: -90, barZ: [-108, 28], mosque: { x: -104, z: RB_Z, w: 17, d: 19, h: 9.5 } };
-const HOUSES = [];
-{ const r = rng(91), row = (along, a0, a1, side, gaps, depth) => { let a = a0; while (a > a1 + 4) { let w = 6 + r() * 5; const G = gaps.find(([g, gw]) => a - w < g + gw / 2 && a > g - gw / 2); if (G) { if (a <= G[0] + G[1] / 2 + 0.01) { a = G[0] - G[1] / 2; continue; } w = a - (G[0] + G[1] / 2); if (w < 3.5) { a = G[0] - G[1] / 2; continue; } } const d = depth[0] + r() * (depth[1] - depth[0]), h = r() < 0.35 ? 6 + r() * 1.5 : 3.2 + r() * 1.2;
-      HOUSES.push(along === 'x' ? { x: a - w / 2, z: RB_Z + side * (4.2 + d / 2), w, d, h } : { x: V.bar + side * (4.2 + d / 2), z: a - w / 2, w: d, d: w, h }); a -= w + (r() < 0.25 ? 1.2 + r() * 2 : 0.15); } };
-  row('x', V.stem[0], V.stem[1] + 4, -1, [[-40, 3.5], [-8, 3]], [8, 13]); row('x', V.stem[0], V.stem[1] + 4, 1, [[-40, 2.2], [5, 2.6]], [8, 13]);   // both sides of the stem, an alley here and there
-  row('z', V.barZ[1], RB_Z + 6, 1, [[-12, 2.4]], [7, 10]); row('z', RB_Z - 6, V.barZ[0], 1, [[-80, 3]], [7, 10]);                       // the bar, its far side (east of the mosque's side)
-  row('z', V.barZ[1], RB_Z + 14, -1, [], [7, 9]); row('z', RB_Z - 14, V.barZ[0], -1, [[SB_Z, 7]], [7, 9]);                       // the bar's near side, north and south of the mosque
-  const mud = new THREE.MeshStandardMaterial({ color: 0xc9b48c, roughness: 0.95 }), mud2 = new THREE.MeshStandardMaterial({ color: 0xb59c74, roughness: 0.95 }), dark = new THREE.MeshStandardMaterial({ color: 0x3a3026, roughness: 1 });
-  const bodies = [], tops = [], wins = [];
-  for (const H of HOUSES) { const y = height(H.x, H.z) - 0.3; bodies.push(M4(H.x, y + H.h / 2 + 0.15, H.z, 0, H.w, H.h + 0.3, H.d)); tops.push(M4(H.x, y + H.h + 0.45, H.z, 0, H.w + 0.2, 0.6, H.d + 0.2));
-    // dark slots for doors and windows on the side facing the street
-    const fx = H.w > H.d ? 0 : 1, n = Math.max(1, Math.floor((fx ? H.d : H.w) / 3.2));
-    for (let k = 0; k < n; k++) { const t = (k + 0.5) / n - 0.5; if (fx === 0) { const zf = H.z + (H.z < RB_Z ? H.d / 2 : -H.d / 2) + (H.z < RB_Z ? 0.02 : -0.02); wins.push(M4(H.x + t * H.w, y + (k % 3 === 1 ? 1.2 : 2.2), zf, 0, 0.9, k % 3 === 1 ? 2.1 : 1.0, 0.05)); }
-      else { const xf = H.x + (H.x < V.bar ? H.d / 2 : -H.d / 2) * 0 + (H.x < V.bar ? H.w / 2 + 0.02 : -H.w / 2 - 0.02); wins.push(M4(xf, y + (k % 3 === 1 ? 1.2 : 2.2), H.z + t * H.d, 0, 0.05, k % 3 === 1 ? 2.1 : 1.0, 0.9)); } } }
-  instOf(new THREE.BoxGeometry(1, 1, 1), mud, bodies); instOf(new THREE.BoxGeometry(1, 1, 1), mud2, tops); instOf(new THREE.BoxGeometry(1, 1, 1), dark, wins, false);
-  // the mosque: the prayer hall and its upper floor, the parapet, the dome on a drum, the minaret with its balcony, the MG window facing the stem
-  const M = V.mosque, y0 = height(M.x, M.z) - 0.2, white = new THREE.MeshStandardMaterial({ color: 0xe6dfcf, roughness: 0.9 }), dome = new THREE.MeshStandardMaterial({ color: 0xd8d2c2, roughness: 0.8 });
-  const B = (w, h, d, x, y, z, m = white) => { const o = add(new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m)); o.position.set(x, y, z); return o; };
-  B(M.w, M.h, M.d, M.x, y0 + M.h / 2, M.z); B(M.w + 0.4, 0.8, M.d + 0.4, M.x, y0 + M.h + 0.4, M.z); B(M.w + 0.3, 0.25, M.d + 0.3, M.x, y0 + 4.7, M.z, mud2);
-  const drum = add(new THREE.Mesh(new THREE.CylinderGeometry(4.6, 4.6, 1.6, 24), white)); drum.position.set(M.x - 1, y0 + M.h + 0.8, M.z);
-  const dm = add(new THREE.Mesh(new THREE.SphereGeometry(4.6, 28, 14, 0, Math.PI * 2, 0, Math.PI / 2), dome)); dm.position.set(M.x - 1, y0 + M.h + 1.6, M.z);
-  const fin = add(new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.12, 1.6, 6), dark)); fin.position.set(M.x - 1, y0 + M.h + 7, M.z);
-  const mx = M.x - M.w / 2 + 1.4, mz = M.z - M.d / 2 + 1.4, min = add(new THREE.Mesh(new THREE.CylinderGeometry(1.0, 1.2, 22, 12), white)); min.position.set(mx, y0 + 11, mz);
-  const bal = add(new THREE.Mesh(new THREE.CylinderGeometry(1.7, 1.5, 0.5, 14), white)); bal.position.set(mx, y0 + 17.5, mz); const cap = add(new THREE.Mesh(new THREE.ConeGeometry(1.1, 3, 12), dome)); cap.position.set(mx, y0 + 23.5, mz);
-  // the front, facing east down the stem: the door below, the MG's wide window above (sandbags in it), arched windows along it
-  B(0.1, 3.2, 2.6, M.x + M.w / 2 + 0.03, y0 + 1.6, M.z, dark); B(0.1, 1.3, 3.4, M.x + M.w / 2 + 0.03, y0 + 6.6, M.z, dark);
-  const sb = add(new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.5, 3.2), new THREE.MeshStandardMaterial({ color: 0xa99a73, roughness: 1 }))); sb.position.set(M.x + M.w / 2 + 0.2, y0 + 6.1, M.z);
-  for (const s of [-1, 1]) for (const f of [2.1, 6.6]) B(0.1, 1.4, 1.1, M.x + M.w / 2 + 0.03, y0 + f, M.z + s * 5.6, dark);
-  for (const s of [-1, 1]) { B(M.w - 2, 1.4, 0.1, M.x, y0 + 6.6, M.z + s * (M.d / 2 + 0.03), dark); B(1.2, 2.4, 0.1, M.x - 3, y0 + 1.2, M.z + s * (M.d / 2 + 0.03), dark); }   // the side doors, where the flank goes in
-  // the courtyard wall round its back
-  for (const [w, d, x, z] of [[0.6, M.d + 12, M.x - M.w / 2 - 6, M.z], [6, 0.6, M.x - M.w / 2 - 3, M.z - M.d / 2 - 6], [6, 0.6, M.x - M.w / 2 - 3, M.z + M.d / 2 + 6]]) B(w, 2.2, d, x, y0 + 1.1, z, mud2);
-  HOUSES.push({ x: M.x, z: M.z, w: M.w, d: M.d, h: M.h, mosque: true });
-  { const LZ = -12, h = 2.6, wall = (x0, z0, x1, z1) => { const w = Math.abs(x1 - x0) + 0.4, d = Math.abs(z1 - z0) + 0.4, x = (x0 + x1) / 2, z = (z0 + z1) / 2; B(w, h, d, x, height(x, z) + h / 2 - 0.2, z, mud2); HOUSES.push({ x, z, w, d, h }); };
-    const hb = (x) => Math.max(...HOUSES.filter((H) => !H.mosque && H.z > RB_Z && Math.abs(H.x - x) < H.w / 2 + 0.1).map((H) => H.z + H.d / 2), RB_Z + 6);
-    wall(-41.1, hb(-42), -41.1, LZ - 1.1); wall(-38.9, hb(-38), -38.9, LZ + 1.1);           // the alley's walls, house to lane
-    wall(-41.1, LZ - 1.1, -84.5, LZ - 1.1); wall(-38.9, LZ + 1.1, -84.5, LZ + 1.1);          // the lane behind the houses, to the south arm
-    wall(-38.9, LZ - 1.1, -38.9, LZ + 1.1); }
+/* ================= part 2: the village, a T. The main street (the stem) runs from the roller bridge west along the road; at its end the
+   cross street (the bar) runs north and south, and at the head of the T, facing straight down the stem, the mosque. The flank goes off the
+   street into a narrow alley, then west along a lane between two rows of houses to the south arm and the mosque's side door. Houses are
+   closed (mud plaster over brick, flat roofs and their clutter); the mosque is walked in: its hall, its stair, the upper floor, the MG room.
+   WALLS are what walking bumps into (with the heights they stand between); SURF the floors and stairs it stands on ================= */
+const V = { stem: [30, -76], bar: -90, barZ: [-108, 28], LZ: -19, mosque: { x: -104, z: RB_Z, w: 17, d: 19 } };
+const WALLS = [], SURF = [], HOUSES = [];
+const wallBox = (x0, x1, z0, z1, y0 = -9, y1 = 40) => WALLS.push({ x0: Math.min(x0, x1), x1: Math.max(x0, x1), z0: Math.min(z0, z1), z1: Math.max(z0, z1), y0, y1 });
+// ---- the materials: mud plaster laid by world position (so every wall gets its own piece of the scan), damp and darker at the foot ----
+function plasterMat(tint, nScale) { const m = new THREE.MeshStandardMaterial({ map: tex('cross/mud/map'), normalMap: tex('cross/mud/nmap', false), normalScale: new THREE.Vector2(nScale, nScale), vertexColors: true, color: tint, roughness: 0.96 });
+  m.onBeforeCompile = (sh) => { sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vWp; varying vec3 vWn;').replace('#include <uv_vertex>', '#include <uv_vertex>\nvWp = (modelMatrix * vec4(position, 1.0)).xyz; vWn = normalize(mat3(modelMatrix) * normal);');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vWp; varying vec3 vWn;')
+      .replace('#include <map_fragment>', 'vec2 wuv = abs(vWn.x) > 0.5 ? vWp.zy : abs(vWn.z) > 0.5 ? vWp.xy : vWp.xz; wuv /= 2.4; diffuseColor *= texture2D(map, wuv); diffuseColor.rgb *= mix(0.72, 1.0, smoothstep(1.3, 2.2, vWp.y));')
+      .replace('#include <normal_fragment_maps>', 'vec3 mapN = texture2D(normalMap, (abs(vWn.x) > 0.5 ? vWp.zy : abs(vWn.z) > 0.5 ? vWp.xy : vWp.xz) / 2.4).xyz * 2.0 - 1.0; mapN.xy *= normalScale; normal = normalize(tbn * mapN);'); };
+  m.customProgramCacheKey = () => 'plaster' + nScale; return m; }
+function woodTex(seed, paint) { const W = 128, H = 256, c = document.createElement('canvas'); c.width = W; c.height = H; const x = c.getContext('2d'), r = rng(seed);
+  x.fillStyle = paint; x.fillRect(0, 0, W, H); for (let i = 0; i < W; i += 21) { x.fillStyle = 'rgba(30,20,10,0.55)'; x.fillRect(i, 0, 2, H); }
+  for (let i = 0; i < 500; i++) { x.fillStyle = r() < 0.5 ? `rgba(120,90,60,${0.2 + r() * 0.5})` : `rgba(255,255,255,${0.05 + r() * 0.12})`; x.fillRect(r() * W, r() * H, 1 + r() * 6, 1 + r() * 18); }
+  for (let i = 0; i < 18; i++) { x.fillStyle = 'rgba(110,80,50,0.8)'; x.beginPath(); x.ellipse(r() * W, r() * H, 3 + r() * 12, 4 + r() * 20, 0, 0, 7); x.fill(); }
+  x.fillStyle = 'rgba(40,30,20,0.6)'; x.fillRect(0, H * 0.3, W, 4); x.fillRect(0, H * 0.72, W, 4);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = ANISO; return t; }
+const MUD = plasterMat(0xffffff, 0.9), LIME = plasterMat(0xf6f2ea, 0.45);
+const WOOD = [['#4f7f8c', 3], ['#3f6f5a', 5], ['#7a5a3a', 7], ['#5e7fa0', 9]].map(([p, s]) => new THREE.MeshStandardMaterial({ map: woodTex(s, p), roughness: 0.9 }));
+const DARKIN = new THREE.MeshStandardMaterial({ color: 0x1d1813, roughness: 1 }), STRAW = new THREE.MeshStandardMaterial({ color: 0xb59a5c, roughness: 1 }), STALK = new THREE.MeshStandardMaterial({ color: 0x5c4a34, roughness: 1 }), CLAY = new THREE.MeshStandardMaterial({ color: 0xa8673f, roughness: 0.9 }), FROND = new THREE.MeshStandardMaterial({ color: 0x8a7a4e, roughness: 1, side: THREE.DoubleSide });
+const GEO = { mud: [], lime: [], dark: [], straw: [], stalk: [], clay: [], frond: [], wood: [[], [], [], []] };
+const bx = (list, w, h, d, x, y, z, ry = 0, col) => { const g = new THREE.BoxGeometry(w, h, d); if (ry) g.rotateY(ry); g.translate(x, y, z); if (col) { const c = new Float32Array(g.attributes.position.count * 3); for (let i = 0; i < c.length; i += 3) c.set(col, i); g.setAttribute('color', new THREE.BufferAttribute(c, 3)); } list.push(g); return g; };
+const jar = (() => { const pts = [[0, 0], [0.16, 0.02], [0.24, 0.2], [0.22, 0.42], [0.1, 0.55], [0.11, 0.62]].map(([a, b]) => new THREE.Vector2(a, b)); return new THREE.LatheGeometry(pts, 10); })();
+
+/* ---- a house: its body (one or two floors, the upper set back), the parapet round its roof, its door and shutters on the street side, a
+   bench by the door, a palm-frond shade, stairs up the side, and what lies on the roof: bundles of cotton stalks, straw, jars, now and then
+   a dovecote ---- */
+function house(H, r) {
+  const { x, z, w, d, face } = H, y = height(x, z) - 0.3, tint = [[1, 0.97, 0.92], [0.95, 0.88, 0.78], [1.02, 0.95, 0.86], [0.9, 0.86, 0.8], [1.04, 1.0, 0.95]][Math.floor(r() * 5)], h1 = 3.4 + r() * 0.8;
+  bx(GEO.mud, w, h1 + 0.3, d, x, y + h1 / 2 + 0.15, z, 0, tint); wallBox(x - w / 2, x + w / 2, z - d / 2, z + d / 2); HOUSES.push(H);
+  const top = y + h1 + 0.3, two = H.two;
+  // the parapet, with a gap or two
+  const pw = 0.25, ph = 0.6 + r() * 0.3; for (const [ww, dd, xx, zz] of [[w, pw, x, z - d / 2 + pw / 2], [w, pw, x, z + d / 2 - pw / 2], [pw, d, x - w / 2 + pw / 2, z], [pw, d, x + w / 2 - pw / 2, z]]) bx(GEO.mud, ww, ph, dd, xx, top + ph / 2, zz, 0, tint);
+  if (two) { const w2 = w * (0.45 + r() * 0.2), d2 = d * (0.5 + r() * 0.2), ox = (r() - 0.5) * (w - w2) * 0.8, oz = (r() - 0.5) * (d - d2) * 0.8; bx(GEO.mud, w2, 2.9, d2, x + ox, top + 1.45, z + oz, 0, tint); for (const [ww, dd, xx, zz] of [[w2, pw, x + ox, z + oz - d2 / 2 + pw / 2], [w2, pw, x + ox, z + oz + d2 / 2 - pw / 2], [pw, d2, x + ox - w2 / 2 + pw / 2, z + oz], [pw, d2, x + ox + w2 / 2 - pw / 2, z + oz]]) bx(GEO.mud, ww, 0.6, dd, xx, top + 3.2, zz, 0, tint); }
+  // the street face: a frame of its axis and outward normal
+  const n = { '+z': [0, 1], '-z': [0, -1], '+x': [1, 0], '-x': [-1, 0] }[face], along = n[0] ? [0, 1] : [1, 0], half = n[0] ? d / 2 : w / 2, depth = n[0] ? w / 2 : d / 2;
+  const at = (s, out) => [x + along[0] * s + n[0] * (depth + out), z + along[1] * s + n[1] * (depth + out)], ry = n[0] ? Math.PI / 2 : 0, wd = WOOD[Math.floor(r() * 4)], wl = GEO.wood[WOOD.indexOf(wd)];
+  const ds = (r() - 0.5) * (half - 1.5) * 1.2, [dx, dz] = at(ds, 0.02); bx(GEO.dark, 1.3, 2.3, 0.08, dx, y + 1.45, dz, ry); const [dx2, dz2] = at(ds, 0.06); bx(wl, 1.1, 2.1, 0.06, dx2, y + 1.35, dz2, ry);
+  const [lx, lz] = at(ds, 0.1); bx(GEO.mud, 1.6, 0.18, 0.2, lx, y + 2.6, lz, ry, tint);   // the lintel
+  if (r() < 0.6) { const s = ds + (ds > 0 ? -1.8 : 1.8), [bx0, bz0] = at(s, 0.3); bx(GEO.mud, 1.5, 0.45, 0.55, bx0, y + 0.52, bz0, ry, tint); }   // the bench
+  for (const s of [-half * 0.62, half * 0.62]) { if (Math.abs(s - ds) < 1.6) continue; const [wx, wz] = at(s, 0.02); bx(GEO.dark, 0.85, 0.95, 0.08, wx, y + 2.05, wz, ry); for (const k of [-1, 1]) { const [sx, sz] = at(s + k * 0.68, 0.18); bx(wl, 0.42, 0.95, 0.05, sx, y + 2.05, sz, ry + k * 0.5); } }
+  if (r() < 0.35) { const [ax, az] = at(ds, 1.1); const g = new THREE.BoxGeometry(2.6, 0.08, 2.0); g.rotateX(0.12 * (n[1] || 0)); g.rotateZ(-0.12 * (n[0] || 0)); if (ry) g.rotateY(ry); g.translate(ax, y + 2.55, az); GEO.frond.push(g); for (const k of [-1.2, 1.2]) { const [px, pz] = at(ds + k, 1.95); bx(wl, 0.09, 2.45, 0.09, px, y + 1.5, pz); } }
+  // roof clutter
+  const nb = Math.floor(r() * 4); for (let i = 0; i < nb; i++) { const g = new THREE.CylinderGeometry(0.35, 0.35, 1.4 + r(), 7); g.rotateZ(Math.PI / 2); g.rotateY(r() * 3); g.translate(x + (r() - 0.5) * (w - 1.5), top + 0.35, z + (r() - 0.5) * (d - 1.5)); GEO.stalk.push(g); }
+  if (r() < 0.5) { const g = new THREE.SphereGeometry(1 + r() * 0.6, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2); g.scale(1, 0.6, 1); g.translate(x + (r() - 0.5) * (w - 3), top, z + (r() - 0.5) * (d - 3)); GEO.straw.push(g); }
+  for (let i = 0, nj = Math.floor(r() * 3); i < nj; i++) { const g = jar.clone(); g.translate(x + (r() - 0.5) * (w - 1), top, z + (r() - 0.5) * (d - 1)); GEO.clay.push(g); }
+  if (!two && r() < 0.15) { const g = new THREE.CylinderGeometry(0.9, 1.5, 3.4, 12); g.translate(x + (r() - 0.5) * (w - 3.5), top + 1.7, z + (r() - 0.5) * (d - 3.5)); const c = new Float32Array(g.attributes.position.count * 3); for (let i = 0; i < c.length; i += 3) c.set(tint, i); g.setAttribute('color', new THREE.BufferAttribute(c, 3)); GEO.mud.push(g); }
+  if (r() < 0.3) { const sx = n[0] ? 0 : 1, sgn = r() < 0.5 ? -1 : 1, steps = Math.round(h1 / 0.25); for (let k = 0; k < steps; k++) { const t = k / steps; const px = x + (sx ? sgn * (w / 2 + 0.45) : (t - 0.5) * (d - 1.5) * 0 + (n[0] ? -n[0] * (w / 2 - 1 - t * (w - 2) * 0.8) : 0)), pz = z + (sx ? (t - 0.5) * (d - 1.6) : sgn * (d / 2 + 0.45)); if (!sx) continue; bx(GEO.mud, 0.9, (k + 1) * 0.25, 0.42, px, y + (k + 1) * 0.125, pz, 0, tint); } }
+}
+// ---- the rows: a gap is [centre, width]; houses stop exactly at its edges. `face` is the side toward the street; `deep` forces a depth ----
+{ const r = rng(91);
+  const row = (along, a0, a1, side, gaps, depth, opt = {}) => { let a = a0; while (a > a1 + 3) { let w = 6 + r() * 5; const G = gaps.find(([g, gw]) => a - w < g + gw / 2 && a > g - gw / 2); if (G) { if (a <= G[0] + G[1] / 2 + 0.01) { a = G[0] - G[1] / 2; continue; } w = a - (G[0] + G[1] / 2); if (w < 3.5) { a = G[0] - G[1] / 2; continue; } }
+      w = Math.min(w, a - a1); if (w < 3) break; const deep = opt.deep && opt.deep(a - w / 2), d = deep || depth[0] + r() * (depth[1] - depth[0]), base = opt.base ?? (along === 'x' ? RB_Z : V.bar), off = opt.off ?? 4.2;
+      const H = along === 'x' ? { x: a - w / 2, z: base + side * (off + d / 2), w, d, face: side > 0 ? '-z' : '+z' } : { x: base + side * (off + d / 2), z: a - w / 2, w: d, d: w, face: side > 0 ? '-x' : '+x' };
+      H.two = r() < 0.35; house(H, r); a -= w + (r() < 0.2 ? 0.6 + r() * 1.2 : 0.05); } };
+  const laneN = V.LZ - 1.1, laneS = V.LZ + 1.1, toLane = (cx) => (cx < -22 ? laneN - (RB_Z + 4.2) : 0);
+  row('x', V.stem[0], V.stem[1], -1, [[-8, 3], [-40, 3.5]], [8, 13]);                                   // the stem, north side
+  row('x', V.stem[0], V.stem[1], 1, [[5, 2.6], [-40, 2.2]], [8, 13], { deep: toLane });                  // the stem, south side (west of x -28 its backs make the lane's north side)
+  row('x', -22, V.stem[1], 1, [], [8, 10], { base: laneS, off: 0 });
+  { const x = -21.6, z = V.LZ; bx(GEO.mud, 0.5, 3.6, laneS - laneN + 0.6, x, height(x, z) + 1.5, z, 0, [0.95, 0.9, 0.82]); wallBox(x - 0.25, x + 0.25, laneN - 0.3, laneS + 0.3); }                                     // the lane's south side, its doors on the lane
+  row('z', V.barZ[1], RB_Z + 6, 1, [[V.LZ, 2.4]], [7, 10]); row('z', RB_Z - 6, V.barZ[0], 1, [[-80, 3]], [7, 10]);   // the bar's east side, south and north arms
+  row('z', V.barZ[1], RB_Z + 14, -1, [], [7, 9]); row('z', RB_Z - 14, V.barZ[0], -1, [[SB_Z, 7]], [7, 9]);         // the bar's west side, on either side of the mosque
+  // the street's things: a cart, barrels, sacks, a heap of bricks
+  const cart = mdlGeo('cart', PHONE ? 1 : 0), cm = mdlMats('cart'); const carts = [M4(-14, height(-14, RB_Z + 3.2), RB_Z + 3.2, 0.3), M4(-62, height(-62, RB_Z - 3.1), RB_Z - 3.1, -0.2), M4(-88, height(-88, -70), -70, 1.4)];
+  for (const p of cart) instOf(p.g, cm[p.m], carts);
+  for (const [x, z] of [[12, RB_Z - 3.2], [-31, RB_Z + 3.3], [-70, RB_Z + 3]]) for (let k = 0; k < 3; k++) { const g = new THREE.CylinderGeometry(0.3, 0.3, 0.9, 10); g.translate(x + k * 0.65, height(x, z) + 0.45, z); GEO.wood[2].push(g); }
+  for (const [x, z] of [[-22, RB_Z - 3.3], [-52, RB_Z + 3.4]]) for (let k = 0; k < 5; k++) { const g = new THREE.SphereGeometry(0.42, 8, 6); g.scale(1.2, 0.6, 0.8); g.translate(x + (k % 3) * 0.8, height(x, z) + 0.25 + Math.floor(k / 3) * 0.45, z); GEO.straw.push(g); }
+  { const x = 22, z = RB_Z + 3.2; for (let i = 0; i < 26; i++) bx(GEO.mud, 0.4, 0.2, 0.2, x + (i % 5) * 0.42, height(x, z) + 0.1 + Math.floor(i / 10) * 0.2, z + (Math.floor(i / 5) % 2) * 0.22, 0, [0.85, 0.7, 0.55]); }
 }
 
-// walking can not go through the houses or the mosque
-function pushOut(x, z) { for (const H of HOUSES) { const hx = H.w / 2 + 0.35, hz = H.d / 2 + 0.35, dx = x - H.x, dz = z - H.z; if (Math.abs(dx) < hx && Math.abs(dz) < hz) { if (hx - Math.abs(dx) < hz - Math.abs(dz)) x = H.x + Math.sign(dx || 1) * hx; else z = H.z + Math.sign(dz || 1) * hz; } } return [x, z]; }
+/* ---- the mosque: walls 0.6 m thick with their doors and windows cut, a hall of columns and carpet below, a stair up the west wall to the
+   upper floor, and on it, behind a partition, the room over the front door with the MG at its wide window. The dome on its drum, the
+   minaret at the north-west corner, the courtyard wall behind. Every piece of wall is something walking bumps into ---- */
+const MQ = (() => {
+  const M = V.mosque, t = 0.6, y0 = height(M.x, M.z) + 0.05, F2 = y0 + 4.8, RF = F2 + 4.4, X0 = M.x - M.w / 2, X1 = M.x + M.w / 2, Z0 = M.z - M.d / 2, Z1 = M.z + M.d / 2;
+  const L = GEO.lime, wall = (xa, xb, za, zb, ya, yb) => { const w = Math.abs(xb - xa), d = Math.abs(zb - za), h = yb - ya; if (w < 0.01 || d < 0.01 || h < 0.01) return; bx(L, w, h, d, (xa + xb) / 2, (ya + yb) / 2, (za + zb) / 2, 0, [1, 1, 1]); wallBox(xa, xb, za, zb, ya, yb); };
+  // a wall along x (at z = zc) or z (at x = xc) from a to b, between heights ya and yb, with openings [centre, width, sill, top]
+  const run = (axis, c, a, b, ya, yb, holes) => { const hs = holes.slice().sort((p, q) => p[0] - q[0]); let s = a; const seg = (p, q, y1, y2) => axis === 'x' ? wall(p, q, c - t / 2, c + t / 2, y1, y2) : wall(c - t / 2, c + t / 2, p, q, y1, y2);
+    for (const [hc, hw, sill, top] of hs) { seg(s, hc - hw / 2, ya, yb); if (sill > ya) seg(hc - hw / 2, hc + hw / 2, ya, sill); if (top < yb) seg(hc - hw / 2, hc + hw / 2, top, yb); s = hc + hw / 2; } seg(s, b, ya, yb); };
+  const f = y0, u = F2 + 0.3;
+  // ground floor: the main door on the front (east), the side doors north and south, high windows
+  run('z', X1 - t / 2, Z0, Z1, f, F2 + 0.3, [[M.z, 2.4, f, f + 3.2], [M.z - 5.6, 1.1, f + 1.8, f + 3.1], [M.z + 5.6, 1.1, f + 1.8, f + 3.1]]);
+  run('z', X0 + t / 2, Z0, Z1, f, F2 + 0.3, [[M.z + 3, 1.0, f + 2.0, f + 3.2]]);
+  run('x', Z1 - t / 2, X0, X1, f, F2 + 0.3, [[M.x - 3, 1.4, f, f + 2.4], [M.x + 3.5, 1.0, f + 2.0, f + 3.2]]);
+  run('x', Z0 + t / 2, X0, X1, f, F2 + 0.3, [[M.x - 3, 1.4, f, f + 2.4], [M.x + 3.5, 1.0, f + 2.0, f + 3.2]]);
+  // upper floor: the MG window over the door, arched windows
+  run('z', X1 - t / 2, Z0, Z1, u, RF, [[M.z, 3.4, u + 0.95, u + 2.3], [M.z - 5.6, 1.1, u + 1.0, u + 2.3], [M.z + 5.6, 1.1, u + 1.0, u + 2.3]]);
+  run('z', X0 + t / 2, Z0, Z1, u, RF, [[M.z + 4, 1.0, u + 1.0, u + 2.3]]);
+  for (const zc of [Z1 - t / 2, Z0 + t / 2]) run('x', zc, X0, X1, u, RF, [[M.x - 4, 1.0, u + 1.0, u + 2.3], [M.x + 1, 1.0, u + 1.0, u + 2.3], [M.x + 5.5, 1.0, u + 1.0, u + 2.3]]);
+  // the floors: the hall's, the upper slab (open over the stair), the roof
+  const SX0 = X0 + t, SX1 = SX0 + 1.8, SZ0 = M.z + 3.5, SZ1 = Z0 + t + 0.4;   // the stair: along the west wall, climbing north from z SZ0 to SZ1
+  bx(GEO.lime, M.w - 2 * t, 0.1, M.d - 2 * t, M.x, f + 0.05, M.z, 0, [0.82, 0.8, 0.76]);
+  const slab = (xa, xb, za, zb) => { bx(GEO.lime, xb - xa, 0.3, zb - za, (xa + xb) / 2, F2 + 0.15, (za + zb) / 2, 0, [0.95, 0.94, 0.9]); SURF.push({ x0: xa, x1: xb, z0: za, z1: zb, y: () => F2 + 0.3 }); };
+  slab(SX1, X1 - t, Z0 + t, Z1 - t); slab(SX0, SX1, Z0 + t, SZ1); slab(SX0, SX1, SZ0, Z1 - t);
+  bx(GEO.lime, M.w + 0.3, 0.35, M.d + 0.3, M.x, RF + 0.17, M.z, 0, [0.96, 0.95, 0.92]);
+  for (const [w, d, x, z] of [[M.w + 0.4, 0.3, M.x, Z0 - 0.05], [M.w + 0.4, 0.3, M.x, Z1 + 0.05], [0.3, M.d + 0.4, X0 - 0.05, M.z], [0.3, M.d + 0.4, X1 + 0.05, M.z]]) bx(GEO.lime, w, 0.9, d, x, RF + 0.75, z, 0, [1, 1, 1]);
+  SURF.push({ x0: X0 + t, x1: X1 - t, z0: Z0 + t, z1: Z1 - t, y: () => f + 0.1 });
+  // the stair itself, its steps and a rail; walking climbs it
+  const nst = 22; for (let k = 0; k < nst; k++) { const z1 = lerp(SZ0, SZ1, k / nst), z2 = lerp(SZ0, SZ1, (k + 1) / nst), yy = lerp(f + 0.1, F2 + 0.3, (k + 1) / nst); bx(GEO.lime, SX1 - SX0, yy - f, Math.abs(z2 - z1), (SX0 + SX1) / 2, (yy + f) / 2, (z1 + z2) / 2, 0, [0.9, 0.88, 0.84]); }
+  SURF.push({ x0: SX0, x1: SX1, z0: SZ1, z1: SZ0, y: (x, z) => lerp(f + 0.1, F2 + 0.3, clamp((SZ0 - z) / (SZ0 - SZ1), 0, 1)), stair: true });
+  bx(GEO.wood[2], 0.06, 0.06, SZ0 - SZ1, SX1 + 0.05, (f + F2) / 2 + 1.0, (SZ0 + SZ1) / 2); wallBox(SX1, SX1 + 0.12, SZ1 + 1.2, SZ0, f, F2 - 0.4);
+  // the hall: two rows of columns, the carpet, the mihrab and the minbar on the south wall
+  for (const cx of [M.x - 2.5, M.x + 2.5]) for (const cz of [M.z - 5, M.z, M.z + 5]) { bx(GEO.lime, 0.55, F2 - f, 0.55, cx, (f + F2) / 2, cz, 0, [0.97, 0.96, 0.93]); wallBox(cx - 0.28, cx + 0.28, cz - 0.28, cz + 0.28, f, F2); }
+  { const c = document.createElement('canvas'); c.width = 256; c.height = 512; const g = c.getContext('2d'), r = rng(3); g.fillStyle = '#7a2a22'; g.fillRect(0, 0, 256, 512); for (let j = 0; j < 8; j++) { g.strokeStyle = '#c89a4a'; g.lineWidth = 4; g.strokeRect(10, 10 + j * 62, 236, 56); g.fillStyle = '#2e4a5a'; g.beginPath(); g.moveTo(128, 18 + j * 62); g.lineTo(150, 38 + j * 62); g.lineTo(128, 60 + j * 62); g.lineTo(106, 38 + j * 62); g.fill(); }
+    for (let i = 0; i < 1500; i++) { g.fillStyle = `rgba(0,0,0,${r() * 0.15})`; g.fillRect(r() * 256, r() * 512, 2, 2); } const t2 = new THREE.CanvasTexture(c); t2.colorSpace = THREE.SRGBColorSpace;
+    const cm = add(new THREE.Mesh(new THREE.PlaneGeometry(M.w - 4, M.d - 3).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ map: t2, roughness: 1 })), false); cm.position.set(M.x + 0.8, f + 0.12, M.z + 0.5); }
+  bx(GEO.dark, 1.6, 2.6, 0.3, M.x + 2, f + 1.4, Z1 - t - 0.05); bx(GEO.wood[2], 1.0, 2.2, 2.6, M.x + 4.5, f + 1.1, Z1 - t - 1.4); wallBox(M.x + 4, M.x + 5, Z1 - t - 2.7, Z1 - t, f, f + 2.2);
+  // upstairs: the partition round the MG room at the front (its door facing the stair's side), the MG on its tripod in the window, sandbags
+  const PX = M.x + 3.2, RZ0 = M.z - 4.5, RZ1 = M.z + 4.5;
+  run('z', PX, RZ0, RZ1, u, RF, [[M.z - 2.6, 1.1, u, u + 2.2]]); run('x', RZ0, PX, X1 - t, u, RF, []); run('x', RZ1, PX, X1 - t, u, RF, []);
+  const sbM = new THREE.MeshStandardMaterial({ color: 0xa99a73, roughness: 1 }); for (let k = -3; k <= 3; k++) { const s = add(new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.32, 0.5), sbM)); s.position.set(X1 - 0.35, u + 1.1, M.z + k * 0.5); s.rotation.y = (k % 2) * 0.1; }
+  const MG = new THREE.Group(), mgM = new THREE.MeshStandardMaterial({ color: 0x2a2b26, roughness: 0.55, metalness: 0.6 }); MG.add(new THREE.Mesh(new THREE.BoxGeometry(0.75, 0.16, 0.14), mgM)); const br = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.03, 0.9, 8).rotateZ(Math.PI / 2), mgM); br.position.x = 0.8; MG.add(br);
+  const bt = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.14, 0.1), new THREE.MeshStandardMaterial({ color: 0x5a3a20, roughness: 0.8 })); bt.position.x = -0.5; MG.add(bt); for (const a of [0, 2.1, 4.2]) { const l = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 1.0, 5), mgM); l.position.set(0.15 + Math.cos(a) * 0.25, -0.42, Math.sin(a) * 0.25); l.rotation.set(Math.sin(a) * 0.35, 0, -Math.cos(a) * 0.35); MG.add(l); }
+  MG.position.set(X1 - 1.1, u + 1.35, M.z); add(MG); wallBox(X1 - 1.5, X1 - 0.6, M.z - 0.4, M.z + 0.4, u, u + 1.4);
+  // the dome on its drum, the minaret, the courtyard wall
+  const drum = add(new THREE.Mesh(new THREE.CylinderGeometry(4.6, 4.6, 1.4, 32), LIME)); drum.position.set(M.x - 1.2, RF + 1.0, M.z); { const c = new Float32Array(drum.geometry.attributes.position.count * 3).fill(1); drum.geometry.setAttribute('color', new THREE.BufferAttribute(c, 3)); }
+  const dk = 9.2 / 1.64, dg = mdlGeo('dome')[0], dm = add(new THREE.Mesh(dg.g, mdlMats('dome', 0xf2ece0)[dg.m])); dm.scale.set(dk, dk * 0.95, dk); dm.position.set(M.x - 1.2, RF + 1.7, M.z);
+  const mx = X0 - 1.2, mz = Z0 - 1.2; for (const [r0, r1, h, yy] of [[1.35, 1.45, 3.5, RF - 1.75], [1.1, 1.25, 14, RF + 7], [1.75, 1.6, 0.45, RF + 14.2], [0.85, 0.95, 3.2, RF + 16]]) { const g = new THREE.CylinderGeometry(r0, r1, h, 16); g.translate(mx, yy, mz); const c = new Float32Array(g.attributes.position.count * 3).fill(1); g.setAttribute('color', new THREE.BufferAttribute(c, 3)); GEO.lime.push(g); }
+  { const g = new THREE.CylinderGeometry(1.4, 1.5, F2 - y0, 16); g.translate(mx, (F2 + y0) / 2, mz); const c = new Float32Array(g.attributes.position.count * 3).fill(1); g.setAttribute('color', new THREE.BufferAttribute(c, 3)); GEO.lime.push(g); wallBox(mx - 1.5, mx + 1.5, mz - 1.5, mz + 1.5); }
+  const cap = add(new THREE.Mesh(new THREE.ConeGeometry(1.0, 3.2, 16), new THREE.MeshStandardMaterial({ color: 0x8f9a8a, roughness: 0.6, metalness: 0.3 }))); cap.position.set(mx, RF + 19.2, mz);
+  for (const [xa, xb, za, zb] of [[X0 - 7, X0 - 6.5, Z0 + 2, Z1], [X0 - 7, X0, Z1 + 1.5, Z1 + 2]]) { bx(GEO.mud, xb - xa, 2.4, zb - za, (xa + xb) / 2, y0 + 1.1, (za + zb) / 2, 0, [0.95, 0.9, 0.82]); wallBox(xa, xb, za, zb); }
+  // the green door and the shutters of the front, the side doors
+  bx(GEO.wood[1], 0.08, 3.1, 2.3, X1 + 0.02, f + 1.55, M.z); for (const zc of [Z1, Z0]) bx(GEO.wood[0], 1.3, 2.3, 0.06, M.x - 3 + 0.9, f + 1.15, zc + (zc > M.z ? 0.35 : -0.35), 0.9);
+  return { M, y0, F2, RF, X0, X1, Z0, Z1, mg: [X1 - 1.6, M.z], door: [M.x - 3, Z1] };
+})();
+// ---- everything above built into one mesh per material ----
+for (const [k, mat] of [['mud', MUD], ['lime', LIME], ['dark', DARKIN], ['straw', STRAW], ['stalk', STALK], ['clay', CLAY], ['frond', FROND]]) {
+  const list = GEO[k]; if (!list.length) continue; for (const g of list) { if (!g.attributes.color) { const c = new Float32Array(g.attributes.position.count * 3).fill(1); g.setAttribute('color', new THREE.BufferAttribute(c, 3)); } if (g.index) continue; }
+  const geo = mergeGeometries(list.map((g) => g.index ? g : g), false); if (k !== 'mud' && k !== 'lime') mat.vertexColors = false; add(new THREE.Mesh(geo, mat)); }
+GEO.wood.forEach((list, i) => { if (list.length) add(new THREE.Mesh(mergeGeometries(list.map((g) => { g.deleteAttribute('color'); return g; })), WOOD[i])); });
+// walking: the floor under your feet is the highest surface you can step up onto; walls stop you only where they stand at your height
+function footY(x, z, cur) { let y = BRIDGES(x, z) ?? Math.max(height(x, z), 0.62); for (const S of SURF) if (x > S.x0 && x < S.x1 && z > S.z0 && z < S.z1) { const sy = S.y(x, z); if (sy <= cur + 0.75 && sy > y) y = sy; } return y; }
+function pushOut(x, z, foot) { for (const B of WALLS) { if (B.y1 < foot + 0.35 || B.y0 > foot + 1.75) continue; const r = 0.32; if (x > B.x0 - r && x < B.x1 + r && z > B.z0 - r && z < B.z1 + r) { const dl = x - (B.x0 - r), dr = B.x1 + r - x, dn = z - (B.z0 - r), ds = B.z1 + r - z, m = Math.min(dl, dr, dn, ds); if (m === dl) x = B.x0 - r; else if (m === dr) x = B.x1 + r; else if (m === dn) z = B.z0 - r; else z = B.z1 + r; } } return [x, z]; }
 
 // the little concrete bridge over the sweet-water canal
 { const CM = new THREE.MeshStandardMaterial({ color: 0xa8a294, roughness: 0.95 }); const b = add(new THREE.Mesh(boxUV(22, 0.5, 7), CM)); b.position.set(SWC, 1.75, SB_Z); for (const s of [-1, 1]) { const w = add(new THREE.Mesh(boxUV(22, 0.7, 0.3), CM)); w.position.set(SWC, 2.3, SB_Z + s * 3.35); } }
@@ -270,8 +363,8 @@ const ROUTE = new THREE.Group(); scene.add(ROUTE);
   { const y = height(M.x, M.z) + 6.4, g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute([mg[0] + 1, y, mg[1], -20, 1, RB_Z - 5, -20, 1, RB_Z + 5], 3)); const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: 0xd8312a, transparent: true, opacity: 0.22, side: THREE.DoubleSide, depthWrite: false, fog: false })); ROUTE.add(m);
     lab('המאג מרתק את הרחוב', -60, 11, RB_Z, '#d8312a', 0.9); }
   // 4: off the street before the fire, through the alley, behind the houses, across the south arm to the mosque's side door; floor 1, the stairs, floor 2, the MG
-  path([[-46, RB_Z + 1], [-40, RB_Z + 4], [-40, -14], [-60, -12], [-82, -12], [-90, -14], [-90, -28], [door[0], -28.3]], '#7c4dc4');
-  lab('4 · עוקפים: סמטה, מאחורי הבתים, הזרוע הדרומית', -60, 8, -12, '#7c4dc4', 1.05); lab('דלת הצד', door[0], 6, -26, '#7c4dc4', 0.7);
+  path([[-46, RB_Z + 1], [-40, RB_Z + 4], [-40, V.LZ], [-60, V.LZ], [-82, V.LZ], [-90, V.LZ - 1], [-90, -28], [door[0], -28.3]], '#7c4dc4');
+  lab('4 · עוקפים: סמטה, מאחורי הבתים, הזרוע הדרומית', -60, 9, V.LZ, '#7c4dc4', 1.05); lab('דלת הצד', door[0], 6, -26, '#7c4dc4', 0.7);
   { const m = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 6, 8), new THREE.MeshBasicMaterial({ color: 0x7c4dc4, transparent: true, opacity: 0.8, depthTest: false, fog: false })); m.position.set(M.x - 3, height(M.x, M.z) + 4.5, M.z + 4); m.renderOrder = 4; ROUTE.add(m); lab('קומה 1 ← מדרגות ← קומה 2 ← חדר המאג', M.x - 3, 15, M.z + 4, '#7c4dc4', 1.05); }
   // 5: on the MG; the Egyptian reinforcement comes back up the way you came
   lab('5 · על המאג: 2 דקות', mg[0], 12.5, mg[1] - 6, '#1f6f8b', 0.95);
@@ -445,18 +538,19 @@ const controls = new OrbitControls(camera, renderer.domElement); controls.enable
   document.getElementById('run').onclick = (e) => { W.run = !W.run; e.target.classList.toggle('on', W.run); }; }
 function walkTick(dt) { const k = W.keys; let f = -W.jy + (k.KeyW || k.ArrowUp ? 1 : 0) - (k.KeyS || k.ArrowDown ? 1 : 0), r = W.jx + (k.KeyD || k.ArrowRight ? 1 : 0) - (k.KeyA || k.ArrowLeft ? 1 : 0);
   const l = Math.hypot(f, r); if (l > 1) { f /= l; r /= l; } const sp = (W.run || k.ShiftLeft || k.ShiftRight ? 7.5 : 3.2) * dt, sy = Math.sin(W.yaw), cy = Math.cos(W.yaw);
-  W.x = clamp(W.x + (-sy * f + cy * r) * sp, X0 + 5, X1 - 5); W.z = clamp(W.z + (-cy * f - sy * r) * sp, Z0 + 5, Z1 - 5); [W.x, W.z] = pushOut(W.x, W.z); if (l > 0.05) W.bob += dt * 8 * l;
-  const gy = groundY(W.x, W.z); W.fy = W.fy == null ? gy : W.fy + (gy - W.fy) * Math.min(1, dt * 10);
+  W.x = clamp(W.x + (-sy * f + cy * r) * sp, X0 + 5, X1 - 5); W.z = clamp(W.z + (-cy * f - sy * r) * sp, Z0 + 5, Z1 - 5); if (l > 0.05) W.bob += dt * 8 * l;
+  [W.x, W.z] = pushOut(W.x, W.z, W.fy ?? 0); const gy = footY(W.x, W.z, W.fy ?? -99); W.fy = W.fy == null ? gy : W.fy + (gy - W.fy) * Math.min(1, dt * 12);
   camera.position.set(W.x, W.fy + 1.7 + Math.sin(W.bob) * 0.03 * Math.min(1, l), W.z); camera.rotation.set(W.pitch, W.yaw, 0, 'YXZ'); }
 const CAMS = { village: [[40, 120, RB_Z + 90], [-60, 4, RB_Z - 20]], mosque: [[-40, 6, RB_Z + 3], [-104, 7, RB_Z]], roller: [[CAN0 - 30, 9, RB_Z + 22], [CAN0 + 30, 1, RB_Z]], pontoon: [[CAN0 - 25, 6, PB_Z - 20], [CAN0 + 40, 0.5, PB_Z]], orchard: [[-120, 14, 30], [-200, 2, -20]], top: [[-20, 260, 60], [-20, 0, 20]] };
 function setCam(k) { for (const b of document.querySelectorAll('[data-cam]')) b.classList.toggle('on', b.dataset.cam === k);
+  if (k === 'walkv' || k === 'walkm') { const [x, z, yaw] = k === 'walkv' ? [44, RB_Z + 0.5, Math.PI / 2] : [MQ.door[0] + 0.5, MQ.door[1] + 3.2, 0]; Object.assign(W, { x, z, yaw, pitch: 0, fy: null }); k = 'walk'; for (const b of document.querySelectorAll('[data-cam]')) b.classList.toggle('on', b.dataset.cam === 'walk'); }
   if (k === 'walk') { W.on = true; controls.enabled = false; document.body.classList.add('walk'); return; }
   W.on = false; controls.enabled = true; document.body.classList.remove('walk'); const [p, t] = CAMS[k]; camera.position.set(...p); controls.target.set(...t); controls.update(); }
 for (const b of document.querySelectorAll('[data-cam]')) b.onclick = () => setCam(b.dataset.cam);
 document.getElementById('rt').onclick = (e) => { ROUTE.visible = !ROUTE.visible; e.target.classList.toggle('on', ROUTE.visible); };
 addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
 const whereEl = document.getElementById('where');
-function where() { const x = camera.position.x, z = camera.position.z; if (x < 32 && x > -86 && Math.abs(z - RB_Z) < 5) return 'הרחוב הראשי'; if (Math.abs(x - V.bar) < 4 && z > V.barZ[0] && z < V.barZ[1]) return z < RB_Z ? 'הזרוע הצפונית' : 'הזרוע הדרומית'; if (Math.abs(x - V.mosque.x) < 16 && Math.abs(z - V.mosque.z) < 18) return 'המסגד'; return x > CAN1 ? 'הגדה המזרחית' : x > CAN0 ? (Math.abs(z - RB_Z) < 4 ? 'על גשר הגלילים' : Math.abs(z - PB_Z) < 4 ? 'על גשר הדוברות' : 'מעל התעלה') : x > RAMP - 10 ? 'הסוללה' : x > -112 ? 'השדות' : x > -150 ? 'תעלת המים המתוקים' : 'הפרדסים'; }
+function where() { const x = camera.position.x, z = camera.position.z; if (x < 32 && x > -86 && Math.abs(z - RB_Z) < 5) return 'הרחוב הראשי'; if (Math.abs(x - V.bar) < 4 && z > V.barZ[0] && z < V.barZ[1]) return z < RB_Z ? 'הזרוע הצפונית' : 'הזרוע הדרומית'; if (x > MQ.X0 && x < MQ.X1 && z > MQ.Z0 && z < MQ.Z1) return camera.position.y > MQ.F2 + 1 ? 'המסגד · קומה 2' : 'המסגד · אולם התפילה'; if (Math.abs(z - V.LZ) < 1.6 && x < -38 && x > -86) return 'הסמטה'; return x > CAN1 ? 'הגדה המזרחית' : x > CAN0 ? (Math.abs(z - RB_Z) < 4 ? 'על גשר הגלילים' : Math.abs(z - PB_Z) < 4 ? 'על גשר הדוברות' : 'מעל התעלה') : x > RAMP - 10 ? 'הסוללה' : x > -112 ? 'השדות' : x > -150 ? 'תעלת המים המתוקים' : 'הפרדסים'; }
 
 await bakeTrees(); const NT = plantTrees(); document.getElementById('load').remove(); setCam('walk');
 let last = performance.now(), wt = 0;

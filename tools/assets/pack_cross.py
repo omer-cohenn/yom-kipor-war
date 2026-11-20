@@ -98,4 +98,16 @@ def seamless(a, B):
 bk = seamless(np.asarray(Image.open('/mnt/user-data/uploads/d433c059-image.jpg').convert('RGB')), 56)
 bim = Image.fromarray(np.clip(bk, 0, 255).astype(np.uint8)).resize((512, 1024), Image.LANCZOS)
 pk.tex['cross/bark/map'] = jpg(bim, 88); pk.tex['cross/bark/bump'] = jpg(bim.convert('L'), 86)
+# the village: the cracked mud plaster of its walls (Megascans), the farm cart, and the brick dome for the mosque
+MW = '/home/claude/yk_assets/cross/mud/'
+pk.tex['cross/mud/map'] = jpg(Image.open(MW + 'Cracked_Mud_Wall_uhpjdfnn_2K_BaseColor.jpg').convert('RGB').resize((1024, 1024), Image.LANCZOS), 86)
+pk.tex['cross/mud/nmap'] = jpg(Image.open(MW + 'Cracked_Mud_Wall_uhpjdfnn_2K_Normal.jpg').convert('RGB').resize((1024, 1024), Image.LANCZOS), 86)
+for nm, f, lv in [('cart', 'historic_medieval_farm_cart_wood_worn_xivkbcq_mid.glb', 0.05), ('dome', 'historic_desert_ruin_roof_dome_01_xbmgajd_mid.glb', None)]:
+    ps = mesh.load_glb(DL + f); mp = ps[0]['mat']['map_path']
+    pk.add(nm, parts=ps, center=False, lods=[1.0], tex={'*': {'map': mp, 'nmap': ps[0]['mat'].get('nmap_path'), 'rough': 0.9}}, texsize=1024 if nm == 'dome' else 512, uv_flip=True, preview=False)
+    if lv:
+        lo, hi = mesh.bbox(ps); off = np.array([0, -lo[1], 0], dtype=np.float32); L = []
+        for p in ps:
+            q = dict(p); q['P'] = (p['P'] + off).astype(np.float32); q['U'] = np.c_[p['U'][:, 0], 1 - p['U'][:, 1]].astype(np.float32); L.append(mesh.cluster(q, lv, 0.04))
+        pk.models[nm]['lods'].append([dict(encode(p), m=0) for p in L])
 pk.write()
