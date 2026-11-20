@@ -225,13 +225,28 @@ const KINDS = [
   { name: 'mango', H: 10.5, W: 11, rowH: 1, trunkH: 1.9, trunkR: 0.3, bark: 0x4f4232, cards: 820, crown: [0, 5.4, 0], cr: [4.8, 3.9, 4.8], size: [1.7, 2.6], tint: [0.42, 0.6, 0.34] },
   { name: 'citrus', H: 4.6, W: 4.6, rowH: 1, trunkH: 0.9, trunkR: 0.11, bark: 0x55493a, cards: 330, crown: [0, 2.3, 0], cr: [1.95, 1.8, 1.95], size: [0.75, 1.05], tint: [0.5, 0.66, 0.4], fruit: 70 },
 ];
+/* bark, painted: eucalyptus smooth and pale, shedding in patches of grey, cream and olive with long vertical streaks; mango and citrus dark
+   and furrowed. The same picture, greyed, is its bump. */
+function barkTex(kind) { const W = 256, H = 512, c = document.createElement('canvas'); c.width = W; c.height = H; const x = c.getContext('2d'), r = rng(kind === 'eucalyptus' ? 11 : 23);
+  if (kind === 'eucalyptus') { x.fillStyle = '#d9d1bf'; x.fillRect(0, 0, W, H);
+    for (let i = 0; i < 70; i++) { const px = r() * W, py = r() * H, w = 14 + r() * 60, h = 30 + r() * 160, col = ['#b9b29c', '#9c9a86', '#c8bb9a', '#8f957a', '#e4dccb', '#a69476'][Math.floor(r() * 6)]; x.fillStyle = col; x.globalAlpha = 0.55 + r() * 0.4; for (const dx of [0, -W, W]) { x.beginPath(); x.ellipse(px + dx, py, w / 2, h / 2, 0, 0, 7); x.fill(); } }
+    x.globalAlpha = 1; for (let i = 0; i < 260; i++) { x.strokeStyle = `rgba(${90 + r() * 60},${86 + r() * 50},${70 + r() * 40},${0.12 + r() * 0.25})`; x.lineWidth = 0.6 + r() * 1.6; const px = r() * W; x.beginPath(); x.moveTo(px, r() * H); x.lineTo(px + (r() - 0.5) * 6, r() * H); x.stroke(); }
+    for (let i = 0; i < 30; i++) { x.strokeStyle = 'rgba(120,96,70,0.5)'; x.lineWidth = 1; const px = r() * W, py = r() * H; x.beginPath(); x.moveTo(px, py); x.quadraticCurveTo(px + 8, py + 12, px + (r() - 0.5) * 20, py + 30); x.stroke(); } }
+  else { x.fillStyle = kind === 'mango' ? '#4a3d2f' : '#57493a'; x.fillRect(0, 0, W, H);
+    for (let i = 0; i < 38; i++) { let px = r() * W; x.strokeStyle = 'rgba(22,16,10,0.75)'; x.lineWidth = 2 + r() * 4; x.beginPath(); x.moveTo(px, 0); for (let y = 0; y <= H; y += 16) { px += (r() - 0.5) * 8; x.lineTo(px, y); } x.stroke(); }
+    for (let i = 0; i < 900; i++) { x.fillStyle = r() < 0.5 ? `rgba(120,104,84,${0.2 + r() * 0.3})` : `rgba(30,24,16,${0.2 + r() * 0.3})`; x.fillRect(r() * W, r() * H, 3 + r() * 10, 2 + r() * 5); }
+    for (let i = 0; i < 25; i++) { x.fillStyle = `rgba(${110 + r() * 40},${120 + r() * 30},80,0.35)`; x.beginPath(); x.ellipse(r() * W, r() * H, 6 + r() * 16, 4 + r() * 10, 0, 0, 7); x.fill(); } }
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = ANISO;
+  const b = document.createElement('canvas'); b.width = W; b.height = H; const bx = b.getContext('2d'); bx.filter = 'grayscale(1) contrast(1.4)'; bx.drawImage(c, 0, 0); const bt = new THREE.CanvasTexture(b); bt.wrapS = bt.wrapT = THREE.RepeatWrapping; return { map: t, bump: bt }; }
+const BARK = {};
 const VAR = 2, AZ = 8, FW = PHONE ? 192 : 384;
 function buildTree(K, seed) {
   const r = rng(seed), grp = new THREE.Group(), lean = (r() - 0.5) * 0.12;
   // the trunk and a few limbs out into the crown
-  const bark = new THREE.MeshStandardMaterial({ color: K.bark, roughness: 0.9 }); const limbs = [];
-  limbs.push(new THREE.CylinderGeometry(K.trunkR * 0.55, K.trunkR, K.trunkH + K.cr[1] * 0.5, 9).translate(0, (K.trunkH + K.cr[1] * 0.5) / 2, 0).rotateZ(lean));
-  const nl = K.name === 'eucalyptus' ? 5 : 6; for (let i = 0; i < nl; i++) { const a = r() * 6.28, L = K.cr[0] * (0.6 + r() * 0.4), g = new THREE.CylinderGeometry(K.trunkR * 0.18, K.trunkR * 0.45, L, 6).translate(0, L / 2, 0); g.rotateZ(0.6 + r() * 0.5); g.rotateY(a); g.translate(0, K.trunkH * (0.85 + r() * 0.3), 0); limbs.push(g); }
+  const BT = BARK[K.name] || (BARK[K.name] = barkTex(K.name)); const bark = new THREE.MeshStandardMaterial({ map: BT.map, bumpMap: BT.bump, bumpScale: K.name === 'eucalyptus' ? 1.2 : 3.5, roughness: 0.92 }); const limbs = [];
+  const th = K.trunkH + K.cr[1] * 0.5, tg = new THREE.CylinderGeometry(K.trunkR * 0.55, K.trunkR, th, 16, Math.max(2, Math.round(th / 1.5))); { const uv = tg.attributes.uv, p = tg.attributes.position; for (let i = 0; i < uv.count; i++) { uv.setXY(i, uv.getX(i) * Math.max(1, Math.round(K.trunkR * 6.28 / 0.7)), uv.getY(i) * th / 1.4); const a = Math.atan2(p.getZ(i), p.getX(i)); const k = 1 + 0.07 * Math.sin(a * 3 + p.getY(i) * 0.7) + 0.04 * Math.sin(a * 7); p.setX(i, p.getX(i) * k); p.setZ(i, p.getZ(i) * k); } }
+  limbs.push(tg.translate(0, th / 2, 0).rotateZ(lean));
+  const nl = K.name === 'eucalyptus' ? 5 : 6; for (let i = 0; i < nl; i++) { const a = r() * 6.28, L = K.cr[0] * (0.6 + r() * 0.4), g = new THREE.CylinderGeometry(K.trunkR * 0.18, K.trunkR * 0.45, L, 8); { const uv = g.attributes.uv; for (let k = 0; k < uv.count; k++) uv.setXY(k, uv.getX(k), uv.getY(k) * L / 1.4); } g.translate(0, L / 2, 0); g.rotateZ(0.6 + r() * 0.5); g.rotateY(a); g.translate(0, K.trunkH * (0.85 + r() * 0.3), 0); limbs.push(g); }
   grp.add(new THREE.Mesh(mergeGeometries(limbs), bark));
   // the leaves: cards cut from the branch sheet, their stems toward the inside of the crown, more of them on the outside
   const cards = [], q = new THREE.Quaternion(), up = V3(0, 1, 0);
