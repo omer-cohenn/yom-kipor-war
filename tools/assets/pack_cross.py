@@ -89,4 +89,13 @@ P = tp[0]['P']; lo, hi = P.min(0), P.max(0); k = 0.75 / (hi[1] - lo[1]); P2 = (P
 q = dict(tp[0]); q['P'] = P2.astype(np.float32); pk.models['trava'] = {'box': [round(float(v), 3) for v in (P2.max(0) - P2.min(0))], 'mats': [{'color': 0xffffff, 'rough': 0.9, 'metal': 0.0}], 'lods': [[dict(encode(q), m=0)]]}
 c, o = bled(TK + 'Trava Kolosok.jpg', TK + 'Trava Kolosok Cut.jpg', 1024)
 pk.tex['cross/trava/map'] = jpg(c, 86); pk.tex['cross/trava/alpha'] = jpg(o, 88)
+
+# the bark: the user's eucalyptus bark picture (Flow), made to tile both ways by cross-fading each edge into the opposite one, for every tree
+def seamless(a, B):
+    a = a.astype(np.float32); H, W = a.shape[:2]; t = np.linspace(0, 1, B)[None, :, None]
+    a = np.concatenate([a[:, W - B:] * (1 - t) + a[:, :B] * t, a[:, B:W - B]], 1); t = np.linspace(0, 1, B)[:, None, None]; H = a.shape[0]
+    return np.concatenate([a[H - B:] * (1 - t) + a[:B] * t, a[B:H - B]], 0)
+bk = seamless(np.asarray(Image.open('/mnt/user-data/uploads/d433c059-image.jpg').convert('RGB')), 56)
+bim = Image.fromarray(np.clip(bk, 0, 255).astype(np.uint8)).resize((512, 1024), Image.LANCZOS)
+pk.tex['cross/bark/map'] = jpg(bim, 88); pk.tex['cross/bark/bump'] = jpg(bim.convert('L'), 86)
 pk.write()

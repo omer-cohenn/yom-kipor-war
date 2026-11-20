@@ -243,10 +243,10 @@ const VAR = 2, AZ = 8, FW = PHONE ? 192 : 384;
 function buildTree(K, seed) {
   const r = rng(seed), grp = new THREE.Group(), lean = (r() - 0.5) * 0.12;
   // the trunk and a few limbs out into the crown
-  const BT = BARK[K.name] || (BARK[K.name] = barkTex(K.name)); const bark = new THREE.MeshStandardMaterial({ map: BT.map, bumpMap: BT.bump, bumpScale: K.name === 'eucalyptus' ? 1.2 : 3.5, roughness: 0.92 }); const limbs = [];
-  const th = K.trunkH + K.cr[1] * 0.5, tg = new THREE.CylinderGeometry(K.trunkR * 0.55, K.trunkR, th, 16, Math.max(2, Math.round(th / 1.5))); { const uv = tg.attributes.uv, p = tg.attributes.position; for (let i = 0; i < uv.count; i++) { uv.setXY(i, uv.getX(i) * Math.max(1, Math.round(K.trunkR * 6.28 / 0.7)), uv.getY(i) * th / 1.4); const a = Math.atan2(p.getZ(i), p.getX(i)); const k = 1 + 0.07 * Math.sin(a * 3 + p.getY(i) * 0.7) + 0.04 * Math.sin(a * 7); p.setX(i, p.getX(i) * k); p.setZ(i, p.getZ(i) * k); } }
+  const bark = new THREE.MeshStandardMaterial({ map: tex('cross/bark/map'), bumpMap: tex('cross/bark/bump', false), bumpScale: 2.5, roughness: 0.9 }); const limbs = [];
+  const th = K.trunkH + K.cr[1] * 0.5, tg = new THREE.CylinderGeometry(K.trunkR * 0.55, K.trunkR, th, 16, Math.max(2, Math.round(th / 1.5))); { const uv = tg.attributes.uv, p = tg.attributes.position; for (let i = 0; i < uv.count; i++) { uv.setXY(i, uv.getX(i) * Math.max(1, Math.round(K.trunkR * 6.28 / 0.7)), uv.getY(i) * th / 1.25); const a = Math.atan2(p.getZ(i), p.getX(i)); const k = 1 + 0.07 * Math.sin(a * 3 + p.getY(i) * 0.7) + 0.04 * Math.sin(a * 7); p.setX(i, p.getX(i) * k); p.setZ(i, p.getZ(i) * k); } }
   limbs.push(tg.translate(0, th / 2, 0).rotateZ(lean));
-  const nl = K.name === 'eucalyptus' ? 5 : 6; for (let i = 0; i < nl; i++) { const a = r() * 6.28, L = K.cr[0] * (0.6 + r() * 0.4), g = new THREE.CylinderGeometry(K.trunkR * 0.18, K.trunkR * 0.45, L, 8); { const uv = g.attributes.uv; for (let k = 0; k < uv.count; k++) uv.setXY(k, uv.getX(k), uv.getY(k) * L / 1.4); } g.translate(0, L / 2, 0); g.rotateZ(0.6 + r() * 0.5); g.rotateY(a); g.translate(0, K.trunkH * (0.85 + r() * 0.3), 0); limbs.push(g); }
+  const nl = K.name === 'eucalyptus' ? 5 : 6; for (let i = 0; i < nl; i++) { const a = r() * 6.28, L = K.cr[0] * (0.6 + r() * 0.4), g = new THREE.CylinderGeometry(K.trunkR * 0.18, K.trunkR * 0.45, L, 8); { const uv = g.attributes.uv; for (let k = 0; k < uv.count; k++) uv.setXY(k, uv.getX(k), uv.getY(k) * L / 1.25); } g.translate(0, L / 2, 0); g.rotateZ(0.6 + r() * 0.5); g.rotateY(a); g.translate(0, K.trunkH * (0.85 + r() * 0.3), 0); limbs.push(g); }
   grp.add(new THREE.Mesh(mergeGeometries(limbs), bark));
   // the leaves: cards cut from the branch sheet, their stems toward the inside of the crown, more of them on the outside
   const cards = [], q = new THREE.Quaternion(), up = V3(0, 1, 0);
@@ -266,7 +266,7 @@ const ROWS = []; { let y = 0; for (let k = 1; k < KINDS.length; k++) for (let v 
 const ATH = ROWS.reduce((a, r) => a + r.h, 0), ATW = FW * AZ;
 const atlas = new THREE.WebGLRenderTarget(ATW, ATH, { generateMipmaps: true, minFilter: THREE.LinearMipmapLinearFilter, magFilter: THREE.LinearFilter, anisotropy: ANISO });
 async function bakeTrees() {
-  await Promise.all([texReady(tex('cross/branch/map')), texReady(tex('cross/branch/alpha', false))]);
+  await Promise.all([texReady(tex('cross/branch/map')), texReady(tex('cross/branch/alpha', false)), texReady(tex('cross/bark/map')), texReady(tex('cross/bark/bump', false))]);
   const bs = new THREE.Scene(); bs.add(new THREE.HemisphereLight(0xe8eef4, 0x6a5a40, 1.15)); const key = new THREE.DirectionalLight(0xfff2dc, 1.6); key.position.set(0.3, 1, 0.2); bs.add(key);
   const cam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 200), tm = renderer.toneMapping; renderer.toneMapping = THREE.NoToneMapping;
   renderer.setRenderTarget(atlas); renderer.setClearColor(0x55603e, 0); renderer.clear(); atlas.scissorTest = true;
